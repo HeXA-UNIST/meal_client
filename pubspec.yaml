@@ -39,6 +39,8 @@ dependencies:
   cronet_http: ^1.4.0
   cupertino_http: ^2.2.0
 
+  path_provider: ^2.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
