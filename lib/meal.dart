@@ -1,8 +1,8 @@
 class Meal {
   final List<String> menu;
-  final int? calorie;
+  final int? kcal;
 
-  Meal(this.menu, this.calorie);
+  Meal(this.menu, this.kcal);
 }
 
 enum Restaurant { dormitory, student, employee }
@@ -13,9 +13,9 @@ class RestaurantMeal {
   final List<Meal> employee;
 
   RestaurantMeal({
-    this.dormitory = const [],
-    this.student = const [],
-    this.employee = const [],
+    required this.dormitory,
+    required this.student,
+    required this.employee,
   });
 
   List<Meal> fromRestaurant(Restaurant r) {
@@ -48,7 +48,7 @@ class DayMeal {
   final RestaurantMeal lunch;
   final RestaurantMeal dinner;
 
-  DayMeal(this.breakfast, this.lunch, this.dinner);
+  DayMeal({required this.breakfast, required this.lunch, required this.dinner});
 
   RestaurantMeal fromMealOfDay(MealOfDay m) {
     switch (m) {
@@ -73,15 +73,15 @@ class WeekMeal {
   final DayMeal sat;
   final DayMeal sun;
 
-  WeekMeal(
-    this.mon,
-    this.tue,
-    this.wed,
-    this.thu,
-    this.fri,
-    this.sat,
-    this.sun,
-  );
+  WeekMeal({
+    required this.mon,
+    required this.tue,
+    required this.wed,
+    required this.thu,
+    required this.fri,
+    required this.sat,
+    required this.sun,
+  });
 
   DayMeal fromDayOfWeek(DayOfWeek d) {
     switch (d) {
