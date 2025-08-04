@@ -18,6 +18,11 @@ class RestaurantMeal {
     required this.employee,
   });
 
+  RestaurantMeal.empty()
+    : dormitory = List.empty(growable: true),
+      student = List.empty(growable: true),
+      employee = List.empty(growable: true);
+
   List<Meal> fromRestaurant(Restaurant r) {
     switch (r) {
       case Restaurant.dormitory:
@@ -49,6 +54,11 @@ class DayMeal {
   final RestaurantMeal dinner;
 
   DayMeal({required this.breakfast, required this.lunch, required this.dinner});
+
+  DayMeal.empty()
+    : breakfast = RestaurantMeal.empty(),
+      lunch = RestaurantMeal.empty(),
+      dinner = RestaurantMeal.empty();
 
   RestaurantMeal fromMealOfDay(MealOfDay m) {
     switch (m) {
@@ -82,6 +92,15 @@ class WeekMeal {
     required this.sat,
     required this.sun,
   });
+
+  WeekMeal.empty()
+    : mon = DayMeal.empty(),
+      tue = DayMeal.empty(),
+      wed = DayMeal.empty(),
+      thu = DayMeal.empty(),
+      fri = DayMeal.empty(),
+      sat = DayMeal.empty(),
+      sun = DayMeal.empty();
 
   DayMeal fromDayOfWeek(DayOfWeek d) {
     switch (d) {
