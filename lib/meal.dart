@@ -74,6 +74,25 @@ class DayMeal {
 
 enum DayOfWeek { mon, tue, wed, thu, fri, sat, sun }
 
+DayOfWeek nextDayOfWeek(DayOfWeek d) {
+  switch (d) {
+    case DayOfWeek.mon:
+      return DayOfWeek.tue;
+    case DayOfWeek.tue:
+      return DayOfWeek.wed;
+    case DayOfWeek.wed:
+      return DayOfWeek.thu;
+    case DayOfWeek.thu:
+      return DayOfWeek.fri;
+    case DayOfWeek.fri:
+      return DayOfWeek.sat;
+    case DayOfWeek.sat:
+      return DayOfWeek.sun;
+    case DayOfWeek.sun:
+      return DayOfWeek.mon;
+  }
+}
+
 class WeekMeal {
   final DayMeal mon;
   final DayMeal tue;
