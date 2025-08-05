@@ -7,7 +7,7 @@ import 'meal.dart';
 
 const _url = "https://meal.hexa.pro/mainpage/data";
 
-Future<String> _fetchJson() async {
+Future<String> fetchRawMeal() async {
   final response = await http.get(Uri.parse(_url));
   if (response.statusCode != 200) {
     throw HttpException("Not 200");
@@ -16,7 +16,7 @@ Future<String> _fetchJson() async {
   return response.body;
 }
 
-WeekMeal _parseJson(String jsonStr) {
+WeekMeal parseRawMeal(String jsonStr) {
   final weekMeal = WeekMeal.empty();
   final list = jsonDecode(jsonStr) as List<dynamic>;
   for (final Map<String, dynamic> meal in list) {
@@ -76,9 +76,4 @@ WeekMeal _parseJson(String jsonStr) {
   }
 
   return weekMeal;
-}
-
-Future<WeekMeal> fetchMeal() async {
-  final jsonStr = await _fetchJson();
-  return _parseJson(jsonStr);
 }
