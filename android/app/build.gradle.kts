@@ -8,7 +8,9 @@ plugins {
 android {
     namespace = "pro.hexa.meal.meal_client"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // temporarily change ndk version to ensure 16kb page size support
+    // ndkVersion = flutter.ndkVersion
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
