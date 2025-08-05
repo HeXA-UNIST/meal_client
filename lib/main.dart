@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+const mainColor = Color.fromARGB(0xff, 0, 0xcd, 0x80);
+
 void main() {
   runApp(const MyApp());
 }
@@ -10,6 +12,7 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    final brightness = Brightness.light;
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
@@ -28,7 +31,18 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        brightness: brightness,
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: mainColor,
+              brightness: brightness,
+              dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+            ).copyWith(
+              onPrimaryContainer: Colors.white,
+              surface: brightness == Brightness.light
+                  ? Colors.white
+                  : Colors.black,
+            ),
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
