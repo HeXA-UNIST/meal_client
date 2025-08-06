@@ -13,3 +13,9 @@ Future<String> readFileAsString(String fileName) async {
   final file = File("${dir.path}/$fileName");
   return await file.readAsString();
 }
+
+Future<DateTime> getLastModifiedOfFile(String fileName) async {
+  final dir = await getApplicationSupportDirectory();
+  final file = File("${dir.path}/$fileName");
+  return await file.lastModified();
+}
