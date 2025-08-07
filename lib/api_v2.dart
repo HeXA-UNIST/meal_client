@@ -59,7 +59,7 @@ WeekMeal parseRawMeal(String jsonStr) {
       case "학생 식당":
         meals = restaurantMeal.student;
       case "교직원 식당":
-        meals = restaurantMeal.employee;
+        meals = restaurantMeal.faculty;
       default:
         throw FormatException();
     }

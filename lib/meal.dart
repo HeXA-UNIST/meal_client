@@ -10,18 +10,18 @@ enum Restaurant { dormitory, student, employee }
 class RestaurantMeal {
   final List<Meal> dormitory;
   final List<Meal> student;
-  final List<Meal> employee;
+  final List<Meal> faculty;
 
   RestaurantMeal({
     required this.dormitory,
     required this.student,
-    required this.employee,
+    required this.faculty,
   });
 
   RestaurantMeal.empty()
     : dormitory = List.empty(growable: true),
       student = List.empty(growable: true),
-      employee = List.empty(growable: true);
+      faculty = List.empty(growable: true);
 
   List<Meal> fromRestaurant(Restaurant r) {
     switch (r) {
@@ -30,7 +30,7 @@ class RestaurantMeal {
       case Restaurant.student:
         return student;
       case Restaurant.employee:
-        return employee;
+        return faculty;
     }
   }
 }
