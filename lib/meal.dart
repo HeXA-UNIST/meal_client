@@ -2,7 +2,7 @@ class Meal {
   final List<String> menu;
   final int? kcal;
 
-  Meal(this.menu, this.kcal);
+  const Meal(this.menu, this.kcal);
 }
 
 enum Cafeteria { dormitory, student, employee }
@@ -12,7 +12,7 @@ class CafeteriaMeal {
   final List<Meal> student;
   final List<Meal> faculty;
 
-  CafeteriaMeal({
+  const CafeteriaMeal({
     required this.dormitory,
     required this.student,
     required this.faculty,
@@ -53,7 +53,11 @@ class DayMeal {
   final CafeteriaMeal lunch;
   final CafeteriaMeal dinner;
 
-  DayMeal({required this.breakfast, required this.lunch, required this.dinner});
+  const DayMeal({
+    required this.breakfast,
+    required this.lunch,
+    required this.dinner,
+  });
 
   DayMeal.empty()
     : breakfast = CafeteriaMeal.empty(),
@@ -102,7 +106,7 @@ class WeekMeal {
   final DayMeal sat;
   final DayMeal sun;
 
-  WeekMeal({
+  const WeekMeal({
     required this.mon,
     required this.tue,
     required this.wed,
