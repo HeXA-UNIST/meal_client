@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'i18n.dart';
+import 'string.dart' as string;
 import 'pages/bapu_main.dart';
 
 const mainColor = Color(0xFF00CD80);
@@ -13,8 +16,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brightness = Brightness.light;
+    final language = Language.kor;
     return MaterialApp(
-      title: 'BapU',
+      title: string.title.getLocalizedString(language),
       theme: ThemeData(
         fontFamily: 'Pretendard',
         brightness: brightness,
