@@ -40,14 +40,14 @@ WeekMeal parseRawMeal(String jsonStr) {
         throw FormatException();
     }
 
-    final RestaurantMeal restaurantMeal;
+    final CafeteriaMeal cafeteriaMeal;
     switch (meal["mealType"]) {
       case "BREAKFAST":
-        restaurantMeal = dayMeal.breakfast;
+        cafeteriaMeal = dayMeal.breakfast;
       case "LUNCH":
-        restaurantMeal = dayMeal.lunch;
+        cafeteriaMeal = dayMeal.lunch;
       case "DINNER":
-        restaurantMeal = dayMeal.dinner;
+        cafeteriaMeal = dayMeal.dinner;
       default:
         throw FormatException();
     }
@@ -55,11 +55,11 @@ WeekMeal parseRawMeal(String jsonStr) {
     final List<Meal> meals;
     switch (meal["restaurantType"]) {
       case "기숙사 식당":
-        meals = restaurantMeal.dormitory;
+        meals = cafeteriaMeal.dormitory;
       case "학생 식당":
-        meals = restaurantMeal.student;
+        meals = cafeteriaMeal.student;
       case "교직원 식당":
-        meals = restaurantMeal.faculty;
+        meals = cafeteriaMeal.faculty;
       default:
         throw FormatException();
     }

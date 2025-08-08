@@ -5,31 +5,31 @@ class Meal {
   Meal(this.menu, this.kcal);
 }
 
-enum Restaurant { dormitory, student, employee }
+enum Cafeteria { dormitory, student, employee }
 
-class RestaurantMeal {
+class CafeteriaMeal {
   final List<Meal> dormitory;
   final List<Meal> student;
   final List<Meal> faculty;
 
-  RestaurantMeal({
+  CafeteriaMeal({
     required this.dormitory,
     required this.student,
     required this.faculty,
   });
 
-  RestaurantMeal.empty()
+  CafeteriaMeal.empty()
     : dormitory = List.empty(growable: true),
       student = List.empty(growable: true),
       faculty = List.empty(growable: true);
 
-  List<Meal> fromRestaurant(Restaurant r) {
+  List<Meal> fromCafeteria(Cafeteria r) {
     switch (r) {
-      case Restaurant.dormitory:
+      case Cafeteria.dormitory:
         return dormitory;
-      case Restaurant.student:
+      case Cafeteria.student:
         return student;
-      case Restaurant.employee:
+      case Cafeteria.employee:
         return faculty;
     }
   }
@@ -49,18 +49,18 @@ MealOfDay nextMealOfDay(MealOfDay m) {
 }
 
 class DayMeal {
-  final RestaurantMeal breakfast;
-  final RestaurantMeal lunch;
-  final RestaurantMeal dinner;
+  final CafeteriaMeal breakfast;
+  final CafeteriaMeal lunch;
+  final CafeteriaMeal dinner;
 
   DayMeal({required this.breakfast, required this.lunch, required this.dinner});
 
   DayMeal.empty()
-    : breakfast = RestaurantMeal.empty(),
-      lunch = RestaurantMeal.empty(),
-      dinner = RestaurantMeal.empty();
+    : breakfast = CafeteriaMeal.empty(),
+      lunch = CafeteriaMeal.empty(),
+      dinner = CafeteriaMeal.empty();
 
-  RestaurantMeal fromMealOfDay(MealOfDay m) {
+  CafeteriaMeal fromMealOfDay(MealOfDay m) {
     switch (m) {
       case MealOfDay.breakfast:
         return breakfast;
