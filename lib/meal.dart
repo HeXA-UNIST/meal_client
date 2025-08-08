@@ -5,6 +5,14 @@ class Meal {
   const Meal(this.menu, this.kcal);
 }
 
+class KoreanMeal extends Meal {
+  const KoreanMeal(super.menu, super.kcal);
+}
+
+class HalalMeal extends Meal {
+  const HalalMeal(super.menu, super.kcal);
+}
+
 enum Cafeteria { dormitory, student, employee }
 
 class CafeteriaMeal {

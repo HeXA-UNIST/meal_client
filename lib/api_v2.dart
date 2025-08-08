@@ -64,15 +64,30 @@ WeekMeal parseRawMeal(String jsonStr) {
         throw FormatException();
     }
 
-    final int calorie = meal["calorie"];
-    meals.add(
-      Meal(
-        (meal["menus"] as List<dynamic>)
-            .map((e) => e as String)
-            .toList(growable: false),
-        calorie == 0 ? null : calorie,
-      ),
-    );
+    final int? kcal;
+    {
+      final calorie = meal["calorie"];
+      if (calorie == 0) {
+        kcal = null;
+      } else {
+        kcal = calorie;
+      }
+    }
+
+    final menu = (meal["menus"] as List<dynamic>)
+        .map((e) => e as String)
+        .toList(growable: false);
+
+    if (meal.containsKey("dormitoryType")) {
+      switch (meal["dormitoryType"]) {
+        case "KOREAN":
+          meals.add(KoreanMeal(menu, kcal));
+        case "HALAL":
+          meals.add(HalalMeal(menu, kcal));
+      }
+    } else {
+      meals.add(Meal(menu, kcal));
+    }
   }
 
   return weekMeal;
