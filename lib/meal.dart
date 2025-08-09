@@ -107,19 +107,19 @@ DayOfWeek nextDayOfWeek(DayOfWeek d) {
 
 DayOfWeek dayOfWeekFromISO8601(int number) {
   switch (number) {
-    case 0:
-      return DayOfWeek.mon;
     case 1:
-      return DayOfWeek.tue;
+      return DayOfWeek.mon;
     case 2:
-      return DayOfWeek.wed;
+      return DayOfWeek.tue;
     case 3:
-      return DayOfWeek.thu;
+      return DayOfWeek.wed;
     case 4:
-      return DayOfWeek.fri;
+      return DayOfWeek.thu;
     case 5:
-      return DayOfWeek.sat;
+      return DayOfWeek.fri;
     case 6:
+      return DayOfWeek.sat;
+    case 7:
       return DayOfWeek.sun;
     default:
       throw FormatException();
@@ -129,19 +129,19 @@ DayOfWeek dayOfWeekFromISO8601(int number) {
 int iso8601FromDayOfWeek(DayOfWeek dayOfWeek) {
   switch (dayOfWeek) {
     case DayOfWeek.mon:
-      return 0;
-    case DayOfWeek.tue:
       return 1;
-    case DayOfWeek.wed:
+    case DayOfWeek.tue:
       return 2;
-    case DayOfWeek.thu:
+    case DayOfWeek.wed:
       return 3;
-    case DayOfWeek.fri:
+    case DayOfWeek.thu:
       return 4;
-    case DayOfWeek.sat:
+    case DayOfWeek.fri:
       return 5;
-    case DayOfWeek.sun:
+    case DayOfWeek.sat:
       return 6;
+    case DayOfWeek.sun:
+      return 7;
   }
 }
 
