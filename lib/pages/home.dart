@@ -106,7 +106,9 @@ class _HomePageState extends State<HomePage> {
             ),
             actions: [
               _DayOfMealSwitchButton(
-                onPressed: () {},
+                onPressed: () => setState(() {
+                  _mealOfDay = nextMealOfDay(_mealOfDay);
+                }),
                 label: dayOfMealLabel,
                 icon: dayOfMealIcon,
               ),
