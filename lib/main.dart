@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:meal_client/meal.dart';
-import 'package:meal_client/model.dart';
+
 import 'package:provider/provider.dart';
 
 import 'i18n.dart';
 import 'string.dart' as string;
-import 'pages/bapu_main.dart';
+import 'meal.dart';
+import 'model.dart';
+
+import 'pages/home.dart';
 
 const mainColor = Color(0xFF00CD80);
 
@@ -57,7 +59,7 @@ class MyApp extends StatelessWidget {
           home: child,
         );
       },
-      child: const MainPage(),
+      child: const HomePage(),
     );
   }
 }
