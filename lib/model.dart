@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'i18n.dart';
-import 'meal.dart';
 
 class BapUModel extends ChangeNotifier {
   Language _language;

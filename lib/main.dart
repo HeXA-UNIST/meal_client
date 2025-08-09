@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import 'i18n.dart';
 import 'string.dart' as string;
-import 'meal.dart';
 import 'model.dart';
 
 import 'pages/home.dart';
