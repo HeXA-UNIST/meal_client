@@ -17,8 +17,8 @@ class _HomePageDrawer extends StatelessWidget {
   }
 }
 
-class _DayOfMealSwitchButton extends StatelessWidget {
-  const _DayOfMealSwitchButton({
+class _MealOfDaySwitchButton extends StatelessWidget {
+  const _MealOfDaySwitchButton({
     super.key,
     required this.onPressed,
     required this.label,
@@ -105,7 +105,7 @@ class _HomePageState extends State<HomePage> {
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             actions: [
-              _DayOfMealSwitchButton(
+              _MealOfDaySwitchButton(
                 onPressed: () => setState(() {
                   _mealOfDay = nextMealOfDay(_mealOfDay);
                 }),
