@@ -19,9 +19,6 @@ void main() {
         language: Language.kor,
         brightness:
             SchedulerBinding.instance.platformDispatcher.platformBrightness,
-        month: 6,
-        day: 27,
-        mealOfDay: MealOfDay.lunch,
       ),
       child: const MyApp(),
     ),

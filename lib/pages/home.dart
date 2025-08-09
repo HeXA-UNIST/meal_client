@@ -58,8 +58,26 @@ class _DayOfMealSwitchButton extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late int _month;
+  late int _day;
+  late MealOfDay _mealOfDay;
+
+  @override
+  void initState() {
+    _month = 6;
+    _day = 27;
+    _mealOfDay = MealOfDay.lunch;
+
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +85,7 @@ class HomePage extends StatelessWidget {
       builder: (context, bapu, child) {
         final String dayOfMealLabel;
         final IconData dayOfMealIcon;
-        switch (bapu.mealOfDay) {
+        switch (_mealOfDay) {
           case MealOfDay.breakfast:
             dayOfMealLabel = string.breakfast.getLocalizedString(bapu.language);
             dayOfMealIcon = Icons.sunny;
@@ -83,7 +101,7 @@ class HomePage extends StatelessWidget {
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
             title: Text(
-              string.getLocalizedDate(bapu.month, bapu.day, bapu.language),
+              string.getLocalizedDate(_month, _day, bapu.language),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             actions: [
