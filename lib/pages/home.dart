@@ -185,7 +185,7 @@ class _HomePageState extends State<HomePage>
             dayOfMealIcon = Icons.nightlight;
         }
 
-        final today = _mondayOfWeek.add(
+        final theDay = _mondayOfWeek.add(
           Duration(days: iso8601FromDayOfWeek(_model.dayOfWeek) - 1),
         );
 
@@ -193,7 +193,7 @@ class _HomePageState extends State<HomePage>
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
             title: Text(
-              string.getLocalizedDate(today.month, today.day, bapu.language),
+              string.getLocalizedDate(theDay.month, theDay.day, bapu.language),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             actions: [
