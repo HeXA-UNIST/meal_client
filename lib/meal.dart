@@ -126,6 +126,25 @@ DayOfWeek dayOfWeekFromISO8601(int number) {
   }
 }
 
+int iso8601FromDayOfWeek(DayOfWeek dayOfWeek) {
+  switch (dayOfWeek) {
+    case DayOfWeek.mon:
+      return 0;
+    case DayOfWeek.tue:
+      return 1;
+    case DayOfWeek.wed:
+      return 2;
+    case DayOfWeek.thu:
+      return 3;
+    case DayOfWeek.fri:
+      return 4;
+    case DayOfWeek.sat:
+      return 5;
+    case DayOfWeek.sun:
+      return 6;
+  }
+}
+
 class WeekMeal {
   final DayMeal mon;
   final DayMeal tue;
