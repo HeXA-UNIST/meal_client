@@ -107,6 +107,7 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
             borderRadius: BorderRadius.circular(128),
           ),
           labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          labelPadding: EdgeInsets.zero,
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => Colors.transparent,
           ),
@@ -189,6 +190,22 @@ class _HomePageState extends State<HomePage>
           Duration(days: iso8601FromDayOfWeek(_model.dayOfWeek) - 1),
         );
 
+        final dayOfWeekTabBar = _DayOfWeekTabBar(
+          tabController: _tabController,
+          language: bapu.language,
+        );
+        final PreferredSizeWidget? bottom;
+        final Widget? flexibleSpace;
+        if (MediaQuery.of(context).size.width >= 840) {
+          flexibleSpace = SafeArea(
+            child: Center(child: SizedBox(width: 420, child: dayOfWeekTabBar)),
+          );
+          bottom = null;
+        } else {
+          bottom = dayOfWeekTabBar;
+          flexibleSpace = null;
+        }
+
         return Scaffold(
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
@@ -206,10 +223,8 @@ class _HomePageState extends State<HomePage>
               ),
             ],
             actionsPadding: EdgeInsets.only(right: 8),
-            bottom: _DayOfWeekTabBar(
-              tabController: _tabController,
-              language: bapu.language,
-            ),
+            bottom: bottom,
+            flexibleSpace: flexibleSpace,
           ),
           body: child,
         );
