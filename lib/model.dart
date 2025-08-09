@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'meal.dart';
 import 'i18n.dart';
 
 class BapUModel extends ChangeNotifier {
@@ -29,4 +30,14 @@ class BapUModel extends ChangeNotifier {
 
     notifyListeners();
   }
+}
+
+class HomePageModel {
+  MealOfDay mealOfDay;
+  DayOfWeek dayOfWeek;
+
+  HomePageModel({
+    required this.mealOfDay,
+    required this.dayOfWeek,
+  });
 }

@@ -128,19 +128,41 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
-  late int _month;
-  late int _day;
-  late MealOfDay _mealOfDay;
-
+  late HomePageModel _model;
+  late DateTime _mondayOfWeek;
   late TabController _tabController;
 
   @override
   void initState() {
-    _month = 6;
-    _day = 27;
-    _mealOfDay = MealOfDay.lunch;
+    final DateTime now;
+    {
+      final localNow = DateTime.now();
+      now = localNow.toUtc().add(Duration(hours: 9));
+    }
+
+    final MealOfDay mealOfDay;
+    if (now.hour < 9 || (now.hour == 9 && now.minute <= 20)) {
+      mealOfDay = MealOfDay.breakfast;
+    } else if (now.hour < 13 || (now.hour == 13 && now.minute <= 30)) {
+      mealOfDay = MealOfDay.lunch;
+    } else {
+      mealOfDay = MealOfDay.dinner;
+    }
+
+    _model = HomePageModel(
+      mealOfDay: mealOfDay,
+      dayOfWeek: dayOfWeekFromISO8601(now.weekday),
+    );
+
+    _mondayOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
     _tabController = TabController(length: 7, vsync: this);
+    _tabController.index = iso8601FromDayOfWeek(_model.dayOfWeek) - 1;
+    _tabController.addListener(
+      () => setState(() {
+        _model.dayOfWeek = dayOfWeekFromISO8601(_tabController.index + 1);
+      }),
+    );
 
     super.initState();
   }
@@ -151,7 +173,7 @@ class _HomePageState extends State<HomePage>
       builder: (context, bapu, child) {
         final String dayOfMealLabel;
         final IconData dayOfMealIcon;
-        switch (_mealOfDay) {
+        switch (_model.mealOfDay) {
           case MealOfDay.breakfast:
             dayOfMealLabel = string.breakfast.getLocalizedString(bapu.language);
             dayOfMealIcon = Icons.sunny;
@@ -163,17 +185,21 @@ class _HomePageState extends State<HomePage>
             dayOfMealIcon = Icons.nightlight;
         }
 
+        final today = _mondayOfWeek.add(
+          Duration(days: iso8601FromDayOfWeek(_model.dayOfWeek) - 1),
+        );
+
         return Scaffold(
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
             title: Text(
-              string.getLocalizedDate(_month, _day, bapu.language),
+              string.getLocalizedDate(today.month, today.day, bapu.language),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             actions: [
               _MealOfDaySwitchButton(
                 onPressed: () => setState(() {
-                  _mealOfDay = nextMealOfDay(_mealOfDay);
+                  _model.mealOfDay = nextMealOfDay(_model.mealOfDay);
                 }),
                 label: dayOfMealLabel,
                 icon: dayOfMealIcon,
