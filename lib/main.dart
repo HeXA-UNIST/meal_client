@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:meal_client/meal.dart';
 import 'package:meal_client/model.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +15,8 @@ void main() {
     ChangeNotifierProvider(
       create: (context) => BapUModel(
         language: Language.kor,
-        brightness: Brightness.light,
+        brightness:
+            SchedulerBinding.instance.platformDispatcher.platformBrightness,
         month: 6,
         day: 27,
         mealOfDay: MealOfDay.lunch,
@@ -30,25 +32,31 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<BapUModel>(
-      builder: (context, bapu, child) => MaterialApp(
-        title: string.title.getLocalizedString(bapu.language),
-        theme: ThemeData(
-          fontFamily: 'Pretendard',
-          brightness: bapu.brightness,
-          colorScheme:
-              ColorScheme.fromSeed(
-                seedColor: mainColor,
-                brightness: bapu.brightness,
-                dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-              ).copyWith(
-                onPrimaryContainer: Colors.white,
-                surface: bapu.brightness == Brightness.light
-                    ? Colors.white
-                    : Colors.black,
-              ),
-        ),
-        home: child,
-      ),
+      builder: (context, bapu, child) {
+        if (bapu.brightness != MediaQuery.of(context).platformBrightness) {
+          bapu.toggleBrightness();
+        }
+
+        return MaterialApp(
+          title: string.title.getLocalizedString(bapu.language),
+          theme: ThemeData(
+            fontFamily: 'Pretendard',
+            brightness: bapu.brightness,
+            colorScheme:
+                ColorScheme.fromSeed(
+                  seedColor: mainColor,
+                  brightness: bapu.brightness,
+                  dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+                ).copyWith(
+                  onPrimaryContainer: Colors.white,
+                  surface: bapu.brightness == Brightness.light
+                      ? Colors.white
+                      : Colors.black,
+                ),
+          ),
+          home: child,
+        );
+      },
       child: const MainPage(),
     );
   }
