@@ -31,8 +31,8 @@ class CafeteriaMeal {
       student = List.empty(growable: true),
       faculty = List.empty(growable: true);
 
-  List<Meal> fromCafeteria(Cafeteria r) {
-    switch (r) {
+  List<Meal> fromCafeteria(Cafeteria c) {
+    switch (c) {
       case Cafeteria.dormitory:
         return dormitory;
       case Cafeteria.student:
