@@ -105,6 +105,27 @@ DayOfWeek nextDayOfWeek(DayOfWeek d) {
   }
 }
 
+DayOfWeek dayOfWeekFromISO8601(int number) {
+  switch (number) {
+    case 0:
+      return DayOfWeek.mon;
+    case 1:
+      return DayOfWeek.tue;
+    case 2:
+      return DayOfWeek.wed;
+    case 3:
+      return DayOfWeek.thu;
+    case 4:
+      return DayOfWeek.fri;
+    case 5:
+      return DayOfWeek.sat;
+    case 6:
+      return DayOfWeek.sun;
+    default:
+      throw FormatException();
+  }
+}
+
 class WeekMeal {
   final DayMeal mon;
   final DayMeal tue;
