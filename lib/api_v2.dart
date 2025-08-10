@@ -84,6 +84,8 @@ WeekMeal parseRawMeal(String jsonStr) {
           meals.add(KoreanMeal(menu, kcal));
         case "HALAL":
           meals.add(HalalMeal(menu, kcal));
+        default:
+          meals.add(Meal(menu, kcal));
       }
     } else {
       meals.add(Meal(menu, kcal));
