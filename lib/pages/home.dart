@@ -69,7 +69,7 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   final TabController tabController;
   final Language language;
 
-  final _preferredSize = Size.fromHeight(48.0);
+  final _preferredSize = Size.fromHeight(46.0);
 
   @override
   Size get preferredSize => _preferredSize;
