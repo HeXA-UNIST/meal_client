@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import 'package:provider/provider.dart';
 
@@ -27,8 +26,7 @@ void main() {
 
         final model = BapUModel(
           language: language,
-          brightness:
-              SchedulerBinding.instance.platformDispatcher.platformBrightness,
+          brightness: platformDispatcher.platformBrightness,
         );
 
         platformDispatcher.onLocaleChanged = () {
