@@ -183,13 +183,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
-  late HomePageModel _model;
-  late DateTime _mondayOfWeek;
-  late TabController _tabController;
-  late PageController _mealOfDayPageController;
+  late final HomePageModel _model;
+  late final DateTime _mondayOfWeek;
+  late final TabController _tabController;
+  late final PageController _mealOfDayPageController;
 
-  late Future<WeekMeal> cachedMeal;
-  late Future<WeekMeal> downloadedMeal;
+  late final Future<WeekMeal> cachedMeal;
+  late final Future<WeekMeal> downloadedMeal;
 
   @override
   void initState() {
