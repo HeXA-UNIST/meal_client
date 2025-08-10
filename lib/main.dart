@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -14,11 +16,33 @@ const mainColor = Color(0xFF00CD80);
 void main() {
   runApp(
     ChangeNotifierProvider(
-      create: (context) => BapUModel(
-        language: Language.kor,
-        brightness:
-            SchedulerBinding.instance.platformDispatcher.platformBrightness,
-      ),
+      create: (context) {
+        final platformDispatcher = PlatformDispatcher.instance;
+        final Language language;
+        if (platformDispatcher.locale.languageCode == "ko") {
+          language = Language.kor;
+        } else {
+          language = Language.eng;
+        }
+
+        final model = BapUModel(
+          language: language,
+          brightness:
+              SchedulerBinding.instance.platformDispatcher.platformBrightness,
+        );
+
+        platformDispatcher.onLocaleChanged = () {
+          final Language language;
+          if (platformDispatcher.locale.languageCode == "ko") {
+            language = Language.kor;
+          } else {
+            language = Language.eng;
+          }
+          model.changeLanguage(language);
+        };
+
+        return model;
+      },
       child: const MyApp(),
     ),
   );
