@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../model.dart';
 import '../meal.dart';
+import '../data.dart';
 import '../i18n.dart';
 import '../string.dart' as string;
 
@@ -120,6 +121,59 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+class _WeekMealTabBarView extends StatelessWidget {
+  const _WeekMealTabBarView({
+    super.key,
+    required this.weekMeal,
+    required this.tabController,
+    required this.pageController,
+    required this.onPageChanged,
+  });
+
+  final WeekMeal weekMeal;
+  final TabController tabController;
+  final PageController pageController;
+  final void Function(int) onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final days = List<Widget>.empty(growable: true);
+    for (var day in DayOfWeek.values) {
+      final mealOfDays = List<Widget>.empty(growable: true);
+      for (var mealOfDay in MealOfDay.values) {
+        final meal = List<Widget>.empty(growable: true);
+        final nowMealOfDay = weekMeal
+            .fromDayOfWeek(day)
+            .fromMealOfDay(mealOfDay);
+
+        // TODO - replace Text widgets
+        for (var dormitory in nowMealOfDay.dormitory) {
+          meal.add(Text("Dormitory: ${dormitory.menu}"));
+        }
+        for (var student in nowMealOfDay.student) {
+          meal.add(Text("Student: ${student.menu}"));
+        }
+        for (var faculty in nowMealOfDay.faculty) {
+          meal.add(Text("Faculty: ${faculty.menu}"));
+        }
+        mealOfDays.add(Column(children: meal));
+      }
+      days.add(
+        Scrollbar(
+          child: PageView(
+            controller: pageController,
+            scrollDirection: Axis.vertical,
+            onPageChanged: onPageChanged,
+            children: mealOfDays,
+          ),
+        ),
+      );
+    }
+
+    return TabBarView(controller: tabController, children: days);
+  }
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -132,6 +186,10 @@ class _HomePageState extends State<HomePage>
   late HomePageModel _model;
   late DateTime _mondayOfWeek;
   late TabController _tabController;
+  late PageController _mealOfDayPageController;
+
+  late Future<WeekMeal> cachedMeal;
+  late Future<WeekMeal> downloadedMeal;
 
   @override
   void initState() {
@@ -164,6 +222,15 @@ class _HomePageState extends State<HomePage>
         _model.dayOfWeek = dayOfWeekFromISO8601(_tabController.index + 1);
       }),
     );
+
+    _mealOfDayPageController = PageController(
+      initialPage: _model.mealOfDay.index,
+    );
+
+    cachedMeal = getCachedMealData();
+    downloadedMeal = cachedMeal
+        .catchError((err) => Future<WeekMeal>(() => WeekMeal.empty()))
+        .then((cache) => fetchAndCacheMealData());
 
     super.initState();
   }
@@ -217,6 +284,15 @@ class _HomePageState extends State<HomePage>
               _MealOfDaySwitchButton(
                 onPressed: () => setState(() {
                   _model.mealOfDay = nextMealOfDay(_model.mealOfDay);
+                  try {
+                    _mealOfDayPageController.animateToPage(
+                      _model.mealOfDay.index,
+                      duration: Duration(milliseconds: 300),
+                      curve: Curves.ease,
+                    );
+                  } catch (e) {
+                    // ignore
+                  }
                 }),
                 label: dayOfMealLabel,
                 icon: dayOfMealIcon,
@@ -229,6 +305,54 @@ class _HomePageState extends State<HomePage>
           body: child,
         );
       },
+      child: FutureBuilder(
+        future: cachedMeal,
+        builder: (context, cacheSnapshot) {
+          final theme = Theme.of(context);
+
+          if (cacheSnapshot.hasData || cacheSnapshot.hasError) {
+            return FutureBuilder(
+              future: downloadedMeal,
+              builder: (context, downloadSnapshot) {
+                if (downloadSnapshot.hasData || cacheSnapshot.hasData) {
+                  return _WeekMealTabBarView(
+                    weekMeal: downloadSnapshot.hasData
+                        ? downloadSnapshot.data!
+                        : cacheSnapshot.data!,
+                    tabController: _tabController,
+                    pageController: _mealOfDayPageController,
+                    onPageChanged: (page) => setState(
+                      () => _model.mealOfDay = MealOfDay.values[page],
+                    ),
+                  );
+                } else if (!cacheSnapshot.hasError ||
+                    !downloadSnapshot.hasError) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: theme.colorScheme.primaryContainer,
+                    ),
+                  );
+                } else {
+                  return Center(
+                    child: Consumer<BapUModel>(
+                      builder: (context, bapu, child) => Text(
+                        string.cannotLoadMeal.getLocalizedString(bapu.language),
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                  );
+                }
+              },
+            );
+          } else {
+            return Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primaryContainer,
+              ),
+            );
+          }
+        },
+      ),
     );
   }
 }

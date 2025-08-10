@@ -14,6 +14,11 @@ const breakfast = MultiLanguageString(eng: "Breakfast", kor: "아침");
 const lunch = MultiLanguageString(eng: "Lunch", kor: "점심");
 const dinner = MultiLanguageString(eng: "Dinner", kor: "저녁");
 
+const cannotLoadMeal = MultiLanguageString(
+  eng: "Cannot load meal information.",
+  kor: "식단 정보를 불러올 수 없습니다.",
+);
+
 const _jan = MultiLanguageString(eng: "Jan.", kor: "1월");
 const _feb = MultiLanguageString(eng: "Feb.", kor: "2월");
 const _mar = MultiLanguageString(eng: "Mar.", kor: "3월");
