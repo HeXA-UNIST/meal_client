@@ -85,7 +85,7 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
       preferredSize: _preferredSize,
       child: Container(
         decoration: BoxDecoration(
-          color: Color(0xFFFAFAFA),
+          color: colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(128.0),
         ),
         margin: EdgeInsets.symmetric(horizontal: 8.0),
