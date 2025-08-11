@@ -44,7 +44,7 @@ class _MealOfDaySwitchButton extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: colorScheme.onPrimaryContainer,
             ),
           ),
@@ -79,13 +79,13 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final unselectedLabelColor = Color.fromARGB(0xff, 0x80, 0x80, 0x80);
+    final unselectedLabelColor = Color(0xFF939393);
 
     return PreferredSize(
       preferredSize: _preferredSize,
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainer,
+          color: Color(0xFFFAFAFA),
           borderRadius: BorderRadius.circular(128.0),
         ),
         margin: EdgeInsets.symmetric(horizontal: 8.0),
@@ -107,7 +107,7 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
             color: colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(128),
           ),
-          labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           labelPadding: EdgeInsets.zero,
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => Colors.transparent,
