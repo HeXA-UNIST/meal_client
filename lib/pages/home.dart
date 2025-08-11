@@ -295,9 +295,10 @@ class _HomePageState extends State<HomePage>
     );
 
     cachedMeal = getCachedMealData();
-    downloadedMeal = (cachedMeal as Future<WeekMeal?>)
-        .catchError((err) => null)
-        .then((cache) => fetchAndCacheMealData());
+    downloadedMeal = cachedMeal.then(
+      (cache) => fetchAndCacheMealData(),
+      onError: (e) => fetchAndCacheMealData(),
+    );
 
     super.initState();
   }
