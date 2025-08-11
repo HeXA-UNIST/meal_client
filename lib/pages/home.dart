@@ -276,10 +276,11 @@ class _HomePageState extends State<HomePage>
         return Scaffold(
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
+            titleSpacing: 0,
             title: MediaQuery.of(context).size.width >= 840
                 ? Row(
                     children: [
-                      const SizedBox(width: 7),
+                      const SizedBox(width: 4),
                       Text(
                         string.getLocalizedDate(
                           theDay.month,
