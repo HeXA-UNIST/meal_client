@@ -13,15 +13,10 @@ Future<WeekMeal> fetchAndCacheMealData() async {
 int _getKstWeekNumber(DateTime time) {
   final DateTime start;
   {
-    final theFirstDay = DateTime.utc(
-      time.year,
-      1,
-      1,
-      0,
-    ).subtract(Duration(hours: 9)).add(time.timeZoneOffset);
+    final theFirstDay = DateTime.utc(time.year, 1, 1, 0);
     start = theFirstDay.subtract(Duration(days: theFirstDay.weekday - 1));
   }
-  final diff = time.difference(start);
+  final diff = time.toUtc().add(Duration(hours: 9)).difference(start);
   return (diff.inDays / 7).toInt() + 1;
 }
 
