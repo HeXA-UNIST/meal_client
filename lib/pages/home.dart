@@ -339,6 +339,8 @@ class _HomePageState extends State<HomePage>
           flexibleSpace = null;
         }
 
+        final colorScheme = Theme.of(context).colorScheme;
+
         return Scaffold(
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
@@ -384,6 +386,8 @@ class _HomePageState extends State<HomePage>
               ),
             ],
             actionsPadding: EdgeInsets.only(right: 8),
+            backgroundColor: colorScheme.surface,
+            scrolledUnderElevation: 0,
             bottom: bottom,
             flexibleSpace: flexibleSpace,
           ),
