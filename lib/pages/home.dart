@@ -204,10 +204,10 @@ class _WeekMealTabBarView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final days = List<Widget>.empty(growable: true);
-    for (var day in DayOfWeek.values) {
-      final mealOfDays = List<Widget>.empty(growable: true);
-      for (var mealOfDay in MealOfDay.values) {
+    final mealOfDays = List<Widget>.empty(growable: true);
+    for (var mealOfDay in MealOfDay.values) {
+      final days = List<Widget>.empty(growable: true);
+      for (var day in DayOfWeek.values) {
         final meal = List<Widget>.empty(growable: true);
         final nowMealOfDay = weekMeal
             .fromDayOfWeek(day)
@@ -223,21 +223,19 @@ class _WeekMealTabBarView extends StatelessWidget {
         for (var faculty in nowMealOfDay.faculty) {
           meal.add(Text("Faculty: ${faculty.menu}"));
         }
-        mealOfDays.add(Column(children: meal));
+        days.add(Column(children: meal));
       }
-      days.add(
-        Scrollbar(
-          child: PageView(
-            controller: pageController,
-            scrollDirection: Axis.vertical,
-            onPageChanged: onPageChanged,
-            children: mealOfDays,
-          ),
-        ),
-      );
+      mealOfDays.add(TabBarView(controller: tabController, children: days));
     }
 
-    return TabBarView(controller: tabController, children: days);
+    return Scrollbar(
+      child: PageView(
+        controller: pageController,
+        scrollDirection: Axis.vertical,
+        onPageChanged: onPageChanged,
+        children: mealOfDays,
+      ),
+    );
   }
 }
 
