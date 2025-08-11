@@ -73,7 +73,7 @@ class MyApp extends StatelessWidget {
                       ? Colors.white
                       : Colors.black,
                   surfaceContainer: bapu.brightness == Brightness.light
-                      ? Color.fromARGB(0xff, 0xf0, 0xf0, 0xf0)
+                      ? Color.fromARGB(0xff, 0xfA, 0xfA, 0xfA)
                       : Color.fromARGB(0xff, 0xf, 0xf, 0xf),
                 ),
           ),
