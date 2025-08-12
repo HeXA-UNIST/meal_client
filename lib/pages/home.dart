@@ -55,10 +55,10 @@ class _HomePageDrawer extends StatelessWidget {
         padding: EdgeInsets.all(0),
         children: [
           Container(
-            height: 190,
+            height: 160,
             alignment: Alignment.bottomLeft,
             margin: EdgeInsets.only(bottom: 50, left: 40),
-            child: SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 52),
+            child: SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 36),
           ),
           DrawerItem(
             icon: Icons.notifications_active,
