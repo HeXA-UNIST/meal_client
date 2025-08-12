@@ -8,12 +8,43 @@ import '../data.dart';
 import '../i18n.dart';
 import '../string.dart' as string;
 
+class DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const DrawerItem({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.white),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+      contentPadding: EdgeInsets.only(left: 40),
+      onTap: onTap,
+    );
+  }
+}
+
 class _HomePageDrawer extends StatelessWidget {
   const _HomePageDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {
     final brightness = MediaQuery.of(context).platformBrightness;
+    final language = Provider.of<BapUModel>(context).language;
 
     return Drawer(
       backgroundColor: brightness == Brightness.light
@@ -26,18 +57,28 @@ class _HomePageDrawer extends StatelessWidget {
           Container(
             height: 190,
             alignment: Alignment.bottomLeft,
-            margin: EdgeInsets.only(bottom: 40, left: 40),
+            margin: EdgeInsets.only(bottom: 50, left: 40),
             child: SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 52),
           ),
-          ListTile(
-            title: const Text(
-              'asdf',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
+          DrawerItem(
+            icon: Icons.notifications_active,
+            title: string.notification.getLocalizedString(language),
+            onTap: () {},
+          ),
+          DrawerItem(
+            icon: Icons.info,
+            title: string.operationinfo.getLocalizedString(language),
+            onTap: () {},
+          ),
+          DrawerItem(
+            icon: Icons.help_outline_outlined,
+            title: string.contactdeveloper.getLocalizedString(language),
+            onTap: () {},
+          ),
+          DrawerItem(
+            icon: Icons.language,
+            title: "언어 / Language",
+            onTap: () {},
           ),
         ],
       ),

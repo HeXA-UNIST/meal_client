@@ -2,6 +2,13 @@ import 'i18n.dart';
 
 const title = MultiLanguageString(eng: "BapU", kor: "밥먹어U");
 
+const notification = MultiLanguageString(eng: "Announcement", kor: "공지사항");
+const operationinfo = MultiLanguageString(eng: "Operation Info", kor: "운영 정보");
+const contactdeveloper = MultiLanguageString(
+  eng: "Contact Developer",
+  kor: "개발자에게 문의하기",
+);
+
 const mon = MultiLanguageString(eng: "Mon", kor: "월");
 const tue = MultiLanguageString(eng: "Tue", kor: "화");
 const wed = MultiLanguageString(eng: "Wed", kor: "수");
