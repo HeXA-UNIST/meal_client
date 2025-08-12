@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../model.dart';
@@ -12,9 +13,34 @@ class _HomePageDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brightness = MediaQuery.of(context).platformBrightness;
+
     return Drawer(
-      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-      shape: Border(),
+      backgroundColor: brightness == Brightness.light
+          ? Theme.of(context).colorScheme.primaryContainer
+          : Color(0xFFF0F0F0),
+
+      child: ListView(
+        padding: EdgeInsets.all(0),
+        children: [
+          Container(
+            height: 190,
+            alignment: Alignment.bottomLeft,
+            margin: EdgeInsets.only(bottom: 40, left: 40),
+            child: SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 52),
+          ),
+          ListTile(
+            title: const Text(
+              'asdf',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
