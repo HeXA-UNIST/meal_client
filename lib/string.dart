@@ -26,6 +26,11 @@ const cannotLoadMeal = MultiLanguageString(
   kor: "식단 정보를 불러올 수 없어요.",
 );
 
+const language = MultiLanguageString(
+  eng: "Language / 언어",
+  kor: "언어 / Language",
+);
+
 const _jan = MultiLanguageString(eng: "Jan.", kor: "1월");
 const _feb = MultiLanguageString(eng: "Feb.", kor: "2월");
 const _mar = MultiLanguageString(eng: "Mar.", kor: "3월");

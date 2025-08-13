@@ -79,7 +79,7 @@ class _HomePageDrawer extends StatelessWidget {
           ),
           DrawerItem(
             icon: Icons.language,
-            title: "언어 / Language",
+            title: string.language.getLocalizedString(language),
             onTap: () {},
           ),
         ],
