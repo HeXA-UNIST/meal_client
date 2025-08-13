@@ -39,6 +39,12 @@ void main() {
           model.changeLanguage(language);
         };
 
+        platformDispatcher.onPlatformBrightnessChanged = () {
+          if (model.brightness != platformDispatcher.platformBrightness) {
+            model.toggleBrightness();
+          }
+        };
+
         return model;
       },
       child: const MyApp(),
@@ -53,10 +59,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<BapUModel>(
       builder: (context, bapu, child) {
-        if (bapu.brightness != MediaQuery.of(context).platformBrightness) {
-          bapu.toggleBrightness();
-        }
-
         return MaterialApp(
           title: string.title.getLocalizedString(bapu.language),
           theme: ThemeData(
