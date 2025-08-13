@@ -351,12 +351,21 @@ class _NestedVerticalPageTabBarViewState
                 reverse = false;
               }
 
-              return SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                controller: scrollControllers[tabIndex][pageIndex],
-                reverse: reverse,
-                physics: const NeverScrollableScrollPhysics(),
-                child: widget.builder(context, tabIndex, pageIndex),
+              return LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  controller: scrollControllers[tabIndex][pageIndex],
+                  reverse: reverse,
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: widget.builder(context, tabIndex, pageIndex),
+                    ),
+                  ),
+                ),
               );
             }, growable: false),
           );
