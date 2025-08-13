@@ -50,8 +50,8 @@ class _HomePageDrawer extends StatelessWidget {
 
     return Drawer(
       backgroundColor: brightness == Brightness.light
-          ? Theme.of(context).colorScheme.primaryContainer
-          : Color(0xFFF0F0F0),
+          ? theme.colorScheme.primaryContainer
+          : theme.colorScheme.surfaceContainer,
 
       child: ListView(
         padding: EdgeInsets.all(0),
