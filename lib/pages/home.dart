@@ -299,7 +299,6 @@ class _NestedVerticalPageTabBarViewState
         itemBuilder: (BuildContext context, int pageIndex) {
           return TabBarView(
             controller: widget.tabController,
-            physics: null, // NeverScrollableScrollPhysics() makes horizontal scroll not working
             children: List.generate(widget.tabCount, (tabIndex) {
               return SingleChildScrollView(
                 scrollDirection: Axis.vertical,
