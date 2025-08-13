@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
@@ -188,52 +189,192 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+class _NestedVerticalPageTabBarView extends StatefulWidget {
+  const _NestedVerticalPageTabBarView({
+    super.key,
+    required this.pageController,
+    required this.tabController,
+    required this.tabCount,
+    required this.pageCount,
+    required this.builder,
+  });
+
+  final PageController pageController;
+  final TabController tabController;
+  final int tabCount;
+  final int pageCount;
+  final Widget Function(BuildContext context, int tabIndex, int pageIndex)
+  builder;
+
+  @override
+  State<_NestedVerticalPageTabBarView> createState() =>
+      _NestedVerticalPageTabBarViewState();
+}
+
+class _NestedVerticalPageTabBarViewState
+    extends State<_NestedVerticalPageTabBarView> {
+  late final List<List<ScrollController>> scrollControllers;
+  Drag? drag;
+  ScrollController? currentController;
+  double prevPage = 0;
+
+  @override
+  void initState() {
+    scrollControllers = List.generate(
+      widget.tabCount,
+      (tabIndex) => List.generate(
+        widget.pageCount,
+        (pageIndex) => ScrollController(),
+        growable: false,
+      ),
+      growable: false,
+    );
+    super.initState();
+  }
+
+  ScrollController _findCurrentSingleChildScrollViewController() =>
+      scrollControllers[widget.tabController.index][widget.pageController.page!
+          .round()];
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragStart: (details) {
+        if (widget.pageController.page! % 1 == 0) {
+          currentController = _findCurrentSingleChildScrollViewController();
+        } else {
+          currentController = widget.pageController;
+        }
+        drag = currentController!.position.drag(details, () {});
+        prevPage = widget.pageController.page!;
+      },
+      onVerticalDragUpdate: (details) {
+        final controller = currentController!;
+        final currentPage = widget.pageController.page!;
+        final middlePage = ((currentPage + prevPage) / 2).round();
+
+        if (controller.position.atEdge &&
+            ((controller.position.pixels ==
+                        controller.position.minScrollExtent &&
+                    details.delta.direction > 0) ||
+                (controller.position.pixels ==
+                        controller.position.maxScrollExtent &&
+                    details.delta.direction < 0))) {
+          drag?.cancel();
+          drag = widget.pageController.position.drag(
+            DragStartDetails(
+              globalPosition: details.globalPosition,
+              localPosition: details.localPosition,
+            ),
+            () {},
+          );
+          currentController = widget.pageController;
+        } else if ((prevPage <= middlePage && middlePage <= currentPage) ||
+            (currentPage <= middlePage && middlePage <= prevPage)) {
+          drag?.cancel();
+          final newController = _findCurrentSingleChildScrollViewController();
+          drag = newController.position.drag(
+            DragStartDetails(
+              globalPosition: details.globalPosition,
+              localPosition: details.localPosition,
+            ),
+            () {},
+          );
+          currentController = newController;
+        }
+
+        drag?.update(details);
+        prevPage = currentPage;
+      },
+      onVerticalDragEnd: (details) {
+        drag?.end(details);
+        drag = null;
+        currentController = null;
+      },
+      child: PageView.builder(
+        scrollDirection: Axis.vertical,
+        itemCount: widget.pageCount,
+        controller: widget.pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        itemBuilder: (BuildContext context, int pageIndex) {
+          return TabBarView(
+            controller: widget.tabController,
+            physics: const NeverScrollableScrollPhysics(),
+            children: List.generate(widget.tabCount, (tabIndex) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                controller: scrollControllers[tabIndex][pageIndex],
+                physics: const NeverScrollableScrollPhysics(),
+                child: widget.builder(context, tabIndex, pageIndex),
+              );
+            }, growable: false),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _WeekMealTabBarView extends StatelessWidget {
   const _WeekMealTabBarView({
     super.key,
     required this.weekMeal,
     required this.tabController,
     required this.pageController,
+    required this.pageCount,
     required this.onPageChanged,
   });
 
   final WeekMeal weekMeal;
   final TabController tabController;
   final PageController pageController;
+  final int pageCount;
   final void Function(int) onPageChanged;
 
   @override
   Widget build(BuildContext context) {
-    final mealOfDays = List<Widget>.empty(growable: true);
-    for (var mealOfDay in MealOfDay.values) {
-      final days = List<Widget>.empty(growable: true);
-      for (var day in DayOfWeek.values) {
-        final meal = List<Widget>.empty(growable: true);
-        final nowMealOfDay = weekMeal
-            .fromDayOfWeek(day)
-            .fromMealOfDay(mealOfDay);
-
-        // TODO - replace Text widgets
-        for (var dormitory in nowMealOfDay.dormitory) {
-          meal.add(Text("Dormitory: ${dormitory.menu}"));
-        }
-        for (var student in nowMealOfDay.student) {
-          meal.add(Text("Student: ${student.menu}"));
-        }
-        for (var faculty in nowMealOfDay.faculty) {
-          meal.add(Text("Faculty: ${faculty.menu}"));
-        }
-        days.add(Column(children: meal));
-      }
-      mealOfDays.add(TabBarView(controller: tabController, children: days));
-    }
-
     return Scrollbar(
-      child: PageView(
-        controller: pageController,
-        scrollDirection: Axis.vertical,
-        onPageChanged: onPageChanged,
-        children: mealOfDays,
+      child: _NestedVerticalPageTabBarView(
+        pageController: pageController,
+        tabController: tabController,
+        pageCount: pageCount,
+        tabCount: DayOfWeek.values.length,
+        builder: (context, tabIndex, pageIndex) {
+          final nowMeal = weekMeal
+              .fromDayOfWeek(DayOfWeek.values[tabIndex])
+              .fromMealOfDay(MealOfDay.values[pageIndex]);
+          return SafeArea(
+            child: Wrap(
+              // TODO - replace Column and Text to meal card
+              children: [
+                ...nowMeal.dormitory.map(
+                  (meal) => Column(
+                    children: [
+                      Text("Dormitory"),
+                      ...meal.menu.map((aMenu) => Text(aMenu)),
+                    ],
+                  ),
+                ),
+                ...nowMeal.student.map(
+                  (meal) => Column(
+                    children: [
+                      Text("Student"),
+                      ...meal.menu.map((aMenu) => Text(aMenu)),
+                    ],
+                  ),
+                ),
+                ...nowMeal.faculty.map(
+                  (meal) => Column(
+                    children: [
+                      Text("Faculty"),
+                      ...meal.menu.map((aMenu) => Text(aMenu)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -405,6 +546,7 @@ class _HomePageState extends State<HomePage>
               builder: (context, downloadSnapshot) {
                 if (downloadSnapshot.hasData || cacheSnapshot.hasData) {
                   return _WeekMealTabBarView(
+                    pageCount: MealOfDay.values.length,
                     weekMeal: downloadSnapshot.hasData
                         ? downloadSnapshot.data!
                         : cacheSnapshot.data!,
