@@ -196,6 +196,7 @@ class _NestedVerticalPageTabBarView extends StatefulWidget {
     required this.tabController,
     required this.tabCount,
     required this.pageCount,
+    required this.onPageChanged,
     required this.builder,
   });
 
@@ -203,6 +204,7 @@ class _NestedVerticalPageTabBarView extends StatefulWidget {
   final TabController tabController;
   final int tabCount;
   final int pageCount;
+  final void Function(int page) onPageChanged;
   final Widget Function(BuildContext context, int tabIndex, int pageIndex)
   builder;
 
@@ -296,6 +298,7 @@ class _NestedVerticalPageTabBarViewState
         itemCount: widget.pageCount,
         controller: widget.pageController,
         physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: widget.onPageChanged,
         itemBuilder: (BuildContext context, int pageIndex) {
           return TabBarView(
             controller: widget.tabController,
@@ -338,6 +341,7 @@ class _WeekMealTabBarView extends StatelessWidget {
         tabController: tabController,
         pageCount: pageCount,
         tabCount: DayOfWeek.values.length,
+        onPageChanged: onPageChanged,
         builder: (context, tabIndex, pageIndex) {
           final nowMeal = weekMeal
               .fromDayOfWeek(DayOfWeek.values[tabIndex])
