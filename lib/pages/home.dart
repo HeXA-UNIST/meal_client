@@ -546,6 +546,7 @@ class _HomePageState extends State<HomePage>
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
             titleSpacing: 0,
+            centerTitle: false,
             title: Text(
               string.getLocalizedDate(theDay.month, theDay.day, bapu.language),
               style: const TextStyle(fontWeight: FontWeight.w700),
