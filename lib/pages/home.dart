@@ -147,7 +147,11 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final unselectedLabelColor = Color(0xFF939393);
+
+    final unselectedLabelColor = HSLColor.fromColor(colorScheme.onSurface)
+        .withSaturation(0)
+        .withLightness(theme.brightness == Brightness.light ? 0.6 : 0.4)
+        .toColor();
 
     return PreferredSize(
       preferredSize: _preferredSize,
