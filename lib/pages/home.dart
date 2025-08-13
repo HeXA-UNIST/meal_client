@@ -480,16 +480,16 @@ class _HomePageState extends State<HomePage>
 
     _model = HomePageModel(
       mealOfDay: mealOfDay,
-      dayOfWeek: dayOfWeekFromISO8601(now.weekday),
+      dayOfWeek: DayOfWeek.values[now.weekday - 1],
     );
 
     _mondayOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
     _tabController = TabController(length: 7, vsync: this);
-    _tabController.index = iso8601FromDayOfWeek(_model.dayOfWeek) - 1;
+    _tabController.index = _model.dayOfWeek.index;
     _tabController.addListener(
       () => setState(() {
-        _model.dayOfWeek = dayOfWeekFromISO8601(_tabController.index + 1);
+        _model.dayOfWeek = DayOfWeek.values[_tabController.index];
       }),
     );
 
@@ -525,7 +525,7 @@ class _HomePageState extends State<HomePage>
         }
 
         final theDay = _mondayOfWeek.add(
-          Duration(days: iso8601FromDayOfWeek(_model.dayOfWeek) - 1),
+          Duration(days: _model.dayOfWeek.index),
         );
 
         final dayOfWeekTabBar = _DayOfWeekTabBar(

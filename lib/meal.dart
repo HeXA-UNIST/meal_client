@@ -105,46 +105,6 @@ DayOfWeek nextDayOfWeek(DayOfWeek d) {
   }
 }
 
-DayOfWeek dayOfWeekFromISO8601(int number) {
-  switch (number) {
-    case 1:
-      return DayOfWeek.mon;
-    case 2:
-      return DayOfWeek.tue;
-    case 3:
-      return DayOfWeek.wed;
-    case 4:
-      return DayOfWeek.thu;
-    case 5:
-      return DayOfWeek.fri;
-    case 6:
-      return DayOfWeek.sat;
-    case 7:
-      return DayOfWeek.sun;
-    default:
-      throw FormatException();
-  }
-}
-
-int iso8601FromDayOfWeek(DayOfWeek dayOfWeek) {
-  switch (dayOfWeek) {
-    case DayOfWeek.mon:
-      return 1;
-    case DayOfWeek.tue:
-      return 2;
-    case DayOfWeek.wed:
-      return 3;
-    case DayOfWeek.thu:
-      return 4;
-    case DayOfWeek.fri:
-      return 5;
-    case DayOfWeek.sat:
-      return 6;
-    case DayOfWeek.sun:
-      return 7;
-  }
-}
-
 class WeekMeal {
   final DayMeal mon;
   final DayMeal tue;
