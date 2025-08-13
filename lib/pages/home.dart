@@ -105,7 +105,7 @@ class _MealOfDaySwitchButton extends StatelessWidget {
     return TextButton.icon(
       onPressed: onPressed,
       label: SizedBox(
-        width: 40,
+        width: 64,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(

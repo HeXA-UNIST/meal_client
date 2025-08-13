@@ -17,9 +17,9 @@ const fri = MultiLanguageString(eng: "Fri", kor: "금");
 const sat = MultiLanguageString(eng: "Sat", kor: "토");
 const sun = MultiLanguageString(eng: "Sun", kor: "일");
 
-const breakfast = MultiLanguageString(eng: "BF", kor: "아침");
-const lunch = MultiLanguageString(eng: "LN", kor: "점심");
-const dinner = MultiLanguageString(eng: "DN", kor: "저녁");
+const breakfast = MultiLanguageString(eng: "Breakfast", kor: "아침");
+const lunch = MultiLanguageString(eng: "Lunch", kor: "점심");
+const dinner = MultiLanguageString(eng: "Dinner", kor: "저녁");
 
 const cannotLoadMeal = MultiLanguageString(
   eng: "Cannot load meal information.",
