@@ -546,28 +546,10 @@ class _HomePageState extends State<HomePage>
           drawer: const _HomePageDrawer(),
           appBar: AppBar(
             titleSpacing: 0,
-            title: MediaQuery.of(context).size.width >= 840
-                ? Row(
-                    children: [
-                      const SizedBox(width: 4),
-                      Text(
-                        string.getLocalizedDate(
-                          theDay.month,
-                          theDay.day,
-                          bapu.language,
-                        ),
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  )
-                : Text(
-                    string.getLocalizedDate(
-                      theDay.month,
-                      theDay.day,
-                      bapu.language,
-                    ),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
+            title: Text(
+              string.getLocalizedDate(theDay.month, theDay.day, bapu.language),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             actions: [
               _MealOfDaySwitchButton(
                 onPressed: () => setState(() {
