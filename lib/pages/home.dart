@@ -44,7 +44,8 @@ class _HomePageDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = MediaQuery.of(context).platformBrightness;
+    final theme = Theme.of(context);
+    final brightness = theme.brightness;
     final language = Provider.of<BapUModel>(context).language;
 
     return Drawer(
