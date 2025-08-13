@@ -485,7 +485,10 @@ class _HomePageState extends State<HomePage>
 
     _mondayOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(
+      length: DayOfWeek.values.length,
+      vsync: this,
+    );
     _tabController.index = _model.dayOfWeek.index;
     _tabController.addListener(
       () => setState(() {
