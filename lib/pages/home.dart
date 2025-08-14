@@ -217,6 +217,8 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+enum _CurrentlyScrolling { inner, outer }
+
 class _NestedVerticalPageTabBarView extends StatefulWidget {
   const _NestedVerticalPageTabBarView({
     super.key,
@@ -249,6 +251,7 @@ class _NestedVerticalPageTabBarViewState
   int? currentPageIndex;
   late List<bool> pageReverseList;
   double prevPage = 0;
+  _CurrentlyScrolling? currentlyScrolling;
 
   @override
   void initState() {
@@ -280,9 +283,11 @@ class _NestedVerticalPageTabBarViewState
       onVerticalDragStart: (details) {
         currentPageIndex = widget.pageController.page!.round();
         if (widget.pageController.page! % 1 == 0) {
+          currentlyScrolling = _CurrentlyScrolling.inner;
           currentController =
               scrollControllers[widget.tabController.index][currentPageIndex!];
         } else {
+          currentlyScrolling = _CurrentlyScrolling.outer;
           currentController = widget.pageController;
         }
         drag = currentController!.position.drag(details, () {});
@@ -303,7 +308,7 @@ class _NestedVerticalPageTabBarViewState
           endScrollExtent = controller.position.maxScrollExtent;
         }
 
-        if (controller.position.atEdge &&
+        if (currentlyScrolling == _CurrentlyScrolling.inner &&
             ((controller.position.pixels == startScrollExtent &&
                     details.delta.direction > 0) ||
                 (controller.position.pixels == endScrollExtent &&
@@ -325,6 +330,7 @@ class _NestedVerticalPageTabBarViewState
           });
 
           drag?.cancel();
+          currentlyScrolling = _CurrentlyScrolling.outer;
           drag = widget.pageController.position.drag(
             DragStartDetails(
               globalPosition: details.globalPosition,
@@ -333,14 +339,16 @@ class _NestedVerticalPageTabBarViewState
             () {},
           );
           currentController = widget.pageController;
-        } else if ((prevPage <= middlePage && middlePage <= currentPage) ||
-            (currentPage <= middlePage && middlePage <= prevPage)) {
+        } else if (currentlyScrolling == _CurrentlyScrolling.outer &&
+            ((prevPage <= middlePage && middlePage <= currentPage) ||
+                (currentPage <= middlePage && middlePage <= prevPage))) {
           drag?.cancel();
 
           currentPageIndex = widget.pageController.page!.round();
           final newController =
               scrollControllers[widget.tabController.index][currentPageIndex!];
 
+          currentlyScrolling = _CurrentlyScrolling.inner;
           drag = newController.position.drag(
             DragStartDetails(
               globalPosition: details.globalPosition,
@@ -359,6 +367,7 @@ class _NestedVerticalPageTabBarViewState
         drag = null;
         currentController = null;
         currentPageIndex = null;
+        currentlyScrolling = null;
       },
       child: PageView.builder(
         scrollDirection: Axis.vertical,
@@ -383,7 +392,9 @@ class _NestedVerticalPageTabBarViewState
                   scrollDirection: Axis.vertical,
                   controller: scrollControllers[tabIndex][pageIndex],
                   reverse: reverse,
-                  physics: const NeverScrollableScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
@@ -421,6 +432,7 @@ class _WeekMealTabBarView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scrollbar(
+      controller: pageController,
       child: _NestedVerticalPageTabBarView(
         pageController: pageController,
         tabController: tabController,
