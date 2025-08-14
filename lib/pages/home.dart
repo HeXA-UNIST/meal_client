@@ -48,7 +48,7 @@ class _Announcement extends StatelessWidget {
       title: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 12, color: theme.colorScheme.primaryContainer,),
+          SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 20, color: theme.colorScheme.primaryContainer,),
           SizedBox(height: 5),
           Text("Dialog Title"),
         ],
