@@ -61,7 +61,9 @@ class _Announcement extends StatelessWidget {
           SvgPicture.asset(
             'assets/imgs/bapu_logo.svg',
             height: 24,
-            color: theme.colorScheme.primaryContainer,
+            colorFilter: ColorFilter.mode(
+              theme.colorScheme.primaryContainer, BlendMode.srcIn,
+            ),
           ),
           SizedBox(height: 10),
           Text(title),
