@@ -340,6 +340,7 @@ class _NestedVerticalPageTabBarViewState
           );
           currentController = widget.pageController;
         } else if (currentlyScrolling == _CurrentlyScrolling.outer &&
+            !controller.position.atEdge &&
             ((prevPage <= middlePage && middlePage <= currentPage) ||
                 (currentPage <= middlePage && middlePage <= prevPage))) {
           drag?.cancel();
