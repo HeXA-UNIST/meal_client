@@ -2,6 +2,8 @@ import 'i18n.dart';
 
 const title = MultiLanguageString(eng: "BapU", kor: "밥먹어U");
 
+const close = MultiLanguageString(eng: "Close", kor: "닫기");
+
 const notification = MultiLanguageString(eng: "Announcement", kor: "공지사항");
 const operationinfo = MultiLanguageString(eng: "Operation Info", kor: "운영 정보");
 const contactdeveloper = MultiLanguageString(

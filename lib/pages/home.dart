@@ -40,6 +40,16 @@ class _DrawerItem extends StatelessWidget {
 }
 
 class _Announcement extends StatelessWidget {
+  final String close;
+  final String title;
+  final String content;
+
+  const _Announcement({
+    super.key,
+    required this.close,
+    required this.title,
+    required this.content,
+  });
   
   @override
   Widget build(BuildContext context) {
@@ -48,21 +58,21 @@ class _Announcement extends StatelessWidget {
       title: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 20, color: theme.colorScheme.primaryContainer,),
-          SizedBox(height: 5),
-          Text("Dialog Title"),
+          SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 24, color: theme.colorScheme.primaryContainer,),
+          SizedBox(height: 10),
+          Text(title),
         ],
       ),
       content: SingleChildScrollView(
         child: ListBody(
           children: [
-            Text("Dialog Content"),
+            Text(content),
           ],
         ),
       ),
       actions: [
         TextButton(
-          child: Text('Close'),
+          child: Text(close),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],
@@ -102,6 +112,7 @@ class _HomePageDrawer extends StatelessWidget {
                 context: context,
                 barrierDismissible: false,
                 builder: (BuildContext context) {
+<<<<<<< HEAD
                   return AlertDialog(
                     title: Text("Dialog Title"),
                     content: SingleChildScrollView(
@@ -113,6 +124,13 @@ class _HomePageDrawer extends StatelessWidget {
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
+=======
+                  return _Announcement(
+                    //TODO: get announcement from bapu
+                    close: "close",
+                    title: "Dialog Title",
+                    content: "Dialog Content",
+>>>>>>> abce44c (Announcement)
                   );
                 },
               );
