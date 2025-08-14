@@ -73,11 +73,7 @@ class _HomePageDrawer extends StatelessWidget {
                   return AlertDialog(
                     title: Text("Dialog Title"),
                     content: SingleChildScrollView(
-                      child: ListBody(
-                        children: [
-                          Text("Dialog Content"),
-                        ],
-                      ),
+                      child: ListBody(children: [Text("Dialog Content")]),
                     ),
                     actions: [
                       TextButton(
