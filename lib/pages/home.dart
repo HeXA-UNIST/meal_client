@@ -39,6 +39,37 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
+class _Announcement extends StatelessWidget {
+  
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 12, color: theme.colorScheme.primaryContainer,),
+          SizedBox(height: 5),
+          Text("Dialog Title"),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: ListBody(
+          children: [
+            Text("Dialog Content"),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          child: Text('Close'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+}
+
 class _HomePageDrawer extends StatelessWidget {
   const _HomePageDrawer({super.key});
 
@@ -66,6 +97,7 @@ class _HomePageDrawer extends StatelessWidget {
             icon: Icons.notifications_active,
             title: string.notification.getLocalizedString(language),
             onTap: () {
+              Navigator.of(context).pop();
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -370,7 +402,7 @@ class _NestedVerticalPageTabBarViewState
         scrollDirection: Axis.vertical,
         itemCount: widget.pageCount,
         controller: widget.pageController,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const NeverScrollableScrollPhysics(parent: ClampingScrollPhysics()),
         onPageChanged: widget.onPageChanged,
         itemBuilder: (BuildContext context, int pageIndex) {
           return TabBarView(
