@@ -9,12 +9,12 @@ import '../data.dart';
 import '../i18n.dart';
 import '../string.dart' as string;
 
-class DrawerItem extends StatelessWidget {
+class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
 
-  const DrawerItem({
+  const _DrawerItem({
     super.key,
     required this.icon,
     required this.title,
@@ -62,22 +62,45 @@ class _HomePageDrawer extends StatelessWidget {
             margin: EdgeInsets.only(bottom: 50, left: 40),
             child: SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 36),
           ),
-          DrawerItem(
+          _DrawerItem(
             icon: Icons.notifications_active,
             title: string.notification.getLocalizedString(language),
-            onTap: () {},
+            onTap: () {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text("Dialog Title"),
+                    content: SingleChildScrollView(
+                      child: ListBody(
+                        children: [
+                          Text("Dialog Content"),
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        child: Text("Close"),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
-          DrawerItem(
+          _DrawerItem(
             icon: Icons.info,
             title: string.operationinfo.getLocalizedString(language),
             onTap: () {},
           ),
-          DrawerItem(
+          _DrawerItem(
             icon: Icons.help_outline_outlined,
             title: string.contactdeveloper.getLocalizedString(language),
             onTap: () {},
           ),
-          DrawerItem(
+          _DrawerItem(
             icon: Icons.language,
             title: string.language.getLocalizedString(language),
             onTap: () {},
