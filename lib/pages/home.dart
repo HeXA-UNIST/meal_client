@@ -112,11 +112,17 @@ class _HomePageDrawer extends StatelessWidget {
                 context: context,
                 barrierDismissible: false,
                 builder: (BuildContext context) {
-                  return _Announcement(
-                    //TODO: get announcement from bapu
-                    close: "close",
-                    title: "Dialog Title",
-                    content: "Dialog Content",
+                  return AlertDialog(
+                    title: Text("Dialog Title"),
+                    content: SingleChildScrollView(
+                      child: ListBody(children: [Text("Dialog Content")]),
+                    ),
+                    actions: [
+                      TextButton(
+                        child: Text("Close"),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
                   );
                 },
               );
