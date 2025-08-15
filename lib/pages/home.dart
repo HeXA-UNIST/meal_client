@@ -110,7 +110,7 @@ class _HomePageDrawer extends StatelessWidget {
           ),
           _DrawerItem(
             icon: Icons.notifications_active,
-            title: string.notification.getLocalizedString(language),
+            title: string.announcement.getLocalizedString(language),
             onTap: () async {
               Navigator.of(context).pop();
               final sharedPreferences = await SharedPreferences.getInstance();
@@ -122,7 +122,7 @@ class _HomePageDrawer extends StatelessWidget {
                   builder: (BuildContext context) {
                     return _Announcement(
                       close: string.close.getLocalizedString(language),
-                      title: string.notification.getLocalizedString(language),
+                      title: string.announcement.getLocalizedString(language),
                       content: announcement,
                     );
                   },
@@ -737,7 +737,7 @@ class _HomePageState extends State<HomePage>
                 return Consumer<BapUModel>(
                   builder: (context, bapu, child) => _Announcement(
                     close: string.close.getLocalizedString(bapu.language),
-                    title: string.notification.getLocalizedString(
+                    title: string.announcement.getLocalizedString(
                       bapu.language,
                     ),
                     content: announcement,
