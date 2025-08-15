@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../model.dart';
 import '../meal.dart';
@@ -155,7 +156,8 @@ class _HomePageDrawer extends StatelessWidget {
           _DrawerItem(
             icon: Icons.help_outline_outlined,
             title: string.contactdeveloper.getLocalizedString(language),
-            onTap: () {},
+            onTap: () async =>
+                await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj")),
           ),
           /*
           _DrawerItem(
