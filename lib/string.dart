@@ -10,6 +10,10 @@ const contactdeveloper = MultiLanguageString(
   eng: "Contact Developer",
   kor: "개발자에게 문의하기",
 );
+const ossLicense = MultiLanguageString(
+  eng: "Open Source License",
+  kor: "오픈소스 라이선스",
+);
 
 const mon = MultiLanguageString(eng: "Mon", kor: "월");
 const tue = MultiLanguageString(eng: "Tue", kor: "화");

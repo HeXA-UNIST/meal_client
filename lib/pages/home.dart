@@ -161,6 +161,11 @@ class _HomePageDrawer extends StatelessWidget {
             onTap: () {},
           ),
           */
+          _DrawerItem(
+            icon: Icons.copyright,
+            title: string.ossLicense.getLocalizedString(language),
+            onTap: () => showLicensePage(context: context),
+          ),
         ],
       ),
     );
