@@ -98,3 +98,8 @@ WeekMeal parseRawMeal(String jsonStr) {
 
 Future<String> fetchRawAnnouncement() async =>
     await _fetchRawString("https://meal.hexa.pro/notice");
+
+String parseRawAnnouncement(String rawAnnouncement) {
+  final map = jsonDecode(rawAnnouncement) as Map<String, dynamic>;
+  return map["content"] as String;
+}

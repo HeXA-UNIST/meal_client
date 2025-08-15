@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model.dart';
 import '../meal.dart';
 import '../data.dart';
 import '../i18n.dart';
+import '../api_v2.dart';
 import '../string.dart' as string;
 
 class _DrawerItem extends StatelessWidget {
@@ -108,26 +111,23 @@ class _HomePageDrawer extends StatelessWidget {
           _DrawerItem(
             icon: Icons.notifications_active,
             title: string.notification.getLocalizedString(language),
-            onTap: () {
+            onTap: () async {
               Navigator.of(context).pop();
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: Text("Dialog Title"),
-                    content: SingleChildScrollView(
-                      child: ListBody(children: [Text("Dialog Content")]),
-                    ),
-                    actions: [
-                      TextButton(
-                        child: Text("Close"),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  );
-                },
-              );
+              final sharedPreferences = await SharedPreferences.getInstance();
+              final announcement = sharedPreferences.getString("announceTime");
+              if (announcement != null && context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
+                    return _Announcement(
+                      close: string.close.getLocalizedString(language),
+                      title: string.notification.getLocalizedString(language),
+                      content: announcement,
+                    );
+                  },
+                );
+              }
             },
           ),
           _DrawerItem(
@@ -720,6 +720,37 @@ class _HomePageState extends State<HomePage>
       (cache) => fetchAndCacheMealData(),
       onError: (e) => fetchAndCacheMealData(),
     );
+
+    fetchRawAnnouncement().then((rawAnnouncement) async {
+      const key = "announceTime";
+      try {
+        final announcement = parseRawAnnouncement(rawAnnouncement);
+        final sharedPreferences = await SharedPreferences.getInstance();
+        final prevAnnouncement = sharedPreferences.getString(key);
+        if (announcement != prevAnnouncement) {
+          sharedPreferences.setString(key, announcement);
+          SchedulerBinding.instance.addPostFrameCallback((duration) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) {
+                return Consumer<BapUModel>(
+                  builder: (context, bapu, child) => _Announcement(
+                    close: string.close.getLocalizedString(bapu.language),
+                    title: string.notification.getLocalizedString(
+                      bapu.language,
+                    ),
+                    content: announcement,
+                  ),
+                );
+              },
+            );
+          });
+        }
+      } catch (_) {
+        // ignore
+      }
+    });
 
     super.initState();
   }
