@@ -5,16 +5,17 @@ import 'package:http/http.dart' as http;
 
 import 'meal.dart';
 
-const _url = "https://meal.hexa.pro/mainpage/data";
-
-Future<String> fetchRawMeal() async {
-  final response = await http.get(Uri.parse(_url));
+Future<String> _fetchRawString(String url) async {
+  final response = await http.get(Uri.parse(url));
   if (response.statusCode != 200) {
     throw HttpException("Not 200");
   }
 
   return response.body;
 }
+
+Future<String> fetchRawMeal() async =>
+    await _fetchRawString("https://meal.hexa.pro/mainpage/data");
 
 WeekMeal parseRawMeal(String jsonStr) {
   final weekMeal = WeekMeal.empty();
@@ -94,3 +95,6 @@ WeekMeal parseRawMeal(String jsonStr) {
 
   return weekMeal;
 }
+
+Future<String> fetchRawAnnouncement() async =>
+    await _fetchRawString("https://meal.hexa.pro/notice");
