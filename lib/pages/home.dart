@@ -112,25 +112,11 @@ class _HomePageDrawer extends StatelessWidget {
                 context: context,
                 barrierDismissible: false,
                 builder: (BuildContext context) {
-<<<<<<< HEAD
-                  return AlertDialog(
-                    title: Text("Dialog Title"),
-                    content: SingleChildScrollView(
-                      child: ListBody(children: [Text("Dialog Content")]),
-                    ),
-                    actions: [
-                      TextButton(
-                        child: Text("Close"),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-=======
                   return _Announcement(
                     //TODO: get announcement from bapu
                     close: "close",
                     title: "Dialog Title",
                     content: "Dialog Content",
->>>>>>> abce44c (Announcement)
                   );
                 },
               );
@@ -446,9 +432,7 @@ class _NestedVerticalPageTabBarViewState
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
                     ),
-                    child: IntrinsicHeight(
-                      child: widget.builder(context, tabIndex, pageIndex),
-                    ),
+                    child: widget.builder(context, tabIndex, pageIndex),
                   ),
                 ),
               );
@@ -459,6 +443,51 @@ class _NestedVerticalPageTabBarViewState
     );
   }
 }
+
+class _MealCard extends StatelessWidget {
+  const _MealCard({super.key, required this.title, required this.meal});
+
+  final String title;
+  final Meal meal;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card.filled(
+      color: theme.colorScheme.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadiusGeometry.circular(24),
+      ),
+      elevation: 0,
+      child: Padding(
+        padding: EdgeInsetsGeometry.symmetric(vertical: 8),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 196),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:
+                [
+                      Text(title),
+                      ...meal.menu.map((aMenu) => Text(aMenu)),
+                      Text("${meal.kcal} kcal"),
+                    ]
+                    .map(
+                      (widget) => Padding(
+                        padding: EdgeInsetsGeometry.symmetric(horizontal: 16),
+                        child: widget,
+                      ),
+                    )
+                    .toList(growable: false),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _cardWidth = 196;
 
 class _WeekMealTabBarView extends StatelessWidget {
   const _WeekMealTabBarView({
@@ -491,34 +520,77 @@ class _WeekMealTabBarView extends StatelessWidget {
               .fromDayOfWeek(DayOfWeek.values[tabIndex])
               .fromMealOfDay(MealOfDay.values[pageIndex]);
           return SafeArea(
-            child: Wrap(
-              // TODO - replace Column and Text to meal card
-              children: [
-                ...nowMeal.dormitory.map(
-                  (meal) => Column(
-                    children: [
-                      Text("Dormitory"),
-                      ...meal.menu.map((aMenu) => Text(aMenu)),
-                    ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final cards = <Widget>[
+                  ...nowMeal.dormitory.map(
+                    (meal) => _MealCard(title: "Dormitory", meal: meal),
                   ),
-                ),
-                ...nowMeal.student.map(
-                  (meal) => Column(
-                    children: [
-                      Text("Student"),
-                      ...meal.menu.map((aMenu) => Text(aMenu)),
-                    ],
+                  ...nowMeal.student.map(
+                    (meal) => _MealCard(title: "Student", meal: meal),
                   ),
-                ),
-                ...nowMeal.faculty.map(
-                  (meal) => Column(
-                    children: [
-                      Text("Faculty"),
-                      ...meal.menu.map((aMenu) => Text(aMenu)),
-                    ],
+                  ...nowMeal.faculty.map(
+                    (meal) => _MealCard(title: "Faculty", meal: meal),
                   ),
-                ),
-              ],
+                ];
+
+                final int columns;
+                final int leftFill;
+                {
+                  final divided = (constraints.maxWidth / _cardWidth).toInt();
+                  if (cards.length <= divided) {
+                    columns = cards.length;
+                    leftFill = 0;
+                  } else {
+                    columns = divided;
+                    leftFill = (columns - (cards.length / columns).toInt());
+                  }
+                }
+                for (var i = 0; i < leftFill; i++) {
+                  cards.add(const SizedBox());
+                }
+
+                final rows = (cards.length / columns).toInt();
+                final row = <TableRow>[];
+                for (var i = 0; i < rows; i++) {
+                  final end = (i + 1) * columns;
+                  row.add(
+                    TableRow(
+                      children: [
+                        TableCell(child: SizedBox()),
+                        ...cards
+                            .sublist(
+                              i * columns,
+                              end < cards.length ? end : cards.length,
+                            )
+                            .map((card) => TableCell(child: card)),
+                        TableCell(child: SizedBox()),
+                      ],
+                    ),
+                  );
+                }
+                final remain = cards
+                    .sublist(columns * rows)
+                    .map((card) => TableCell(child: card))
+                    .toList();
+                if (remain.isNotEmpty) {
+                  remain.insert(0, TableCell(child: SizedBox()));
+                  remain.add(TableCell(child: SizedBox()));
+                  row.add(TableRow(children: remain));
+                }
+
+                return Table(
+                  border: const TableBorder(),
+                  defaultColumnWidth: FixedColumnWidth(_cardWidth.toDouble()),
+                  columnWidths: {
+                    0: FlexColumnWidth(),
+                    columns + 1: FlexColumnWidth(),
+                  },
+                  defaultVerticalAlignment:
+                      TableCellVerticalAlignment.intrinsicHeight,
+                  children: row,
+                );
+              },
             ),
           );
         },
