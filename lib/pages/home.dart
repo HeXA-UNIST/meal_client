@@ -463,23 +463,21 @@ class _MealCard extends StatelessWidget {
       ),
       elevation: 0,
       child: Padding(
-        padding: EdgeInsetsGeometry.symmetric(vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
+        padding: EdgeInsetsGeometry.symmetric(vertical: 8, horizontal: 16),
+        child: Flex(
+          direction: Axis.vertical,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children:
-              [
-                    Text(title),
-                    ...meal.menu.map((aMenu) => Text(aMenu)),
-                    Text("${meal.kcal} kcal"),
-                  ]
-                  .map(
-                    (widget) => Padding(
-                      padding: EdgeInsetsGeometry.symmetric(horizontal: 16),
-                      child: widget,
-                    ),
-                  )
-                  .toList(growable: false),
+          children: [
+            Text(title),
+            ...meal.menu.map((aMenu) => Text(aMenu)),
+            Flexible(
+              child: Align(
+                alignment: Alignment.bottomRight,
+                child: Text("${meal.kcal} kcal"),
+              ),
+            ),
+          ],
         ),
       ),
     );
