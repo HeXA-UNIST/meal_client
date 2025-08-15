@@ -50,7 +50,7 @@ class _Announcement extends StatelessWidget {
     required this.title,
     required this.content,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -58,17 +58,17 @@ class _Announcement extends StatelessWidget {
       title: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 24, color: theme.colorScheme.primaryContainer,),
+          SvgPicture.asset(
+            'assets/imgs/bapu_logo.svg',
+            height: 24,
+            color: theme.colorScheme.primaryContainer,
+          ),
           SizedBox(height: 10),
           Text(title),
         ],
       ),
       content: SingleChildScrollView(
-        child: ListBody(
-          children: [
-            Text(content),
-          ],
-        ),
+        child: ListBody(children: [Text(content)]),
       ),
       actions: [
         TextButton(
@@ -406,7 +406,9 @@ class _NestedVerticalPageTabBarViewState
         scrollDirection: Axis.vertical,
         itemCount: widget.pageCount,
         controller: widget.pageController,
-        physics: const NeverScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+        physics: const NeverScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
         onPageChanged: widget.onPageChanged,
         itemBuilder: (BuildContext context, int pageIndex) {
           return TabBarView(
