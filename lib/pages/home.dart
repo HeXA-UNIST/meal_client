@@ -133,7 +133,21 @@ class _HomePageDrawer extends StatelessWidget {
           _DrawerItem(
             icon: Icons.info,
             title: string.operationinfo.getLocalizedString(language),
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).pop();
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return _Announcement(
+                    //TODO: get Operation Info from bapu
+                    close: "close",
+                    title: "Operation Info",
+                    content: "Operation Info Content",
+                  );
+                },
+              );
+            },
           ),
           _DrawerItem(
             icon: Icons.help_outline_outlined,
