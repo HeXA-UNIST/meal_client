@@ -497,7 +497,6 @@ class _MealCard extends StatelessWidget {
               child: Text(aMenu),
             ),
           ),
-          const SizedBox(height: 4),
           Flexible(
             child: Align(
               alignment: Alignment.bottomRight,
