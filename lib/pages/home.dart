@@ -469,24 +469,53 @@ class _MealCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadiusGeometry.circular(24),
       ),
+      clipBehavior: Clip.antiAlias,
       elevation: 0,
-      child: Padding(
-        padding: EdgeInsetsGeometry.symmetric(vertical: 8, horizontal: 16),
-        child: Flex(
-          direction: Axis.vertical,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title),
-            ...meal.menu.map((aMenu) => Text(aMenu)),
-            Flexible(
-              child: Align(
-                alignment: Alignment.bottomRight,
-                child: Text("${meal.kcal} kcal"),
+      child: Flex(
+        direction: Axis.vertical,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ColoredBox(
+            color: theme.colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Center(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall!.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          ...meal.menu.map(
+            (aMenu) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(aMenu),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Flexible(
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: meal.kcal == null
+                    ? const SizedBox()
+                    : Text(
+                        "${meal.kcal} kcal",
+                        style: theme.textTheme.labelLarge,
+                      ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
