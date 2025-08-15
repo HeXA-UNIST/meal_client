@@ -465,7 +465,10 @@ class _NestedVerticalPageTabBarViewState
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
                     ),
-                    child: widget.builder(context, tabIndex, pageIndex),
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 10),
+                      child: widget.builder(context, tabIndex, pageIndex),
+                    ),
                   ),
                 ),
               );
