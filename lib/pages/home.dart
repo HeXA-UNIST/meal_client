@@ -154,11 +154,13 @@ class _HomePageDrawer extends StatelessWidget {
             title: string.contactdeveloper.getLocalizedString(language),
             onTap: () {},
           ),
+          /*
           _DrawerItem(
             icon: Icons.language,
             title: string.language.getLocalizedString(language),
             onTap: () {},
           ),
+          */
         ],
       ),
     );
