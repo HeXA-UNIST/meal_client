@@ -484,7 +484,7 @@ class _MealCard extends StatelessWidget {
                 )
                 .toColor(),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Center(
                 child: Text(
                   title,
@@ -501,13 +501,14 @@ class _MealCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           ...meal.menu.map(
             (aMenu) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(aMenu),
             ),
           ),
+          const SizedBox(height: 8),
           Flexible(
             child: Align(
               alignment: Alignment.bottomRight,
@@ -520,11 +521,12 @@ class _MealCard extends StatelessWidget {
                     ? const SizedBox()
                     : Text(
                         "${meal.kcal} kcal",
-                        style: theme.textTheme.labelLarge,
+                        style: theme.textTheme.labelMedium,
                       ),
               ),
             ),
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );
