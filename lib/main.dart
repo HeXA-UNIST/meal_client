@@ -77,12 +77,9 @@ class MyApp extends StatelessWidget {
                   surfaceContainer: bapu.brightness == Brightness.light
                       ? Color.fromARGB(0xff, 0xfA, 0xfA, 0xfA)
                       : Color.fromARGB(0xff, 0xf, 0xf, 0xf),
-                  surfaceContainerHigh: bapu.brightness == Brightness.light
-                      ? Color.fromARGB(0xff, 0xf0, 0xf0, 0xf0)
-                      : Color.fromARGB(0xff, 0x19, 0x19, 0x19),
                 ),
           ),
-          scrollBehavior:MaterialScrollBehavior().copyWith(overscroll: false),
+          scrollBehavior: MaterialScrollBehavior().copyWith(overscroll: false),
           home: child,
         );
       },

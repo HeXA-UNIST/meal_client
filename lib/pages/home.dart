@@ -465,7 +465,7 @@ class _MealCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Card.filled(
-      color: theme.colorScheme.surfaceContainerHigh,
+      color: theme.colorScheme.surfaceContainer,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadiusGeometry.circular(24),
       ),
@@ -477,14 +477,25 @@ class _MealCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ColoredBox(
-            color: theme.colorScheme.primaryContainer,
+            color: HSLColor.fromColor(theme.colorScheme.primaryContainer)
+                .withSaturation(0.5)
+                .withLightness(
+                  theme.brightness == Brightness.light ? 0.94 : 0.06,
+                )
+                .toColor(),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Center(
                 child: Text(
                   title,
                   style: theme.textTheme.titleSmall!.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
+                    color:
+                        HSLColor.fromColor(theme.colorScheme.primaryContainer)
+                            .withSaturation(0.8)
+                            .withLightness(
+                              theme.brightness == Brightness.light ? 0.3 : 0.7,
+                            )
+                            .toColor(),
                   ),
                 ),
               ),
