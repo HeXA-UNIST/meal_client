@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -758,6 +760,16 @@ class _HomePageState extends State<HomePage>
         // ignore
       }
     });
+
+    rootBundle
+        .loadString("assets/fonts/Pretendard-License.txt")
+        .then(
+          (fontLicense) => LicenseRegistry.addLicense(
+            () => Stream<LicenseEntry>.value(
+              LicenseEntryWithLineBreaks(["Pretendard"], fontLicense),
+            ),
+          ),
+        );
 
     super.initState();
   }
