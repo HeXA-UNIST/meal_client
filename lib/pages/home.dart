@@ -513,7 +513,7 @@ class _MealCard extends StatelessWidget {
                 )
                 .toColor(),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               child: Center(
                 child: Text(
                   title,
