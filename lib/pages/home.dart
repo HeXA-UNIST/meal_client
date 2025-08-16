@@ -562,7 +562,8 @@ class _MealCard extends StatelessWidget {
   }
 }
 
-const _cardWidth = 196;
+const _cardMinWidth = 144;
+const _cardMaxWidth = 196;
 
 class _WeekMealTabBarView extends StatelessWidget {
   const _WeekMealTabBarView({
@@ -630,10 +631,23 @@ class _WeekMealTabBarView extends StatelessWidget {
                   ),
                 ];
 
+                final double cardWidth;
                 final int columns;
                 final int leftFill;
                 {
-                  final divided = (constraints.maxWidth / _cardWidth).toInt();
+                  var divided = (constraints.maxWidth / _cardMaxWidth).toInt();
+                  if (divided < 2) {
+                    final halfCardWidth = constraints.maxWidth / 2;
+                    if (halfCardWidth > _cardMinWidth) {
+                      divided = 2;
+                      cardWidth = halfCardWidth;
+                    } else {
+                      cardWidth = _cardMaxWidth.toDouble();
+                    }
+                  } else {
+                    cardWidth = _cardMaxWidth.toDouble();
+                  }
+
                   if (cards.length <= divided) {
                     columns = cards.length;
                     leftFill = 0;
@@ -677,7 +691,7 @@ class _WeekMealTabBarView extends StatelessWidget {
 
                 return Table(
                   border: const TableBorder(),
-                  defaultColumnWidth: FixedColumnWidth(_cardWidth.toDouble()),
+                  defaultColumnWidth: FixedColumnWidth(cardWidth),
                   columnWidths: {
                     0: FlexColumnWidth(),
                     columns + 1: FlexColumnWidth(),
