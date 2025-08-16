@@ -143,7 +143,7 @@ class _HomePageDrawer extends StatelessWidget {
                 barrierDismissible: false,
                 builder: (BuildContext context) {
                   return _Announcement(
-                    close: "close",
+                    close: string.close.getLocalizedString(language),
                     title: string.operationhours.getLocalizedString(language),
                     content: string.operationhourscontent.getLocalizedString(
                       language,
