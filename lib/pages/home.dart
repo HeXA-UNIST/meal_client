@@ -495,6 +495,7 @@ class _MealCard extends StatelessWidget {
 
     return Card.filled(
       color: theme.colorScheme.surfaceContainer,
+      margin: EdgeInsetsGeometry.all(8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadiusGeometry.circular(24),
       ),
