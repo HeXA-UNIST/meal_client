@@ -18,7 +18,7 @@ void main() {
       create: (context) {
         final platformDispatcher = PlatformDispatcher.instance;
         final Language language;
-        if (platformDispatcher.locale.languageCode == "ko") {
+        if ( /* platformDispatcher.locale.languageCode == "ko" */ true) {
           language = Language.kor;
         } else {
           language = Language.eng;
@@ -31,7 +31,7 @@ void main() {
 
         platformDispatcher.onLocaleChanged = () {
           final Language language;
-          if (platformDispatcher.locale.languageCode == "ko") {
+          if ( /* platformDispatcher.locale.languageCode == "ko" */ true) {
             language = Language.kor;
           } else {
             language = Language.eng;
