@@ -68,7 +68,8 @@ class _Announcement extends StatelessWidget {
             'assets/imgs/bapu_logo.svg',
             height: 24,
             colorFilter: ColorFilter.mode(
-              theme.colorScheme.primaryContainer, BlendMode.srcIn,
+              theme.colorScheme.primaryContainer,
+              BlendMode.srcIn,
             ),
           ),
           SizedBox(height: 10),
@@ -345,140 +346,152 @@ class _NestedVerticalPageTabBarViewState
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragStart: (details) {
-        currentPageIndex = widget.pageController.page!.round();
-        if (widget.pageController.page! % 1 == 0) {
-          currentlyScrolling = _CurrentlyScrolling.inner;
-          currentController =
-              scrollControllers[widget.tabController.index][currentPageIndex!];
-        } else {
-          currentlyScrolling = _CurrentlyScrolling.outer;
-          currentController = widget.pageController;
-        }
-        drag = currentController!.position.drag(details, () {});
-        prevPage = widget.pageController.page!;
-      },
-      onVerticalDragUpdate: (details) {
-        final controller = currentController!;
-        final currentPage = widget.pageController.page!;
-        final middlePage = ((currentPage + prevPage) / 2).round();
-
-        final double startScrollExtent;
-        final double endScrollExtent;
-        if (pageReverseList[currentPageIndex!]) {
-          startScrollExtent = controller.position.maxScrollExtent;
-          endScrollExtent = controller.position.minScrollExtent;
-        } else {
-          startScrollExtent = controller.position.minScrollExtent;
-          endScrollExtent = controller.position.maxScrollExtent;
-        }
-
-        if (currentlyScrolling == _CurrentlyScrolling.inner &&
-            ((controller.position.pixels == startScrollExtent &&
-                    details.delta.direction > 0) ||
-                (controller.position.pixels == endScrollExtent &&
-                    details.delta.direction < 0))) {
-          setState(() {
-            if (controller.position.pixels == startScrollExtent &&
-                details.delta.direction > 0) {
-              pageReverseList.fillRange(0, currentPageIndex!, true);
-            } else if (controller.position.pixels == endScrollExtent &&
-                details.delta.direction < 0) {
-              if (currentPageIndex! < widget.pageCount - 1) {
-                pageReverseList.fillRange(
-                  currentPageIndex! + 1,
-                  widget.pageCount - 1,
-                  false,
-                );
-              }
-            }
-          });
-
-          drag?.cancel();
-          currentlyScrolling = _CurrentlyScrolling.outer;
-          drag = widget.pageController.position.drag(
-            DragStartDetails(
-              globalPosition: details.globalPosition,
-              localPosition: details.localPosition,
+    return Stack(
+      children: [
+        IgnorePointer(
+          child: PageView.builder(
+            scrollDirection: Axis.vertical,
+            itemCount: widget.pageCount,
+            controller: widget.pageController,
+            physics: const NeverScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
             ),
-            () {},
-          );
-          currentController = widget.pageController;
-        } else if (currentlyScrolling == _CurrentlyScrolling.outer &&
-            !controller.position.atEdge &&
-            ((prevPage <= middlePage && middlePage <= currentPage) ||
-                (currentPage <= middlePage && middlePage <= prevPage))) {
-          drag?.cancel();
+            onPageChanged: widget.onPageChanged,
+            itemBuilder: (BuildContext context, int pageIndex) {
+              return TabBarView(
+                controller: widget.tabController,
+                children: List.generate(widget.tabCount, (tabIndex) {
+                  final bool reverse;
+                  if (tabIndex == widget.tabController.index &&
+                      pageReverseList[pageIndex]) {
+                    reverse = true;
+                  } else {
+                    reverse = false;
+                  }
 
-          currentPageIndex = widget.pageController.page!.round();
-          final newController =
-              scrollControllers[widget.tabController.index][currentPageIndex!];
-
-          currentlyScrolling = _CurrentlyScrolling.inner;
-          drag = newController.position.drag(
-            DragStartDetails(
-              globalPosition: details.globalPosition,
-              localPosition: details.localPosition,
-            ),
-            () {},
-          );
-          currentController = newController;
-        }
-
-        drag?.update(details);
-        prevPage = currentPage;
-      },
-      onVerticalDragEnd: (details) {
-        drag?.end(details);
-        drag = null;
-        currentController = null;
-        currentPageIndex = null;
-        currentlyScrolling = null;
-      },
-      child: PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: widget.pageCount,
-        controller: widget.pageController,
-        physics: const NeverScrollableScrollPhysics(
-          parent: ClampingScrollPhysics(),
-        ),
-        onPageChanged: widget.onPageChanged,
-        itemBuilder: (BuildContext context, int pageIndex) {
-          return TabBarView(
-            controller: widget.tabController,
-            children: List.generate(widget.tabCount, (tabIndex) {
-              final bool reverse;
-              if (tabIndex == widget.tabController.index &&
-                  pageReverseList[pageIndex]) {
-                reverse = true;
-              } else {
-                reverse = false;
-              }
-
-              return LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  controller: scrollControllers[tabIndex][pageIndex],
-                  reverse: reverse,
-                  physics: const NeverScrollableScrollPhysics(
-                    parent: ClampingScrollPhysics(),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
+                  return LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      controller: scrollControllers[tabIndex][pageIndex],
+                      reverse: reverse,
+                      physics: const NeverScrollableScrollPhysics(
+                        parent: ClampingScrollPhysics(),
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 10),
+                          child: widget.builder(context, tabIndex, pageIndex),
+                        ),
+                      ),
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 10),
-                      child: widget.builder(context, tabIndex, pageIndex),
-                    ),
-                  ),
-                ),
+                  );
+                }, growable: false),
               );
-            }, growable: false),
-          );
-        },
-      ),
+            },
+          ),
+        ),
+        SafeArea(
+          child: GestureDetector(
+            onVerticalDragStart: (details) {
+              currentPageIndex = widget.pageController.page!.round();
+              if (widget.pageController.page! % 1 == 0) {
+                currentlyScrolling = _CurrentlyScrolling.inner;
+                currentController =
+                    scrollControllers[widget
+                        .tabController
+                        .index][currentPageIndex!];
+              } else {
+                currentlyScrolling = _CurrentlyScrolling.outer;
+                currentController = widget.pageController;
+              }
+              drag = currentController!.position.drag(details, () {});
+              prevPage = widget.pageController.page!;
+            },
+            onVerticalDragUpdate: (details) {
+              final controller = currentController!;
+              final currentPage = widget.pageController.page!;
+              final middlePage = ((currentPage + prevPage) / 2).round();
+
+              final double startScrollExtent;
+              final double endScrollExtent;
+              if (pageReverseList[currentPageIndex!]) {
+                startScrollExtent = controller.position.maxScrollExtent;
+                endScrollExtent = controller.position.minScrollExtent;
+              } else {
+                startScrollExtent = controller.position.minScrollExtent;
+                endScrollExtent = controller.position.maxScrollExtent;
+              }
+
+              if (currentlyScrolling == _CurrentlyScrolling.inner &&
+                  ((controller.position.pixels == startScrollExtent &&
+                          details.delta.direction > 0) ||
+                      (controller.position.pixels == endScrollExtent &&
+                          details.delta.direction < 0))) {
+                setState(() {
+                  if (controller.position.pixels == startScrollExtent &&
+                      details.delta.direction > 0) {
+                    pageReverseList.fillRange(0, currentPageIndex!, true);
+                  } else if (controller.position.pixels == endScrollExtent &&
+                      details.delta.direction < 0) {
+                    if (currentPageIndex! < widget.pageCount - 1) {
+                      pageReverseList.fillRange(
+                        currentPageIndex! + 1,
+                        widget.pageCount - 1,
+                        false,
+                      );
+                    }
+                  }
+                });
+
+                drag?.cancel();
+                currentlyScrolling = _CurrentlyScrolling.outer;
+                drag = widget.pageController.position.drag(
+                  DragStartDetails(
+                    globalPosition: details.globalPosition,
+                    localPosition: details.localPosition,
+                  ),
+                  () {},
+                );
+                currentController = widget.pageController;
+              } else if (currentlyScrolling == _CurrentlyScrolling.outer &&
+                  !controller.position.atEdge &&
+                  ((prevPage <= middlePage && middlePage <= currentPage) ||
+                      (currentPage <= middlePage && middlePage <= prevPage))) {
+                drag?.cancel();
+
+                currentPageIndex = widget.pageController.page!.round();
+                final newController =
+                    scrollControllers[widget
+                        .tabController
+                        .index][currentPageIndex!];
+
+                currentlyScrolling = _CurrentlyScrolling.inner;
+                drag = newController.position.drag(
+                  DragStartDetails(
+                    globalPosition: details.globalPosition,
+                    localPosition: details.localPosition,
+                  ),
+                  () {},
+                );
+                currentController = newController;
+              }
+
+              drag?.update(details);
+              prevPage = currentPage;
+            },
+            onVerticalDragEnd: (details) {
+              drag?.end(details);
+              drag = null;
+              currentController = null;
+              currentPageIndex = null;
+              currentlyScrolling = null;
+            },
+          ),
+        ),
+      ],
     );
   }
 }
