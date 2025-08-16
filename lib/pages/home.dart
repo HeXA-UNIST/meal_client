@@ -134,7 +134,7 @@ class _HomePageDrawer extends StatelessWidget {
           ),
           _DrawerItem(
             icon: Icons.info,
-            title: string.operationinfo.getLocalizedString(language),
+            title: string.operationhours.getLocalizedString(language),
             onTap: () {
               Navigator.of(context).pop();
               showDialog(
@@ -142,10 +142,11 @@ class _HomePageDrawer extends StatelessWidget {
                 barrierDismissible: false,
                 builder: (BuildContext context) {
                   return _Announcement(
-                    //TODO: get Operation Info from bapu
                     close: "close",
-                    title: "Operation Info",
-                    content: "Operation Info Content",
+                    title: string.operationhours.getLocalizedString(language),
+                    content: string.operationhourscontent.getLocalizedString(
+                      language,
+                    ),
                   );
                 },
               );

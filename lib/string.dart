@@ -5,7 +5,10 @@ const title = MultiLanguageString(eng: "BapU", kor: "밥먹어U");
 const close = MultiLanguageString(eng: "Close", kor: "닫기");
 
 const announcement = MultiLanguageString(eng: "Announcement", kor: "공지사항");
-const operationinfo = MultiLanguageString(eng: "Operation Info", kor: "운영 정보");
+const operationhours = MultiLanguageString(
+  eng: "Operation Hours",
+  kor: "운영 시간",
+);
 const contactdeveloper = MultiLanguageString(
   eng: "Contact Developer",
   kor: "개발자에게 문의하기",
@@ -88,3 +91,14 @@ String getLocalizedDate(int month, int day, Language lang) {
 
   return date;
 }
+
+const operationhourscontent = MultiLanguageString(
+  eng:
+      "Dormitory\n Breakfast 08:00 ~ 09:20\n Lunch 11:30 ~ 13:30\n Dinner 17:30 ~ 19:00\n\n"
+      "Student\n Lunch 11:00 ~ 13:30\n Dinner 17:00 ~ 19:00\n\n"
+      "Faculty\n Lunch 11:30 ~ 13:30\n Dinner 17:30 ~ 19:30",
+  kor:
+      "기숙사식당\n 아침 08:00 ~ 09:20\n 점심 11:30 ~ 13:30\n 저녁 17:30 ~ 19:00\n\n"
+      "학생식당\n 점심 11:00 ~ 13:30\n 저녁 17:00 ~ 19:00\n\n"
+      "교직원식당\n 점심 11:30 ~ 13:30\n 저녁 17:30 ~ 19:30",
+);
