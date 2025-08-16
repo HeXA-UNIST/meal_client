@@ -576,7 +576,7 @@ class _MealCard extends StatelessWidget {
   }
 }
 
-const _cardMinWidth = 144;
+const _cardMinWidth = 160;
 const _cardMaxWidth = 196;
 
 class _WeekMealTabBarView extends StatelessWidget {
