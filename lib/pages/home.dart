@@ -572,6 +572,7 @@ class _WeekMealTabBarView extends StatelessWidget {
     required this.pageController,
     required this.pageCount,
     required this.onPageChanged,
+    required this.language,
   });
 
   final WeekMeal weekMeal;
@@ -579,6 +580,7 @@ class _WeekMealTabBarView extends StatelessWidget {
   final PageController pageController;
   final int pageCount;
   final void Function(int) onPageChanged;
+  final Language language;
 
   @override
   Widget build(BuildContext context) {
@@ -599,13 +601,32 @@ class _WeekMealTabBarView extends StatelessWidget {
               builder: (context, constraints) {
                 final cards = <Widget>[
                   ...nowMeal.dormitory.map(
-                    (meal) => _MealCard(title: "Dormitory", meal: meal),
+                    (meal) => _MealCard(
+                      title:
+                          string.dormitoryCafeteria.getLocalizedString(
+                            language,
+                          ) +
+                          (meal is KoreanMeal
+                              ? " ${string.menuKorean.getLocalizedString(language)}"
+                              : (meal is HalalMeal
+                                    ? " ${string.menuHalal.getLocalizedString(language)}"
+                                    : "")),
+                      meal: meal,
+                    ),
                   ),
                   ...nowMeal.student.map(
-                    (meal) => _MealCard(title: "Student", meal: meal),
+                    (meal) => _MealCard(
+                      title: string.studentCafeteria.getLocalizedString(
+                        language,
+                      ),
+                      meal: meal,
+                    ),
                   ),
                   ...nowMeal.faculty.map(
-                    (meal) => _MealCard(title: "Faculty", meal: meal),
+                    (meal) => _MealCard(
+                      title: string.diningHall.getLocalizedString(language),
+                      meal: meal,
+                    ),
                   ),
                 ];
 
@@ -866,15 +887,18 @@ class _HomePageState extends State<HomePage>
               future: downloadedMeal,
               builder: (context, downloadSnapshot) {
                 if (downloadSnapshot.hasData || cacheSnapshot.hasData) {
-                  return _WeekMealTabBarView(
-                    pageCount: MealOfDay.values.length,
-                    weekMeal: downloadSnapshot.hasData
-                        ? downloadSnapshot.data!
-                        : cacheSnapshot.data!,
-                    tabController: _tabController,
-                    pageController: _mealOfDayPageController,
-                    onPageChanged: (page) => setState(
-                      () => _model.mealOfDay = MealOfDay.values[page],
+                  return Consumer<BapUModel>(
+                    builder: (context, bapu, child) => _WeekMealTabBarView(
+                      pageCount: MealOfDay.values.length,
+                      weekMeal: downloadSnapshot.hasData
+                          ? downloadSnapshot.data!
+                          : cacheSnapshot.data!,
+                      tabController: _tabController,
+                      pageController: _mealOfDayPageController,
+                      onPageChanged: (page) => setState(
+                        () => _model.mealOfDay = MealOfDay.values[page],
+                      ),
+                      language: bapu.language,
                     ),
                   );
                 } else if (!cacheSnapshot.hasError ||
