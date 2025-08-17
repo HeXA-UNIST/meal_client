@@ -348,50 +348,48 @@ class _NestedVerticalPageTabBarViewState
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        IgnorePointer(
-          child: PageView.builder(
-            scrollDirection: Axis.vertical,
-            itemCount: widget.pageCount,
-            controller: widget.pageController,
-            physics: const NeverScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            onPageChanged: widget.onPageChanged,
-            itemBuilder: (BuildContext context, int pageIndex) {
-              return TabBarView(
-                controller: widget.tabController,
-                children: List.generate(widget.tabCount, (tabIndex) {
-                  final bool reverse;
-                  if (tabIndex == widget.tabController.index &&
-                      pageReverseList[pageIndex]) {
-                    reverse = true;
-                  } else {
-                    reverse = false;
-                  }
+        PageView.builder(
+          scrollDirection: Axis.vertical,
+          itemCount: widget.pageCount,
+          controller: widget.pageController,
+          physics: const NeverScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          onPageChanged: widget.onPageChanged,
+          itemBuilder: (BuildContext context, int pageIndex) {
+            return TabBarView(
+              controller: widget.tabController,
+              children: List.generate(widget.tabCount, (tabIndex) {
+                final bool reverse;
+                if (tabIndex == widget.tabController.index &&
+                    pageReverseList[pageIndex]) {
+                  reverse = true;
+                } else {
+                  reverse = false;
+                }
 
-                  return LayoutBuilder(
-                    builder: (context, constraints) => SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      controller: scrollControllers[tabIndex][pageIndex],
-                      reverse: reverse,
-                      physics: const NeverScrollableScrollPhysics(
-                        parent: ClampingScrollPhysics(),
+                return LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    controller: scrollControllers[tabIndex][pageIndex],
+                    reverse: reverse,
+                    physics: const NeverScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: constraints.maxHeight,
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.only(top: 10),
-                          child: widget.builder(context, tabIndex, pageIndex),
-                        ),
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: widget.builder(context, tabIndex, pageIndex),
                       ),
                     ),
-                  );
-                }, growable: false),
-              );
-            },
-          ),
+                  ),
+                );
+              }, growable: false),
+            );
+          },
         ),
         SafeArea(
           child: GestureDetector(
