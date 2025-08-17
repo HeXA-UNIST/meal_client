@@ -79,7 +79,6 @@ class MyApp extends StatelessWidget {
                       : Color.fromARGB(0xff, 0xf, 0xf, 0xf),
                 ),
           ),
-          scrollBehavior: MaterialScrollBehavior().copyWith(overscroll: false),
           home: child,
         );
       },

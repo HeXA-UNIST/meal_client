@@ -351,9 +351,7 @@ class _NestedVerticalPageTabBarViewState
           scrollDirection: Axis.vertical,
           itemCount: widget.pageCount,
           controller: widget.pageController,
-          physics: const NeverScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
+          physics: const NeverScrollableScrollPhysics(),
           onPageChanged: widget.onPageChanged,
           itemBuilder: (BuildContext context, int pageIndex) {
             return TabBarView(
@@ -372,9 +370,7 @@ class _NestedVerticalPageTabBarViewState
                     scrollDirection: Axis.vertical,
                     controller: scrollControllers[tabIndex][pageIndex],
                     reverse: reverse,
-                    physics: const NeverScrollableScrollPhysics(
-                      parent: ClampingScrollPhysics(),
-                    ),
+                    physics: const NeverScrollableScrollPhysics(),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         minHeight: constraints.maxHeight,
