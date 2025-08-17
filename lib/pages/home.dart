@@ -314,7 +314,6 @@ class _NestedVerticalPageTabBarViewState
     extends State<_NestedVerticalPageTabBarView> {
   late final List<List<ScrollController>> scrollControllers;
   Drag? drag;
-  ScrollController? currentController;
   int? currentPageIndex;
   late List<bool> pageReverseList;
   double prevPage = 0;
@@ -395,72 +394,67 @@ class _NestedVerticalPageTabBarViewState
           child: GestureDetector(
             onVerticalDragStart: (details) {
               currentPageIndex = widget.pageController.page!.round();
-              if (widget.pageController.page! % 1 == 0) {
-                currentlyScrolling = _CurrentlyScrolling.inner;
-                currentController =
-                    scrollControllers[widget
-                        .tabController
-                        .index][currentPageIndex!];
-              } else {
+
+              final scrollController =
+                  scrollControllers[widget
+                      .tabController
+                      .index][currentPageIndex!];
+              final ScrollController currentController;
+              if (scrollController.position.atEdge) {
                 currentlyScrolling = _CurrentlyScrolling.outer;
                 currentController = widget.pageController;
+
+                setState(() {
+                  pageReverseList.fillRange(0, currentPageIndex!, true);
+                  if (currentPageIndex! < widget.pageCount - 1) {
+                    pageReverseList.fillRange(
+                      currentPageIndex! + 1,
+                      widget.pageCount - 1,
+                      false,
+                    );
+                  }
+                  for (var c in scrollControllers[widget.tabController.index]) {
+                    if (c != scrollController && c.hasClients) {
+                      c.jumpTo(0);
+                    }
+                  }
+                });
+              } else {
+                currentlyScrolling = _CurrentlyScrolling.inner;
+                currentController = scrollController;
               }
-              drag = currentController!.position.drag(details, () {});
+
+              drag = currentController.position.drag(details, () {});
               prevPage = widget.pageController.page!;
             },
             onVerticalDragUpdate: (details) {
-              final controller = currentController!;
-              final currentPage = widget.pageController.page!;
-              final middlePage = ((currentPage + prevPage) / 2).round();
+              final scrollController =
+                  scrollControllers[widget
+                      .tabController
+                      .index][currentPageIndex!];
 
               final double startScrollExtent;
               final double endScrollExtent;
               if (pageReverseList[currentPageIndex!]) {
-                startScrollExtent = controller.position.maxScrollExtent;
-                endScrollExtent = controller.position.minScrollExtent;
+                startScrollExtent = scrollController.position.maxScrollExtent;
+                endScrollExtent = scrollController.position.minScrollExtent;
               } else {
-                startScrollExtent = controller.position.minScrollExtent;
-                endScrollExtent = controller.position.maxScrollExtent;
+                startScrollExtent = scrollController.position.minScrollExtent;
+                endScrollExtent = scrollController.position.maxScrollExtent;
               }
 
-              if (currentlyScrolling == _CurrentlyScrolling.inner &&
-                  ((controller.position.pixels == startScrollExtent &&
-                          details.delta.direction > 0) ||
-                      (controller.position.pixels == endScrollExtent &&
-                          details.delta.direction < 0))) {
-                setState(() {
-                  if (controller.position.pixels == startScrollExtent &&
-                      details.delta.direction > 0) {
-                    pageReverseList.fillRange(0, currentPageIndex!, true);
-                  } else if (controller.position.pixels == endScrollExtent &&
-                      details.delta.direction < 0) {
-                    if (currentPageIndex! < widget.pageCount - 1) {
-                      pageReverseList.fillRange(
-                        currentPageIndex! + 1,
-                        widget.pageCount - 1,
-                        false,
-                      );
-                    }
-                  }
-                });
+              final currentPage = widget.pageController.page!;
+              final middlePage = ((currentPage + prevPage) / 2).round();
 
-                drag?.cancel();
-                currentlyScrolling = _CurrentlyScrolling.outer;
-                drag = widget.pageController.position.drag(
-                  DragStartDetails(
-                    globalPosition: details.globalPosition,
-                    localPosition: details.localPosition,
-                  ),
-                  () {},
-                );
-                currentController = widget.pageController;
-              } else if (currentlyScrolling == _CurrentlyScrolling.outer &&
-                  !controller.position.atEdge &&
+              if (currentlyScrolling == _CurrentlyScrolling.outer &&
+                  startScrollExtent != endScrollExtent &&
+                  ((scrollController.position.pixels == startScrollExtent &&
+                          details.delta.direction < 0) ||
+                      (scrollController.position.pixels == endScrollExtent &&
+                          details.delta.direction > 0)) &&
                   ((prevPage <= middlePage && middlePage <= currentPage) ||
                       (currentPage <= middlePage && middlePage <= prevPage))) {
                 drag?.cancel();
-
-                currentPageIndex = widget.pageController.page!.round();
                 final newController =
                     scrollControllers[widget
                         .tabController
@@ -474,7 +468,6 @@ class _NestedVerticalPageTabBarViewState
                   ),
                   () {},
                 );
-                currentController = newController;
               }
 
               drag?.update(details);
@@ -483,7 +476,6 @@ class _NestedVerticalPageTabBarViewState
             onVerticalDragEnd: (details) {
               drag?.end(details);
               drag = null;
-              currentController = null;
               currentPageIndex = null;
               currentlyScrolling = null;
             },
