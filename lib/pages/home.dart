@@ -451,13 +451,9 @@ class _NestedVerticalPageTabBarViewState
                   ((prevPage <= middlePage && middlePage <= currentPage) ||
                       (currentPage <= middlePage && middlePage <= prevPage))) {
                 drag?.cancel();
-                final newController =
-                    scrollControllers[widget
-                        .tabController
-                        .index][currentPageIndex!];
 
                 currentlyScrolling = _CurrentlyScrolling.inner;
-                drag = newController.position.drag(
+                drag = scrollController.position.drag(
                   DragStartDetails(
                     globalPosition: details.globalPosition,
                     localPosition: details.localPosition,
