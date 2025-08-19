@@ -286,60 +286,45 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
 
 enum _CurrentlyScrolling { inner, outer }
 
-class _NestedVerticalPageTabBarView extends StatefulWidget {
-  const _NestedVerticalPageTabBarView({
+class _NestedPageScrollView extends StatefulWidget {
+  const _NestedPageScrollView({
     super.key,
     required this.pageController,
-    required this.tabController,
-    required this.tabCount,
     required this.pageCount,
     required this.onPageChanged,
     required this.builder,
   });
 
   final PageController pageController;
-  final TabController tabController;
-  final int tabCount;
   final int pageCount;
   final void Function(int page) onPageChanged;
-  final Widget Function(BuildContext context, int tabIndex, int pageIndex)
-  builder;
+  final Widget Function(BuildContext context, int pageIndex) builder;
 
   @override
-  State<_NestedVerticalPageTabBarView> createState() =>
-      _NestedVerticalPageTabBarViewState();
+  State<_NestedPageScrollView> createState() => _NestedPageScrollViewState();
 }
 
-class _NestedVerticalPageTabBarViewState
-    extends State<_NestedVerticalPageTabBarView> {
-  late final List<List<ScrollController>> scrollControllers;
+class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
+  late final List<ScrollController> scrollControllers;
+  late List<bool> reverseList;
   Drag? drag;
   int? currentPageIndex;
-  late List<bool> pageReverseList;
   double prevPage = 0;
   _CurrentlyScrolling? currentlyScrolling;
 
   @override
   void initState() {
     scrollControllers = List.generate(
-      widget.tabCount,
-      (tabIndex) => List.generate(
-        widget.pageCount,
-        (pageIndex) => ScrollController(),
-        growable: false,
-      ),
+      widget.pageCount,
+      (pageIndex) => ScrollController(),
       growable: false,
     );
-    pageReverseList = List.generate(
+    reverseList = List.generate(
       widget.pageCount,
       (_) => false,
       growable: false,
     );
-    widget.tabController.addListener(
-      () => setState(() {
-        pageReverseList.fillRange(0, pageReverseList.length, false);
-      }),
-    );
+
     super.initState();
   }
 
@@ -355,23 +340,22 @@ class _NestedVerticalPageTabBarViewState
 
         currentPageIndex = widget.pageController.page!.round();
 
-        final scrollController =
-            scrollControllers[widget.tabController.index][currentPageIndex!];
+        final scrollController = scrollControllers[currentPageIndex!];
         final ScrollController currentController;
         if (scrollController.position.atEdge) {
           currentlyScrolling = _CurrentlyScrolling.outer;
           currentController = widget.pageController;
 
           setState(() {
-            pageReverseList.fillRange(0, currentPageIndex!, true);
+            reverseList.fillRange(0, currentPageIndex!, true);
             if (currentPageIndex! < widget.pageCount - 1) {
-              pageReverseList.fillRange(
+              reverseList.fillRange(
                 currentPageIndex! + 1,
                 widget.pageCount - 1,
                 false,
               );
             }
-            for (var c in scrollControllers[widget.tabController.index]) {
+            for (var c in scrollControllers) {
               if (c != scrollController && c.hasClients) {
                 c.jumpTo(0);
               }
@@ -390,12 +374,11 @@ class _NestedVerticalPageTabBarViewState
           return;
         }
 
-        final scrollController =
-            scrollControllers[widget.tabController.index][currentPageIndex!];
+        final scrollController = scrollControllers[currentPageIndex!];
 
         final double startScrollExtent;
         final double endScrollExtent;
-        if (pageReverseList[currentPageIndex!]) {
+        if (reverseList[currentPageIndex!]) {
           startScrollExtent = scrollController.position.maxScrollExtent;
           endScrollExtent = scrollController.position.minScrollExtent;
         } else {
@@ -441,37 +424,21 @@ class _NestedVerticalPageTabBarViewState
         controller: widget.pageController,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: widget.onPageChanged,
-        hitTestBehavior: HitTestBehavior.deferToChild,
         itemBuilder: (BuildContext context, int pageIndex) {
-          return TabBarView(
-            controller: widget.tabController,
-            children: List.generate(widget.tabCount, (tabIndex) {
-              final bool reverse;
-              if (tabIndex == widget.tabController.index &&
-                  pageReverseList[pageIndex]) {
-                reverse = true;
-              } else {
-                reverse = false;
-              }
-
-              return LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  controller: scrollControllers[tabIndex][pageIndex],
-                  reverse: reverse,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 10),
-                      child: widget.builder(context, tabIndex, pageIndex),
-                    ),
-                  ),
+          return LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              controller: scrollControllers[pageIndex],
+              reverse: reverseList[pageIndex],
+              physics: const NeverScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Padding(
+                  padding: EdgeInsets.only(top: 10),
+                  child: widget.builder(context, pageIndex),
                 ),
-              );
-            }, growable: false),
+              ),
+            ),
           );
         },
       ),
@@ -559,6 +526,52 @@ class _MealCard extends StatelessWidget {
   }
 }
 
+class _PageControllerGroup extends ChangeNotifier {
+  late final List<PageController> _controllers;
+  int _page;
+
+  _PageControllerGroup({required int count, int initialPage = 0})
+    : _page = initialPage {
+    _controllers = List.generate(count, (index) {
+      final controller = PageController(
+        initialPage: initialPage,
+        onAttach: (position) {
+          _controllers[index].jumpToPage(_page);
+        },
+      );
+
+      controller.addListener(() {
+        _page = controller.page!.round();
+      });
+
+      return controller;
+    }, growable: false);
+  }
+
+  PageController getController(int index) => _controllers[index];
+
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+
+    super.dispose();
+  }
+
+  Future<void> animateToPage(
+    int page, {
+    required Duration duration,
+    required Cubic curve,
+  }) async {
+    for (var controller in _controllers) {
+      if (controller.hasClients) {
+        controller.animateToPage(page, duration: duration, curve: curve);
+      }
+    }
+  }
+}
+
 const _cardMinWidth = 160;
 const _cardMaxWidth = 196;
 
@@ -567,7 +580,7 @@ class _WeekMealTabBarView extends StatelessWidget {
     super.key,
     required this.weekMeal,
     required this.tabController,
-    required this.pageController,
+    required this.pageControllerGroup,
     required this.pageCount,
     required this.onPageChanged,
     required this.language,
@@ -575,132 +588,135 @@ class _WeekMealTabBarView extends StatelessWidget {
 
   final WeekMeal weekMeal;
   final TabController tabController;
-  final PageController pageController;
+  final _PageControllerGroup pageControllerGroup;
   final int pageCount;
   final void Function(int) onPageChanged;
   final Language language;
 
   @override
   Widget build(BuildContext context) {
-    return Scrollbar(
-      controller: pageController,
-      child: _NestedVerticalPageTabBarView(
-        pageController: pageController,
-        tabController: tabController,
-        pageCount: pageCount,
-        tabCount: DayOfWeek.values.length,
-        onPageChanged: onPageChanged,
-        builder: (context, tabIndex, pageIndex) {
-          final nowMeal = weekMeal
-              .fromDayOfWeek(DayOfWeek.values[tabIndex])
-              .fromMealOfDay(MealOfDay.values[pageIndex]);
-          return SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final cards = <Widget>[
-                  ...nowMeal.dormitory.map(
-                    (meal) => _MealCard(
-                      title:
-                          string.dormitoryCafeteria.getLocalizedString(
-                            language,
-                          ) +
-                          (meal is KoreanMeal
-                              ? " ${string.menuKorean.getLocalizedString(language)}"
-                              : (meal is HalalMeal
-                                    ? " ${string.menuHalal.getLocalizedString(language)}"
-                                    : "")),
-                      meal: meal,
-                    ),
-                  ),
-                  ...nowMeal.student.map(
-                    (meal) => _MealCard(
-                      title: string.studentCafeteria.getLocalizedString(
-                        language,
+    return TabBarView(
+      controller: tabController,
+      children: List.generate(
+        tabController.length,
+        (tabIndex) => _NestedPageScrollView(
+          pageController: pageControllerGroup.getController(tabIndex),
+          pageCount: pageCount,
+          onPageChanged: onPageChanged,
+          builder: (context, pageIndex) {
+            final nowMeal = weekMeal
+                .fromDayOfWeek(DayOfWeek.values[tabIndex])
+                .fromMealOfDay(MealOfDay.values[pageIndex]);
+            return SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final cards = <Widget>[
+                    ...nowMeal.dormitory.map(
+                      (meal) => _MealCard(
+                        title:
+                            string.dormitoryCafeteria.getLocalizedString(
+                              language,
+                            ) +
+                            (meal is KoreanMeal
+                                ? " ${string.menuKorean.getLocalizedString(language)}"
+                                : (meal is HalalMeal
+                                      ? " ${string.menuHalal.getLocalizedString(language)}"
+                                      : "")),
+                        meal: meal,
                       ),
-                      meal: meal,
                     ),
-                  ),
-                  ...nowMeal.faculty.map(
-                    (meal) => _MealCard(
-                      title: string.diningHall.getLocalizedString(language),
-                      meal: meal,
+                    ...nowMeal.student.map(
+                      (meal) => _MealCard(
+                        title: string.studentCafeteria.getLocalizedString(
+                          language,
+                        ),
+                        meal: meal,
+                      ),
                     ),
-                  ),
-                ];
+                    ...nowMeal.faculty.map(
+                      (meal) => _MealCard(
+                        title: string.diningHall.getLocalizedString(language),
+                        meal: meal,
+                      ),
+                    ),
+                  ];
 
-                final double cardWidth;
-                final int columns;
-                final int leftFill;
-                {
-                  var divided = (constraints.maxWidth / _cardMaxWidth).toInt();
-                  if (divided < 2) {
-                    final halfCardWidth = constraints.maxWidth / 2;
-                    if (halfCardWidth > _cardMinWidth) {
-                      divided = 2;
-                      cardWidth = halfCardWidth;
+                  final double cardWidth;
+                  final int columns;
+                  final int leftFill;
+                  {
+                    var divided = (constraints.maxWidth / _cardMaxWidth)
+                        .toInt();
+                    if (divided < 2) {
+                      final halfCardWidth = constraints.maxWidth / 2;
+                      if (halfCardWidth > _cardMinWidth) {
+                        divided = 2;
+                        cardWidth = halfCardWidth;
+                      } else {
+                        cardWidth = _cardMaxWidth.toDouble();
+                      }
                     } else {
                       cardWidth = _cardMaxWidth.toDouble();
                     }
-                  } else {
-                    cardWidth = _cardMaxWidth.toDouble();
+
+                    if (cards.length <= divided) {
+                      columns = cards.length;
+                      leftFill = 0;
+                    } else {
+                      columns = divided;
+                      leftFill = (columns - (cards.length / columns).toInt());
+                    }
+                  }
+                  for (var i = 0; i < leftFill; i++) {
+                    cards.add(const SizedBox());
                   }
 
-                  if (cards.length <= divided) {
-                    columns = cards.length;
-                    leftFill = 0;
-                  } else {
-                    columns = divided;
-                    leftFill = (columns - (cards.length / columns).toInt());
+                  final rows = (cards.length / columns).toInt();
+                  final row = <TableRow>[];
+                  for (var i = 0; i < rows; i++) {
+                    final end = (i + 1) * columns;
+                    row.add(
+                      TableRow(
+                        children: [
+                          TableCell(child: SizedBox()),
+                          ...cards
+                              .sublist(
+                                i * columns,
+                                end < cards.length ? end : cards.length,
+                              )
+                              .map((card) => TableCell(child: card)),
+                          TableCell(child: SizedBox()),
+                        ],
+                      ),
+                    );
                   }
-                }
-                for (var i = 0; i < leftFill; i++) {
-                  cards.add(const SizedBox());
-                }
+                  final remain = cards
+                      .sublist(columns * rows)
+                      .map((card) => TableCell(child: card))
+                      .toList();
+                  if (remain.isNotEmpty) {
+                    remain.insert(0, TableCell(child: SizedBox()));
+                    remain.add(TableCell(child: SizedBox()));
+                    row.add(TableRow(children: remain));
+                  }
 
-                final rows = (cards.length / columns).toInt();
-                final row = <TableRow>[];
-                for (var i = 0; i < rows; i++) {
-                  final end = (i + 1) * columns;
-                  row.add(
-                    TableRow(
-                      children: [
-                        TableCell(child: SizedBox()),
-                        ...cards
-                            .sublist(
-                              i * columns,
-                              end < cards.length ? end : cards.length,
-                            )
-                            .map((card) => TableCell(child: card)),
-                        TableCell(child: SizedBox()),
-                      ],
-                    ),
+                  return Table(
+                    border: const TableBorder(),
+                    defaultColumnWidth: FixedColumnWidth(cardWidth),
+                    columnWidths: {
+                      0: FlexColumnWidth(),
+                      columns + 1: FlexColumnWidth(),
+                    },
+                    defaultVerticalAlignment:
+                        TableCellVerticalAlignment.intrinsicHeight,
+                    children: row,
                   );
-                }
-                final remain = cards
-                    .sublist(columns * rows)
-                    .map((card) => TableCell(child: card))
-                    .toList();
-                if (remain.isNotEmpty) {
-                  remain.insert(0, TableCell(child: SizedBox()));
-                  remain.add(TableCell(child: SizedBox()));
-                  row.add(TableRow(children: remain));
-                }
-
-                return Table(
-                  border: const TableBorder(),
-                  defaultColumnWidth: FixedColumnWidth(cardWidth),
-                  columnWidths: {
-                    0: FlexColumnWidth(),
-                    columns + 1: FlexColumnWidth(),
-                  },
-                  defaultVerticalAlignment:
-                      TableCellVerticalAlignment.intrinsicHeight,
-                  children: row,
-                );
-              },
-            ),
-          );
-        },
+                },
+              ),
+            );
+          },
+        ),
+        growable: false,
       ),
     );
   }
@@ -718,7 +734,7 @@ class _HomePageState extends State<HomePage>
   late final HomePageModel _model;
   late final DateTime _mondayOfWeek;
   late final TabController _tabController;
-  late final PageController _mealOfDayPageController;
+  late final _PageControllerGroup _mealOfDayPageControllerGroup;
 
   late final Future<WeekMeal> cachedMeal;
   late final Future<WeekMeal> downloadedMeal;
@@ -758,7 +774,8 @@ class _HomePageState extends State<HomePage>
       }),
     );
 
-    _mealOfDayPageController = PageController(
+    _mealOfDayPageControllerGroup = _PageControllerGroup(
+      count: DayOfWeek.values.length,
       initialPage: _model.mealOfDay.index,
     );
 
@@ -865,15 +882,11 @@ class _HomePageState extends State<HomePage>
               _MealOfDaySwitchButton(
                 onPressed: () => setState(() {
                   _model.mealOfDay = nextMealOfDay(_model.mealOfDay);
-                  try {
-                    _mealOfDayPageController.animateToPage(
-                      _model.mealOfDay.index,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                    );
-                  } catch (e) {
-                    // ignore
-                  }
+                  _mealOfDayPageControllerGroup.animateToPage(
+                    _model.mealOfDay.index,
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.ease,
+                  );
                 }),
                 label: dayOfMealLabel,
                 icon: dayOfMealIcon,
@@ -905,7 +918,7 @@ class _HomePageState extends State<HomePage>
                           ? downloadSnapshot.data!
                           : cacheSnapshot.data!,
                       tabController: _tabController,
-                      pageController: _mealOfDayPageController,
+                      pageControllerGroup: _mealOfDayPageControllerGroup,
                       onPageChanged: (page) => setState(
                         () => _model.mealOfDay = MealOfDay.values[page],
                       ),
