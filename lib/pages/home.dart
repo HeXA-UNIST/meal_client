@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -610,36 +611,33 @@ class _WeekMealTabBarView extends StatelessWidget {
             return SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final cards = <Widget>[
-                    ...nowMeal.dormitory.map(
-                      (meal) => _MealCard(
-                        title:
-                            string.dormitoryCafeteria.getLocalizedString(
-                              language,
-                            ) +
-                            (meal is KoreanMeal
-                                ? " ${string.menuKorean.getLocalizedString(language)}"
-                                : (meal is HalalMeal
-                                      ? " ${string.menuHalal.getLocalizedString(language)}"
-                                      : "")),
-                        meal: meal,
-                      ),
-                    ),
-                    ...nowMeal.student.map(
-                      (meal) => _MealCard(
-                        title: string.studentCafeteria.getLocalizedString(
-                          language,
-                        ),
-                        meal: meal,
-                      ),
-                    ),
-                    ...nowMeal.faculty.map(
-                      (meal) => _MealCard(
-                        title: string.diningHall.getLocalizedString(language),
-                        meal: meal,
-                      ),
-                    ),
-                  ];
+                  final List<Widget>
+                  cards = [...nowMeal.dormitory, ...nowMeal.student, ...nowMeal.faculty]
+                      .map((meal) {
+                        var title = string.dormitoryCafeteria
+                            .getLocalizedString(language);
+                        switch (meal) {
+                          case KoreanMeal _:
+                            title +=
+                                " ${string.menuKorean.getLocalizedString(language)}";
+                          case HalalMeal _:
+                            title +=
+                                " ${string.menuHalal.getLocalizedString(language)}";
+                        }
+
+                        return GestureDetector(
+                          onLongPress: () {
+                            SharePlus.instance.share(
+                              ShareParams(
+                                text:
+                                    "$title\n\n${meal.menu.join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
+                              ),
+                            );
+                          },
+                          child: _MealCard(title: title, meal: meal),
+                        );
+                      })
+                      .toList(growable: false);
 
                   final double cardWidth;
                   final int columns;
