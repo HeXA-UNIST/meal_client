@@ -612,31 +612,47 @@ class _WeekMealTabBarView extends StatelessWidget {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final List<Widget>
-                  cards = [...nowMeal.dormitory, ...nowMeal.student, ...nowMeal.faculty]
-                      .map((meal) {
-                        var title = string.dormitoryCafeteria
-                            .getLocalizedString(language);
-                        switch (meal) {
-                          case KoreanMeal _:
-                            title +=
-                                " ${string.menuKorean.getLocalizedString(language)}";
-                          case HalalMeal _:
-                            title +=
-                                " ${string.menuHalal.getLocalizedString(language)}";
-                        }
+                  cards = [nowMeal.dormitory, nowMeal.student, nowMeal.faculty]
+                      .map(
+                        (meals) => meals.map((meal) {
+                          var title = "";
 
-                        return GestureDetector(
-                          onLongPress: () {
-                            SharePlus.instance.share(
-                              ShareParams(
-                                text:
-                                    "$title\n\n${meal.menu.join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
-                              ),
+                          if (meals == nowMeal.dormitory) {
+                            title = string.dormitoryCafeteria
+                                .getLocalizedString(language);
+                          } else if (meals == nowMeal.student) {
+                            title = string.studentCafeteria.getLocalizedString(
+                              language,
                             );
-                          },
-                          child: _MealCard(title: title, meal: meal),
-                        );
-                      })
+                          } else if (meals == nowMeal.faculty) {
+                            title = string.diningHall.getLocalizedString(
+                              language,
+                            );
+                          }
+
+                          switch (meal) {
+                            case KoreanMeal _:
+                              title +=
+                                  " ${string.menuKorean.getLocalizedString(language)}";
+                            case HalalMeal _:
+                              title +=
+                                  " ${string.menuHalal.getLocalizedString(language)}";
+                          }
+
+                          return GestureDetector(
+                            onLongPress: () {
+                              SharePlus.instance.share(
+                                ShareParams(
+                                  text:
+                                      "$title\n\n${meal.menu.join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
+                                ),
+                              );
+                            },
+                            child: _MealCard(title: title, meal: meal),
+                          );
+                        }),
+                      )
+                      .expand((e) => e)
                       .toList(growable: false);
 
                   final double cardWidth;
