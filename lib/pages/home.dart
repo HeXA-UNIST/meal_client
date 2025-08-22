@@ -496,12 +496,22 @@ class _MealCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          ...meal.menu.map(
-            (aMenu) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(aMenu),
-            ),
-          ),
+          ...List.generate(meal.menu.length * 2 - 1, (index) {
+            if (index.isEven) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  meal.menu[index ~/ 2],
+                  style: theme.textTheme.bodyMedium,
+                ),
+              );
+            } else {
+              return Text(
+                "",
+                style: theme.textTheme.bodyMedium!.copyWith(height: 0.4),
+              );
+            }
+          }, growable: false),
           const SizedBox(height: 8),
           Flexible(
             child: Align(
