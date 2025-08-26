@@ -63,9 +63,6 @@ class MyApp extends StatelessWidget {
           title: string.title.getLocalizedString(bapu.language),
           theme: ThemeData(
             fontFamily: 'Pretendard',
-            textTheme: Theme.of(
-              context,
-            ).textTheme.apply(fontFamily: "Pretendard"),
             brightness: bapu.brightness,
             colorScheme:
                 ColorScheme.fromSeed(
