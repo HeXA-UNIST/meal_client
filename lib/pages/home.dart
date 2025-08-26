@@ -285,19 +285,59 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+class _NestedPageScrollController extends PageController {
+  final int pageCount;
+  final List<bool> _reverseList;
+
+  _NestedPageScrollController({
+    super.initialPage,
+    super.keepPage,
+    super.viewportFraction,
+    super.onAttach,
+    super.onDetach,
+    required this.pageCount,
+  }) : _reverseList = List.generate(
+         pageCount,
+         (page) => page < initialPage ? true : false,
+       );
+
+  bool pageReversed(int page) => _reverseList[page];
+
+  void outerScrollStart(int pageIndex) {
+    _reverseList.fillRange(0, pageIndex, true);
+    if (pageIndex + 1 < pageCount) {
+      _reverseList.fillRange(pageIndex + 1, pageCount - 1, false);
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<void> animateToPage(
+    int page, {
+    required Duration duration,
+    required Curve curve,
+  }) {
+    final currentPage = this.page!.round();
+    _reverseList.fillRange(0, currentPage, false);
+    if (currentPage + 1 < pageCount) {
+      _reverseList.fillRange(currentPage + 1, pageCount - 1, false);
+    }
+    notifyListeners();
+    return super.animateToPage(page, duration: duration, curve: curve);
+  }
+}
+
 enum _CurrentlyScrolling { inner, outer }
 
 class _NestedPageScrollView extends StatefulWidget {
   const _NestedPageScrollView({
     super.key,
-    required this.pageController,
-    required this.pageCount,
+    required this.controller,
     required this.onPageChanged,
     required this.builder,
   });
 
-  final PageController pageController;
-  final int pageCount;
+  final _NestedPageScrollController controller;
   final void Function(int page) onPageChanged;
   final Widget Function(BuildContext context, int pageIndex) builder;
 
@@ -307,7 +347,6 @@ class _NestedPageScrollView extends StatefulWidget {
 
 class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
   late final List<ScrollController> scrollControllers;
-  late List<bool> reverseList;
   Drag? drag;
   int? currentPageIndex;
   double prevPage = 0;
@@ -316,13 +355,8 @@ class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
   @override
   void initState() {
     scrollControllers = List.generate(
-      widget.pageCount,
+      widget.controller.pageCount,
       (pageIndex) => ScrollController(),
-      growable: false,
-    );
-    reverseList = List.generate(
-      widget.pageCount,
-      (_) => false,
       growable: false,
     );
 
@@ -339,36 +373,27 @@ class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
           return;
         }
 
-        currentPageIndex = widget.pageController.page!.round();
+        currentPageIndex = widget.controller.page!.round();
 
         final scrollController = scrollControllers[currentPageIndex!];
         final ScrollController currentController;
         if (scrollController.position.atEdge) {
           currentlyScrolling = _CurrentlyScrolling.outer;
-          currentController = widget.pageController;
+          currentController = widget.controller;
 
-          setState(() {
-            reverseList.fillRange(0, currentPageIndex!, true);
-            if (currentPageIndex! < widget.pageCount - 1) {
-              reverseList.fillRange(
-                currentPageIndex! + 1,
-                widget.pageCount - 1,
-                false,
-              );
+          widget.controller.outerScrollStart(currentPageIndex!);
+          for (var c in scrollControllers) {
+            if (c != scrollController && c.hasClients) {
+              c.jumpTo(0);
             }
-            for (var c in scrollControllers) {
-              if (c != scrollController && c.hasClients) {
-                c.jumpTo(0);
-              }
-            }
-          });
+          }
         } else {
           currentlyScrolling = _CurrentlyScrolling.inner;
           currentController = scrollController;
         }
 
         drag = currentController.position.drag(details, () {});
-        prevPage = widget.pageController.page!;
+        prevPage = widget.controller.page!;
       },
       onVerticalDragUpdate: (details) {
         if (drag == null) {
@@ -379,7 +404,7 @@ class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
 
         final double startScrollExtent;
         final double endScrollExtent;
-        if (reverseList[currentPageIndex!]) {
+        if (widget.controller.pageReversed(currentPageIndex!)) {
           startScrollExtent = scrollController.position.maxScrollExtent;
           endScrollExtent = scrollController.position.minScrollExtent;
         } else {
@@ -387,7 +412,7 @@ class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
           endScrollExtent = scrollController.position.maxScrollExtent;
         }
 
-        final currentPage = widget.pageController.page!;
+        final currentPage = widget.controller.page!;
         final middlePage = ((currentPage + prevPage) / 2).round();
 
         if (currentlyScrolling == _CurrentlyScrolling.outer &&
@@ -421,8 +446,8 @@ class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
       },
       child: PageView.builder(
         scrollDirection: Axis.vertical,
-        itemCount: widget.pageCount,
-        controller: widget.pageController,
+        itemCount: widget.controller.pageCount,
+        controller: widget.controller,
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: widget.onPageChanged,
         itemBuilder: (BuildContext context, int pageIndex) {
@@ -430,7 +455,7 @@ class _NestedPageScrollViewState extends State<_NestedPageScrollView> {
             builder: (context, constraints) => SingleChildScrollView(
               scrollDirection: Axis.vertical,
               controller: scrollControllers[pageIndex],
-              reverse: reverseList[pageIndex],
+              reverse: widget.controller.pageReversed(pageIndex),
               physics: const NeverScrollableScrollPhysics(),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -537,18 +562,22 @@ class _MealCard extends StatelessWidget {
   }
 }
 
-class _PageControllerGroup extends ChangeNotifier {
-  late final List<PageController> _controllers;
+class _NestedPageScrollControllerGroup extends ChangeNotifier {
+  late final List<_NestedPageScrollController> _controllers;
   int _page;
 
-  _PageControllerGroup({required int count, int initialPage = 0})
-    : _page = initialPage {
+  _NestedPageScrollControllerGroup({
+    required int count,
+    required int pageCount,
+    int initialPage = 0,
+  }) : _page = initialPage {
     _controllers = List.generate(count, (index) {
-      final controller = PageController(
+      final controller = _NestedPageScrollController(
         initialPage: initialPage,
         onAttach: (position) {
           _controllers[index].jumpToPage(_page);
         },
+        pageCount: pageCount,
       );
 
       controller.addListener(() {
@@ -559,7 +588,7 @@ class _PageControllerGroup extends ChangeNotifier {
     }, growable: false);
   }
 
-  PageController getController(int index) => _controllers[index];
+  _NestedPageScrollController getController(int index) => _controllers[index];
 
   @override
   void dispose() {
@@ -599,7 +628,7 @@ class _WeekMealTabBarView extends StatelessWidget {
 
   final WeekMeal weekMeal;
   final TabController tabController;
-  final _PageControllerGroup pageControllerGroup;
+  final _NestedPageScrollControllerGroup pageControllerGroup;
   final int pageCount;
   final void Function(int) onPageChanged;
   final Language language;
@@ -611,8 +640,7 @@ class _WeekMealTabBarView extends StatelessWidget {
       children: List.generate(
         tabController.length,
         (tabIndex) => _NestedPageScrollView(
-          pageController: pageControllerGroup.getController(tabIndex),
-          pageCount: pageCount,
+          controller: pageControllerGroup.getController(tabIndex),
           onPageChanged: onPageChanged,
           builder: (context, pageIndex) {
             final nowMeal = weekMeal
@@ -758,7 +786,7 @@ class _HomePageState extends State<HomePage>
   late final HomePageModel _model;
   late final DateTime _mondayOfWeek;
   late final TabController _tabController;
-  late final _PageControllerGroup _mealOfDayPageControllerGroup;
+  late final _NestedPageScrollControllerGroup _mealOfDayPageControllerGroup;
 
   late final Future<WeekMeal> cachedMeal;
   late final Future<WeekMeal> downloadedMeal;
@@ -798,8 +826,9 @@ class _HomePageState extends State<HomePage>
       }),
     );
 
-    _mealOfDayPageControllerGroup = _PageControllerGroup(
+    _mealOfDayPageControllerGroup = _NestedPageScrollControllerGroup(
       count: DayOfWeek.values.length,
+      pageCount: MealOfDay.values.length,
       initialPage: _model.mealOfDay.index,
     );
 
