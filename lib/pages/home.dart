@@ -271,7 +271,10 @@ class _DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
             color: colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(128),
           ),
-          labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          labelStyle: theme.textTheme.titleSmall!.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
           labelPadding: EdgeInsets.zero,
           overlayColor: WidgetStateProperty.resolveWith(
             (states) => Colors.transparent,
