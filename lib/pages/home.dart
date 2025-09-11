@@ -685,7 +685,7 @@ class _WeekMealTabBarView extends StatelessWidget {
                               SharePlus.instance.share(
                                 ShareParams(
                                   text:
-                                      "[$title]\n\n${meal.menu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
+                                      "[$title]\n${meal.menu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
                                 ),
                               );
                             },
