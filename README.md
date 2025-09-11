@@ -1,6 +1,6 @@
 # meal_client
 
-MealU client application
+BapU client application
 
 ## Getting Started
 
