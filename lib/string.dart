@@ -35,6 +35,11 @@ const cannotLoadMeal = MultiLanguageString(
   kor: "식단 정보를 불러올 수 없어요.",
 );
 
+const noMeal = MultiLanguageString(
+  eng: "There's no meal information.",
+  kor: "식단 정보가 없어요.",
+);
+
 const language = MultiLanguageString(
   eng: "Language / 언어",
   kor: "언어 / Language",

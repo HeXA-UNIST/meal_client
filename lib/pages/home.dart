@@ -696,6 +696,15 @@ class _WeekMealTabBarView extends StatelessWidget {
                       .expand((e) => e)
                       .toList(growable: false);
 
+                  if (cards.isEmpty) {
+                    return Center(
+                      child: Text(
+                        string.noMeal.getLocalizedString(language),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    );
+                  }
+
                   final double cardWidth;
                   final int columns;
                   final int leftFill;
