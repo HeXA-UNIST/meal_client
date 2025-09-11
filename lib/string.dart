@@ -109,3 +109,5 @@ const diningHall = MultiLanguageString(eng: "Dining Hall", kor: "교직원 식�
 
 const menuKorean = MultiLanguageString(eng: "Korean", kor: "한식");
 const menuHalal = MultiLanguageString(eng: "Halal", kor: "할랄");
+
+const sourcecode = MultiLanguageString(eng: "Source Code", kor: "소스 코드");

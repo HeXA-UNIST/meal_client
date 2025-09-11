@@ -161,6 +161,13 @@ class _HomePageDrawer extends StatelessWidget {
             onTap: () async =>
                 await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj")),
           ),
+          _DrawerItem(
+            icon: Icons.code,
+            title: string.sourcecode.getLocalizedString(language),
+            onTap: () async => await launchUrl(
+              Uri.parse("https://github.com/HeXA-UNIST/meal_client"),
+            ),
+          ),
           /*
           _DrawerItem(
             icon: Icons.language,
