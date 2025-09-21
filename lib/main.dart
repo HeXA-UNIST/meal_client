@@ -61,6 +61,7 @@ class MyApp extends StatelessWidget {
       builder: (context, bapu, child) {
         return MaterialApp(
           title: string.title.getLocalizedString(bapu.language),
+          debugShowCheckedModeBanner: false,
           theme: ThemeData(
             fontFamily: 'Pretendard',
             brightness: bapu.brightness,
