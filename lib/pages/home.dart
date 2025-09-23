@@ -168,13 +168,6 @@ class _HomePageDrawer extends StatelessWidget {
               Uri.parse("https://github.com/HeXA-UNIST/meal_client"),
             ),
           ),
-          /*
-          _DrawerItem(
-            icon: Icons.language,
-            title: string.language.getLocalizedString(language),
-            onTap: () {},
-          ),
-          */
           _DrawerItem(
             icon: Icons.copyright,
             title: string.ossLicense.getLocalizedString(language),
