@@ -659,9 +659,8 @@ class _WeekMealTabBarView extends StatelessWidget {
             return SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final List<Widget>
-                  cards = [nowMeal.dormitory, nowMeal.student, nowMeal.faculty]
-                      .map(
+                  final cards = [nowMeal.dormitory, nowMeal.student, nowMeal.faculty]
+                      .map<Iterable<Widget>>(
                         (meals) => meals.map((meal) {
                           var title = "";
 
@@ -701,7 +700,7 @@ class _WeekMealTabBarView extends StatelessWidget {
                         }),
                       )
                       .expand((e) => e)
-                      .toList(growable: false);
+                      .toList(growable: true);
 
                   if (cards.isEmpty) {
                     return Center(
