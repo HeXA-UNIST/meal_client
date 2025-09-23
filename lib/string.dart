@@ -108,7 +108,7 @@ const operationhourscontent = MultiLanguageString(
       "교직원식당\n 점심 11:30 ~ 13:30\n 저녁 17:30 ~ 19:30",
 );
 
-const dormitoryCafeteria = MultiLanguageString(eng: "Dormitory", kor: "생활관 식당");
+const dormitoryCafeteria = MultiLanguageString(eng: "Dormitory", kor: "기숙사 식당");
 const studentCafeteria = MultiLanguageString(eng: "Student", kor: "학생 식당");
 const diningHall = MultiLanguageString(eng: "Dining Hall", kor: "교직원 식당");
 
