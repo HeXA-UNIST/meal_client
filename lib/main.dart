@@ -24,13 +24,18 @@ void main() {
           language = Language.eng;
         }
 
+        // 라이트/다크 모드 구현이 일반적인 themeMode/darkTheme 방식과 다름
+        // 시스템 밝기값을 BapUModel의 themeBrightness로 보관한 뒤,
+        // 그 값이 바뀔 때마다 MaterialApp.theme 전체를 재생성
+        // (MaterialApp의 theme는 themeBrightness에 따라 ThemeData와 ColorScheme을 다시 계산하도록 구현)
         final model = BapUModel(
           language: language,
-          brightness: platformDispatcher.platformBrightness,
+          themeBrightness: platformDispatcher.platformBrightness,
         );
 
         platformDispatcher.onLocaleChanged = () {
           final Language language;
+
           if ( /* platformDispatcher.locale.languageCode == "ko" */ true) {
             language = Language.kor;
           } else {
@@ -40,9 +45,7 @@ void main() {
         };
 
         platformDispatcher.onPlatformBrightnessChanged = () {
-          if (model.brightness != platformDispatcher.platformBrightness) {
-            model.toggleBrightness();
-          }
+          model.setThemeBrightness(platformDispatcher.platformBrightness);
         };
 
         return model;
@@ -62,20 +65,22 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: string.title.getLocalizedString(bapu.language),
           debugShowCheckedModeBanner: false,
+          // themeBrightness를 기준으로 ThemeData와 ColorScheme을 다시 계산해
+          // 앱 전체의 라이트/다크 모드가 적용됨
           theme: ThemeData(
             fontFamily: 'Pretendard',
-            brightness: bapu.brightness,
+            brightness: bapu.themeBrightness,
             colorScheme:
                 ColorScheme.fromSeed(
                   seedColor: mainColor,
-                  brightness: bapu.brightness,
+                  brightness: bapu.themeBrightness,
                   dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
                 ).copyWith(
                   onPrimaryContainer: Colors.white,
-                  surface: bapu.brightness == Brightness.light
+                  surface: bapu.themeBrightness == Brightness.light
                       ? Colors.white
                       : Colors.black,
-                  surfaceContainer: bapu.brightness == Brightness.light
+                  surfaceContainer: bapu.themeBrightness == Brightness.light
                       ? Color.fromARGB(0xff, 0xfA, 0xfA, 0xfA)
                       : Color.fromARGB(0xff, 0xf, 0xf, 0xf),
                 ),

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="밥먹어U">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="밥먹어U">
+  <meta property="og:description" content="밥먹어U - UNIST 구내식당 식단표 뷰어">
+  <meta property="og:locale" content="ko_KR">
+  <meta property="og:image" content="https://bapu.hexa.pro/assets/assets/imgs/preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://bapu.hexa.pro">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="no">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/svg+xml" href="icon.svg"/>
+
+  <title>밥먹어U</title>
+  <!--브라우저 웹 앱 등록 방지-->
+  <!--  <link rel="manifest" href="manifest.json">-->
+
+  <style>
+    /* 웹 브라우저 터치패드 좌우 스크롤 제스처 충돌 방지 */
+    html,
+    body {
+      overscroll-behavior-x: none;
+      }
+  </style>
+</head>
+<body>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script>
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      return false;
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

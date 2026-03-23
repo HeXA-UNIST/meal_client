@@ -1,0 +1,35 @@
+{
+	# Enable HTTP/3 when Caddy handles TLS directly.
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+# Cloudflare Tunnel should forward to this origin, for example:
+# service: http://localhost:8080
+:8080 {
+	root * ./build/web
+
+	# Compress static assets.
+	encode zstd gzip
+
+	# Flutter Web SPA fallback.
+	try_files {path} /index.html
+	file_server
+
+	# Basic security headers.
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Cache immutable, hashed assets aggressively.
+	@assets path_regexp assets \.(?:js|css|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2)$
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Ensure fresh app shell.
+	header /index.html Cache-Control "no-cache, no-store, must-revalidate"
+}
+
+

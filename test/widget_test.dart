@@ -7,24 +7,75 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
-import 'package:meal_client/main.dart';
+import 'package:meal_client/i18n.dart';
+import 'package:meal_client/model.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('BapUModel은 같은 밝기값이면 알림하지 않는다', () {
+    final model = BapUModel(
+      language: Language.kor,
+      themeBrightness: Brightness.light,
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    var notifyCount = 0;
+    model.addListener(() {
+      notifyCount += 1;
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    model.setThemeBrightness(Brightness.light);
+
+    expect(model.themeBrightness, Brightness.light);
+    expect(notifyCount, 0);
+  });
+
+  test('BapUModel은 밝기값이 바뀌면 갱신하고 알림한다', () {
+    final model = BapUModel(
+      language: Language.kor,
+      themeBrightness: Brightness.light,
+    );
+
+    var notifyCount = 0;
+    model.addListener(() {
+      notifyCount += 1;
+    });
+
+    model.setThemeBrightness(Brightness.dark);
+
+    expect(model.themeBrightness, Brightness.dark);
+    expect(notifyCount, 1);
+  });
+
+  testWidgets('themeBrightness 변경이 MaterialApp 테마에 반영된다', (
+    WidgetTester tester,
+  ) async {
+    final model = BapUModel(
+      language: Language.kor,
+      themeBrightness: Brightness.light,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<BapUModel>.value(
+        value: model,
+        child: Consumer<BapUModel>(
+          builder: (context, bapu, child) {
+            return MaterialApp(
+              theme: ThemeData(brightness: bapu.themeBrightness),
+              home: const SizedBox.shrink(),
+            );
+          },
+        ),
+      ),
+    );
+
+    var app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.theme?.brightness, Brightness.light);
+
+    model.setThemeBrightness(Brightness.dark);
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.theme?.brightness, Brightness.dark);
   });
 }

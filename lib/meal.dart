@@ -13,7 +13,7 @@ class HalalMeal extends Meal {
   const HalalMeal(super.menu, super.kcal);
 }
 
-enum Cafeteria { dormitory, student, employee }
+enum Cafeteria { dormitory, student, faculty }
 
 class CafeteriaMeal {
   final List<Meal> dormitory;
@@ -37,7 +37,7 @@ class CafeteriaMeal {
         return dormitory;
       case Cafeteria.student:
         return student;
-      case Cafeteria.employee:
+      case Cafeteria.faculty:
         return faculty;
     }
   }
