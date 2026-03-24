@@ -50,6 +50,12 @@
   </style>
 </head>
 <body>
+  <div
+    id="web-splash"
+    style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #00CD80; z-index: 9999;"
+  >
+    <img src="icon.svg" alt="밥먹어U" style="width: min(45vw, 300px); height: min(45vw, 300px);" />
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -59,9 +65,12 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script>
-    window.addEventListener('beforeinstallprompt', function (e) {
-      e.preventDefault();
-      return false;
+
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('web-splash');
+      if (splash) {
+        splash.remove();
+      }
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>

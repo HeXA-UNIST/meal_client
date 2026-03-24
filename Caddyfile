@@ -19,9 +19,8 @@
 
 	# Basic security headers.
 	header {
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "SAMEORIGIN"
-		Referrer-Policy "strict-origin-when-cross-origin"
+	    Cross-Origin-Opener-Policy "same-origin"
+	    Cross-Origin-Embedder-Policy "credentialless"
 	}
 
 	# Cache immutable, hashed assets aggressively.
