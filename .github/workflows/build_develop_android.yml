@@ -42,7 +42,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           archive: false
-          path: ./build/app/outputs/flutter-apk/app-relsease.apk
+          path: ./build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
        
 
       
