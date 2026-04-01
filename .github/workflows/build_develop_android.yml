@@ -1,0 +1,51 @@
+name: Build Android APK in develop branch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository (develop branch)
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+
+      - name: Setup Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          
+      - run: flutter --version
+        shell: bash
+
+      - name: Decode keystore and create jks and properties file for signing the app
+        shell: bash
+        run: |
+          echo "$KEYSTORE" | base64 --decode > app/keystore.jks
+          echo "storeFile=keystore.jks" >> key.properties
+          echo "keyAlias=key" >> key.properties
+          echo "storePassword=$KEYSTORE_PASSWORD" >> key.properties
+          echo "keyPassword=$KEYSTORE_PASSWORD" >> key.properties
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        working-directory: ./android
+
+      - name: Build
+        run: flutter build apk --release --target-platform=android-arm64
+        shell: bash
+        working-directory: .
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          path: build/app/outputs/flutter-apk/app-relsease.apk
+       
+
+      
+      
+      
+      
