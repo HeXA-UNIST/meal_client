@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Clone repository (develop branch)
         uses: actions/checkout@v6
@@ -32,6 +32,56 @@ jobs:
           KEYSTORE: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         working-directory: ./android
+        
+      - name: Inject Signing Config into build.gradle.kts
+        shell: python
+        run: |
+          import os
+          
+          file_path = "android/app/build.gradle.kts"
+          with open(file_path, "r") as f:
+              content = f.read()
+          
+          # 1. 상단 Import 추가
+          imports = "import java.util.Properties\nimport java.io.FileInputStream\n"
+          if "import java.util.Properties" not in content:
+              content = imports + content
+          
+          # 2. Keystore 로드 로직 (plugins 블록 바로 뒤에 삽입)
+          keystore_logic = """
+          val keystoreProperties = Properties()
+          val keystorePropertiesFile = rootProject.file("key.properties")
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+          }
+          """
+          if "val keystoreProperties" not in content:
+              # android { 를 찾아 그 앞에 로직을 추가
+              content = content.replace("android {", f"\n{keystore_logic}\nandroid {{", 1)
+          
+          # 3. signingConfigs 및 buildTypes 수정
+          # 'android {' 블록 시작 지점에 signingConfigs 삽입
+          signing_config = """
+              signingConfigs {
+                  create("release") {
+                      keyAlias = keystoreProperties["keyAlias"] as String
+                      keyPassword = keystoreProperties["keyPassword"] as String
+                      storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                      storePassword = keystoreProperties["storePassword"] as String
+                  }
+              }
+          """
+          if "signingConfigs {" not in content:
+              content = content.replace("android {", f"android {{\n{signing_config}", 1)
+          
+          # 4. release 빌드 타입 수정
+          content = content.replace(
+              'signingConfig = signingConfigs.getByName("debug")',
+              'signingConfig = signingConfigs.getByName("release")'
+          )
+          
+          with open(file_path, "w") as f:
+              f.write(content)
 
       - name: Build
         run: flutter build apk --release --target-platform=android-arm64
@@ -44,10 +94,3 @@ jobs:
           archive: false
           path: ./build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
-       
-
-      
-      
-      
-      
-
