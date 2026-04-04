@@ -9,13 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-import 'package:meal_client/i18n.dart';
 import 'package:meal_client/model.dart';
 
 void main() {
   test('BapUModel은 같은 밝기값이면 알림하지 않는다', () {
     final model = BapUModel(
-      language: Language.kor,
       themeBrightness: Brightness.light,
     );
 
@@ -32,7 +30,6 @@ void main() {
 
   test('BapUModel은 밝기값이 바뀌면 갱신하고 알림한다', () {
     final model = BapUModel(
-      language: Language.kor,
       themeBrightness: Brightness.light,
     );
 
@@ -51,7 +48,6 @@ void main() {
     WidgetTester tester,
   ) async {
     final model = BapUModel(
-      language: Language.kor,
       themeBrightness: Brightness.light,
     );
 

@@ -7,7 +7,7 @@ import '../../api_v2.dart';
 import '../../data.dart';
 import '../../meal.dart';
 import '../../model.dart';
-import '../../string.dart' as string;
+import '../../l10n/app_localizations.dart';
 import '../home_drawer.dart';
 import 'home_app_bar.dart';
 import 'nested_page_scroll.dart';
@@ -110,14 +110,15 @@ class _HomePageState extends State<HomePage>
               context: context,
               barrierDismissible: false,
               builder: (context) {
-                return Consumer<BapUModel>(
-                  builder: (context, bapu, child) => HomeAnnouncementDialog(
-                    close: string.close.getLocalizedString(bapu.language),
-                    title: string.announcement.getLocalizedString(
-                      bapu.language,
-                    ),
-                    content: announcement,
-                  ),
+                return Builder(
+                  builder: (context) {
+                    final l10n = AppLocalizations.of(context)!;
+                    return HomeAnnouncementDialog(
+                      close: l10n.close,
+                      title: l10n.announcement,
+                      content: announcement,
+                    );
+                  },
                 );
               },
             );
@@ -146,23 +147,23 @@ class _HomePageState extends State<HomePage>
   Widget build(BuildContext context) {
     return Consumer<BapUModel>(
       builder: (context, bapu, child) {
+        final l10n = AppLocalizations.of(context)!;
         final String dayOfMealLabel;
         final IconData dayOfMealIcon;
         switch (_model.mealOfDay) {
           case MealOfDay.breakfast:
-            dayOfMealLabel = string.breakfast.getLocalizedString(bapu.language);
+            dayOfMealLabel = l10n.breakfast;
             dayOfMealIcon = Icons.sunny;
           case MealOfDay.lunch:
-            dayOfMealLabel = string.lunch.getLocalizedString(bapu.language);
+            dayOfMealLabel = l10n.lunch;
             dayOfMealIcon = Icons.restaurant;
           case MealOfDay.dinner:
-            dayOfMealLabel = string.dinner.getLocalizedString(bapu.language);
+            dayOfMealLabel = l10n.dinner;
             dayOfMealIcon = Icons.nightlight;
         }
 
         final dayOfWeekTabBar = DayOfWeekTabBar(
           tabController: _tabController,
-          language: bapu.language,
         );
         final PreferredSizeWidget? bottom;
         final Widget? flexibleSpace;
@@ -186,7 +187,6 @@ class _HomePageState extends State<HomePage>
             title: AnimatedDateTitle(
               tabController: _tabController,
               mondayOfWeek: _mondayOfWeek,
-              language: bapu.language,
             ),
             actions: [
               MealOfDaySwitchButton(
@@ -263,7 +263,6 @@ class _HomePageState extends State<HomePage>
                           _model.mealOfDay = nextMealOfDay;
                         });
                       },
-                      language: bapu.language,
                     ),
                   );
                 } else if (!cacheSnapshot.hasError ||
@@ -275,11 +274,9 @@ class _HomePageState extends State<HomePage>
                   );
                 } else {
                   return Center(
-                    child: Consumer<BapUModel>(
-                      builder: (context, bapu, child) => Text(
-                        string.cannotLoadMeal.getLocalizedString(bapu.language),
-                        style: theme.textTheme.titleMedium,
-                      ),
+                    child: Text(
+                      AppLocalizations.of(context)!.cannotLoadMeal,
+                      style: theme.textTheme.titleMedium,
                     ),
                   );
                 }

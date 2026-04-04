@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../i18n.dart';
+import '../../l10n/app_localizations.dart';
+
 import '../../meal.dart';
-import '../../string.dart' as string;
 import 'meal_card.dart';
 import 'nested_page_scroll.dart';
 
@@ -19,7 +19,6 @@ class WeekMealTabBarView extends StatelessWidget {
     required this.pageControllerGroup,
     required this.pageCount,
     required this.onPageChanged,
-    required this.language,
   });
 
   final WeekMeal weekMeal;
@@ -27,7 +26,6 @@ class WeekMealTabBarView extends StatelessWidget {
   final NestedPageScrollControllerGroup pageControllerGroup;
   final int pageCount;
   final void Function(int) onPageChanged;
-  final Language language;
 
   @override
   Widget build(BuildContext context) {
@@ -50,10 +48,11 @@ class WeekMealTabBarView extends StatelessWidget {
                         (cafeteria) {
                           final meals = nowMeal.fromCafeteria(cafeteria);
                           return meals.map((meal) {
+                            final l10n = AppLocalizations.of(context)!;
                             var title = switch (cafeteria) {
-                              Cafeteria.dormitory => string.dormitoryCafeteria.getLocalizedString(language),
-                              Cafeteria.student   => string.studentCafeteria.getLocalizedString(language),
-                              Cafeteria.faculty   => string.facultyCafeteria.getLocalizedString(language),
+                              Cafeteria.dormitory => l10n.dormitoryCafeteria,
+                              Cafeteria.student   => l10n.studentCafeteria,
+                              Cafeteria.faculty   => l10n.facultyCafeteria,
                             };
 
                             // 한식, 할랄 표기는 기숙사 식당에 한정하여 표기한다.
@@ -61,10 +60,10 @@ class WeekMealTabBarView extends StatelessWidget {
                               switch (meal) {
                                 case KoreanMeal _:
                                   title +=
-                                  " ${string.menuKorean.getLocalizedString(language)}";
+                                  " ${l10n.menuKorean}";
                                 case HalalMeal _:
                                   title +=
-                                  " ${string.menuHalal.getLocalizedString(language)}";
+                                  " ${l10n.menuHalal}";
                               }
                             }
 
@@ -89,7 +88,7 @@ class WeekMealTabBarView extends StatelessWidget {
                   if (cards.isEmpty) {
                     return Center(
                       child: Text(
-                        string.noMeal.getLocalizedString(language),
+                        AppLocalizations.of(context)!.noMeal,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     );

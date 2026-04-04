@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../i18n.dart';
+import '../../l10n/app_localizations.dart';
+
+import '../../date_utils.dart' as date_utils;
 import '../../meal.dart';
-import '../../string.dart' as string;
 
 class MealOfDaySwitchButton extends StatelessWidget {
   const MealOfDaySwitchButton({
@@ -49,11 +50,9 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   DayOfWeekTabBar({
     super.key,
     required this.tabController,
-    required this.language,
   });
 
   final TabController tabController;
-  final Language language;
 
   final _preferredSize = Size.fromHeight(46.0);
 
@@ -81,13 +80,13 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
         padding: EdgeInsets.all(4.0),
         child: TabBar(
           tabs: [
-            Tab(text: string.mon.getLocalizedString(language), height: 36),
-            Tab(text: string.tue.getLocalizedString(language), height: 36),
-            Tab(text: string.wed.getLocalizedString(language), height: 36),
-            Tab(text: string.thu.getLocalizedString(language), height: 36),
-            Tab(text: string.fri.getLocalizedString(language), height: 36),
-            Tab(text: string.sat.getLocalizedString(language), height: 36),
-            Tab(text: string.sun.getLocalizedString(language), height: 36),
+            Tab(text: AppLocalizations.of(context)!.mon, height: 36),
+            Tab(text: AppLocalizations.of(context)!.tue, height: 36),
+            Tab(text: AppLocalizations.of(context)!.wed, height: 36),
+            Tab(text: AppLocalizations.of(context)!.thu, height: 36),
+            Tab(text: AppLocalizations.of(context)!.fri, height: 36),
+            Tab(text: AppLocalizations.of(context)!.sat, height: 36),
+            Tab(text: AppLocalizations.of(context)!.sun, height: 36),
           ],
           labelColor: colorScheme.onPrimaryContainer,
           unselectedLabelColor: unselectedLabelColor,
@@ -118,12 +117,10 @@ class AnimatedDateTitle extends StatelessWidget {
     super.key,
     required this.tabController,
     required this.mondayOfWeek,
-    required this.language,
   });
 
   final TabController tabController;
   final DateTime mondayOfWeek;
-  final Language language;
 
   @override
   Widget build(BuildContext context) {
@@ -131,9 +128,10 @@ class AnimatedDateTitle extends StatelessWidget {
     // 7개 날짜 문자열을 미리 계산해두면, 아래 AnimatedBuilder가
     // 매 프레임(~60fps)마다 DateTime 연산 + 문자열 포맷을 반복하지 않고
     // 단순 리스트 인덱스 조회만 수행한다.
+    final locale = Localizations.localeOf(context);
     final dateLabels = List.generate(DayOfWeek.values.length, (i) {
       final day = mondayOfWeek.add(Duration(days: i));
-      return string.getLocalizedDate(day.month, day.day, language);
+      return date_utils.getLocalizedDate(day.month, day.day, locale);
     });
 
     final animation = tabController.animation;

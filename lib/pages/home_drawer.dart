@@ -2,13 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../i18n.dart';
-import '../model.dart';
-import '../string.dart' as string;
+import '../l10n/app_localizations.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
 
@@ -87,19 +84,18 @@ class _DrawerItem extends StatelessWidget {
 
 // 운영시간은 일단 하드코딩. 추후 백엔드 API로 받아올 예정
 class _OperationHoursSection extends StatelessWidget {
-  final Language language;
-
-  const _OperationHoursSection({required this.language});
+  const _OperationHoursSection();
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            string.operationHours.getLocalizedString(language),
+            l10n.operationHours,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -108,17 +104,17 @@ class _OperationHoursSection extends StatelessWidget {
           ),
           SizedBox(height: 16),
           _OperationHoursEntry(
-            name: string.dormitoryCafeteria.getLocalizedString(language),
+            name: l10n.dormitoryCafeteria,
             hours: ['08:00 - 09:20', '11:30 - 13:30', '17:30 - 19:00'],
           ),
           SizedBox(height: 12),
           _OperationHoursEntry(
-            name: string.studentCafeteria.getLocalizedString(language),
+            name: l10n.studentCafeteria,
             hours: ['11:00 - 13:30', '17:00 - 19:00'],
           ),
           SizedBox(height: 12),
           _OperationHoursEntry(
-            name: string.facultyCafeteria.getLocalizedString(language),
+            name: l10n.facultyCafeteria,
             hours: ['11:00 - 13:00', '17:30 - 19:30'],
           ),
         ],
@@ -168,7 +164,7 @@ class HomePageDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
-    final language = Provider.of<BapUModel>(context).language;
+    final l10n = AppLocalizations.of(context)!;
 
     return Drawer(
       backgroundColor: brightness == Brightness.light
@@ -185,7 +181,7 @@ class HomePageDrawer extends StatelessWidget {
           ),
           _DrawerItem(
             icon: Icons.notifications_active,
-            title: string.announcement.getLocalizedString(language),
+            title: l10n.announcement,
             onTap: () async {
               Navigator.of(context).pop();
               final sharedPreferences = await SharedPreferences.getInstance();
@@ -195,9 +191,10 @@ class HomePageDrawer extends StatelessWidget {
                   context: context,
                   barrierDismissible: false,
                   builder: (BuildContext context) {
+                    final dialogL10n = AppLocalizations.of(context)!;
                     return HomeAnnouncementDialog(
-                      close: string.close.getLocalizedString(language),
-                      title: string.announcement.getLocalizedString(language),
+                      close: dialogL10n.close,
+                      title: dialogL10n.announcement,
                       content: announcement,
                     );
                   },
@@ -207,7 +204,7 @@ class HomePageDrawer extends StatelessWidget {
           ),
           _DrawerItem(
             icon: Icons.help_outline_outlined,
-            title: string.contactDeveloper.getLocalizedString(language),
+            title: l10n.contactDeveloper,
             onTap: () async =>
                 await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj")),
           ),
@@ -215,7 +212,7 @@ class HomePageDrawer extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             child: Divider(color: Colors.white54, height: 1),
           ),
-          _OperationHoursSection(language: language),
+          _OperationHoursSection(),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             child: Divider(color: Colors.white54, height: 1),
