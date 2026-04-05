@@ -45,7 +45,7 @@ class MyApp extends StatelessWidget {
       builder: (context, bapu, child) {
         return MaterialApp(
           onGenerateTitle:
-              (context) => AppLocalizations.of(context)!.appTitle,
+              (context) => AppLocalizations.of(context)!.title,
           debugShowCheckedModeBanner: false,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
