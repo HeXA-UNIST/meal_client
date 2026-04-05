@@ -44,7 +44,8 @@ class MyApp extends StatelessWidget {
     return Consumer<BapUModel>(
       builder: (context, bapu, child) {
         return MaterialApp(
-          title: 'BapU',
+          onGenerateTitle:
+              (context) => AppLocalizations.of(context)!.appTitle,
           debugShowCheckedModeBanner: false,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
