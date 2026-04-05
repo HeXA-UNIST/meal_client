@@ -146,21 +146,14 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     return Consumer<BapUModel>(
-      builder: (context, bapu, child) {
+      builder: (context, _, child) {
+        // bapu는 현재 사용되지 않으므로 나중에 삭제 가능합니다.
         final l10n = AppLocalizations.of(context)!;
-        final String dayOfMealLabel;
-        final IconData dayOfMealIcon;
-        switch (_model.mealOfDay) {
-          case MealOfDay.breakfast:
-            dayOfMealLabel = l10n.breakfast;
-            dayOfMealIcon = Icons.sunny;
-          case MealOfDay.lunch:
-            dayOfMealLabel = l10n.lunch;
-            dayOfMealIcon = Icons.restaurant;
-          case MealOfDay.dinner:
-            dayOfMealLabel = l10n.dinner;
-            dayOfMealIcon = Icons.nightlight;
-        }
+        final (dayOfMealLabel, dayOfMealIcon) = switch (_model.mealOfDay) {
+          MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
+          MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
+          MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
+        };
 
         final dayOfWeekTabBar = DayOfWeekTabBar(
           tabController: _tabController,
@@ -239,7 +232,7 @@ class _HomePageState extends State<HomePage>
               builder: (context, downloadSnapshot) {
                 if (downloadSnapshot.hasData || cacheSnapshot.hasData) {
                   return Consumer<BapUModel>(
-                    builder: (context, bapu, child) => WeekMealTabBarView(
+                    builder: (context, _, child) => WeekMealTabBarView(
                       pageCount: MealOfDay.values.length,
                       weekMeal: downloadSnapshot.hasData
                           ? downloadSnapshot.data!
