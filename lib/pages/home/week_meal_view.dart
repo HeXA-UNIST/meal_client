@@ -29,6 +29,7 @@ class WeekMealTabBarView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return TabBarView(
       controller: tabController,
       children: List.generate(
@@ -48,7 +49,6 @@ class WeekMealTabBarView extends StatelessWidget {
                         (cafeteria) {
                           final meals = nowMeal.fromCafeteria(cafeteria);
                           return meals.map((meal) {
-                            final l10n = AppLocalizations.of(context)!;
                             var title = switch (cafeteria) {
                               Cafeteria.dormitory => l10n.dormitoryCafeteria,
                               Cafeteria.student   => l10n.studentCafeteria,
@@ -85,7 +85,7 @@ class WeekMealTabBarView extends StatelessWidget {
                   if (cards.isEmpty) {
                     return Center(
                       child: Text(
-                        AppLocalizations.of(context)!.noMeal,
+                        l10n.noMeal,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     );

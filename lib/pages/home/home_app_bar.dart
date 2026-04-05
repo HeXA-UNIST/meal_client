@@ -63,6 +63,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     final unselectedLabelColor = HSLColor.fromColor(colorScheme.onSurface)
         .withSaturation(0)
@@ -80,13 +81,13 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
         padding: EdgeInsets.all(4.0),
         child: TabBar(
           tabs: [
-            Tab(text: AppLocalizations.of(context)!.mon, height: 36),
-            Tab(text: AppLocalizations.of(context)!.tue, height: 36),
-            Tab(text: AppLocalizations.of(context)!.wed, height: 36),
-            Tab(text: AppLocalizations.of(context)!.thu, height: 36),
-            Tab(text: AppLocalizations.of(context)!.fri, height: 36),
-            Tab(text: AppLocalizations.of(context)!.sat, height: 36),
-            Tab(text: AppLocalizations.of(context)!.sun, height: 36),
+            Tab(text: l10n.mon, height: 36),
+            Tab(text: l10n.tue, height: 36),
+            Tab(text: l10n.wed, height: 36),
+            Tab(text: l10n.thu, height: 36),
+            Tab(text: l10n.fri, height: 36),
+            Tab(text: l10n.sat, height: 36),
+            Tab(text: l10n.sun, height: 36),
           ],
           labelColor: colorScheme.onPrimaryContainer,
           unselectedLabelColor: unselectedLabelColor,
