@@ -7,10 +7,10 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Clone repository (develop branch)
+      - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v6
         with:
-          ref: develop
+          ref: ${{ github.ref_name }}
 
       - name: Setup Flutter environment
         uses: subosito/flutter-action@v2
