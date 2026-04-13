@@ -41,7 +41,7 @@ dependencies:
   flutter_svg: ^2.2.1
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
-  share_plus: ^12.0.0
+  share_plus: ^13.0.0
   cupertino_http: ^2.4.0
   cronet_http: ^1.8.0
   intl: any
