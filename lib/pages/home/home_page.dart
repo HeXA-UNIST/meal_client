@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../api_v2.dart';
+import '../../announcement_service.dart';
 import '../../constants.dart';
 import '../../data.dart';
 import '../../meal.dart';
@@ -82,44 +81,13 @@ class _HomePageState extends State<HomePage>
       throw e;
     });
 
-    fetchRawAnnouncement().then((rawAnnouncement) async {
-      try {
-        final announcement = parseRawAnnouncement(rawAnnouncement);
-        final sharedPreferences = await SharedPreferences.getInstance();
-        if (!mounted) return;
-        final prevAnnouncement =
-            sharedPreferences.getString(StorageKeys.announcementKey);
-        if (announcement != prevAnnouncement) {
-          sharedPreferences.setString(StorageKeys.announcementKey, announcement);
-          SchedulerBinding.instance.addPostFrameCallback((duration) {
-            if (!mounted) return;
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) {
-                return Builder(
-                  builder: (context) {
-                    final l10n = AppLocalizations.of(context)!;
-                    return HomeAnnouncementDialog(
-                      close: l10n.close,
-                      title: l10n.announcement,
-                      content: announcement,
-                    );
-                  },
-                );
-              },
-            );
-          });
-        }
-      } catch (e) {
-        assert(() {
-          debugPrint('[BapU] announcement processing failed: $e');
-          return true;
-        }());
+    checkForNewAnnouncement().then((announcement) {
+      if (announcement != null && mounted) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showAnnouncementDialog(announcement);
+        });
       }
-    // 네트워크 오류·타임아웃 등 fetchRawAnnouncement() 자체의 예외는
-    // then() 콜백 안 try/catch로 잡히지 않으므로 별도로 처리한다.
-    // 공지사항 로드 실패는 조용히 무시한다.
     }).catchError((e) {
       assert(() {
         debugPrint('[BapU] announcement fetch failed: $e');
@@ -270,6 +238,19 @@ class _HomePageState extends State<HomePage>
             );
           }
         },
+      ),
+    );
+  }
+
+  void _showAnnouncementDialog(String announcement) {
+    final l10n = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => HomeAnnouncementDialog(
+        close: l10n.close,
+        title: l10n.announcement,
+        content: announcement,
       ),
     );
   }
