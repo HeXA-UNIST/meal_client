@@ -243,15 +243,17 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showAnnouncementDialog(String announcement) {
-    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => HomeAnnouncementDialog(
-        close: l10n.close,
-        title: l10n.announcement,
-        content: announcement,
-      ),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return HomeAnnouncementDialog(
+          close: l10n.close,
+          title: l10n.announcement,
+          content: announcement,
+        );
+      },
     );
   }
 
