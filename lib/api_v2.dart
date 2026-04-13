@@ -44,13 +44,13 @@ WeekMeal parseRawMeal(String jsonStr) {
     if (dayOfWeek == null) {
       throw FormatException('알 수 없는 dayType: ${meal["dayType"]}');
     }
-    final mealOfDay = MealOfDay.fromApiKey(meal["mealType"] as String);
-    final cafeteria = Cafeteria.fromApiKey(meal["restaurantType"] as String);
+    final mealOfDay = MealOfDay.fromApiKey(meal["mealType"] as String? ?? '');
+    final cafeteria = Cafeteria.fromApiKey(meal["restaurantType"] as String? ?? '');
 
     final meals = weekMeal[dayOfWeek][mealOfDay][cafeteria];
 
     final calorie = meal["calorie"];
-    final kcal = calorie == 0 ? null : calorie as int?;
+    final kcal = calorie == 0 ? null : (calorie is num ? calorie.toInt() : null);
 
     final menu = (meal["menus"] as List<dynamic>)
         .map((e) => e as String)
