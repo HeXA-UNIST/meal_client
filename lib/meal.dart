@@ -13,142 +13,74 @@ class HalalMeal extends Meal {
   const HalalMeal(super.menu, super.kcal);
 }
 
-enum Cafeteria { dormitory, student, faculty }
+enum Cafeteria {
+  dormitory('기숙사 식당'), // 새 API 전환 시 'DORMITORY'로 변경
+  student('학생 식당'),
+  faculty('교직원 식당');
 
-class CafeteriaMeal {
-  final List<Meal> dormitory;
-  final List<Meal> student;
-  final List<Meal> faculty;
+  final String apiKey;
+  const Cafeteria(this.apiKey);
 
-  const CafeteriaMeal({
-    required this.dormitory,
-    required this.student,
-    required this.faculty,
-  });
-
-  CafeteriaMeal.empty()
-    : dormitory = List.empty(growable: true),
-      student = List.empty(growable: true),
-      faculty = List.empty(growable: true);
-
-  List<Meal> fromCafeteria(Cafeteria c) {
-    switch (c) {
-      case Cafeteria.dormitory:
-        return dormitory;
-      case Cafeteria.student:
-        return student;
-      case Cafeteria.faculty:
-        return faculty;
-    }
-  }
+  static Cafeteria fromApiKey(String key) =>
+      values.firstWhere((e) => e.apiKey == key,
+          orElse: () => throw FormatException('알 수 없는 restaurantType: $key'));
 }
 
-enum MealOfDay { breakfast, lunch, dinner }
+class CafeteriaMeal {
+  final List<List<Meal>> _cafeterias;
 
-MealOfDay nextMealOfDay(MealOfDay m) {
-  switch (m) {
-    case MealOfDay.breakfast:
-      return MealOfDay.lunch;
-    case MealOfDay.lunch:
-      return MealOfDay.dinner;
-    case MealOfDay.dinner:
-      return MealOfDay.breakfast;
-  }
+  CafeteriaMeal._(this._cafeterias)
+      : assert(_cafeterias.length == Cafeteria.values.length);
+
+  factory CafeteriaMeal.empty() => CafeteriaMeal._(
+      List.generate(Cafeteria.values.length, (_) => <Meal>[]));
+
+  List<Meal> operator [](Cafeteria c) => _cafeterias[c.index];
+  List<Meal> fromCafeteria(Cafeteria c) => _cafeterias[c.index];
+}
+
+enum MealOfDay {
+  breakfast('BREAKFAST'),
+  lunch('LUNCH'),
+  dinner('DINNER');
+
+  final String apiKey;
+  const MealOfDay(this.apiKey);
+
+  MealOfDay get next => values[(index + 1) % values.length];
+
+  static MealOfDay fromApiKey(String key) =>
+      values.firstWhere((e) => e.apiKey == key,
+          orElse: () => throw FormatException('알 수 없는 mealType: $key'));
 }
 
 class DayMeal {
-  final CafeteriaMeal breakfast;
-  final CafeteriaMeal lunch;
-  final CafeteriaMeal dinner;
+  final List<CafeteriaMeal> _meals;
 
-  const DayMeal({
-    required this.breakfast,
-    required this.lunch,
-    required this.dinner,
-  });
+  DayMeal._(this._meals) : assert(_meals.length == MealOfDay.values.length);
 
-  DayMeal.empty()
-    : breakfast = CafeteriaMeal.empty(),
-      lunch = CafeteriaMeal.empty(),
-      dinner = CafeteriaMeal.empty();
+  factory DayMeal.empty() => DayMeal._(
+      List.generate(MealOfDay.values.length, (_) => CafeteriaMeal.empty()));
 
-  CafeteriaMeal fromMealOfDay(MealOfDay m) {
-    switch (m) {
-      case MealOfDay.breakfast:
-        return breakfast;
-      case MealOfDay.lunch:
-        return lunch;
-      case MealOfDay.dinner:
-        return dinner;
-    }
-  }
+  CafeteriaMeal operator [](MealOfDay m) => _meals[m.index];
+  CafeteriaMeal fromMealOfDay(MealOfDay m) => _meals[m.index];
 }
 
-enum DayOfWeek { mon, tue, wed, thu, fri, sat, sun }
+enum DayOfWeek {
+  mon, tue, wed, thu, fri, sat, sun;
 
-DayOfWeek nextDayOfWeek(DayOfWeek d) {
-  switch (d) {
-    case DayOfWeek.mon:
-      return DayOfWeek.tue;
-    case DayOfWeek.tue:
-      return DayOfWeek.wed;
-    case DayOfWeek.wed:
-      return DayOfWeek.thu;
-    case DayOfWeek.thu:
-      return DayOfWeek.fri;
-    case DayOfWeek.fri:
-      return DayOfWeek.sat;
-    case DayOfWeek.sat:
-      return DayOfWeek.sun;
-    case DayOfWeek.sun:
-      return DayOfWeek.mon;
-  }
+  // apiKey 없음: 새 API에서 date 문자열로 변경 예정이므로 임시 매핑은 api_v2.dart에 유지
+  DayOfWeek get next => values[(index + 1) % values.length];
 }
 
 class WeekMeal {
-  final DayMeal mon;
-  final DayMeal tue;
-  final DayMeal wed;
-  final DayMeal thu;
-  final DayMeal fri;
-  final DayMeal sat;
-  final DayMeal sun;
+  final List<DayMeal> _days;
 
-  const WeekMeal({
-    required this.mon,
-    required this.tue,
-    required this.wed,
-    required this.thu,
-    required this.fri,
-    required this.sat,
-    required this.sun,
-  });
+  WeekMeal._(this._days) : assert(_days.length == DayOfWeek.values.length);
 
-  WeekMeal.empty()
-    : mon = DayMeal.empty(),
-      tue = DayMeal.empty(),
-      wed = DayMeal.empty(),
-      thu = DayMeal.empty(),
-      fri = DayMeal.empty(),
-      sat = DayMeal.empty(),
-      sun = DayMeal.empty();
+  factory WeekMeal.empty() => WeekMeal._(
+      List.generate(DayOfWeek.values.length, (_) => DayMeal.empty()));
 
-  DayMeal fromDayOfWeek(DayOfWeek d) {
-    switch (d) {
-      case DayOfWeek.mon:
-        return mon;
-      case DayOfWeek.tue:
-        return tue;
-      case DayOfWeek.wed:
-        return wed;
-      case DayOfWeek.thu:
-        return thu;
-      case DayOfWeek.fri:
-        return fri;
-      case DayOfWeek.sat:
-        return sat;
-      case DayOfWeek.sun:
-        return sun;
-    }
-  }
+  DayMeal operator [](DayOfWeek d) => _days[d.index];
+  DayMeal fromDayOfWeek(DayOfWeek d) => _days[d.index];
 }

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../constants.dart';
 import '../l10n/app_localizations.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
@@ -185,7 +186,7 @@ class HomePageDrawer extends StatelessWidget {
             onTap: () async {
               Navigator.of(context).pop();
               final sharedPreferences = await SharedPreferences.getInstance();
-              final announcement = sharedPreferences.getString("announceTime");
+              final announcement = sharedPreferences.getString(StorageKeys.announcementKey);
               if (announcement != null && context.mounted) {
                 showDialog(
                   context: context,

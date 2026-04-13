@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../api_v2.dart';
+import '../../constants.dart';
 import '../../data.dart';
 import '../../meal.dart';
 import '../../model.dart';
@@ -36,28 +37,14 @@ class _HomePageState extends State<HomePage>
 
   @override
   void initState() {
-    final DateTime now;
-    {
-      final localNow = DateTime.now();
-      now = localNow.toUtc().add(Duration(hours: 9));
-    }
-
-    // TODO: 나중에 API에서 운영 시간 정보를 받아와야함
-    final MealOfDay mealOfDay;
-    if (now.hour < 9 || (now.hour == 9 && now.minute <= 20)) {
-      mealOfDay = MealOfDay.breakfast;
-    } else if (now.hour < 13 || (now.hour == 13 && now.minute <= 30)) {
-      mealOfDay = MealOfDay.lunch;
-    } else {
-      mealOfDay = MealOfDay.dinner;
-    }
+    final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
 
     _model = HomePageModel(
-      mealOfDay: mealOfDay,
-      dayOfWeek: DayOfWeek.values[now.weekday - 1],
+      mealOfDay: MealTimeConfig.determineMealOfDay(kstNow),
+      dayOfWeek: DayOfWeek.values[kstNow.weekday - 1],
     );
 
-    _mondayOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    _mondayOfWeek = kstNow.subtract(Duration(days: kstNow.weekday - 1));
 
     _tabController = TabController(
       length: DayOfWeek.values.length,
@@ -96,14 +83,14 @@ class _HomePageState extends State<HomePage>
     });
 
     fetchRawAnnouncement().then((rawAnnouncement) async {
-      const key = "announceTime";
       try {
         final announcement = parseRawAnnouncement(rawAnnouncement);
         final sharedPreferences = await SharedPreferences.getInstance();
         if (!mounted) return;
-        final prevAnnouncement = sharedPreferences.getString(key);
+        final prevAnnouncement =
+            sharedPreferences.getString(StorageKeys.announcementKey);
         if (announcement != prevAnnouncement) {
-          sharedPreferences.setString(key, announcement);
+          sharedPreferences.setString(StorageKeys.announcementKey, announcement);
           SchedulerBinding.instance.addPostFrameCallback((duration) {
             if (!mounted) return;
             showDialog(
@@ -184,7 +171,7 @@ class _HomePageState extends State<HomePage>
             actions: [
               MealOfDaySwitchButton(
                 onPressed: () async {
-                  final nextMeal = nextMealOfDay(_model.mealOfDay);
+                  final nextMeal = _model.mealOfDay.next;
 
                   setState(() {
                     // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
