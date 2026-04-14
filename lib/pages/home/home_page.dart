@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:provider/provider.dart';
 
 import '../../announcement_service.dart';
 import '../../constants.dart';
@@ -100,83 +99,77 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BapUModel>(
-      builder: (context, _, child) {
-        // bapu는 현재 사용되지 않으므로 나중에 삭제 가능합니다.
-        final l10n = AppLocalizations.of(context)!;
-        final (dayOfMealLabel, dayOfMealIcon) = switch (_model.mealOfDay) {
-          MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
-          MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
-          MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
-        };
+    final l10n = AppLocalizations.of(context)!;
+    final (dayOfMealLabel, dayOfMealIcon) = switch (_model.mealOfDay) {
+      MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
+      MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
+      MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
+    };
 
-        final dayOfWeekTabBar = DayOfWeekTabBar(
+    final dayOfWeekTabBar = DayOfWeekTabBar(
+      tabController: _tabController,
+    );
+    final PreferredSizeWidget? bottom;
+    final Widget? flexibleSpace;
+    if (MediaQuery.of(context).size.width >= 840) {
+      flexibleSpace = SafeArea(
+        child: Center(child: SizedBox(width: 420, child: dayOfWeekTabBar)),
+      );
+      bottom = null;
+    } else {
+      bottom = dayOfWeekTabBar;
+      flexibleSpace = null;
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      drawer: const HomePageDrawer(),
+      appBar: AppBar(
+        titleSpacing: 0,
+        centerTitle: false,
+        title: AnimatedDateTitle(
           tabController: _tabController,
-        );
-        final PreferredSizeWidget? bottom;
-        final Widget? flexibleSpace;
-        if (MediaQuery.of(context).size.width >= 840) {
-          flexibleSpace = SafeArea(
-            child: Center(child: SizedBox(width: 420, child: dayOfWeekTabBar)),
-          );
-          bottom = null;
-        } else {
-          bottom = dayOfWeekTabBar;
-          flexibleSpace = null;
-        }
+          mondayOfWeek: _mondayOfWeek,
+        ),
+        actions: [
+          MealOfDaySwitchButton(
+            onPressed: () async {
+              final nextMeal = _model.mealOfDay.next;
 
-        final colorScheme = Theme.of(context).colorScheme;
+              setState(() {
+                // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
+                _model.mealOfDay = nextMeal;
+                _isMealOfDayButtonTransition = true;
+              });
 
-        return Scaffold(
-          drawer: const HomePageDrawer(),
-          appBar: AppBar(
-            titleSpacing: 0,
-            centerTitle: false,
-            title: AnimatedDateTitle(
-              tabController: _tabController,
-              mondayOfWeek: _mondayOfWeek,
-            ),
-            actions: [
-              MealOfDaySwitchButton(
-                onPressed: () async {
-                  final nextMeal = _model.mealOfDay.next;
-
-                  setState(() {
-                    // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
-                    _model.mealOfDay = nextMeal;
-                    _isMealOfDayButtonTransition = true;
-                  });
-
-                  try {
-                    await _mealOfDayPageControllerGroup.animateToPage(
-                      nextMeal.index,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.ease,
-                      // 현재 선택된 요일 탭만 애니메이션 처리
-                      activeIndex: _model.dayOfWeek.index,
-                    );
-                  } finally {
-                    // _isMealOfDayButtonTransition은 build()가 아닌
-                    // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
-                    // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
-                    // 해제해도 렌더링에 영향이 없다.
-                    _isMealOfDayButtonTransition = false;
-                  }
-                },
-                label: dayOfMealLabel,
-                icon: dayOfMealIcon,
-              ),
-            ],
-            actionsPadding: EdgeInsets.only(right: 8),
-            backgroundColor: colorScheme.surface,
-            scrolledUnderElevation: 0,
-            bottom: bottom,
-            flexibleSpace: flexibleSpace,
+              try {
+                await _mealOfDayPageControllerGroup.animateToPage(
+                  nextMeal.index,
+                  duration: Duration(milliseconds: 300),
+                  curve: Curves.ease,
+                  // 현재 선택된 요일 탭만 애니메이션 처리
+                  activeIndex: _model.dayOfWeek.index,
+                );
+              } finally {
+                // _isMealOfDayButtonTransition은 build()가 아닌
+                // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
+                // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
+                // 해제해도 렌더링에 영향이 없다.
+                _isMealOfDayButtonTransition = false;
+              }
+            },
+            label: dayOfMealLabel,
+            icon: dayOfMealIcon,
           ),
-          body: child,
-        );
-      },
-      child: FutureBuilder(
+        ],
+        actionsPadding: EdgeInsets.only(right: 8),
+        backgroundColor: colorScheme.surface,
+        scrolledUnderElevation: 0,
+        bottom: bottom,
+        flexibleSpace: flexibleSpace,
+      ),
+      body: FutureBuilder(
         future: cachedMeal,
         builder: (context, cacheSnapshot) {
           final theme = Theme.of(context);
@@ -186,32 +179,30 @@ class _HomePageState extends State<HomePage>
               future: downloadedMeal,
               builder: (context, downloadSnapshot) {
                 if (downloadSnapshot.hasData || cacheSnapshot.hasData) {
-                  return Consumer<BapUModel>(
-                    builder: (context, _, child) => WeekMealTabBarView(
-                      pageCount: MealOfDay.values.length,
-                      weekMeal: downloadSnapshot.hasData
-                          ? downloadSnapshot.data!
-                          : cacheSnapshot.data!,
-                      tabController: _tabController,
-                      pageControllerGroup: _mealOfDayPageControllerGroup,
-                      onPageChanged: (page) {
-                        if (_isMealOfDayButtonTransition) {
-                          // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
-                          // 상단 버튼 상태에 반영하지 않는다.
-                          return;
-                        }
+                  return WeekMealTabBarView(
+                    pageCount: MealOfDay.values.length,
+                    weekMeal: downloadSnapshot.hasData
+                        ? downloadSnapshot.data!
+                        : cacheSnapshot.data!,
+                    tabController: _tabController,
+                    pageControllerGroup: _mealOfDayPageControllerGroup,
+                    onPageChanged: (page) {
+                      if (_isMealOfDayButtonTransition) {
+                        // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
+                        // 상단 버튼 상태에 반영하지 않는다.
+                        return;
+                      }
 
-                        final nextMealOfDay = MealOfDay.values[page];
-                        if (_model.mealOfDay == nextMealOfDay) {
-                          return;
-                        }
+                      final nextMealOfDay = MealOfDay.values[page];
+                      if (_model.mealOfDay == nextMealOfDay) {
+                        return;
+                      }
 
-                        // 수동 스와이프 전환은 기존처럼 즉시 버튼 상태에 반영한다.
-                        setState(() {
-                          _model.mealOfDay = nextMealOfDay;
-                        });
-                      },
-                    ),
+                      // 수동 스와이프 전환은 기존처럼 즉시 버튼 상태에 반영한다.
+                      setState(() {
+                        _model.mealOfDay = nextMealOfDay;
+                      });
+                    },
                   );
                 } else if (!cacheSnapshot.hasError ||
                     !downloadSnapshot.hasError) {

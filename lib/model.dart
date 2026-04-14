@@ -1,21 +1,7 @@
-import 'package:flutter/foundation.dart';
-
 import 'meal.dart';
 
-class BapUModel extends ChangeNotifier {
-  Brightness _themeBrightness;
-
-  BapUModel({required Brightness themeBrightness})
-    : _themeBrightness = themeBrightness;
-
-  Brightness get themeBrightness => _themeBrightness;
-
-  void setThemeBrightness(Brightness themeBrightness) {
-    if (_themeBrightness == themeBrightness) return;
-
-    _themeBrightness = themeBrightness;
-    notifyListeners();
-  }
+class BapUModel {
+  // 추후 Settings 기능 추가 시 사용자 ThemeMode 설정을 여기서 관리할 수 있음
 }
 
 class HomePageModel {

@@ -1,77 +1,31 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 
+import 'package:meal_client/main.dart';
 import 'package:meal_client/model.dart';
 
 void main() {
-  test('BapUModel은 같은 밝기값이면 알림하지 않는다', () {
-    final model = BapUModel(
-      themeBrightness: Brightness.light,
-    );
-
-    var notifyCount = 0;
-    model.addListener(() {
-      notifyCount += 1;
-    });
-
-    model.setThemeBrightness(Brightness.light);
-
-    expect(model.themeBrightness, Brightness.light);
-    expect(notifyCount, 0);
+  test('BapUModel은 인수 없이 생성 가능하다', () {
+    expect(() => BapUModel(), returnsNormally);
   });
 
-  test('BapUModel은 밝기값이 바뀌면 갱신하고 알림한다', () {
-    final model = BapUModel(
-      themeBrightness: Brightness.light,
-    );
-
-    var notifyCount = 0;
-    model.addListener(() {
-      notifyCount += 1;
-    });
-
-    model.setThemeBrightness(Brightness.dark);
-
-    expect(model.themeBrightness, Brightness.dark);
-    expect(notifyCount, 1);
+  testWidgets('MyApp은 ThemeMode.system으로 렌더링된다', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.system);
   });
 
-  testWidgets('themeBrightness 변경이 MaterialApp 테마에 반영된다', (
-    WidgetTester tester,
-  ) async {
-    final model = BapUModel(
-      themeBrightness: Brightness.light,
+  testWidgets('MyApp의 라이트/다크 테마에 Pretendard 폰트가 설정된다', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp());
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    // ThemeData는 fontFamily public getter가 없으므로 textTheme을 통해 간접 검증한다.
+    expect(
+      app.theme?.textTheme.bodyMedium?.fontFamily,
+      'Pretendard',
     );
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<BapUModel>.value(
-        value: model,
-        child: Consumer<BapUModel>(
-          builder: (context, bapu, child) {
-            return MaterialApp(
-              theme: ThemeData(brightness: bapu.themeBrightness),
-              home: const SizedBox.shrink(),
-            );
-          },
-        ),
-      ),
+    expect(
+      app.darkTheme?.textTheme.bodyMedium?.fontFamily,
+      'Pretendard',
     );
-
-    var app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(app.theme?.brightness, Brightness.light);
-
-    model.setThemeBrightness(Brightness.dark);
-    await tester.pump();
-
-    app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(app.theme?.brightness, Brightness.dark);
   });
 }
