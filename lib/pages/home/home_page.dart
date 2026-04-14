@@ -155,7 +155,7 @@ class _HomePageState extends State<HomePage>
               try {
                 await _mealOfDayPageControllerGroup.animateToPage(
                   nextMeal.index,
-                  duration: Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 300),
                   curve: Curves.ease,
                   // 현재 선택된 요일 탭만 애니메이션 처리
                   activeIndex: _model.dayOfWeek.index,
@@ -172,7 +172,7 @@ class _HomePageState extends State<HomePage>
             icon: dayOfMealIcon,
           ),
         ],
-        actionsPadding: EdgeInsets.only(right: 8),
+        actionsPadding: const EdgeInsets.only(right: 8),
         backgroundColor: colorScheme.surface,
         scrolledUnderElevation: 0,
         bottom: bottom,

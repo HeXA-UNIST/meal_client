@@ -55,6 +55,8 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   final _preferredSize = Size.fromHeight(46.0);
 
+  static const _overlayColor = WidgetStatePropertyAll<Color>(Colors.transparent);
+
   @override
   Size get preferredSize => _preferredSize;
 
@@ -76,8 +78,8 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
           color: colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(128.0),
         ),
-        margin: EdgeInsets.symmetric(horizontal: 8.0),
-        padding: EdgeInsets.all(4.0),
+        margin: const EdgeInsets.symmetric(horizontal: 8.0),
+        padding: const EdgeInsets.all(4.0),
         child: TabBar(
           tabs: [
             Tab(text: l10n.mon, height: 36),
@@ -102,7 +104,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
           labelPadding: EdgeInsets.zero,
           // resolveWith 대신 all을 사용하여 매 빌드마다
           // 새 클로저를 생성하지 않도록 한다.
-          overlayColor: WidgetStateProperty.all(Colors.transparent),
+          overlayColor: _overlayColor,
           splashFactory: NoSplash.splashFactory,
           dividerHeight: 0,
           controller: tabController,

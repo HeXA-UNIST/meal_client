@@ -137,14 +137,14 @@ class WeekMealTabBarView extends StatelessWidget {
                     row.add(
                       TableRow(
                         children: [
-                          TableCell(child: SizedBox()),
+                          const TableCell(child: SizedBox()),
                           ...cards
                               .sublist(
                                 i * columns,
                                 end < cards.length ? end : cards.length,
                               )
                               .map((card) => TableCell(child: card)),
-                          TableCell(child: SizedBox()),
+                          const TableCell(child: SizedBox()),
                         ],
                       ),
                     );
@@ -154,8 +154,8 @@ class WeekMealTabBarView extends StatelessWidget {
                       .map((card) => TableCell(child: card))
                       .toList();
                   if (remain.isNotEmpty) {
-                    remain.insert(0, TableCell(child: SizedBox()));
-                    remain.add(TableCell(child: SizedBox()));
+                    remain.insert(0, const TableCell(child: SizedBox()));
+                    remain.add(const TableCell(child: SizedBox()));
                     row.add(TableRow(children: remain));
                   }
 
