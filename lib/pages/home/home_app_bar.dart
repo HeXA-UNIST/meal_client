@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 
-import '../../date_utils.dart' as date_utils;
 import '../../meal.dart';
 
 class MealOfDaySwitchButton extends StatelessWidget {
@@ -132,7 +131,7 @@ class AnimatedDateTitle extends StatelessWidget {
     final locale = Localizations.localeOf(context);
     final dateLabels = List.generate(DayOfWeek.values.length, (i) {
       final day = mondayOfWeek.add(Duration(days: i));
-      return date_utils.getLocalizedDate(day.month, day.day, locale);
+      return _getLocalizedDate(day.month, day.day, locale);
     });
 
     final animation = tabController.animation;
@@ -167,4 +166,27 @@ class AnimatedDateTitle extends StatelessWidget {
       },
     );
   }
+}
+
+/// 로케일에 따라 월·일을 문자열로 변환한다.
+///
+/// 한국어: "4월 4일" / 영어: "Apr. 4"
+String _getLocalizedDate(int month, int day, Locale locale) {
+  final isKorean = locale.languageCode == 'ko';
+
+  const engMonths = [
+    'Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.',
+    'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.',
+  ];
+  const korMonths = [
+    '1월', '2월', '3월', '4월', '5월', '6월',
+    '7월', '8월', '9월', '10월', '11월', '12월',
+  ];
+
+  if (month < 1 || month > 12) {
+    throw FormatException('Invalid month: $month');
+  }
+
+  final monthStr = isKorean ? korMonths[month - 1] : engMonths[month - 1];
+  return isKorean ? '$monthStr $day일' : '$monthStr $day';
 }
