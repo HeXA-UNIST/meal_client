@@ -29,6 +29,11 @@ class _HomePageState extends State<HomePage>
   late final Future<WeekMeal> cachedMeal;
   late final Future<WeekMeal> downloadedMeal;
 
+  // 끼니 상태는 ValueNotifier로 관리한다.
+  // MealOfDaySwitchButton만 이 값을 구독하므로, 끼니 전환 시
+  // Scaffold 전체가 아닌 버튼 하나만 rebuild된다.
+  late final ValueNotifier<MealOfDay> _mealOfDayNotifier;
+
   // 버튼으로 시작한 식사 전환 동안에는 상단 버튼 상태를 유지하고,
   // 중간 onPageChanged가 버튼 상태를 다시 덮어쓰지 않게 한다.
   bool _isMealOfDayButtonTransition = false;
@@ -49,6 +54,7 @@ class _HomePageState extends State<HomePage>
       dayOfWeek: DayOfWeek.values[kstNow.weekday - 1],
     );
     _mondayOfWeek = kstNow.subtract(Duration(days: kstNow.weekday - 1));
+    _mealOfDayNotifier = ValueNotifier(_model.mealOfDay);
   }
 
   void _initializeDataLoading() {
@@ -85,9 +91,10 @@ class _HomePageState extends State<HomePage>
     if (_model.dayOfWeek == nextDayOfWeek) {
       return;
     }
-    setState(() {
-      _model.dayOfWeek = nextDayOfWeek;
-    });
+    // setState 없이 직접 대입한다: _model.dayOfWeek는 build()의 위젯 트리에서
+    // 직접 사용되지 않으므로(animateToPage의 activeIndex는 onPressed 콜백에서만
+    // 읽힘) rebuild를 발생시킬 이유가 없다.
+    _model.dayOfWeek = nextDayOfWeek;
   }
 
   void _checkAnnouncement() {
@@ -109,11 +116,6 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final (dayOfMealLabel, dayOfMealIcon) = switch (_model.mealOfDay) {
-      MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
-      MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
-      MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
-    };
 
     final dayOfWeekTabBar = DayOfWeekTabBar(
       tabController: _tabController,
@@ -142,34 +144,44 @@ class _HomePageState extends State<HomePage>
           mondayOfWeek: _mondayOfWeek,
         ),
         actions: [
-          MealOfDaySwitchButton(
-            onPressed: () async {
-              final nextMeal = _model.mealOfDay.next;
+          ValueListenableBuilder<MealOfDay>(
+            valueListenable: _mealOfDayNotifier,
+            builder: (context, mealOfDay, _) {
+              final (label, icon) = switch (mealOfDay) {
+                MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
+                MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
+                MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
+              };
+              return MealOfDaySwitchButton(
+                onPressed: () async {
+                  // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
+                  // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
+                  final nextMeal = _mealOfDayNotifier.value.next;
 
-              setState(() {
-                // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
-                _model.mealOfDay = nextMeal;
-                _isMealOfDayButtonTransition = true;
-              });
+                  // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
+                  _mealOfDayNotifier.value = nextMeal;
+                  _isMealOfDayButtonTransition = true;
 
-              try {
-                await _mealOfDayPageControllerGroup.animateToPage(
-                  nextMeal.index,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.ease,
-                  // 현재 선택된 요일 탭만 애니메이션 처리
-                  activeIndex: _model.dayOfWeek.index,
-                );
-              } finally {
-                // _isMealOfDayButtonTransition은 build()가 아닌
-                // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
-                // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
-                // 해제해도 렌더링에 영향이 없다.
-                _isMealOfDayButtonTransition = false;
-              }
+                  try {
+                    await _mealOfDayPageControllerGroup.animateToPage(
+                      nextMeal.index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.ease,
+                      // 현재 선택된 요일 탭만 애니메이션 처리
+                      activeIndex: _model.dayOfWeek.index,
+                    );
+                  } finally {
+                    // _isMealOfDayButtonTransition은 build()가 아닌
+                    // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
+                    // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
+                    // 해제해도 렌더링에 영향이 없다.
+                    _isMealOfDayButtonTransition = false;
+                  }
+                },
+                label: label,
+                icon: icon,
+              );
             },
-            label: dayOfMealLabel,
-            icon: dayOfMealIcon,
           ),
         ],
         actionsPadding: const EdgeInsets.only(right: 8),
@@ -203,14 +215,13 @@ class _HomePageState extends State<HomePage>
                       }
 
                       final nextMealOfDay = MealOfDay.values[page];
-                      if (_model.mealOfDay == nextMealOfDay) {
+                      if (_mealOfDayNotifier.value == nextMealOfDay) {
                         return;
                       }
 
                       // 수동 스와이프 전환은 기존처럼 즉시 버튼 상태에 반영한다.
-                      setState(() {
-                        _model.mealOfDay = nextMealOfDay;
-                      });
+                      // ValueNotifier 갱신으로 MealOfDaySwitchButton만 rebuild된다.
+                      _mealOfDayNotifier.value = nextMealOfDay;
                     },
                   );
                 } else if (!cacheSnapshot.hasError ||
@@ -261,6 +272,7 @@ class _HomePageState extends State<HomePage>
   void dispose() {
     _tabController.dispose();
     _mealOfDayPageControllerGroup.dispose();
+    _mealOfDayNotifier.dispose();
     super.dispose();
   }
 }
