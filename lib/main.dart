@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'constants.dart';
 import 'l10n/app_localizations.dart';
 
 import 'pages/home.dart';
-
-const mainColor = Color(0xFF00CD80);
 
 ThemeData _buildTheme(Brightness brightness) {
   final isLight = brightness == Brightness.light;

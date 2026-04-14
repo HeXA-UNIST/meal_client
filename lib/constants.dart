@@ -1,4 +1,9 @@
+import 'package:flutter/material.dart';
+
 import 'meal.dart';
+
+/// 앱 주 색상
+const mainColor = Color(0xFF00CD80);
 
 /// API 관련 상수
 class ApiConstants {
