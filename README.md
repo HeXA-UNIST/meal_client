@@ -7,27 +7,34 @@ UNIST의 구내식당 메뉴를 확인할 수 있는 애플리케이션입니다
 - 기숙사식당, 학생식당, 교직원식당 주간 식단 조회
 - 식단표 캐시 우선 로딩
 - 식단 카드 길게 눌러서 메뉴 공유
-- 다크 모드 자동 적용
-- 영어 지원 (WIP)
-- 웹 버전 (WIP)
+- 다크 모드 자동 적용 (시스템 설정 연동)
+- 한국어/영어 지원 (flutter_localizations)
+- 웹 버전
 
 ## TODO (우선순위순)
-- 문서화
-- 영어 지원 개선 (i18n / l10n)
-  - Flutter에서 공식적으로 지원하는 국제화 패키지 및 프레임워크로 전환
-  - 모든 기능에 영향을 주기 때문에, 최우선적으로 수정해야 함
 - 설정 화면 및 설정 모델 구현
 - 위젯 구현
   - 주의: 식단표를 `getApplicationSupportDirectory()`에 저장하지만, 위젯에서는 이 데이터에 접근할 수 없음.
-- 테마 구현 개선
-  - Flutter의 공식 테마 시스템으로 전환하여 관리. 일단 잘 작동하니 우선순위는 낮음.
-- 꾹 눌러서 공유 시 햅틱 피드백 추가
+
+<details>
+<summary>완료된 항목</summary>
+
+- ~~문서화 (AGENTS.md 추가)~~
+- ~~영어 지원 개선 (i18n / l10n) — `flutter_localizations` + ARB 파일 기반으로 전환 완료~~
+- ~~테마 구현 개선 — `ThemeMode.system` + `darkTheme` 표준 방식으로 전환 완료~~
+- ~~꾹 눌러서 공유 시 햅틱 피드백 추가~~
+
+</details>
 
 ## 프로젝트 구조
 
 ```text
 meal_client/
 ├── lib/
+│   ├── l10n/
+│   │   ├── app_ko.arb
+│   │   ├── app_en.arb
+│   │   └── app_localizations*.dart  (generated)
 │   ├── pages/
 │   │   ├── home/
 │   │   │   ├── home_page.dart
@@ -37,9 +44,10 @@ meal_client/
 │   │   │   └── week_meal_view.dart
 │   │   ├── home.dart
 │   │   └── home_drawer.dart
+│   ├── announcement_service.dart
 │   ├── api_v2.dart
+│   ├── constants.dart
 │   ├── data.dart
-│   ├── i18n.dart
 │   ├── main.dart
 │   ├── meal.dart
 │   ├── model.dart
@@ -71,13 +79,18 @@ meal_client/
 
 ### 상태와 도메인 모델
 
-- `lib/model.dart` - 공용 언어/테마 상태를 위한 `BapUModel`과 화면 로컬 선택 상태를 위한 `HomePageModel`.
+- `lib/model.dart` - 미래 Settings 기능을 위한 빈 플레이스홀더 `BapUModel`과 화면 로컬 선택 상태를 위한 `HomePageModel`.
 - `lib/meal.dart` - `Meal`, `CafeteriaMeal`, `DayMeal`, `WeekMeal` 및 관련 enum 등 핵심 도메인 타입.
-- `lib/i18n.dart` - 문자열 리소스에서 사용하는 최소한의 언어 추상화.
-- `lib/string.dart` - 현지화된 표시 문자열과 날짜 포맷 헬퍼.
+- `lib/constants.dart` - 앱 전역 상수: `ApiConstants` (엔드포인트 URL), `MealTimeConfig` (끼니 시간 판단 로직), `StorageKeys` (SharedPreferences 키).
+
+### i18n / l10n
+
+- `lib/l10n/app_ko.arb`, `lib/l10n/app_en.arb` - 한국어·영어 번역 문자열 리소스 (ARB 포맷).
+- `lib/l10n/app_localizations*.dart` - `flutter gen-l10n`으로 자동 생성된 현지화 클래스 (`AppLocalizations`). 직접 편집 금지.
 
 ### 데이터, 캐싱, 플랫폼 분기
 
+- `lib/announcement_service.dart` - 서버 공지사항 조회(`checkForNewAnnouncement`)와 SharedPreferences 기반 이전 공지 비교(`checkAnnouncementString`). 후자는 HTTP 의존 없이 단위 테스트 가능.
 - `lib/api_v2.dart` - 식단 및 공지사항 원격 API 호출과 JSON → 모델 파싱.
 - `lib/data.dart` - 현재 주차 기준 캐시 정책, 캐시 읽기 경로, fetch-and-cache 흐름.
 - `lib/storage.dart` - 네이티브 또는 웹 저장 동작을 선택하는 조건부 export.
@@ -91,4 +104,6 @@ meal_client/
 
 - `assets/imgs/bapu_logo.svg` - 사이드바에 들어간 로고 이미지.
 - `assets/fonts/` - Pretendard 폰트 파일과 번들된 라이선스 텍스트.
-- `test/widget_test.dart` - 테스트(테스트로써 기능은 거의 없음)
+- `test/domain_test.dart` - 도메인 모델 및 파싱 로직 단위 테스트 (23개).
+- `test/announcement_service_test.dart` - 공지사항 비교·저장 로직 단위 테스트 (3개).
+- `test/widget_test.dart` - 앱 렌더링 및 테마 스모크 테스트 (3개).
