@@ -35,39 +35,23 @@ class _HomePageState extends State<HomePage>
 
   @override
   void initState() {
-    final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
+    super.initState();
+    _initializeModelAndDate();
+    _initializeDataLoading();
+    _initializeControllers();
+    _checkAnnouncement();
+  }
 
+  void _initializeModelAndDate() {
+    final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
     _model = HomePageModel(
       mealOfDay: MealTimeConfig.determineMealOfDay(kstNow),
       dayOfWeek: DayOfWeek.values[kstNow.weekday - 1],
     );
-
     _mondayOfWeek = kstNow.subtract(Duration(days: kstNow.weekday - 1));
+  }
 
-    _tabController = TabController(
-      length: DayOfWeek.values.length,
-      vsync: this,
-    );
-    _tabController.index = _model.dayOfWeek.index;
-    _tabController.addListener(
-      () {
-        final nextDayOfWeek = DayOfWeek.values[_tabController.index];
-        if (_model.dayOfWeek == nextDayOfWeek) {
-          return;
-        }
-
-        setState(() {
-          _model.dayOfWeek = nextDayOfWeek;
-        });
-      },
-    );
-
-    _mealOfDayPageControllerGroup = NestedPageScrollControllerGroup(
-      count: DayOfWeek.values.length,
-      pageCount: MealOfDay.values.length,
-      initialPage: _model.mealOfDay.index,
-    );
-
+  void _initializeDataLoading() {
     cachedMeal = getCachedMealData();
     downloadedMeal = cachedMeal.then(
       (cache) => fetchAndCacheMealData(),
@@ -79,7 +63,34 @@ class _HomePageState extends State<HomePage>
       }());
       throw e;
     });
+  }
 
+  void _initializeControllers() {
+    _tabController = TabController(
+      length: DayOfWeek.values.length,
+      vsync: this,
+      initialIndex: _model.dayOfWeek.index,
+    );
+    _tabController.addListener(_onTabChanged);
+
+    _mealOfDayPageControllerGroup = NestedPageScrollControllerGroup(
+      count: DayOfWeek.values.length,
+      pageCount: MealOfDay.values.length,
+      initialPage: _model.mealOfDay.index,
+    );
+  }
+
+  void _onTabChanged() {
+    final nextDayOfWeek = DayOfWeek.values[_tabController.index];
+    if (_model.dayOfWeek == nextDayOfWeek) {
+      return;
+    }
+    setState(() {
+      _model.dayOfWeek = nextDayOfWeek;
+    });
+  }
+
+  void _checkAnnouncement() {
     checkForNewAnnouncement().then((announcement) {
       if (announcement != null && mounted) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -93,8 +104,6 @@ class _HomePageState extends State<HomePage>
         return true;
       }());
     });
-
-    super.initState();
   }
 
   @override
