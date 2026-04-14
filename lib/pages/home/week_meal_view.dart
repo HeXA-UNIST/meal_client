@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -66,13 +67,21 @@ class WeekMealTabBarView extends StatelessWidget {
 
                             return GestureDetector(
                               onLongPress: () {
-                                HapticFeedback.lightImpact();
-                                SharePlus.instance.share(
-                                  ShareParams(
-                                    text:
-                                        "[$title]\n${meal.menu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
-                                  ),
-                                );
+                                // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
+                                // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
+                                if (!kIsWeb) {
+                                  HapticFeedback.lightImpact();
+                                  SharePlus.instance.share(
+                                    ShareParams(
+                                      text:
+                                      "[$title]\n${meal.menu.map((
+                                          aMenu) => "- $aMenu").join(
+                                          "\n")}${meal.kcal == null
+                                          ? ""
+                                          : "\n\n${meal.kcal} kcal"}",
+                                    ),
+                                  );
+                                }
                               },
                               child: MealCard(title: title, meal: meal),
                             );
