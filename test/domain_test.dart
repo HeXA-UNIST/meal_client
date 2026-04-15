@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/constants.dart';
 import 'package:meal_client/meal.dart';
-import 'package:meal_client/api_v2.dart';
 
 void main() {
   group('MealTimeConfig.determineMealOfDay', () {
