@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
+import 'settings_page.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
 
@@ -179,6 +180,17 @@ class HomePageDrawer extends StatelessWidget {
             alignment: Alignment.bottomLeft,
             margin: EdgeInsets.only(bottom: 50, left: 40),
             child: SvgPicture.asset('assets/imgs/bapu_logo.svg', height: 36),
+          ),
+          _DrawerItem(
+            icon: Icons.settings_outlined,
+            title: l10n.settings,
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
+            },
           ),
           _DrawerItem(
             icon: Icons.notifications_active,
