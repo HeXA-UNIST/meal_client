@@ -349,6 +349,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'표시할 식당'**
   String get widgetCafeteriaLabel;
+
+  /// No description provided for @about.
+  ///
+  /// In ko, this message translates to:
+  /// **'앱 정보'**
+  String get about;
+
+  /// No description provided for @openSourceLicenses.
+  ///
+  /// In ko, this message translates to:
+  /// **'오픈소스 라이선스'**
+  String get openSourceLicenses;
 }
 
 class _AppLocalizationsDelegate

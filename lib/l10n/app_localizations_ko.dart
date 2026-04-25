@@ -135,4 +135,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get widgetCafeteriaLabel => '표시할 식당';
+
+  @override
+  String get about => '앱 정보';
+
+  @override
+  String get openSourceLicenses => '오픈소스 라이선스';
 }

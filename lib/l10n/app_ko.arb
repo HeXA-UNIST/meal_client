@@ -46,5 +46,7 @@
   "notificationTimeLabel": "알림 시간",
   "notificationCafeteriasLabel": "알림 대상 식당",
   "widgetSettings": "홈 화면 위젯",
-  "widgetCafeteriaLabel": "표시할 식당"
+  "widgetCafeteriaLabel": "표시할 식당",
+  "about": "앱 정보",
+  "openSourceLicenses": "오픈소스 라이선스"
 }

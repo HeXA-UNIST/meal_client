@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../meal.dart';
 import '../settings/app_settings.dart';
 import 'allergy_selection_page.dart';
+
+Future<void>? _fontLicenseRegistrationFuture;
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -30,6 +33,9 @@ class SettingsPage extends StatelessWidget {
           ],
           _SectionHeader(l10n.appearance),
           _ThemeTile(),
+          const Divider(indent: 16, endIndent: 16),
+          _SectionHeader(l10n.about),
+          _LicenseTile(),
           const SizedBox(height: 24),
         ],
       ),
@@ -188,6 +194,35 @@ class _ThemeTile extends StatelessWidget {
         onSelectionChanged: (v) =>
             context.read<AppSettings>().setThemeMode(v.first),
       ),
+    );
+  }
+}
+
+class _LicenseTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text(l10n.openSourceLicenses),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        await (_fontLicenseRegistrationFuture ??=
+            rootBundle.loadString('assets/fonts/Pretendard-License.txt').then(
+              (fontLicense) {
+                LicenseRegistry.addLicense(
+                  () => Stream<LicenseEntry>.value(
+                    LicenseEntryWithLineBreaks(['Pretendard'], fontLicense),
+                  ),
+                );
+              },
+            ));
+        if (!context.mounted) return;
+        showLicensePage(
+          context: context,
+          applicationLegalese:
+              'GPL-2.0 license. Source code: https://github.com/HeXA-UNIST/meal_client',
+        );
+      },
     );
   }
 }

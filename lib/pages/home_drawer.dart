@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,8 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
 import '../l10n/app_localizations.dart';
 import 'settings_page.dart';
-
-Future<void>? _fontLicenseRegistrationFuture;
 
 class HomeAnnouncementDialog extends StatelessWidget {
   final String close;
@@ -226,40 +222,7 @@ class HomePageDrawer extends StatelessWidget {
             child: Divider(color: Colors.white54, height: 1),
           ),
           _OperationHoursSection(),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            child: Divider(color: Colors.white54, height: 1),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.only(left: 28, bottom: 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: Icon(Icons.copyright, color: Colors.white),
-                  onPressed: () async {
-                    await (_fontLicenseRegistrationFuture ??=
-                        rootBundle.loadString('assets/fonts/Pretendard-License.txt').then((fontLicense) {
-                          LicenseRegistry.addLicense(
-                            () => Stream<LicenseEntry>.value(
-                              LicenseEntryWithLineBreaks(['Pretendard'], fontLicense),
-                            ),
-                          );
-                        }));
-                    if (!context.mounted) {
-                      return;
-                    }
-                    showLicensePage(
-                      context: context,
-                      applicationLegalese:
-                          "GPL-2.0 license. Source code: https://github.com/HeXA-UNIST/meal_client",
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
+          const SafeArea(top: false, child: SizedBox(height: 12)),
         ],
       ),
     );

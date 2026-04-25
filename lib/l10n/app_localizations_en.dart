@@ -135,4 +135,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetCafeteriaLabel => 'Display Cafeteria';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get openSourceLicenses => 'Open Source Licenses';
 }
