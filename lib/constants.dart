@@ -11,6 +11,16 @@ class ApiConstants {
 class StorageKeys {
   static const mealCacheFile = 'meal.json';
   static const announcementKey = 'announceTime';
+
+  // 설정 (settings_* prefix로 통일)
+  static const allergenIds             = 'settings_allergen_ids';
+  static const notificationEnabled     = 'settings_notification_enabled';
+  static const notificationKeyword     = 'settings_notification_keyword';
+  static const notificationTime        = 'settings_notification_time';
+  static const notificationCafeterias  = 'settings_notification_cafeterias';
+  static const widgetCafeteria         = 'settings_widget_cafeteria';
+  static const widgetMealOfDay         = 'settings_widget_meal_of_day';
+  static const themeMode               = 'settings_theme_mode';
 }
 
 /// 식사 시간 기준 (KST 기준)
