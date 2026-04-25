@@ -82,4 +82,57 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get menuHalal => '할랄';
+
+  @override
+  String get settings => '설정';
+
+  @override
+  String get allergyWarning => '알레르기 경고';
+
+  @override
+  String get manageAllergies => '알레르기 관리';
+
+  @override
+  String get noAllergenSelected => '선택된 알레르기 없음';
+
+  @override
+  String allergenSelectedCount(int count) {
+    return '$count개 선택됨';
+  }
+
+  @override
+  String get appearance => '화면';
+
+  @override
+  String get themeMode => '테마';
+
+  @override
+  String get themeModeSystem => '시스템';
+
+  @override
+  String get themeModeLight => '라이트';
+
+  @override
+  String get themeModeDark => '다크';
+
+  @override
+  String get notificationSettings => '식단 알림';
+
+  @override
+  String get notificationKeywordLabel => '키워드';
+
+  @override
+  String get notificationKeywordHint => '예: 돈까스';
+
+  @override
+  String get notificationTimeLabel => '알림 시간';
+
+  @override
+  String get notificationCafeteriasLabel => '알림 대상 식당';
+
+  @override
+  String get widgetSettings => '홈 화면 위젯';
+
+  @override
+  String get widgetCafeteriaLabel => '표시할 식당';
 }

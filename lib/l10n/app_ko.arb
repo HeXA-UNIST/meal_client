@@ -24,5 +24,27 @@
   "studentCafeteria": "학생 식당",
   "facultyCafeteria": "교직원 식당",
   "menuKorean": "한식",
-  "menuHalal": "할랄"
+  "menuHalal": "할랄",
+  "settings": "설정",
+  "allergyWarning": "알레르기 경고",
+  "manageAllergies": "알레르기 관리",
+  "noAllergenSelected": "선택된 알레르기 없음",
+  "allergenSelectedCount": "{count}개 선택됨",
+  "@allergenSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "appearance": "화면",
+  "themeMode": "테마",
+  "themeModeSystem": "시스템",
+  "themeModeLight": "라이트",
+  "themeModeDark": "다크",
+  "notificationSettings": "식단 알림",
+  "notificationKeywordLabel": "키워드",
+  "notificationKeywordHint": "예: 돈까스",
+  "notificationTimeLabel": "알림 시간",
+  "notificationCafeteriasLabel": "알림 대상 식당",
+  "widgetSettings": "홈 화면 위젯",
+  "widgetCafeteriaLabel": "표시할 식당"
 }

@@ -24,5 +24,27 @@
   "studentCafeteria": "Student",
   "facultyCafeteria": "Faculty",
   "menuKorean": "Korean",
-  "menuHalal": "Halal"
+  "menuHalal": "Halal",
+  "settings": "Settings",
+  "allergyWarning": "Allergy Warning",
+  "manageAllergies": "Manage Allergies",
+  "noAllergenSelected": "None selected",
+  "allergenSelectedCount": "{count} selected",
+  "@allergenSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "appearance": "Appearance",
+  "themeMode": "Theme",
+  "themeModeSystem": "System",
+  "themeModeLight": "Light",
+  "themeModeDark": "Dark",
+  "notificationSettings": "Meal Notifications",
+  "notificationKeywordLabel": "Keyword",
+  "notificationKeywordHint": "e.g. Chicken Cutlet",
+  "notificationTimeLabel": "Notification Time",
+  "notificationCafeteriasLabel": "Target Cafeterias",
+  "widgetSettings": "Home Screen Widget",
+  "widgetCafeteriaLabel": "Display Cafeteria"
 }

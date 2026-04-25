@@ -247,6 +247,108 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'할랄'**
   String get menuHalal;
+
+  /// No description provided for @settings.
+  ///
+  /// In ko, this message translates to:
+  /// **'설정'**
+  String get settings;
+
+  /// No description provided for @allergyWarning.
+  ///
+  /// In ko, this message translates to:
+  /// **'알레르기 경고'**
+  String get allergyWarning;
+
+  /// No description provided for @manageAllergies.
+  ///
+  /// In ko, this message translates to:
+  /// **'알레르기 관리'**
+  String get manageAllergies;
+
+  /// No description provided for @noAllergenSelected.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택된 알레르기 없음'**
+  String get noAllergenSelected;
+
+  /// No description provided for @allergenSelectedCount.
+  ///
+  /// In ko, this message translates to:
+  /// **'{count}개 선택됨'**
+  String allergenSelectedCount(int count);
+
+  /// No description provided for @appearance.
+  ///
+  /// In ko, this message translates to:
+  /// **'화면'**
+  String get appearance;
+
+  /// No description provided for @themeMode.
+  ///
+  /// In ko, this message translates to:
+  /// **'테마'**
+  String get themeMode;
+
+  /// No description provided for @themeModeSystem.
+  ///
+  /// In ko, this message translates to:
+  /// **'시스템'**
+  String get themeModeSystem;
+
+  /// No description provided for @themeModeLight.
+  ///
+  /// In ko, this message translates to:
+  /// **'라이트'**
+  String get themeModeLight;
+
+  /// No description provided for @themeModeDark.
+  ///
+  /// In ko, this message translates to:
+  /// **'다크'**
+  String get themeModeDark;
+
+  /// No description provided for @notificationSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'식단 알림'**
+  String get notificationSettings;
+
+  /// No description provided for @notificationKeywordLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'키워드'**
+  String get notificationKeywordLabel;
+
+  /// No description provided for @notificationKeywordHint.
+  ///
+  /// In ko, this message translates to:
+  /// **'예: 돈까스'**
+  String get notificationKeywordHint;
+
+  /// No description provided for @notificationTimeLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 시간'**
+  String get notificationTimeLabel;
+
+  /// No description provided for @notificationCafeteriasLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 대상 식당'**
+  String get notificationCafeteriasLabel;
+
+  /// No description provided for @widgetSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'홈 화면 위젯'**
+  String get widgetSettings;
+
+  /// No description provided for @widgetCafeteriaLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'표시할 식당'**
+  String get widgetCafeteriaLabel;
 }
 
 class _AppLocalizationsDelegate

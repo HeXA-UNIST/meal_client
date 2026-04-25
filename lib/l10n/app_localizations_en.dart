@@ -82,4 +82,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get menuHalal => 'Halal';
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get allergyWarning => 'Allergy Warning';
+
+  @override
+  String get manageAllergies => 'Manage Allergies';
+
+  @override
+  String get noAllergenSelected => 'None selected';
+
+  @override
+  String allergenSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get appearance => 'Appearance';
+
+  @override
+  String get themeMode => 'Theme';
+
+  @override
+  String get themeModeSystem => 'System';
+
+  @override
+  String get themeModeLight => 'Light';
+
+  @override
+  String get themeModeDark => 'Dark';
+
+  @override
+  String get notificationSettings => 'Meal Notifications';
+
+  @override
+  String get notificationKeywordLabel => 'Keyword';
+
+  @override
+  String get notificationKeywordHint => 'e.g. Chicken Cutlet';
+
+  @override
+  String get notificationTimeLabel => 'Notification Time';
+
+  @override
+  String get notificationCafeteriasLabel => 'Target Cafeterias';
+
+  @override
+  String get widgetSettings => 'Home Screen Widget';
+
+  @override
+  String get widgetCafeteriaLabel => 'Display Cafeteria';
 }
