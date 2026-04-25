@@ -38,14 +38,6 @@
 │  announcement_service.dart  ──  공지 확인               │
 └─────────────────────────────────────────────────────────┘
 ```
-    HPM -->|setState 없이| HP
-    MOD_VN -->|ValueListenableBuilder| APPBAR
-    MEAL --> DATA_F
-
-    ARB --> AL
-    AL --> HP
-    AL --> SETTINGS
-```
 
 ## 레이어 개요
 
@@ -242,7 +234,7 @@ WeekMeal
 
 **해결하는 문제:** Flutter의 `PageView`(수평 스와이프)와 그 안에 중첩된 `ListView`(수직 스크롤) 사이에서 발생하는 제스처 충돌 — 수직에 가까운 스와이프가 내부 스크롤에 빼앗기거나, 수평 스와이프가 외부 PageView로 넘어가지 못하는 현상을 처리합니다.
 
-`lib/pages/home/nested_page_scroll.dart`는 끼니 간 가로 스와이프(PageView)와 카드 내부 세로 스크롤을 통합 처리하는 `NestedPageScrollController` / `NestedPageScrollView` / `NestedPageScrollControllerGroup`을 정의합니다. 코드베이스에서 가장 복잡한 부분이므로 수정 전 자세한 분석은 [`docs/nested_page_scroll_analysis.md`](nested_page_scroll_analysis.md)와 파일 내 주석을 참고하세요.
+`lib/pages/home/nested_page_scroll.dart`는 끼니 간 가로 스와이프(PageView)와 카드 내부 세로 스크롤을 통합 처리하는 `NestedPageScrollController` / `NestedPageScrollView` / `NestedPageScrollControllerGroup`을 정의합니다. 코드베이스에서 가장 복잡한 부분이므로 수정 전 자세한 분석은 [`docs/features/nested_page_scroll.md`](features/nested_page_scroll.md)와 파일 내 주석을 참고하세요.
 
 ## 주요 의존성
 
