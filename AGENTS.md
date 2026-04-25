@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 BapU (밥먹어U) — Flutter app for viewing UNIST cafeteria menus. Version 5.0.1+18, GPL-2.0, by HeXA-UNIST.
 Backend API: `https://meal.hexa.pro/`
 
-Targets: Android, iOS, Web. Dart SDK ^3.8.1.
+Targets: Android, iOS, Web. Dart SDK ^3.11.5.
 
 ## Build & Development Commands
 
@@ -73,10 +73,11 @@ Data/Infra        → announcement_service.dart, api_v2.dart (HTTP + JSON parse)
 
 ## Known TODOs
 
-- Settings screen
+- Settings screen (simple UI placeholder is in place, but no actual settings implemented yet)
 - Home screen widget (note: cache uses `getApplicationSupportDirectory()`, inaccessible from widgets)
 - Allergy warning displays (requires backand API update to include allergen data in `Meal` model)
 - Keyword push notifications (requires `NotificationService` and subscription management)
+- Easy menu copying on web - a small hover button to copy the menu in text format for sharing (web clipboard API)
 
 ## Conventions
 
