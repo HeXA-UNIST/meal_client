@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,15 +17,17 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(title: Text(l10n.settings)),
       body: ListView(
         children: [
-          _SectionHeader(l10n.allergyWarning),
-          _AllergyTile(),
-          const Divider(indent: 16, endIndent: 16),
-          _SectionHeader(l10n.notificationSettings),
-          _NotificationTile(),
-          const Divider(indent: 16, endIndent: 16),
-          _SectionHeader(l10n.widgetSettings),
-          _WidgetCafeteriaTile(),
-          const Divider(indent: 16, endIndent: 16),
+          if (!kIsWeb) ...[
+            _SectionHeader(l10n.allergyWarning),
+            _AllergyTile(),
+            const Divider(indent: 16, endIndent: 16),
+            _SectionHeader(l10n.notificationSettings),
+            _NotificationTile(),
+            const Divider(indent: 16, endIndent: 16),
+            _SectionHeader(l10n.widgetSettings),
+            _WidgetCafeteriaTile(),
+            const Divider(indent: 16, endIndent: 16),
+          ],
           _SectionHeader(l10n.appearance),
           _ThemeTile(),
           const SizedBox(height: 24),
