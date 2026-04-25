@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/meal.dart';
 import 'package:meal_client/settings/allergy_settings.dart';
+import 'package:meal_client/settings/app_settings.dart';
 import 'package:meal_client/settings/notification_settings.dart';
 import 'package:meal_client/settings/widget_settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('AllergySettings', () {
@@ -86,6 +88,76 @@ void main() {
       final next = s.copyWith(cafeteria: Cafeteria.student);
       expect(next.cafeteria, Cafeteria.student);
       expect(next.mealOfDay, MealOfDay.lunch);
+    });
+  });
+
+  group('AppSettings', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
+    test('기본값으로 초기화', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      expect(settings.allergy.enabledIds, isEmpty);
+      expect(settings.themeMode, ThemeMode.system);
+      expect(settings.notification.enabled, isFalse);
+      expect(settings.widget.cafeteria, Cafeteria.dormitory);
+    });
+
+    test('toggleAllergen — 추가 및 제거', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.toggleAllergen(1);
+      expect(settings.allergy.enabledIds, contains(1));
+      settings.toggleAllergen(1);
+      expect(settings.allergy.enabledIds, isNot(contains(1)));
+    });
+
+    test('toggleAllergen — SharedPreferences에 저장 후 재로드', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.toggleAllergen(3);
+      settings.toggleAllergen(7);
+      final settings2 = AppSettings(prefs);
+      expect(settings2.allergy.enabledIds, containsAll([3, 7]));
+    });
+
+    test('toggleAllergen — notifyListeners 호출', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      var notified = false;
+      settings.addListener(() => notified = true);
+      settings.toggleAllergen(5);
+      expect(notified, isTrue);
+    });
+
+    test('setThemeMode — 저장 및 재로드', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.setThemeMode(ThemeMode.dark);
+      final settings2 = AppSettings(prefs);
+      expect(settings2.themeMode, ThemeMode.dark);
+    });
+
+    test('setNotificationEnabled — 저장 및 재로드', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.setNotificationEnabled(true);
+      final settings2 = AppSettings(prefs);
+      expect(settings2.notification.enabled, isTrue);
+    });
+
+    test('resetAll — 모든 값이 기본값으로', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.toggleAllergen(1);
+      settings.setThemeMode(ThemeMode.dark);
+      settings.setNotificationEnabled(true);
+      settings.resetAll();
+      expect(settings.allergy.enabledIds, isEmpty);
+      expect(settings.themeMode, ThemeMode.system);
+      expect(settings.notification.enabled, isFalse);
     });
   });
 }
