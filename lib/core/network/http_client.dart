@@ -10,8 +10,7 @@ Future<String> fetchRawString(String url) async {
       .get(Uri.parse(url))
       .timeout(const Duration(seconds: 10));
   if (response.statusCode != 200) {
-    // HttpException은 dart:io 전용이므로 모든 플랫폼에서 사용 가능한 Exception으로 대체
-    throw Exception("HTTP ${response.statusCode}: Response Error");
+    throw createHttpException(response.statusCode);
   }
 
   return response.body;

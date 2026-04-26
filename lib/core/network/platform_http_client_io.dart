@@ -4,15 +4,24 @@ import 'package:cronet_http/cronet_http.dart';
 import 'package:cupertino_http/cupertino_http.dart';
 import 'package:http/http.dart';
 
-// 네이티브 플랫폼에서는 package:http의 기본 Client()가
-// dart:io 기반 구현을 자동으로 선택한다.
+// HttpException은 dart:io에서만 사용 가능하므로, 플랫폼별로 예외 생성 함수를 구현한다.
+Exception createHttpException(int statusCode) =>
+    HttpException("HTTP $statusCode: Response Error");
+
 Client _createDefaultClient() => Client();
 
 
 Client createPlatformHttpClient() {
   if (Platform.isIOS || Platform.isMacOS) {
-    // iOS에서는 NSURLSession 기반 구현을 사용한다.
-    return CupertinoClient.defaultSessionConfiguration();
+    try {
+      // CupertinoClient는 iOS/macOS에서 네이티브 URLSession을 활용해
+      // HTTP/2와 QUIC 지원을 제공한다.
+      return CupertinoClient.defaultSessionConfiguration();
+    } catch (_) {
+      // CupertinoClient 초기화에 실패하면
+      // package:http의 기본 네이티브 클라이언트로 안전하게 폴백한다.
+      return _createDefaultClient();
+    }
   }
 
   if (Platform.isAndroid) {
@@ -27,7 +36,5 @@ Client createPlatformHttpClient() {
       return _createDefaultClient();
     }
   }
-
-  // 당장 지원하지 않지만 Windows/Linux 등 그 밖의 네이티브 플랫폼은 기본 구현을 사용한다.
   return _createDefaultClient();
 }
