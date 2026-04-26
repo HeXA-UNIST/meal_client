@@ -341,7 +341,9 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
           _page = rounded;
           // keep-alive로 살아있는 다른 탭의 컨트롤러도 즉시 동기화
           for (final c in _controllers) {
-            if (c != controller && c.hasClients && c.page!.round() != _page) {
+            if (c == controller || !c.hasClients) continue;
+            final siblingPage = c.page;
+            if (siblingPage == null || siblingPage.round() != _page) {
               c.jumpToPage(_page);
             }
           }
