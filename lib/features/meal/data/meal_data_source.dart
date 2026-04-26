@@ -1,7 +1,7 @@
-import 'constants.dart';
-import 'meal.dart';
-import 'storage.dart';
-import 'api_v2.dart';
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/core/storage.dart';
+import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/meal/data/meal_api.dart';
 
 Future<WeekMeal> fetchAndCacheMealData() async {
   final rawMeal = await fetchRawMeal();

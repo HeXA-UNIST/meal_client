@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:meal_client/meal.dart';
+import 'package:meal_client/domain/meal.dart';
 
 class NotificationSettings {
   final bool enabled;

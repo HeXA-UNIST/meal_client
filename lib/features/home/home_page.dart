@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../../announcement_service.dart';
-import '../../constants.dart';
-import '../../data.dart';
-import '../../meal.dart';
-import '../../model.dart';
-import '../../l10n/app_localizations.dart';
-import '../home_drawer.dart';
+import 'package:meal_client/features/announcement/data/announcement_service.dart';
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/features/meal/data/meal_data_source.dart';
+import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'home_drawer.dart';
+import 'model.dart';
 import 'home_app_bar.dart';
 import 'nested_page_scroll.dart';
 import 'week_meal_view.dart';

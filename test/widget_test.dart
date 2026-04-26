@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/main.dart';
-import 'package:meal_client/settings/app_settings.dart';
+import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

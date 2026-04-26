@@ -1,4 +1,4 @@
-import 'meal.dart';
+import 'package:meal_client/domain/meal.dart';
 
 /// API 관련 상수
 class ApiConstants {

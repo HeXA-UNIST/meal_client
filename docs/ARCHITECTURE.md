@@ -22,20 +22,23 @@
 ┌─────────────▼───────────────────────────────────────────┐
 │  상태 / 도메인                                           │
 │                                                         │
-│  meal.dart  ──  도메인 타입 (WeekMeal / DayMeal / …)     │
-│  constants.dart  ──  ApiConstants / MealTimeConfig /    │
-│                      StorageKeys                        │
+│  domain/meal.dart  ──  도메인 타입 (WeekMeal / …)        │
+│  core/constants.dart  ──  ApiConstants / MealTimeConfig │
+│                           / StorageKeys                 │
 └─────────────┬───────────────────────────────────────────┘
               │
 ┌─────────────▼───────────────────────────────────────────┐
 │  데이터 / 인프라                                         │
 │                                                         │
-│  data.dart  ──  캐시 정책 (KST week 기반 무효화)        │
-│    ├── api_v2.dart  ──  HTTP 호출 + JSON 파싱           │
-│    │     └── platform_http_client  ──  iOS/Android/Web  │
-│    └── storage  ──  파일 캐시 (네이티브) / stub (웹)    │
+│  features/meal/data/meal_data_source  ──  캐시 정책     │
+│    ├── features/meal/data/meal_api  ──  식단 HTTP       │
+│    │     └── core/network/http_client  ──  싱글톤 클라이언트 │
+│    │           └── core/network/platform_http_client    │
+│    │                 └── iOS/Android/Web 분기           │
+│    └── core/storage  ──  파일 캐시 / stub (웹)          │
 │                                                         │
-│  announcement_service.dart  ──  공지 확인               │
+│  features/announcement/data/announcement_service  ──  공지 확인 │
+│    └── features/announcement/data/announcement_api      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -44,15 +47,17 @@
 명시적인 경계(저장소 패턴 등)는 두지 않고, UI가 데이터 레이어를 직접 import 하는 단순한 3계층 구조입니다.
 
 ```
-UI 레이어        → lib/pages/home/, lib/pages/home_drawer.dart,
-                  lib/pages/settings_page.dart, lib/pages/allergy_selection_page.dart
-상태 / 도메인    → lib/model.dart (HomePageModel),
-                  lib/meal.dart (도메인 타입),
-                  lib/constants.dart,
-                  lib/settings/ (AppSettings + 값 객체)
+UI 레이어        → lib/features/home/ (home_page, home_app_bar, week_meal_view,
+                                       meal_card, nested_page_scroll, home_drawer)
+                  lib/features/settings/ (settings_page, allergy_selection_page)
+상태 / 도메인    → lib/features/home/model.dart (HomePageModel),
+                  lib/domain/meal.dart (도메인 타입),
+                  lib/core/constants.dart,
+                  lib/features/settings/ (AppSettings + 값 객체)
 i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLocalizations)
-데이터 / 인프라  → lib/api_v2.dart, lib/announcement_service.dart,
-                  lib/data.dart, lib/storage*.dart, lib/platform_http_client*.dart
+데이터 / 인프라  → lib/features/announcement/data/ (announcement_api, announcement_service),
+                  lib/features/meal/data/ (meal_api, meal_data_source),
+                  lib/core/storage*.dart, lib/core/network/
 ```
 
 ## 핵심 컴포넌트
@@ -60,15 +65,15 @@ i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLoca
 | 컴포넌트 | 파일 | 책임 | 상태 접근 |
 |---|---|---|---|
 | `BapUApp` | `main.dart` | MaterialApp 구성, 테마 적용 | `AppSettings` watch (themeMode) |
-| `HomePage` | `pages/home/home_page.dart` | 데이터 로딩, 공지 확인, Scaffold 조합 | `HomePageModel`, `ValueNotifier<MealOfDay>` 소유 |
-| `HomeAppBar` | `pages/home/home_app_bar.dart` | AppBar 구성 — 날짜, 요일 탭, 끼니 전환 버튼 | `ValueNotifier<MealOfDay>` 구독 (버튼만) |
-| `WeekMealTabBarView` | `pages/home/week_meal_view.dart` | 요일 탭뷰 + 반응형 카드 테이블 | — |
-| `NestedPageScrollView` | `pages/home/nested_page_scroll.dart` | 끼니 간 수평 PageView + 카드 내 수직 스크롤 통합 | — |
-| `MealCard` | `pages/home/meal_card.dart` | 식당별 메뉴 카드 표시, 공유 | — |
-| `HomePageDrawer` | `pages/home_drawer.dart` | 사이드바 — 공지, 운영 시간, 설정 진입점 | — |
-| `SettingsPage` | `pages/settings_page.dart` | 설정 화면 (테마/알레르기/알림/위젯 섹션) | `AppSettings` read/watch |
-| `AllergySelectionPage` | `pages/allergy_selection_page.dart` | 19개 알레르겐 체크리스트 | `AppSettings` read/write |
-| `AppSettings` | `settings/app_settings.dart` | 앱 전역 설정 상태 소유 + SharedPreferences 영속화 | ChangeNotifier Provider 루트 배치 |
+| `HomePage` | `features/home/home_page.dart` | 데이터 로딩, 공지 확인, Scaffold 조합 | `HomePageModel`, `ValueNotifier<MealOfDay>` 소유 |
+| `HomeAppBar` | `features/home/home_app_bar.dart` | AppBar 구성 — 날짜, 요일 탭, 끼니 전환 버튼 | `ValueNotifier<MealOfDay>` 구독 (버튼만) |
+| `WeekMealTabBarView` | `features/home/week_meal_view.dart` | 요일 탭뷰 + 반응형 카드 테이블 | — |
+| `NestedPageScrollView` | `features/home/nested_page_scroll.dart` | 끼니 간 수평 PageView + 카드 내 수직 스크롤 통합 | — |
+| `MealCard` | `features/home/meal_card.dart` | 식당별 메뉴 카드 표시, 공유 | — |
+| `HomePageDrawer` | `features/home/home_drawer.dart` | 사이드바 — 공지, 운영 시간, 설정 진입점 | — |
+| `SettingsPage` | `features/settings/settings_page.dart` | 설정 화면 (테마/알레르기/알림/위젯 섹션) | `AppSettings` read/watch |
+| `AllergySelectionPage` | `features/settings/allergy_selection_page.dart` | 19개 알레르겐 체크리스트 | `AppSettings` read/write |
+| `AppSettings` | `features/settings/app_settings.dart` | 앱 전역 설정 상태 소유 + SharedPreferences 영속화 | ChangeNotifier Provider 루트 배치 |
 
 ### 위젯 트리 (런타임)
 
@@ -95,16 +100,16 @@ BapUApp
 
 두 종류의 상태가 분리되어 있습니다.
 
-- **`HomePageModel`** (`lib/model.dart`)
+- **`HomePageModel`** (`lib/features/home/model.dart`)
   화면 로컬 선택 상태(현재 끼니, 요일 등). 평범한 가변 객체이며 `_HomePageState`에서 `setState`로 관리합니다. 끼니 전환 같은 일부 상태는 `ValueNotifier`로 분리해 리빌드 범위를 좁혔습니다.
 
-- **`AppSettings extends ChangeNotifier`** (`lib/settings/app_settings.dart`)
+- **`AppSettings extends ChangeNotifier`** (`lib/features/settings/app_settings.dart`)
   앱 전역 사용자 설정의 단일 소유자입니다. 루트에 `ChangeNotifierProvider<AppSettings>`가 한 번만 배치되며, `context.watch<AppSettings>()` 또는 `context.read<AppSettings>()`로 접근합니다. `SharedPreferences`에 즉시 영속화하고, 변경 시 `notifyListeners()`를 호출합니다.
 
   서브 설정은 모두 불변 값 객체입니다.
-  - `AllergySettings` (`lib/settings/allergy_settings.dart`) — 켜진 알레르겐 ID 집합 (1–19)
-  - `NotificationSettings` (`lib/settings/notification_settings.dart`) — 알림 on/off, 키워드, 시각, 대상 식당
-  - `WidgetSettings` (`lib/settings/widget_settings.dart`) — 위젯에 표시할 식당과 끼니
+  - `AllergySettings` (`lib/features/settings/allergy_settings.dart`) — 켜진 알레르겐 ID 집합 (1–19)
+  - `NotificationSettings` (`lib/features/settings/notification_settings.dart`) — 알림 on/off, 키워드, 시각, 대상 식당
+  - `WidgetSettings` (`lib/features/settings/widget_settings.dart`) — 위젯에 표시할 식당과 끼니
   - `ThemeMode` — Flutter 표준 enum 그대로 사용
 
   주의: 알레르기 / 알림 / 위젯은 **저장만 되는 플레이스홀더**입니다. 실제 알레르겐 하이라이트, 푸시 스케줄링, 위젯 플랫폼 코드는 후속 작업입니다. 테마 전환만 즉시 반영되는 실기능입니다.
@@ -136,7 +141,7 @@ MaterialApp(
 
 ## 상수
 
-매직 문자열·숫자는 모두 `lib/constants.dart`에 모았습니다.
+매직 문자열·숫자는 모두 `lib/core/constants.dart`에 모았습니다.
 
 - `ApiConstants` — 백엔드 엔드포인트 URL
 - `MealTimeConfig` — 끼니 시간 경계 및 `determineMealOfDay()` 로직
@@ -204,16 +209,16 @@ int _getKstWeekNumber(DateTime time) {
 조건부 export(`dart.library.js_interop` 기반 컴파일 타임 분기)로 플랫폼별 구현을 선택합니다.
 
 ```dart
-// storage.dart
+// core/storage.dart
 export 'storage_io.dart' if (dart.library.js_interop) 'storage_web.dart';
 ```
 
 | 추상 모듈 | 네이티브 (`*_io.dart`) | 웹 (`*_web.dart`) |
 |---|---|---|
-| `lib/storage.dart` | `getApplicationSupportDirectory()` 기반 JSON 파일 캐시 | 파일 캐시 비활성, 매번 fetch |
-| `lib/platform_http_client.dart` | iOS: `cupertino_http` / Android: `cronet_http` | 기본 `http` 패키지 |
+| `lib/core/storage.dart` | `getApplicationSupportDirectory()` 기반 JSON 파일 캐시 | 파일 캐시 비활성, 매번 fetch |
+| `lib/core/network/platform_http_client.dart` | iOS: `cupertino_http` / Android: `cronet_http` | 기본 `http` 패키지 |
 
-`api_v2.dart`는 전역 HTTP 클라이언트 싱글톤(`_httpClient`)을 보유합니다. 앱 시작 시 `createPlatformHttpClient()`로 한 번 생성되고, 앱 종료 시까지 재사용됩니다. 타임아웃은 10초.
+`core/network/http_client.dart`는 전역 HTTP 클라이언트 싱글톤(`appHttpClient`)을 보유합니다. 앱 시작 시 `createPlatformHttpClient()`로 한 번 생성되고, 앱 종료 시까지 재사용됩니다. 타임아웃은 10초.
 
 ## 도메인 모델
 
@@ -234,7 +239,7 @@ WeekMeal
 
 **해결하는 문제:** Flutter의 `PageView`(수평 스와이프)와 그 안에 중첩된 `ListView`(수직 스크롤) 사이에서 발생하는 제스처 충돌 — 수직에 가까운 스와이프가 내부 스크롤에 빼앗기거나, 수평 스와이프가 외부 PageView로 넘어가지 못하는 현상을 처리합니다.
 
-`lib/pages/home/nested_page_scroll.dart`는 끼니 간 가로 스와이프(PageView)와 카드 내부 세로 스크롤을 통합 처리하는 `NestedPageScrollController` / `NestedPageScrollView` / `NestedPageScrollControllerGroup`을 정의합니다. 코드베이스에서 가장 복잡한 부분이므로 수정 전 자세한 분석은 [`docs/features/nested_page_scroll.md`](features/nested_page_scroll.md)와 파일 내 주석을 참고하세요.
+`lib/features/home/nested_page_scroll.dart`는 끼니 간 가로 스와이프(PageView)와 카드 내부 세로 스크롤을 통합 처리하는 `NestedPageScrollController` / `NestedPageScrollView` / `NestedPageScrollControllerGroup`을 정의합니다. 코드베이스에서 가장 복잡한 부분이므로 수정 전 자세한 분석은 [`docs/features/nested_page_scroll.md`](features/nested_page_scroll.md)와 파일 내 주석을 참고하세요.
 
 ## 주요 의존성
 
@@ -252,35 +257,41 @@ WeekMeal
 
 ```
 lib/
-├── main.dart                          앱 진입점, ChangeNotifierProvider, MaterialApp
-├── constants.dart                     ApiConstants, MealTimeConfig, StorageKeys
-├── meal.dart                          도메인 타입 + parseRawMeal
-├── model.dart                         HomePageModel
-├── api_v2.dart                        HTTP 호출, JSON 파싱
-├── announcement_service.dart          공지 확인 + 비교 (테스트 가능 분리)
-├── data.dart                          캐시 정책 + fetch-and-cache
-├── storage.dart                       조건부 export
-├── storage_io.dart / storage_web.dart 플랫폼별 캐시 구현
-├── platform_http_client.dart          조건부 export
-├── platform_http_client_io.dart       Cupertino / Cronet 클라이언트
-├── platform_http_client_web.dart      웹 클라이언트
-├── l10n/                              ARB + 자동 생성된 AppLocalizations
-├── settings/
-│   ├── app_settings.dart              AppSettings ChangeNotifier
-│   ├── allergy_settings.dart          AllergySettings 값 객체
-│   ├── notification_settings.dart     NotificationSettings 값 객체
-│   └── widget_settings.dart           WidgetSettings 값 객체
-└── pages/
-    ├── home.dart                      home_page barrel export
-    ├── home_drawer.dart               드로어, 공지 다이얼로그, 설정 진입점
-    ├── settings_page.dart             설정 화면 (테마 / 알레르기 / 알림 / 위젯)
-    ├── allergy_selection_page.dart    19개 알레르겐 체크리스트
-    └── home/
-        ├── home_page.dart             메인 화면, FutureBuilder 체인
-        ├── home_app_bar.dart          AppBar (끼니 스위치 / 요일 탭 / 날짜)
-        ├── meal_card.dart             식당별 메뉴 카드
-        ├── week_meal_view.dart        요일 탭뷰 + 반응형 카드 테이블
-        └── nested_page_scroll.dart    중첩 스크롤 시스템
+├── main.dart                              앱 진입점, ChangeNotifierProvider, MaterialApp
+├── core/
+│   ├── constants.dart                     ApiConstants, MealTimeConfig, StorageKeys
+│   ├── storage.dart                       조건부 export
+│   ├── storage_io.dart / storage_web.dart 플랫폼별 캐시 구현
+│   └── network/
+│       ├── http_client.dart               전역 HTTP 싱글톤 + fetchRawString
+│       ├── platform_http_client.dart      조건부 export
+│       ├── platform_http_client_io.dart   Cupertino / Cronet 클라이언트
+│       └── platform_http_client_web.dart  웹 클라이언트
+├── domain/
+│   └── meal.dart                          도메인 타입 + parseRawMeal
+├── features/
+│   ├── home/
+│   │   ├── home_page.dart                 메인 화면, FutureBuilder 체인
+│   │   ├── home_app_bar.dart              AppBar (끼니 스위치 / 요일 탭 / 날짜)
+│   │   ├── home_drawer.dart               드로어, 공지 다이얼로그, 설정 진입점
+│   │   ├── meal_card.dart                 식당별 메뉴 카드
+│   │   ├── model.dart                     HomePageModel
+│   │   ├── nested_page_scroll.dart        중첩 스크롤 시스템
+│   │   └── week_meal_view.dart            요일 탭뷰 + 반응형 카드 테이블
+│   ├── meal/data/
+│   │   ├── meal_api.dart                  식단 HTTP fetch
+│   │   └── meal_data_source.dart          캐시 정책 + fetch-and-cache
+│   ├── announcement/data/
+│   │   ├── announcement_api.dart          공지 HTTP fetch + JSON 파싱
+│   │   └── announcement_service.dart      공지 비교·저장 (테스트 가능 분리)
+│   └── settings/
+│       ├── app_settings.dart              AppSettings ChangeNotifier
+│       ├── allergy_selection_page.dart    19개 알레르겐 체크리스트
+│       ├── allergy_settings.dart          AllergySettings 값 객체
+│       ├── notification_settings.dart     NotificationSettings 값 객체
+│       ├── settings_page.dart             설정 화면 (테마 / 알레르기 / 알림 / 위젯)
+│       └── widget_settings.dart           WidgetSettings 값 객체
+└── l10n/                                  ARB + 자동 생성된 AppLocalizations
 ```
 
 ## 테스트

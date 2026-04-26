@@ -1,4 +1,4 @@
-import 'meal.dart';
+import 'package:meal_client/domain/meal.dart';
 
 class HomePageModel {
   MealOfDay mealOfDay;

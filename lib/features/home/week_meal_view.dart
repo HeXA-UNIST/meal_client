@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../l10n/app_localizations.dart';
-
-import '../../meal.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'meal_card.dart';
 import 'nested_page_scroll.dart';
 

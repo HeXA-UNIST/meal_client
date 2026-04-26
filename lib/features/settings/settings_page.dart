@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../l10n/app_localizations.dart';
-import '../meal.dart';
-import '../settings/app_settings.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/domain/meal.dart';
+import 'app_settings.dart';
 import 'allergy_selection_page.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:meal_client/announcement_service.dart';
-import 'package:meal_client/constants.dart';
+import 'package:meal_client/features/announcement/data/announcement_service.dart';
+import 'package:meal_client/core/constants.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

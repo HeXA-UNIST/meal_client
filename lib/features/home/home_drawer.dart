@@ -3,9 +3,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../constants.dart';
-import '../l10n/app_localizations.dart';
-import 'settings_page.dart';
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/features/settings/settings_page.dart';
 
 class HomeAnnouncementDialog extends StatelessWidget {
   final String close;

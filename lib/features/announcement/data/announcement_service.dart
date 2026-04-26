@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'api_v2.dart';
-import 'constants.dart';
+import 'package:meal_client/features/announcement/data/announcement_api.dart';
+import 'package:meal_client/core/constants.dart';
 
 /// 주어진 공지 문자열을 저장된 이전 공지와 비교한다.
 /// 새 공지이면 저장 후 반환, 동일하면 null 반환.

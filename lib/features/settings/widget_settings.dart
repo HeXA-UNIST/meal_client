@@ -1,4 +1,4 @@
-import 'package:meal_client/meal.dart';
+import 'package:meal_client/domain/meal.dart';
 
 class WidgetSettings {
   final Cafeteria cafeteria;

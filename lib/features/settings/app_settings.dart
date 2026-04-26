@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../constants.dart';
-import '../meal.dart';
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'allergy_settings.dart';
 import 'notification_settings.dart';
 import 'widget_settings.dart';

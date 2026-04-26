@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../l10n/app_localizations.dart';
-
-import '../../meal.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/domain/meal.dart';
 
 class MealOfDaySwitchButton extends StatelessWidget {
   const MealOfDaySwitchButton({

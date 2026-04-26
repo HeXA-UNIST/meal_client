@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'l10n/app_localizations.dart';
-import 'pages/home.dart';
-import 'settings/app_settings.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/features/home/home_page.dart';
+import 'package:meal_client/features/settings/app_settings.dart';
 
 const mainColor = Color(0xFF00CD80);
 
