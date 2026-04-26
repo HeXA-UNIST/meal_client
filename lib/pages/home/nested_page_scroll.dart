@@ -111,7 +111,10 @@ class NestedPageScrollView extends StatefulWidget {
   State<NestedPageScrollView> createState() => _NestedPageScrollViewState();
 }
 
-class _NestedPageScrollViewState extends State<NestedPageScrollView> {
+class _NestedPageScrollViewState extends State<NestedPageScrollView>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   late final List<ScrollController> scrollControllers;
   Drag? drag;
   int? currentPageIndex;
@@ -132,6 +135,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin 필수
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
@@ -335,6 +339,12 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
         final rounded = controller.page!.round();
         if (_page != rounded) {
           _page = rounded;
+          // keep-alive로 살아있는 다른 탭의 컨트롤러도 즉시 동기화
+          for (final c in _controllers) {
+            if (c != controller && c.hasClients && c.page!.round() != _page) {
+              c.jumpToPage(_page);
+            }
+          }
         }
       });
 
