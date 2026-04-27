@@ -1,10 +1,10 @@
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/core/network/http_client.dart';
 import 'package:meal_client/core/storage.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/meal/data/meal_api.dart';
 
 Future<WeekMeal> fetchAndCacheMealData() async {
-  final rawMeal = await fetchRawMeal();
+  final rawMeal = await fetchRawString(ApiConstants.mealEndpoint);
   await saveFileAsString(StorageKeys.mealCacheFile, rawMeal);
   return parseRawMeal(rawMeal);
 }

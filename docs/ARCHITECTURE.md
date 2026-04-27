@@ -30,9 +30,8 @@
 ┌─────────────▼───────────────────────────────────────────┐
 │  데이터 / 인프라                                         │
 │                                                         │
-│  features/meal/data/meal_data_source  ──  캐시 정책     │
-│    ├── features/meal/data/meal_api  ──  식단 HTTP       │
-│    │     └── core/network/http_client  ──  싱글톤 클라이언트 │
+│  features/meal/meal_data_source  ──  캐시 정책 + 식단 HTTP │
+│    ├── core/network/http_client  ──  싱글톤 클라이언트   │
 │    │           └── core/network/platform_http_client    │
 │    │                 └── iOS/Android/Web 분기           │
 │    └── core/storage  ──  파일 캐시 / stub (웹)          │
@@ -56,7 +55,7 @@ UI 레이어        → lib/features/home/ (home_page, home_app_bar, week_meal_v
                   lib/features/settings/ (AppSettings + 값 객체)
 i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLocalizations)
 데이터 / 인프라  → lib/features/announcement/data/ (announcement_api, announcement_service),
-                  lib/features/meal/data/ (meal_api, meal_data_source),
+                  lib/features/meal/meal_data_source.dart,
                   lib/core/storage*.dart, lib/core/network/
 ```
 
@@ -278,9 +277,8 @@ lib/
 │   │   ├── model.dart                     HomePageModel
 │   │   ├── nested_page_scroll.dart        중첩 스크롤 시스템
 │   │   └── week_meal_view.dart            요일 탭뷰 + 반응형 카드 테이블
-│   ├── meal/data/
-│   │   ├── meal_api.dart                  식단 HTTP fetch
-│   │   └── meal_data_source.dart          캐시 정책 + fetch-and-cache
+│   ├── meal/
+│   │   └── meal_data_source.dart          식단 HTTP fetch + 캐시 정책
 │   ├── announcement/data/
 │   │   ├── announcement_api.dart          공지 HTTP fetch + JSON 파싱
 │   │   └── announcement_service.dart      공지 비교·저장 (테스트 가능 분리)

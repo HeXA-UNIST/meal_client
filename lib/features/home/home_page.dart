@@ -3,7 +3,7 @@ import 'package:flutter/scheduler.dart';
 
 import 'package:meal_client/features/announcement/data/announcement_service.dart';
 import 'package:meal_client/core/constants.dart';
-import 'package:meal_client/features/meal/data/meal_data_source.dart';
+import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'home_drawer.dart';
