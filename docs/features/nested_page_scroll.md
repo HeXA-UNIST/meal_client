@@ -63,7 +63,7 @@ class NestedPageScrollController extends PageController {
 ```dart
 _reverseList = List.generate(
   pageCount,
-  (page) => page < initialPage ? true : false,
+  (page) => page < initialPage,
 );
 ```
 
@@ -113,7 +113,7 @@ GestureDetector (터치)
 여러 탭이 존재할 때(예: 요일별 탭) 각 탭의 `NestedPageScrollController`를 **동기화**하는 그룹 컨트롤러.
 
 ```dart
-class NestedPageScrollControllerGroup extends ChangeNotifier {
+class NestedPageScrollControllerGroup {
   late final List<NestedPageScrollController> _controllers;
   int _page; // 그룹 전체의 현재 페이지
 ```
@@ -197,7 +197,7 @@ PointerScrollEvent 발생 (dy != 0)
     └─ remaining == 0
         ├─ _isAnimatingPage = true
         ├─ animateToPageFromScroll(targetPage)
-        └─ .then() → _isAnimatingPage = false
+        └─ .whenComplete() → _isAnimatingPage = false
 ```
 
 `_isAnimatingPage` 플래그가 이 결정 트리의 유일한 외부 상태다.

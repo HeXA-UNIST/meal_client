@@ -19,18 +19,14 @@ class NestedPageScrollController extends PageController {
     required this.pageCount,
   }) : _reverseList = List.generate(
          pageCount,
-         (page) => page < initialPage ? true : false,
+         (page) => page < initialPage,
        );
 
   bool pageReversed(int page) => _reverseList[page];
 
   void outerScrollStart(int pageIndex) {
     _reverseList.fillRange(0, pageIndex, true);
-    if (pageIndex + 1 < pageCount) {
-      // fillRange의 end는 exclusive이므로 pageCount를 사용해야
-      // 마지막 페이지까지 올바르게 채워진다.
-      _reverseList.fillRange(pageIndex + 1, pageCount, false);
-    }
+    _reverseList.fillRange(pageIndex + 1, pageCount, false);
     notifyListeners();
   }
 
@@ -42,11 +38,7 @@ class NestedPageScrollController extends PageController {
   }) {
     final currentPage = this.page!.round();
     _reverseList.fillRange(0, currentPage, false);
-    if (currentPage + 1 < pageCount) {
-      // fillRange의 end는 exclusive이므로 pageCount를 사용해야
-      // 마지막 페이지까지 올바르게 채워진다.
-      _reverseList.fillRange(currentPage + 1, pageCount, false);
-    }
+    _reverseList.fillRange(currentPage + 1, pageCount, false);
     notifyListeners();
     return super.animateToPage(page, duration: duration, curve: curve);
   }
@@ -143,100 +135,100 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         }
       },
       child: GestureDetector(
-      onVerticalDragStart: (details) {
-        final mediaQuery = MediaQuery.of(context);
-        if (details.globalPosition.dy >=
-            mediaQuery.size.height - mediaQuery.padding.bottom) {
-          return;
-        }
-
-        currentPageIndex = widget.controller.page!.round();
-
-        final scrollController = scrollControllers[currentPageIndex!];
-        final ScrollController currentController;
-        if (scrollController.position.atEdge) {
-          currentlyScrolling = _CurrentlyScrolling.outer;
-          currentController = widget.controller;
-
-          widget.controller.outerScrollStart(currentPageIndex!);
-          for (var c in scrollControllers) {
-            if (c != scrollController && c.hasClients) {
-              c.jumpTo(0);
-            }
+        onVerticalDragStart: (details) {
+          final mediaQuery = MediaQuery.of(context);
+          if (details.globalPosition.dy >=
+              mediaQuery.size.height - mediaQuery.padding.bottom) {
+            return;
           }
-        } else {
-          currentlyScrolling = _CurrentlyScrolling.inner;
-          currentController = scrollController;
-        }
 
-        drag = currentController.position.drag(details, () {});
-        prevPage = widget.controller.page!;
-      },
-      onVerticalDragUpdate: (details) {
-        if (drag == null) {
-          return;
-        }
+          currentPageIndex = widget.controller.page!.round();
 
-        final scrollController = scrollControllers[currentPageIndex!];
+          final scrollController = scrollControllers[currentPageIndex!];
+          final ScrollController currentController;
+          if (scrollController.position.atEdge) {
+            currentlyScrolling = _CurrentlyScrolling.outer;
+            currentController = widget.controller;
 
-        final double startScrollExtent;
-        final double endScrollExtent;
-        if (widget.controller.pageReversed(currentPageIndex!)) {
-          startScrollExtent = scrollController.position.maxScrollExtent;
-          endScrollExtent = scrollController.position.minScrollExtent;
-        } else {
-          startScrollExtent = scrollController.position.minScrollExtent;
-          endScrollExtent = scrollController.position.maxScrollExtent;
-        }
+            widget.controller.outerScrollStart(currentPageIndex!);
+            for (final c in scrollControllers) {
+              if (c != scrollController && c.hasClients) {
+                c.jumpTo(0);
+              }
+            }
+          } else {
+            currentlyScrolling = _CurrentlyScrolling.inner;
+            currentController = scrollController;
+          }
 
-        final currentPage = widget.controller.page!;
-        final middlePage = ((currentPage + prevPage) / 2).round();
-
-        if (currentlyScrolling == _CurrentlyScrolling.outer &&
-            startScrollExtent != endScrollExtent &&
-            ((scrollController.position.pixels == startScrollExtent &&
-                    details.delta.direction < 0) ||
-                (scrollController.position.pixels == endScrollExtent &&
-                    details.delta.direction > 0)) &&
-            ((prevPage <= middlePage && middlePage <= currentPage) ||
-                (currentPage <= middlePage && middlePage <= prevPage))) {
-          drag?.cancel();
-
-          currentlyScrolling = _CurrentlyScrolling.inner;
-          drag = scrollController.position.drag(
-            DragStartDetails(
-              globalPosition: details.globalPosition,
-              localPosition: details.localPosition,
-            ),
-            () {},
-          );
-        }
-
-        drag?.update(details);
-        prevPage = currentPage;
-      },
-      onVerticalDragEnd: (details) {
-        drag?.end(details);
-        drag = null;
-        currentPageIndex = null;
-        currentlyScrolling = null;
-      },
-      child: PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: widget.controller.pageCount,
-        controller: widget.controller,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: widget.onPageChanged,
-        itemBuilder: (BuildContext context, int pageIndex) {
-          return _KeptAliveItem(
-            scrollController: scrollControllers[pageIndex],
-            pageController: widget.controller,
-            pageIndex: pageIndex,
-            builder: widget.builder,
-          );
+          drag = currentController.position.drag(details, () {});
+          prevPage = widget.controller.page!;
         },
+        onVerticalDragUpdate: (details) {
+          if (drag == null) {
+            return;
+          }
+
+          final scrollController = scrollControllers[currentPageIndex!];
+
+          final double startScrollExtent;
+          final double endScrollExtent;
+          if (widget.controller.pageReversed(currentPageIndex!)) {
+            startScrollExtent = scrollController.position.maxScrollExtent;
+            endScrollExtent = scrollController.position.minScrollExtent;
+          } else {
+            startScrollExtent = scrollController.position.minScrollExtent;
+            endScrollExtent = scrollController.position.maxScrollExtent;
+          }
+
+          final currentPage = widget.controller.page!;
+          final middlePage = ((currentPage + prevPage) / 2).round();
+
+          if (currentlyScrolling == _CurrentlyScrolling.outer &&
+              startScrollExtent != endScrollExtent &&
+              ((scrollController.position.pixels == startScrollExtent &&
+                      details.delta.dy < 0) ||
+                  (scrollController.position.pixels == endScrollExtent &&
+                      details.delta.dy > 0)) &&
+              ((prevPage <= middlePage && middlePage <= currentPage) ||
+                  (currentPage <= middlePage && middlePage <= prevPage))) {
+            drag?.cancel();
+
+            currentlyScrolling = _CurrentlyScrolling.inner;
+            drag = scrollController.position.drag(
+              DragStartDetails(
+                globalPosition: details.globalPosition,
+                localPosition: details.localPosition,
+              ),
+              () {},
+            );
+          }
+
+          drag?.update(details);
+          prevPage = currentPage;
+        },
+        onVerticalDragEnd: (details) {
+          drag?.end(details);
+          drag = null;
+          currentPageIndex = null;
+          currentlyScrolling = null;
+        },
+        child: PageView.builder(
+          scrollDirection: Axis.vertical,
+          itemCount: widget.controller.pageCount,
+          controller: widget.controller,
+          physics: const NeverScrollableScrollPhysics(),
+          onPageChanged: widget.onPageChanged,
+          itemBuilder: (BuildContext context, int pageIndex) {
+            return _KeptAliveItem(
+              scrollController: scrollControllers[pageIndex],
+              pageController: widget.controller,
+              pageIndex: pageIndex,
+              builder: widget.builder,
+            );
+          },
+        ),
       ),
-    ),
     );
   }
 
@@ -289,7 +281,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         return;
       }
       // 터치 드래그와 동일하게 다른 페이지의 내부 스크롤을 리셋
-      for (var c in scrollControllers) {
+      for (final c in scrollControllers) {
         if (c != sc && c.hasClients) {
           c.jumpTo(0);
         }
@@ -301,7 +293,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           )
-          .then((_) => _isAnimatingPage = false);
+          .whenComplete(() => _isAnimatingPage = false);
     }
   }
 }
@@ -354,10 +346,6 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
       widget.pageController.addListener(_onControllerChanged);
       _reverse = widget.pageController.pageReversed(widget.pageIndex);
     }
-    // builder 교체 시(weekMeal 갱신) 최신 데이터로 rebuild
-    if (oldWidget.builder != widget.builder) {
-      setState(() {});
-    }
   }
 
   void _onControllerChanged() {
@@ -394,7 +382,7 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
   }
 }
 
-class NestedPageScrollControllerGroup extends ChangeNotifier {
+class NestedPageScrollControllerGroup {
   late final List<NestedPageScrollController> _controllers;
   int _page;
   // 그룹 주도 jumpToPage/animateToPage 실행 중 리스너 브로드캐스트를 억제한다.
@@ -444,19 +432,16 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
 
   NestedPageScrollController getController(int index) => _controllers[index];
 
-  @override
   void dispose() {
-    for (var controller in _controllers) {
+    for (final controller in _controllers) {
       controller.dispose();
     }
-
-    super.dispose();
   }
 
   Future<void> animateToPage(
     int page, {
     required Duration duration,
-    required Cubic curve,
+    required Curve curve,
     // 현재 화면에 보이는 탭의 인덱스.
     // 이 탭의 컨트롤러만 애니메이션으로 이동하고,
     // 나머지 비활성 탭은 jumpToPage로 즉시 동기화하여
