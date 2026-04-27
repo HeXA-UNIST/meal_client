@@ -36,8 +36,8 @@
 │    │                 └── iOS/Android/Web 분기           │
 │    └── core/storage  ──  파일 캐시 / stub (웹)          │
 │                                                         │
-│  features/announcement/data/announcement_service  ──  공지 확인 │
-│    └── features/announcement/data/announcement_api      │
+│  features/announcement/announcement_service  ──  공지 확인     │
+│    └── core/network/http_client                          │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -54,7 +54,7 @@ UI 레이어        → lib/features/home/ (home_page, home_app_bar, week_meal_v
                   lib/core/constants.dart,
                   lib/features/settings/ (AppSettings + 값 객체)
 i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLocalizations)
-데이터 / 인프라  → lib/features/announcement/data/ (announcement_api, announcement_service),
+데이터 / 인프라  → lib/features/announcement/announcement_service.dart,
                   lib/features/meal/meal_data_source.dart,
                   lib/core/storage*.dart, lib/core/network/
 ```
@@ -279,9 +279,8 @@ lib/
 │   │   └── week_meal_view.dart            요일 탭뷰 + 반응형 카드 테이블
 │   ├── meal/
 │   │   └── meal_data_source.dart          식단 HTTP fetch + 캐시 정책
-│   ├── announcement/data/
-│   │   ├── announcement_api.dart          공지 HTTP fetch + JSON 파싱
-│   │   └── announcement_service.dart      공지 비교·저장 (테스트 가능 분리)
+│   ├── announcement/
+│   │   └── announcement_service.dart      공지 HTTP fetch + JSON 파싱 + 비교·저장
 │   └── settings/
 │       ├── app_settings.dart              AppSettings ChangeNotifier
 │       ├── allergy_selection_page.dart    19개 알레르겐 체크리스트
@@ -295,7 +294,6 @@ lib/
 ## 테스트
 
 - `test/domain_test.dart` — 도메인 모델 / 파싱 로직 단위 테스트
-- `test/announcement_service_test.dart` — 공지 비교·저장 로직 단위 테스트
 - `test/settings_test.dart` — `AppSettings` 및 값 객체 단위 테스트
 - `test/widget_test.dart` — 앱 렌더링 / 테마 스모크 테스트
 
