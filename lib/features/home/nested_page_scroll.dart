@@ -318,6 +318,9 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
 class NestedPageScrollControllerGroup extends ChangeNotifier {
   late final List<NestedPageScrollController> _controllers;
   int _page;
+  // 그룹 주도 jumpToPage/animateToPage 실행 중 리스너 브로드캐스트를 억제한다.
+  // 억제하지 않으면 비활성 탭의 jumpToPage가 활성 탭의 애니메이션을 취소한다.
+  bool _isSyncing = false;
 
   NestedPageScrollControllerGroup({
     required int count,
@@ -336,10 +339,15 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
       // 매 스크롤 픽셀마다 호출되지만, 실제로 rounded 값이
       // 바뀔 때만 대입하여 불필요한 연산을 줄인다.
       controller.addListener(() {
+        // 그룹 주도 동기화 중에는 브로드캐스트하지 않는다.
+        // 억제하지 않으면 비활성 탭의 jumpToPage가 활성 탭의 애니메이션을 취소한다.
+        if (_isSyncing) return;
         final rounded = controller.page!.round();
         if (_page != rounded) {
           _page = rounded;
-          // keep-alive로 살아있는 다른 탭의 컨트롤러도 즉시 동기화
+          // keep-alive로 살아있는 다른 탭의 컨트롤러도 즉시 동기화.
+          // _isSyncing으로 jumpToPage가 유발하는 리스너 재진입을 차단한다.
+          _isSyncing = true;
           for (final c in _controllers) {
             if (c == controller || !c.hasClients) continue;
             final siblingPage = c.page;
@@ -347,6 +355,7 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
               c.jumpToPage(_page);
             }
           }
+          _isSyncing = false;
         }
       });
 
@@ -377,6 +386,9 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
   }) async {
     final futures = <Future<void>>[];
 
+    // 비활성 탭의 jumpToPage가 리스너를 통해 활성 탭의 애니메이션을
+    // 취소하지 않도록 for 루프 동안 브로드캐스트를 억제한다.
+    _isSyncing = true;
     for (int i = 0; i < _controllers.length; i++) {
       final controller = _controllers[i];
       if (!controller.hasClients) continue;
@@ -391,6 +403,8 @@ class NestedPageScrollControllerGroup extends ChangeNotifier {
         controller.jumpToPage(page);
       }
     }
+    // jumpToPage 완료 후 억제 해제. 이후 활성 탭 애니메이션 리스너는 정상 동작.
+    _isSyncing = false;
 
     if (futures.isEmpty) {
       return;
