@@ -228,20 +228,11 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         physics: const NeverScrollableScrollPhysics(),
         onPageChanged: widget.onPageChanged,
         itemBuilder: (BuildContext context, int pageIndex) {
-          return LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              controller: scrollControllers[pageIndex],
-              reverse: widget.controller.pageReversed(pageIndex),
-              physics: const NeverScrollableScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Padding(
-                  padding: EdgeInsets.only(top: 10),
-                  child: widget.builder(context, pageIndex),
-                ),
-              ),
-            ),
+          return _KeptAliveItem(
+            scrollController: scrollControllers[pageIndex],
+            pageController: widget.controller,
+            pageIndex: pageIndex,
+            builder: widget.builder,
           );
         },
       ),
@@ -312,6 +303,94 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
           )
           .then((_) => _isAnimatingPage = false);
     }
+  }
+}
+
+/// 끼니(아침/점심/저녁) 페이지 하나를 keep-alive로 유지하는 내부 위젯.
+///
+/// [AutomaticKeepAliveClientMixin]으로 오프스크린 상태에서도 엘리먼트를 살려두어,
+/// 형제 탭의 sibling-sync [jumpToPage] 호출 시 기존 엘리먼트를 재사용한다.
+/// 재빌드 없이 뷰포트만 이동하므로 [MealCard] 등 무거운 위젯 빌드 비용이 0이 된다.
+///
+/// [reverse] 변경([NestedPageScrollController.outerScrollStart] 등)은
+/// 컨트롤러 리스너에서 감지해 [setState]로 반영한다.
+/// [builder]가 교체되면([weekMeal] 갱신) [didUpdateWidget]에서 rebuild를 유도한다.
+class _KeptAliveItem extends StatefulWidget {
+  const _KeptAliveItem({
+    required this.scrollController,
+    required this.pageController,
+    required this.pageIndex,
+    required this.builder,
+  });
+
+  final ScrollController scrollController;
+  final NestedPageScrollController pageController;
+  final int pageIndex;
+  final Widget Function(BuildContext, int) builder;
+
+  @override
+  State<_KeptAliveItem> createState() => _KeptAliveItemState();
+}
+
+class _KeptAliveItemState extends State<_KeptAliveItem>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  late bool _reverse;
+
+  @override
+  void initState() {
+    super.initState();
+    _reverse = widget.pageController.pageReversed(widget.pageIndex);
+    widget.pageController.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(_KeptAliveItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pageController != widget.pageController) {
+      oldWidget.pageController.removeListener(_onControllerChanged);
+      widget.pageController.addListener(_onControllerChanged);
+      _reverse = widget.pageController.pageReversed(widget.pageIndex);
+    }
+    // builder 교체 시(weekMeal 갱신) 최신 데이터로 rebuild
+    if (oldWidget.builder != widget.builder) {
+      setState(() {});
+    }
+  }
+
+  void _onControllerChanged() {
+    final next = widget.pageController.pageReversed(widget.pageIndex);
+    if (next != _reverse) {
+      setState(() => _reverse = next);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.pageController.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin 필수
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        controller: widget.scrollController,
+        reverse: _reverse,
+        physics: const NeverScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: widget.builder(context, widget.pageIndex),
+          ),
+        ),
+      ),
+    );
   }
 }
 
