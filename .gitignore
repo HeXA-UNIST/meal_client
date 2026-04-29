@@ -49,3 +49,10 @@ app.*.map.json
 .claude
 .claude-octopus
 docs/superpowers/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
