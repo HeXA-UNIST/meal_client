@@ -1,12 +1,11 @@
-import 'meal.dart';
-import 'storage.dart';
-import 'api_v2.dart';
-
-const _fileName = "meal.json";
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/core/network/http_client.dart';
+import 'package:meal_client/core/storage.dart';
+import 'package:meal_client/domain/meal.dart';
 
 Future<WeekMeal> fetchAndCacheMealData() async {
-  final rawMeal = await fetchRawMeal();
-  await saveFileAsString(_fileName, rawMeal);
+  final rawMeal = await fetchRawString(ApiConstants.mealEndpoint);
+  await saveFileAsString(StorageKeys.mealCacheFile, rawMeal);
   return parseRawMeal(rawMeal);
 }
 
@@ -21,12 +20,13 @@ int _getKstWeekNumber(DateTime time) {
 }
 
 Future<WeekMeal> getCachedMealData() async {
-  final fileWeekNum = _getKstWeekNumber(await getLastModifiedOfFile(_fileName));
+  final fileWeekNum = _getKstWeekNumber(
+      await getLastModifiedOfFile(StorageKeys.mealCacheFile));
   final nowWeekNum = _getKstWeekNumber(DateTime.now());
   if (fileWeekNum != nowWeekNum) {
     throw Exception("Outdated cache");
   }
 
-  final rawMeal = await readFileAsString(_fileName);
+  final rawMeal = await readFileAsString(StorageKeys.mealCacheFile);
   return parseRawMeal(rawMeal);
 }

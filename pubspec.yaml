@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 5.0.1+18
 
 environment:
-  sdk: ^3.8.1
+  sdk: ^3.11.5
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -35,15 +35,18 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   # cupertino_icons: ^1.0.8
 
-  http: ^1.5.0
-  path_provider: ^2.1.5
+  http: ^1.6.0
   provider: ^6.1.5+1
-  flutter_svg: ^2.2.1
+  path_provider: ^2.1.5
+  flutter_svg: ^2.2.4
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
-  share_plus: ^12.0.0
+  share_plus: ^13.0.0
   cupertino_http: ^2.4.0
   cronet_http: ^1.8.0
+  intl: any
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +69,7 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  generate: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:

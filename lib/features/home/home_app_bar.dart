@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../i18n.dart';
-import '../../meal.dart';
-import '../../string.dart' as string;
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/domain/meal.dart';
 
 class MealOfDaySwitchButton extends StatelessWidget {
   const MealOfDaySwitchButton({
@@ -49,13 +48,13 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   DayOfWeekTabBar({
     super.key,
     required this.tabController,
-    required this.language,
   });
 
   final TabController tabController;
-  final Language language;
 
   final _preferredSize = Size.fromHeight(46.0);
+
+  static const _overlayColor = WidgetStatePropertyAll<Color>(Colors.transparent);
 
   @override
   Size get preferredSize => _preferredSize;
@@ -64,6 +63,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
 
     final unselectedLabelColor = HSLColor.fromColor(colorScheme.onSurface)
         .withSaturation(0)
@@ -77,17 +77,17 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
           color: colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(128.0),
         ),
-        margin: EdgeInsets.symmetric(horizontal: 8.0),
-        padding: EdgeInsets.all(4.0),
+        margin: const EdgeInsets.symmetric(horizontal: 8.0),
+        padding: const EdgeInsets.all(4.0),
         child: TabBar(
           tabs: [
-            Tab(text: string.mon.getLocalizedString(language), height: 36),
-            Tab(text: string.tue.getLocalizedString(language), height: 36),
-            Tab(text: string.wed.getLocalizedString(language), height: 36),
-            Tab(text: string.thu.getLocalizedString(language), height: 36),
-            Tab(text: string.fri.getLocalizedString(language), height: 36),
-            Tab(text: string.sat.getLocalizedString(language), height: 36),
-            Tab(text: string.sun.getLocalizedString(language), height: 36),
+            Tab(text: l10n.mon, height: 36),
+            Tab(text: l10n.tue, height: 36),
+            Tab(text: l10n.wed, height: 36),
+            Tab(text: l10n.thu, height: 36),
+            Tab(text: l10n.fri, height: 36),
+            Tab(text: l10n.sat, height: 36),
+            Tab(text: l10n.sun, height: 36),
           ],
           labelColor: colorScheme.onPrimaryContainer,
           unselectedLabelColor: unselectedLabelColor,
@@ -103,7 +103,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
           labelPadding: EdgeInsets.zero,
           // resolveWith 대신 all을 사용하여 매 빌드마다
           // 새 클로저를 생성하지 않도록 한다.
-          overlayColor: WidgetStateProperty.all(Colors.transparent),
+          overlayColor: _overlayColor,
           splashFactory: NoSplash.splashFactory,
           dividerHeight: 0,
           controller: tabController,
@@ -118,12 +118,10 @@ class AnimatedDateTitle extends StatelessWidget {
     super.key,
     required this.tabController,
     required this.mondayOfWeek,
-    required this.language,
   });
 
   final TabController tabController;
   final DateTime mondayOfWeek;
-  final Language language;
 
   @override
   Widget build(BuildContext context) {
@@ -131,9 +129,10 @@ class AnimatedDateTitle extends StatelessWidget {
     // 7개 날짜 문자열을 미리 계산해두면, 아래 AnimatedBuilder가
     // 매 프레임(~60fps)마다 DateTime 연산 + 문자열 포맷을 반복하지 않고
     // 단순 리스트 인덱스 조회만 수행한다.
+    final locale = Localizations.localeOf(context);
     final dateLabels = List.generate(DayOfWeek.values.length, (i) {
       final day = mondayOfWeek.add(Duration(days: i));
-      return string.getLocalizedDate(day.month, day.day, language);
+      return _getLocalizedDate(day.month, day.day, locale);
     });
 
     final animation = tabController.animation;
@@ -168,4 +167,27 @@ class AnimatedDateTitle extends StatelessWidget {
       },
     );
   }
+}
+
+/// 로케일에 따라 월·일을 문자열로 변환한다.
+///
+/// 한국어: "4월 4일" / 영어: "Apr. 4"
+String _getLocalizedDate(int month, int day, Locale locale) {
+  final isKorean = locale.languageCode == 'ko';
+
+  const engMonths = [
+    'Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.',
+    'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.',
+  ];
+  const korMonths = [
+    '1월', '2월', '3월', '4월', '5월', '6월',
+    '7월', '8월', '9월', '10월', '11월', '12월',
+  ];
+
+  if (month < 1 || month > 12) {
+    throw FormatException('Invalid month: $month');
+  }
+
+  final monthStr = isKorean ? korMonths[month - 1] : engMonths[month - 1];
+  return isKorean ? '$monthStr $day일' : '$monthStr $day';
 }

@@ -47,3 +47,5 @@ app.*.map.json
 
 # Claude Code
 .claude
+.claude-octopus
+docs/superpowers/

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../meal.dart';
+import 'package:meal_client/domain/meal.dart';
 
 class MealCard extends StatelessWidget {
   const MealCard({super.key, required this.title, required this.meal});

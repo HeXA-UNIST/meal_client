@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../i18n.dart';
-import '../../meal.dart';
-import '../../string.dart' as string;
+import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'meal_card.dart';
 import 'nested_page_scroll.dart';
 
@@ -19,7 +19,6 @@ class WeekMealTabBarView extends StatelessWidget {
     required this.pageControllerGroup,
     required this.pageCount,
     required this.onPageChanged,
-    required this.language,
   });
 
   final WeekMeal weekMeal;
@@ -27,10 +26,10 @@ class WeekMealTabBarView extends StatelessWidget {
   final NestedPageScrollControllerGroup pageControllerGroup;
   final int pageCount;
   final void Function(int) onPageChanged;
-  final Language language;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return TabBarView(
       controller: tabController,
       children: List.generate(
@@ -51,32 +50,37 @@ class WeekMealTabBarView extends StatelessWidget {
                           final meals = nowMeal.fromCafeteria(cafeteria);
                           return meals.map((meal) {
                             var title = switch (cafeteria) {
-                              Cafeteria.dormitory => string.dormitoryCafeteria.getLocalizedString(language),
-                              Cafeteria.student   => string.studentCafeteria.getLocalizedString(language),
-                              Cafeteria.faculty   => string.facultyCafeteria.getLocalizedString(language),
+                              Cafeteria.dormitory => l10n.dormitoryCafeteria,
+                              Cafeteria.student   => l10n.studentCafeteria,
+                              Cafeteria.faculty   => l10n.facultyCafeteria,
                             };
 
                             // 한식, 할랄 표기는 기숙사 식당에 한정하여 표기한다.
                             if (cafeteria == Cafeteria.dormitory) {
-                              switch (meal) {
-                                case KoreanMeal _:
-                                  title +=
-                                  " ${string.menuKorean.getLocalizedString(language)}";
-                                case HalalMeal _:
-                                  title +=
-                                  " ${string.menuHalal.getLocalizedString(language)}";
-                              }
+                              title += switch (meal) {
+                                KoreanMeal _ => " ${l10n.menuKorean}",
+                                HalalMeal _ => " ${l10n.menuHalal}",
+                                _ => "",
+                              };
                             }
 
                             return GestureDetector(
                               onLongPress: () {
-                                HapticFeedback.lightImpact();
-                                SharePlus.instance.share(
-                                  ShareParams(
-                                    text:
-                                        "[$title]\n${meal.menu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
-                                  ),
-                                );
+                                // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
+                                // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
+                                if (!kIsWeb) {
+                                  HapticFeedback.lightImpact();
+                                  SharePlus.instance.share(
+                                    ShareParams(
+                                      text:
+                                      "[$title]\n${meal.menu.map((
+                                          aMenu) => "- $aMenu").join(
+                                          "\n")}${meal.kcal == null
+                                          ? ""
+                                          : "\n\n${meal.kcal} kcal"}",
+                                    ),
+                                  );
+                                }
                               },
                               child: MealCard(title: title, meal: meal),
                             );
@@ -89,7 +93,7 @@ class WeekMealTabBarView extends StatelessWidget {
                   if (cards.isEmpty) {
                     return Center(
                       child: Text(
-                        string.noMeal.getLocalizedString(language),
+                        l10n.noMeal,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     );
@@ -132,14 +136,14 @@ class WeekMealTabBarView extends StatelessWidget {
                     row.add(
                       TableRow(
                         children: [
-                          TableCell(child: SizedBox()),
+                          const TableCell(child: SizedBox()),
                           ...cards
                               .sublist(
                                 i * columns,
                                 end < cards.length ? end : cards.length,
                               )
                               .map((card) => TableCell(child: card)),
-                          TableCell(child: SizedBox()),
+                          const TableCell(child: SizedBox()),
                         ],
                       ),
                     );
@@ -149,8 +153,8 @@ class WeekMealTabBarView extends StatelessWidget {
                       .map((card) => TableCell(child: card))
                       .toList();
                   if (remain.isNotEmpty) {
-                    remain.insert(0, TableCell(child: SizedBox()));
-                    remain.add(TableCell(child: SizedBox()));
+                    remain.insert(0, const TableCell(child: SizedBox()));
+                    remain.add(const TableCell(child: SizedBox()));
                     row.add(TableRow(children: remain));
                   }
 
