@@ -1,8 +1,11 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'allergy_settings.dart';
 import 'notification_settings.dart';
 import 'widget_settings.dart';
@@ -43,6 +46,11 @@ class AppSettings extends ChangeNotifier {
     _notification = _notification.copyWith(enabled: v);
     _prefs.setBool(StorageKeys.notificationEnabled, v);
     notifyListeners();
+    if (v) {
+      unawaited(scheduleKeywordNotification(_notification.alertTime));
+    } else {
+      unawaited(cancelKeywordNotification());
+    }
   }
 
   void setNotificationKeyword(String kw) {
@@ -61,6 +69,9 @@ class AppSettings extends ChangeNotifier {
     _prefs.setString(
         StorageKeys.notificationTime, '${time.hour}:${time.minute}');
     notifyListeners();
+    if (_notification.enabled) {
+      unawaited(scheduleKeywordNotification(time));
+    }
   }
 
   void setNotificationCafeterias(Set<Cafeteria> cafeterias) {
@@ -101,6 +112,7 @@ class AppSettings extends ChangeNotifier {
     _notification = _notification.reset();
     _widget = _widget.reset();
     _themeMode = ThemeMode.system;
+    unawaited(cancelKeywordNotification());
     _prefs.setStringList(StorageKeys.allergenIds, []);
     _prefs.setBool(StorageKeys.notificationEnabled, false);
     _prefs.remove(StorageKeys.notificationKeyword);

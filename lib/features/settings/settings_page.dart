@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/notification/notification_service.dart';
 import 'app_settings.dart';
 import 'allergy_selection_page.dart';
 
@@ -92,18 +93,40 @@ class _NotificationTile extends StatefulWidget {
 
 class _NotificationTileState extends State<_NotificationTile> {
   late final TextEditingController _keywordController;
+  late final FocusNode _keywordFocusNode;
 
   @override
   void initState() {
     super.initState();
     final keyword = context.read<AppSettings>().notification.keyword;
     _keywordController = TextEditingController(text: keyword);
+    _keywordFocusNode = FocusNode()
+      ..addListener(() {
+        if (!_keywordFocusNode.hasFocus) {
+          context
+              .read<AppSettings>()
+              .setNotificationKeyword(_keywordController.text);
+        }
+      });
   }
 
   @override
   void dispose() {
     _keywordController.dispose();
+    _keywordFocusNode.dispose();
     super.dispose();
+  }
+
+  // Android 13+ 알림 권한 요청 후 활성화.
+  // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
+  Future<void> _handleNotificationToggle(bool enable) async {
+    if (enable) {
+      final granted = await requestNotificationPermission();
+      if (!granted || !mounted) return;
+    }
+    if (mounted) {
+      context.read<AppSettings>().setNotificationEnabled(enable);
+    }
   }
 
   @override
@@ -120,14 +143,14 @@ class _NotificationTileState extends State<_NotificationTile> {
                 : l10n.notificationKeywordHint,
           ),
           value: notification.enabled,
-          onChanged: (v) =>
-              context.read<AppSettings>().setNotificationEnabled(v),
+          onChanged: _handleNotificationToggle,
         ),
         if (notification.enabled)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: TextField(
               controller: _keywordController,
+              focusNode: _keywordFocusNode,
               decoration: InputDecoration(
                 labelText: l10n.notificationKeywordLabel,
                 hintText: l10n.notificationKeywordHint,

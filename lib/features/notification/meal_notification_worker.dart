@@ -1,0 +1,94 @@
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
+
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/domain/meal.dart';
+import 'notification_scheduler.dart';
+import 'notification_service.dart';
+
+/// Workmanager 백그라운드 격리체(isolate) 진입점.
+/// 이 함수는 앱 프로세스와 별개의 Dart isolate에서 실행된다.
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((taskName, inputData) async {
+    if (taskName == kMealKeywordTaskName) {
+      await _runMealKeywordCheck();
+    }
+    return true;
+  });
+}
+
+Future<void> _runMealKeywordCheck() async {
+  final prefs = await SharedPreferences.getInstance();
+
+  final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
+  if (!enabled) return;
+
+  final keyword = prefs.getString(StorageKeys.notificationKeyword) ?? '';
+  if (keyword.isEmpty) return;
+
+  final cafeteriaNames =
+      prefs.getStringList(StorageKeys.notificationCafeterias) ??
+          [Cafeteria.dormitory.name];
+  final cafeteriaMap = Cafeteria.values.asNameMap();
+  final cafeterias = {
+    for (final n in cafeteriaNames)
+      if (cafeteriaMap[n] != null) cafeteriaMap[n]!,
+  };
+  if (cafeterias.isEmpty) return;
+
+  // 백그라운드 isolate에서는 플랫폼별 HTTP 클라이언트 대신 기본 http 패키지 사용
+  final http.Response response;
+  try {
+    response = await http
+        .get(Uri.parse(ApiConstants.mealEndpoint))
+        .timeout(const Duration(seconds: 10));
+  } catch (_) {
+    return;
+  }
+  if (response.statusCode != 200) return;
+
+  final WeekMeal weekMeal;
+  try {
+    weekMeal = parseRawMeal(response.body);
+  } catch (_) {
+    return;
+  }
+
+  final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
+  final today = DayOfWeek.values[kstNow.weekday - 1];
+  final keywordLower = keyword.toLowerCase();
+
+  final matches = <String>[];
+  for (final mealOfDay in MealOfDay.values) {
+    for (final cafeteria in cafeterias) {
+      final meals = weekMeal[today][mealOfDay][cafeteria];
+      final hasMatch = meals.any(
+        (meal) =>
+            meal.menu.any((item) => item.toLowerCase().contains(keywordLower)),
+      );
+      if (hasMatch) {
+        final cafeteriaLabel = switch (cafeteria) {
+          Cafeteria.dormitory => '기숙사',
+          Cafeteria.student => '학생',
+          Cafeteria.faculty => '교직원',
+        };
+        final mealLabel = switch (mealOfDay) {
+          MealOfDay.breakfast => '아침',
+          MealOfDay.lunch => '점심',
+          MealOfDay.dinner => '저녁',
+        };
+        matches.add('$cafeteriaLabel $mealLabel');
+      }
+    }
+  }
+
+  if (matches.isEmpty) return;
+
+  await initNotifications();
+  await showMealKeywordNotification(
+    title: '오늘 "$keyword" 메뉴가 있어요!',
+    body: matches.join(', '),
+  );
+}
