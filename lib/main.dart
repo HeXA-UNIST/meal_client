@@ -34,7 +34,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   await Workmanager().initialize(callbackDispatcher);
-  await initNotifications();
+  await initNotifications();  // 추가
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppSettings(prefs),

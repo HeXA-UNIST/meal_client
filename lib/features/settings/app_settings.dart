@@ -72,7 +72,7 @@ class AppSettings extends ChangeNotifier {
     if (_notification.enabled) {
       unawaited(scheduleKeywordNotification(time));
     }
-  }
+  } 
 
   void setNotificationCafeterias(Set<Cafeteria> cafeterias) {
     _notification = _notification.copyWith(cafeterias: cafeterias);

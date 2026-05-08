@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
+import 'package:meal_client/features/notification/meal_notification_worker.dart';
 import 'app_settings.dart';
 import 'allergy_selection_page.dart';
 
@@ -105,7 +106,7 @@ class _NotificationTileState extends State<_NotificationTile> {
         if (!_keywordFocusNode.hasFocus) {
           context
               .read<AppSettings>()
-              .setNotificationKeyword(_keywordController.text);
+              .setNotificationKeyword(_keywordController.text); // 추가
         }
       });
   }
@@ -116,6 +117,13 @@ class _NotificationTileState extends State<_NotificationTile> {
     _keywordFocusNode.dispose();
     super.dispose();
   }
+
+  String _cafeteriaName(AppLocalizations l10n, Cafeteria cafeteria) =>
+      switch (cafeteria) {
+        Cafeteria.dormitory => l10n.dormitoryCafeteria,
+        Cafeteria.student   => l10n.studentCafeteria,
+        Cafeteria.faculty   => l10n.facultyCafeteria,
+      };
 
   // Android 13+ 알림 권한 요청 후 활성화.
   // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
@@ -145,7 +153,7 @@ class _NotificationTileState extends State<_NotificationTile> {
           value: notification.enabled,
           onChanged: _handleNotificationToggle,
         ),
-        if (notification.enabled)
+        if (notification.enabled) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: TextField(
@@ -159,6 +167,64 @@ class _NotificationTileState extends State<_NotificationTile> {
               ),
               onSubmitted: (v) =>
                   context.read<AppSettings>().setNotificationKeyword(v),
+            ),
+          ),
+          // 알림 대상 식당 선택
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l10n.notificationCafeteriasLabel,
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+          for (final cafeteria in Cafeteria.values)
+            CheckboxListTile(
+              dense: true,
+              title: Text(_cafeteriaName(l10n, cafeteria)),
+              value: notification.cafeterias.contains(cafeteria),
+              onChanged: (checked) {
+                final current = notification.cafeterias;
+                final next = checked == true
+                    ? {...current, cafeteria}
+                    : current.where((c) => c != cafeteria).toSet();
+                // 최소 1개는 선택 유지
+                if (next.isNotEmpty) {
+                  context
+                      .read<AppSettings>()
+                      .setNotificationCafeterias(next);
+                }
+              },
+            ),
+        ],
+        // 디버그 빌드에서만 표시되는 알림 즉시 테스트 버튼
+        if (kDebugMode && notification.enabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.notifications_active_outlined, size: 18),
+              label: const Text('[DEV] 알림 지금 테스트'),
+              onPressed: () async {
+                // SharedPreferences 저장 타이밍 문제를 피하기 위해
+                // 현재 컨트롤러 값을 직접 전달
+                final keyword = _keywordController.text.trim();
+                await testMealKeywordCheck(keywordOverride: keyword);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        keyword.isEmpty
+                            ? '키워드를 먼저 입력해주세요'
+                            : '"$keyword" 알림 체크 완료 (매칭 시 알림 발송됨)',
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
           ),
       ],

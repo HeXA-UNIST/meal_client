@@ -7,6 +7,13 @@ import 'package:meal_client/domain/meal.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
 
+/// 디버그 빌드에서 UI의 테스트 버튼이 호출하는 함수.
+/// 백그라운드 태스크와 동일한 로직을 메인 isolate에서 즉시 실행한다.
+/// [keywordOverride]를 전달하면 SharedPreferences 값 대신 그 키워드로 검사한다.
+/// (테스트 버튼에서 SharedPreferences 저장 타이밍 문제를 피하기 위해 사용)
+Future<void> testMealKeywordCheck({String? keywordOverride}) =>
+    _runMealKeywordCheck(keywordOverride: keywordOverride);
+
 /// Workmanager 백그라운드 격리체(isolate) 진입점.
 /// 이 함수는 앱 프로세스와 별개의 Dart isolate에서 실행된다.
 @pragma('vm:entry-point')
@@ -19,13 +26,15 @@ void callbackDispatcher() {
   });
 }
 
-Future<void> _runMealKeywordCheck() async {
+Future<void> _runMealKeywordCheck({String? keywordOverride}) async {
   final prefs = await SharedPreferences.getInstance();
 
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
 
-  final keyword = prefs.getString(StorageKeys.notificationKeyword) ?? '';
+  final keyword =
+      (keywordOverride ?? prefs.getString(StorageKeys.notificationKeyword) ?? '')
+          .trim();
   if (keyword.isEmpty) return;
 
   final cafeteriaNames =
