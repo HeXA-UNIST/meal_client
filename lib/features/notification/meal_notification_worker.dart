@@ -71,24 +71,40 @@ Future<void> _runMealKeywordCheck({String? keywordOverride}) async {
 
   final matches = <String>[];
   for (final mealOfDay in MealOfDay.values) {
+    final mealLabel = switch (mealOfDay) {
+      MealOfDay.breakfast => '아침',
+      MealOfDay.lunch => '점심',
+      MealOfDay.dinner => '저녁',
+    };
     for (final cafeteria in cafeterias) {
       final meals = weekMeal[today][mealOfDay][cafeteria];
-      final hasMatch = meals.any(
-        (meal) =>
-            meal.menu.any((item) => item.toLowerCase().contains(keywordLower)),
-      );
-      if (hasMatch) {
+
+      if (cafeteria == Cafeteria.dormitory) {
+        // 기숙사는 한식·할랄을 각각 구분해 표시
+        final seen = <String>{};
+        for (final meal in meals) {
+          if (!meal.menu
+              .any((item) => item.toLowerCase().contains(keywordLower))) {
+            continue;
+          }
+          final typeLabel = switch (meal) {
+            KoreanMeal _ => ' 한식',
+            HalalMeal _ => ' 할랄',
+            _ => '',
+          };
+          final label = '기숙사$typeLabel $mealLabel';
+          if (seen.add(label)) matches.add(label);
+        }
+      } else {
         final cafeteriaLabel = switch (cafeteria) {
-          Cafeteria.dormitory => '기숙사',
+          Cafeteria.dormitory => '기숙사', // unreachable
           Cafeteria.student => '학생',
           Cafeteria.faculty => '교직원',
         };
-        final mealLabel = switch (mealOfDay) {
-          MealOfDay.breakfast => '아침',
-          MealOfDay.lunch => '점심',
-          MealOfDay.dinner => '저녁',
-        };
-        matches.add('$cafeteriaLabel $mealLabel');
+        if (meals.any((meal) =>
+            meal.menu.any((item) => item.toLowerCase().contains(keywordLower)))) {
+          matches.add('$cafeteriaLabel $mealLabel');
+        }
       }
     }
   }

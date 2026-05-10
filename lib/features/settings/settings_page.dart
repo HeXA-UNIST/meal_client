@@ -118,6 +118,9 @@ class _NotificationTileState extends State<_NotificationTile> {
     super.dispose();
   }
 
+  String _formatTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
   String _cafeteriaName(AppLocalizations l10n, Cafeteria cafeteria) =>
       switch (cafeteria) {
         Cafeteria.dormitory => l10n.dormitoryCafeteria,
@@ -168,6 +171,24 @@ class _NotificationTileState extends State<_NotificationTile> {
               onSubmitted: (v) =>
                   context.read<AppSettings>().setNotificationKeyword(v),
             ),
+          ),
+          // 알림 시간 선택
+          ListTile(
+            dense: true,
+            title: Text(l10n.notificationTimeLabel),
+            trailing: Text(
+              _formatTime(notification.alertTime),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: notification.alertTime,
+              );
+              if (picked != null && context.mounted) {
+                context.read<AppSettings>().setNotificationTime(picked);
+              }
+            },
           ),
           // 알림 대상 식당 선택
           Padding(
