@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
@@ -21,9 +22,23 @@ void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     if (taskName == kMealKeywordTaskName) {
       await _runMealKeywordCheck();
+      // 다음날 같은 시각으로 태스크를 다시 등록
+      await _rescheduleForNextDay();
     }
     return true;
   });
+}
+
+Future<void> _rescheduleForNextDay() async {
+  final prefs = await SharedPreferences.getInstance();
+  final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
+  if (!enabled) return;
+
+  final timeStr = prefs.getString(StorageKeys.notificationTime) ?? '8:0';
+  final parts = timeStr.split(':');
+  final hour = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 8;
+  final minute = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
+  await scheduleKeywordNotification(TimeOfDay(hour: hour, minute: minute));
 }
 
 Future<void> _runMealKeywordCheck({String? keywordOverride}) async {
