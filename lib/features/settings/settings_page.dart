@@ -99,16 +99,8 @@ class _NotificationTileState extends State<_NotificationTile> {
   @override
   void initState() {
     super.initState();
-    final keyword = context.read<AppSettings>().notification.keyword;
-    _keywordController = TextEditingController(text: keyword);
-    _keywordFocusNode = FocusNode()
-      ..addListener(() {
-        if (!_keywordFocusNode.hasFocus) {
-          context
-              .read<AppSettings>()
-              .setNotificationKeyword(_keywordController.text); // 추가
-        }
-      });
+    _keywordController = TextEditingController();
+    _keywordFocusNode = FocusNode();
   }
 
   @override
@@ -116,6 +108,14 @@ class _NotificationTileState extends State<_NotificationTile> {
     _keywordController.dispose();
     _keywordFocusNode.dispose();
     super.dispose();
+  }
+
+  /// 현재 입력란의 텍스트를 키워드로 추가하고 입력란을 비운다.
+  void _submitKeyword() {
+    final text = _keywordController.text.trim();
+    if (text.isEmpty) return;
+    context.read<AppSettings>().addNotificationKeyword(text);
+    _keywordController.clear();
   }
 
   String _formatTime(TimeOfDay t) =>
@@ -149,29 +149,61 @@ class _NotificationTileState extends State<_NotificationTile> {
         SwitchListTile(
           title: Text(l10n.notificationSettings),
           subtitle: Text(
-            notification.keyword.isNotEmpty
-                ? '"${notification.keyword}"'
+            notification.keywords.isNotEmpty
+                ? notification.keywords.map((k) => '"$k"').join(', ')
                 : l10n.notificationKeywordHint,
           ),
           value: notification.enabled,
           onChanged: _handleNotificationToggle,
         ),
         if (notification.enabled) ...[
+          // 키워드 입력 + 추가 버튼
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: TextField(
-              controller: _keywordController,
-              focusNode: _keywordFocusNode,
-              decoration: InputDecoration(
-                labelText: l10n.notificationKeywordLabel,
-                hintText: l10n.notificationKeywordHint,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
-              onSubmitted: (v) =>
-                  context.read<AppSettings>().setNotificationKeyword(v),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _keywordController,
+                    focusNode: _keywordFocusNode,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      labelText: l10n.notificationKeywordLabel,
+                      hintText: l10n.notificationKeywordHint,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _submitKeyword(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.add),
+                  tooltip: l10n.notificationKeywordLabel,
+                  onPressed: _submitKeyword,
+                ),
+              ],
             ),
           ),
+          // 등록된 키워드 칩 목록
+          if (notification.keywords.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final kw in notification.keywords)
+                    Chip(
+                      label: Text(kw),
+                      onDeleted: () => context
+                          .read<AppSettings>()
+                          .removeNotificationKeyword(kw),
+                    ),
+                ],
+              ),
+            ),
           // 알림 시간 선택
           ListTile(
             dense: true,
@@ -230,17 +262,22 @@ class _NotificationTileState extends State<_NotificationTile> {
               icon: const Icon(Icons.notifications_active_outlined, size: 18),
               label: const Text('[DEV] 알림 지금 테스트'),
               onPressed: () async {
-                // SharedPreferences 저장 타이밍 문제를 피하기 위해
-                // 현재 컨트롤러 값을 직접 전달
-                final keyword = _keywordController.text.trim();
-                await testMealKeywordCheck(keywordOverride: keyword);
+                // 저장된 키워드 + 현재 입력 중인 미저장 키워드까지 합쳐서 테스트
+                final pending = _keywordController.text.trim();
+                final keywords = [
+                  ...notification.keywords,
+                  if (pending.isNotEmpty &&
+                      !notification.keywords.contains(pending))
+                    pending,
+                ];
+                await testMealKeywordCheck(keywordsOverride: keywords);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        keyword.isEmpty
+                        keywords.isEmpty
                             ? '키워드를 먼저 입력해주세요'
-                            : '"$keyword" 알림 체크 완료 (매칭 시 알림 발송됨)',
+                            : '키워드 ${keywords.length}개로 체크 완료 (매칭 시 알림 발송됨)',
                       ),
                     ),
                   );

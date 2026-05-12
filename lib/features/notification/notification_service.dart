@@ -35,12 +35,14 @@ Future<void> showMealKeywordNotification({
   required String title,
   required String body,
 }) async {
-  const details = NotificationDetails(
+  // 여러 키워드 매칭 시 본문이 여러 줄이 되므로 BigTextStyle로 펼쳐 보이게 한다.
+  final details = NotificationDetails(
     android: AndroidNotificationDetails(
       _channelId,
       _channelName,
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
     ),
   );
   await _plugin.show(

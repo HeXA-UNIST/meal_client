@@ -37,14 +37,22 @@ Future<void> scheduleKeywordNotification(TimeOfDay alertTime) async {
       existingWorkPolicy: ExistingWorkPolicy.replace,
     );
   } catch (e, st) {
-    // unawaited로 호출되어 예외가 묻히지 않도록 로깅
+    // unawaited로 호출되므로 호출자가 에러를 받지 못한다.
+    // 디버그 빌드에서만 로깅하고 swallow.
     assert(() {
       debugPrint('[BapU] schedule failed: $e\n$st');
       return true;
     }());
-    rethrow;
   }
 }
 
-Future<void> cancelKeywordNotification() =>
-    Workmanager().cancelByUniqueName(kMealKeywordTaskName);
+Future<void> cancelKeywordNotification() async {
+  try {
+    await Workmanager().cancelByUniqueName(kMealKeywordTaskName);
+  } catch (e, st) {
+    assert(() {
+      debugPrint('[BapU] cancel failed: $e\n$st');
+      return true;
+    }());
+  }
+}

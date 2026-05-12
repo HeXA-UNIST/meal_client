@@ -3,26 +3,27 @@ import 'package:meal_client/domain/meal.dart';
 
 class NotificationSettings {
   final bool enabled;
-  final String keyword;
+  final List<String> keywords;
   final TimeOfDay alertTime;
   final Set<Cafeteria> cafeterias;
 
   NotificationSettings({
     this.enabled = false,
-    this.keyword = '',
+    List<String> keywords = const [],
     this.alertTime = const TimeOfDay(hour: 8, minute: 0),
     Set<Cafeteria> cafeterias = const {Cafeteria.dormitory},
-  }) : cafeterias = Set.unmodifiable(cafeterias);
+  })  : keywords = List.unmodifiable(keywords),
+        cafeterias = Set.unmodifiable(cafeterias);
 
   NotificationSettings copyWith({
     bool? enabled,
-    String? keyword,
+    List<String>? keywords,
     TimeOfDay? alertTime,
     Set<Cafeteria>? cafeterias,
   }) =>
       NotificationSettings(
         enabled: enabled ?? this.enabled,
-        keyword: keyword ?? this.keyword,
+        keywords: keywords ?? this.keywords,
         alertTime: alertTime ?? this.alertTime,
         cafeterias: cafeterias ?? this.cafeterias,
       );

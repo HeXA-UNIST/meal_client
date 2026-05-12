@@ -53,14 +53,21 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
-  void setNotificationKeyword(String kw) {
+  void addNotificationKeyword(String kw) {
     final trimmed = kw.trim();
-    _notification = _notification.copyWith(keyword: trimmed);
-    if (trimmed.isNotEmpty) {
-      _prefs.setString(StorageKeys.notificationKeyword, trimmed);
-    } else {
-      _prefs.remove(StorageKeys.notificationKeyword);
-    }
+    if (trimmed.isEmpty) return;
+    if (_notification.keywords.contains(trimmed)) return;
+    final next = [..._notification.keywords, trimmed];
+    _notification = _notification.copyWith(keywords: next);
+    _prefs.setStringList(StorageKeys.notificationKeywords, next);
+    notifyListeners();
+  }
+
+  void removeNotificationKeyword(String kw) {
+    if (!_notification.keywords.contains(kw)) return;
+    final next = _notification.keywords.where((k) => k != kw).toList();
+    _notification = _notification.copyWith(keywords: next);
+    _prefs.setStringList(StorageKeys.notificationKeywords, next);
     notifyListeners();
   }
 
@@ -115,7 +122,7 @@ class AppSettings extends ChangeNotifier {
     unawaited(cancelKeywordNotification());
     _prefs.setStringList(StorageKeys.allergenIds, []);
     _prefs.setBool(StorageKeys.notificationEnabled, false);
-    _prefs.remove(StorageKeys.notificationKeyword);
+    _prefs.setStringList(StorageKeys.notificationKeywords, []);
     _prefs.setString(StorageKeys.notificationTime, '8:0');
     _prefs.setStringList(
         StorageKeys.notificationCafeterias, [Cafeteria.dormitory.name]);
@@ -136,6 +143,9 @@ class AppSettings extends ChangeNotifier {
     return AllergySettings(enabledIds: ids);
   }
 
+  // 구버전(단일 키워드) SharedPreferences 키. 마이그레이션 용도로만 참조.
+  static const _legacyKeywordKey = 'settings_notification_keyword';
+
   static NotificationSettings _loadNotification(SharedPreferences p) {
     final timeParts =
         (p.getString(StorageKeys.notificationTime) ?? '8:0').split(':');
@@ -151,9 +161,22 @@ class AppSettings extends ChangeNotifier {
             for (final n in cafeteriaNames)
               if (cafeteriaMap[n] != null) cafeteriaMap[n]!,
           };
+
+    // 키워드 로드 + 구버전 마이그레이션
+    var keywords = p.getStringList(StorageKeys.notificationKeywords);
+    if (keywords == null) {
+      final legacy = p.getString(_legacyKeywordKey)?.trim();
+      keywords = (legacy != null && legacy.isNotEmpty) ? [legacy] : <String>[];
+      if (keywords.isNotEmpty) {
+        // 새 키로 즉시 저장하고 구 키 삭제 (재시작 후엔 이 분기 안 탐)
+        p.setStringList(StorageKeys.notificationKeywords, keywords);
+        p.remove(_legacyKeywordKey);
+      }
+    }
+
     return NotificationSettings(
       enabled: p.getBool(StorageKeys.notificationEnabled) ?? false,
-      keyword: p.getString(StorageKeys.notificationKeyword) ?? '',
+      keywords: keywords,
       alertTime: TimeOfDay(hour: hour, minute: minute),
       cafeterias: cafeterias.isEmpty ? {Cafeteria.dormitory} : cafeterias,
     );

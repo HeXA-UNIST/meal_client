@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +9,7 @@ import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
+import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 
 const mainColor = Color(0xFF00CD80);
@@ -34,10 +37,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   await Workmanager().initialize(callbackDispatcher);
-  await initNotifications();  // 추가
+  await initNotifications();
+  final settings = AppSettings(prefs);
+
+  // 앱 실생히 알림 재스케쥴(Work Manager 오류 해결용)
+  if (settings.notification.enabled) {
+    unawaited(scheduleKeywordNotification(settings.notification.alertTime));
+  }
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppSettings(prefs),
+    ChangeNotifierProvider.value(
+      value: settings,
       child: const BapUApp(),
     ),
   );

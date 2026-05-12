@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,10 +11,10 @@ import 'notification_service.dart';
 
 /// 디버그 빌드에서 UI의 테스트 버튼이 호출하는 함수.
 /// 백그라운드 태스크와 동일한 로직을 메인 isolate에서 즉시 실행한다.
-/// [keywordOverride]를 전달하면 SharedPreferences 값 대신 그 키워드로 검사한다.
-/// (테스트 버튼에서 SharedPreferences 저장 타이밍 문제를 피하기 위해 사용)
-Future<void> testMealKeywordCheck({String? keywordOverride}) =>
-    _runMealKeywordCheck(keywordOverride: keywordOverride);
+/// [keywordsOverride]를 전달하면 SharedPreferences 값 대신 그 키워드 리스트로
+/// 검사한다. (UI에서 막 입력한 값이 prefs에 아직 안 들어간 경우 활용)
+Future<void> testMealKeywordCheck({List<String>? keywordsOverride}) =>
+    _runMealKeywordCheck(keywordsOverride: keywordsOverride);
 
 /// Workmanager 백그라운드 격리체(isolate) 진입점.
 /// 이 함수는 앱 프로세스와 별개의 Dart isolate에서 실행된다.
@@ -38,19 +39,32 @@ Future<void> _rescheduleForNextDay() async {
   final parts = timeStr.split(':');
   final hour = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 8;
   final minute = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
+  assert(() {
+    debugPrint('[BapU] worker: rescheduling for next day at $hour:$minute');
+    return true;
+  }());
   await scheduleKeywordNotification(TimeOfDay(hour: hour, minute: minute));
+  assert(() {
+    debugPrint('[BapU] worker: reschedule call completed');
+    return true;
+  }());
 }
 
-Future<void> _runMealKeywordCheck({String? keywordOverride}) async {
+Future<void> _runMealKeywordCheck({List<String>? keywordsOverride}) async {
   final prefs = await SharedPreferences.getInstance();
 
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
 
-  final keyword =
-      (keywordOverride ?? prefs.getString(StorageKeys.notificationKeyword) ?? '')
-          .trim();
-  if (keyword.isEmpty) return;
+  // 키워드 로드 (override 또는 prefs). 공백 제거 + 빈 항목 제외.
+  final rawKeywords = keywordsOverride ??
+      prefs.getStringList(StorageKeys.notificationKeywords) ??
+      const <String>[];
+  final keywords = rawKeywords
+      .map((k) => k.trim())
+      .where((k) => k.isNotEmpty)
+      .toList(growable: false);
+  if (keywords.isEmpty) return;
 
   final cafeteriaNames =
       prefs.getStringList(StorageKeys.notificationCafeterias) ??
@@ -82,53 +96,73 @@ Future<void> _runMealKeywordCheck({String? keywordOverride}) async {
 
   final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
   final today = DayOfWeek.values[kstNow.weekday - 1];
-  final keywordLower = keyword.toLowerCase();
 
-  final matches = <String>[];
-  for (final mealOfDay in MealOfDay.values) {
-    final mealLabel = switch (mealOfDay) {
-      MealOfDay.breakfast => '아침',
-      MealOfDay.lunch => '점심',
-      MealOfDay.dinner => '저녁',
-    };
-    for (final cafeteria in cafeterias) {
-      final meals = weekMeal[today][mealOfDay][cafeteria];
+  // 키워드별 매칭 결과: { "떡갈비" -> ["기숙사 한식 점심"], "국" -> [...] }
+  final matchesByKeyword = <String, List<String>>{};
+  for (final keyword in keywords) {
+    final keywordLower = keyword.toLowerCase();
+    final matches = <String>[];
 
-      if (cafeteria == Cafeteria.dormitory) {
-        // 기숙사는 한식·할랄을 각각 구분해 표시
-        final seen = <String>{};
-        for (final meal in meals) {
-          if (!meal.menu
-              .any((item) => item.toLowerCase().contains(keywordLower))) {
-            continue;
+    for (final mealOfDay in MealOfDay.values) {
+      final mealLabel = switch (mealOfDay) {
+        MealOfDay.breakfast => '아침',
+        MealOfDay.lunch => '점심',
+        MealOfDay.dinner => '저녁',
+      };
+      for (final cafeteria in cafeterias) {
+        final meals = weekMeal[today][mealOfDay][cafeteria];
+
+        if (cafeteria == Cafeteria.dormitory) {
+          // 기숙사는 한식·할랄을 각각 구분해 표시
+          final seen = <String>{};
+          for (final meal in meals) {
+            if (!meal.menu
+                .any((item) => item.toLowerCase().contains(keywordLower))) {
+              continue;
+            }
+            final typeLabel = switch (meal) {
+              KoreanMeal _ => ' 한식',
+              HalalMeal _ => ' 할랄',
+              _ => '',
+            };
+            final label = '기숙사$typeLabel $mealLabel';
+            if (seen.add(label)) matches.add(label);
           }
-          final typeLabel = switch (meal) {
-            KoreanMeal _ => ' 한식',
-            HalalMeal _ => ' 할랄',
-            _ => '',
+        } else {
+          final cafeteriaLabel = switch (cafeteria) {
+            Cafeteria.dormitory => '기숙사', // unreachable
+            Cafeteria.student => '학생',
+            Cafeteria.faculty => '교직원',
           };
-          final label = '기숙사$typeLabel $mealLabel';
-          if (seen.add(label)) matches.add(label);
-        }
-      } else {
-        final cafeteriaLabel = switch (cafeteria) {
-          Cafeteria.dormitory => '기숙사', // unreachable
-          Cafeteria.student => '학생',
-          Cafeteria.faculty => '교직원',
-        };
-        if (meals.any((meal) =>
-            meal.menu.any((item) => item.toLowerCase().contains(keywordLower)))) {
-          matches.add('$cafeteriaLabel $mealLabel');
+          if (meals.any((meal) => meal.menu
+              .any((item) => item.toLowerCase().contains(keywordLower)))) {
+            matches.add('$cafeteriaLabel $mealLabel');
+          }
         }
       }
     }
+
+    if (matches.isNotEmpty) {
+      matchesByKeyword[keyword] = matches;
+    }
   }
 
-  if (matches.isEmpty) return;
+  if (matchesByKeyword.isEmpty) return;
+
+  // 단일 키워드만 매칭 시 기존 단순 포맷, 여러 키워드 매칭 시 키워드별 그룹화
+  final String title;
+  final String body;
+  if (matchesByKeyword.length == 1) {
+    final entry = matchesByKeyword.entries.first;
+    title = '오늘 "${entry.key}" 메뉴가 있어요!';
+    body = entry.value.join(', ');
+  } else {
+    title = '오늘 매칭된 메뉴가 있어요!';
+    body = matchesByKeyword.entries
+        .map((e) => '"${e.key}": ${e.value.join(', ')}')
+        .join('\n');
+  }
 
   await initNotifications();
-  await showMealKeywordNotification(
-    title: '오늘 "$keyword" 메뉴가 있어요!',
-    body: matches.join(', '),
-  );
+  await showMealKeywordNotification(title: title, body: body);
 }

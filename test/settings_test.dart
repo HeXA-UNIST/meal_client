@@ -42,7 +42,7 @@ void main() {
     test('기본값', () {
       final s = NotificationSettings();
       expect(s.enabled, isFalse);
-      expect(s.keyword, isEmpty);
+      expect(s.keywords, isEmpty);
       expect(s.alertTime, const TimeOfDay(hour: 8, minute: 0));
       expect(s.cafeterias, equals({Cafeteria.dormitory}));
     });
@@ -51,20 +51,28 @@ void main() {
       final s = NotificationSettings();
       final next = s.copyWith(enabled: true);
       expect(next.enabled, isTrue);
-      expect(next.keyword, isEmpty);
+      expect(next.keywords, isEmpty);
     });
 
-    test('copyWith — keyword 빈 문자열로 초기화', () {
-      final s = NotificationSettings(keyword: '돈까스');
-      final next = s.copyWith(keyword: '');
-      expect(next.keyword, isEmpty);
+    test('copyWith — keywords 빈 리스트로 초기화', () {
+      final s = NotificationSettings(keywords: ['돈까스']);
+      final next = s.copyWith(keywords: []);
+      expect(next.keywords, isEmpty);
     });
 
     test('reset — 기본값으로 초기화', () {
-      final s = NotificationSettings(enabled: true, keyword: '돈까스');
+      final s = NotificationSettings(enabled: true, keywords: ['돈까스', '국']);
       final r = s.reset();
       expect(r.enabled, isFalse);
-      expect(r.keyword, isEmpty);
+      expect(r.keywords, isEmpty);
+    });
+
+    test('keywords — 불변 List 반환', () {
+      final s = NotificationSettings(keywords: ['돈까스']);
+      expect(
+        () => (s.keywords as dynamic).add('국'),
+        throwsUnsupportedError,
+      );
     });
 
     test('cafeterias — 불변 Set 반환', () {
@@ -146,6 +154,57 @@ void main() {
       settings.setNotificationEnabled(true);
       final settings2 = AppSettings(prefs);
       expect(settings2.notification.enabled, isTrue);
+    });
+
+    test('addNotificationKeyword — 추가 및 중복 방지', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.addNotificationKeyword('떡갈비');
+      settings.addNotificationKeyword('국');
+      settings.addNotificationKeyword('떡갈비'); // 중복
+      expect(settings.notification.keywords, equals(['떡갈비', '국']));
+    });
+
+    test('addNotificationKeyword — 빈 문자열·공백 무시', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.addNotificationKeyword('');
+      settings.addNotificationKeyword('   ');
+      expect(settings.notification.keywords, isEmpty);
+    });
+
+    test('removeNotificationKeyword — 제거', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.addNotificationKeyword('떡갈비');
+      settings.addNotificationKeyword('국');
+      settings.removeNotificationKeyword('떡갈비');
+      expect(settings.notification.keywords, equals(['국']));
+    });
+
+    test('addNotificationKeyword — SharedPreferences 재로드', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.addNotificationKeyword('떡갈비');
+      settings.addNotificationKeyword('국');
+      final settings2 = AppSettings(prefs);
+      expect(settings2.notification.keywords, equals(['떡갈비', '국']));
+    });
+
+    test('구버전 단일 키워드 마이그레이션', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_keyword': '돈까스',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      expect(settings.notification.keywords, equals(['돈까스']));
+      // 새 키로 마이그레이션됐는지 확인
+      expect(
+        prefs.getStringList('settings_notification_keywords'),
+        equals(['돈까스']),
+      );
+      // 구 키는 삭제됐는지 확인
+      expect(prefs.getString('settings_notification_keyword'), isNull);
     });
 
     test('resetAll — 모든 값이 기본값으로', () async {
