@@ -48,5 +48,7 @@
   "widgetSettings": "홈 화면 위젯",
   "widgetCafeteriaLabel": "표시할 식당",
   "about": "앱 정보",
-  "openSourceLicenses": "오픈소스 라이선스"
+  "openSourceLicenses": "오픈소스 라이선스",
+  "notificationPermissionDenied": "알림 권한이 없습니다. 설정에서 허용해주세요.",
+  "openSystemAppSettings": "설정 열기"
 }

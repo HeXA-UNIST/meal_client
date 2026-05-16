@@ -141,4 +141,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openSourceLicenses => 'Open Source Licenses';
+
+  @override
+  String get notificationPermissionDenied =>
+      'Notification permission denied. Please allow it in settings.';
+
+  @override
+  String get openSystemAppSettings => 'Open Settings';
 }

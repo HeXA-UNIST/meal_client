@@ -361,6 +361,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'오픈소스 라이선스'**
   String get openSourceLicenses;
+
+  /// No description provided for @notificationPermissionDenied.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 권한이 없습니다. 설정에서 허용해주세요.'**
+  String get notificationPermissionDenied;
+
+  /// No description provided for @openSystemAppSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'설정 열기'**
+  String get openSystemAppSettings;
 }
 
 class _AppLocalizationsDelegate

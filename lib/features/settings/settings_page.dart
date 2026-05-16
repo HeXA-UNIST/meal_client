@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
 import 'app_settings.dart';
@@ -128,16 +129,34 @@ class _NotificationTileState extends State<_NotificationTile> {
         Cafeteria.faculty   => l10n.facultyCafeteria,
       };
 
-  // Android 13+ 알림 권한 요청 후 활성화.
   // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
+  // 권한 거부 시 SnackBar로 안내하고 시스템 설정으로 이동 버튼을 제공한다.
   Future<void> _handleNotificationToggle(bool enable) async {
-    if (enable) {
-      final granted = await requestNotificationPermission();
-      if (!granted || !mounted) return;
+    if (!enable) {
+      context.read<AppSettings>().setNotificationEnabled(false);
+      return;
     }
-    if (mounted) {
-      context.read<AppSettings>().setNotificationEnabled(enable);
+
+    final granted = await requestNotificationPermission();
+    if (!mounted) return;
+
+    if (!granted) {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.notificationPermissionDenied),
+          action: SnackBarAction(
+            label: l10n.openSystemAppSettings,
+            onPressed: () => device_settings.AppSettings.openAppSettings(
+              type: device_settings.AppSettingsType.notification,
+            ),
+          ),
+        ),
+      );
+      return;
     }
+
+    context.read<AppSettings>().setNotificationEnabled(true);
   }
 
   @override

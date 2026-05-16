@@ -48,5 +48,7 @@
   "widgetSettings": "Home Screen Widget",
   "widgetCafeteriaLabel": "Display Cafeteria",
   "about": "About",
-  "openSourceLicenses": "Open Source Licenses"
+  "openSourceLicenses": "Open Source Licenses",
+  "notificationPermissionDenied": "Notification permission denied. Please allow it in settings.",
+  "openSystemAppSettings": "Open Settings"
 }

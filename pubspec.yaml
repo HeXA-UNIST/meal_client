@@ -49,7 +49,7 @@ dependencies:
     sdk: flutter
   flutter_local_notifications: ^21.0.0
   workmanager: ^0.9.0+3
-  home_widget: ^0.9.1
+  app_settings: ^7.0.0
 
 dev_dependencies:
   flutter_test:

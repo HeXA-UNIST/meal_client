@@ -141,4 +141,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get openSourceLicenses => '오픈소스 라이선스';
+
+  @override
+  String get notificationPermissionDenied => '알림 권한이 없습니다. 설정에서 허용해주세요.';
+
+  @override
+  String get openSystemAppSettings => '설정 열기';
 }
