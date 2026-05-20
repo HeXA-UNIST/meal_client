@@ -1,4 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">밥먹어U</string>
+
+    <!-- 위젯 레이블 -->
+    <string name="widget_2x2_label">식단 위젯 (2×2)</string>
+    <string name="widget_4x2_dual_label">두 식당 위젯 (4×2)</string>
+    <string name="widget_4x2_status_label">식당 운영 위젯 (4×2)</string>
+    <string name="widget_4x4_label">전체 식단 위젯 (4×4)</string>
+
+    <!-- 위젯 설정 -->
+    <string name="widget_config_title">식당 선택</string>
+    <string name="widget_config_first">첫 번째 식당</string>
+    <string name="widget_config_second">두 번째 식당</string>
+    <string name="widget_config_confirm">확인</string>
+
+    <!-- 위젯 상태 -->
+    <string name="widget_loading">데이터 로딩 중…</string>
+    <string name="widget_no_data">데이터 없음</string>
+    <string name="widget_no_menu">-</string>
+    <string name="widget_kcal">%d kcal</string>
+
+    <!-- 식사 시간 -->
+    <string name="meal_breakfast">아침</string>
+    <string name="meal_lunch">점심</string>
+    <string name="meal_dinner">저녁</string>
+
+    <!-- 음식 종류 -->
+    <string name="food_korean">한식</string>
+    <string name="food_halal">할랄</string>
+
+    <!-- 운영 상태 -->
+    <string name="status_before_open">운영 전</string>
+    <string name="status_open">운영 중</string>
+    <string name="status_closing_soon">종료 %d분 전</string>
+    <string name="status_just_closed">운영 종료</string>
+
+    <!-- 식당 이름 -->
+    <string name="cafeteria_dormitory">기숙사 식당</string>
+    <string name="cafeteria_dorm_korean">기숙사 식당 (한식)</string>
+    <string name="cafeteria_dorm_halal">기숙사 식당 (할랄)</string>
+    <string name="cafeteria_student">학생 식당</string>
+    <string name="cafeteria_faculty">교직원 식당</string>
 </resources>

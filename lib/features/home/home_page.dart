@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:meal_client/features/announcement/announcement_service.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
+import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'home_drawer.dart';
@@ -62,7 +63,10 @@ class _HomePageState extends State<HomePage>
     downloadedMeal = cachedMeal.then(
       (cache) => fetchAndCacheMealData(),
       onError: (e) => fetchAndCacheMealData(),
-    ).catchError((e) {
+    ).then((meal) {
+      updateHomeWidgets(meal);
+      return meal;
+    }).catchError((e) {
       assert(() {
         debugPrint('[BapU] meal fetch failed: $e');
         return true;

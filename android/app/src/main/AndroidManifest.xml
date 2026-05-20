@@ -33,6 +33,73 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- 2×2 단일 식당 위젯 -->
+        <receiver
+            android:name=".BapUWidget2x2Provider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_2x2" />
+        </receiver>
+
+        <!-- 4×2 두 식당 위젯 -->
+        <receiver
+            android:name=".BapUWidget4x2DualProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x2_dual" />
+        </receiver>
+
+        <!-- 4×2 운영 상태 위젯 -->
+        <receiver
+            android:name=".BapUWidget4x2StatusProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x2_status" />
+        </receiver>
+
+        <!-- 4×4 전체 식단 위젯 -->
+        <receiver
+            android:name=".BapUWidget4x4Provider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_4x4" />
+        </receiver>
+
+        <!-- 단일 식당 선택 설정 Activity -->
+        <activity
+            android:name=".BapUWidgetSingleConfigActivity"
+            android:exported="true"
+            android:theme="@style/WidgetConfigTheme">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- 두 식당 선택 설정 Activity -->
+        <activity
+            android:name=".BapUWidgetDualConfigActivity"
+            android:exported="true"
+            android:theme="@style/WidgetConfigTheme">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -45,4 +112,7 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+
 </manifest>
+
+

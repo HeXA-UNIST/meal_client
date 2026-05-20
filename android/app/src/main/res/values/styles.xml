@@ -20,4 +20,14 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@color/white</item>
     </style>
+
+    <!-- 위젯 설정 Activity 테마 -->
+    <style name="WidgetConfigTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/widget_bg</item>
+        <item name="android:colorAccent">@color/main_color</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textColorHint">@color/widget_text_secondary</item>
+        <item name="android:statusBarColor">@color/widget_bg</item>
+        <item name="android:navigationBarColor">@color/widget_bg</item>
+    </style>
 </resources>

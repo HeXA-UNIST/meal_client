@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2×2 단일 식당 위젯 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <!-- 헤더: [식당명 음식종류] ··· [식사시간] -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tv_cafeteria_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/cafeteria_dormitory"
+            android:textColor="@color/widget_text_cafeteria"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/spoqa_han_sans_neo"
+            android:letterSpacing="-0.02" />
+
+        <TextView
+            android:id="@+id/tv_food_type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="@string/food_korean"
+            android:textColor="@color/widget_text_food_type"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/spoqa_han_sans_neo"
+            android:letterSpacing="-0.02"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/tv_meal_of_day"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/meal_lunch"
+            android:textColor="@color/widget_text_meal"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/spoqa_han_sans_neo"
+            android:letterSpacing="-0.02" />
+    </LinearLayout>
+
+    <!-- 메뉴 목록 -->
+    <TextView
+        android:id="@+id/tv_menu"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="6"
+        android:text="@string/widget_loading"
+        android:textColor="@color/widget_text_menu"
+        android:textSize="12sp"
+        android:fontFamily="@font/spoqa_han_sans_neo"
+        android:letterSpacing="-0.02"
+        android:lineSpacingExtra="3sp" />
+
+    <!-- 칼로리 -->
+    <TextView
+        android:id="@+id/tv_kcal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text=""
+        android:textColor="@color/widget_text_kcal"
+        android:textSize="10sp"
+        android:fontFamily="@font/spoqa_han_sans_neo"
+        android:letterSpacing="-0.02"
+        android:gravity="center"
+        android:textAlignment="center" />
+</LinearLayout>
