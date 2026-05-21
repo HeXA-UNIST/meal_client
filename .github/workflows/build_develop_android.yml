@@ -9,8 +9,7 @@ jobs:
     steps:
       - name: Clone repository (develop branch)
         uses: actions/checkout@v6
-        with:
-          ref: develop
+
 
       - name: Setup Flutter environment
         uses: subosito/flutter-action@v2
