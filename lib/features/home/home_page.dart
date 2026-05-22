@@ -64,7 +64,7 @@ class _HomePageState extends State<HomePage>
       (cache) => fetchAndCacheMealData(),
       onError: (e) => fetchAndCacheMealData(),
     ).then((meal) {
-      updateHomeWidgets(meal);
+      updateHomeWidgets();
       return meal;
     }).catchError((e) {
       assert(() {

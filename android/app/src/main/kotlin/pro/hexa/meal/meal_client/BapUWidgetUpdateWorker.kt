@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.Worker
 import androidx.work.WorkerParameters
@@ -43,6 +44,12 @@ class BapUWidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ct
                     ExistingPeriodicWorkPolicy.KEEP,
                     PeriodicWorkRequestBuilder<BapUWidgetUpdateWorker>(15, TimeUnit.MINUTES).build()
                 )
+        }
+
+        fun enqueueOneTime(context: Context) {
+            WorkManager.getInstance(context).enqueue(
+                OneTimeWorkRequestBuilder<BapUWidgetUpdateWorker>().build()
+            )
         }
 
         fun cancel(context: Context) {
