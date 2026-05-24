@@ -88,6 +88,40 @@ void main() {
       expect(storedRaw, _rawMealJson('다운로드 메뉴'));
       expect(_firstDormitoryBreakfastMenu(weekMeal), contains('다운로드 메뉴'));
     });
+
+    test('refreshMealData는 JSON 객체 응답을 캐시에 쓰지 않음', () async {
+      String? storedRaw;
+      final cache = _memoryMealCache(
+        rawJson: _rawMealJson('이전 메뉴'),
+        updatedAt: DateTime.utc(2026, 4, 13),
+        onWrite: (rawJson) => storedRaw = rawJson,
+      );
+      final service = MealRefreshService(
+        cache: cache,
+        fetchRaw: (_) async => '{"error":"temporary"}',
+      );
+
+      await expectLater(service.refreshMealData(), throwsFormatException);
+
+      expect(storedRaw, isNull);
+    });
+
+    test('refreshMealData는 빈 배열 응답을 캐시에 쓰지 않음', () async {
+      String? storedRaw;
+      final cache = _memoryMealCache(
+        rawJson: _rawMealJson('이전 메뉴'),
+        updatedAt: DateTime.utc(2026, 4, 13),
+        onWrite: (rawJson) => storedRaw = rawJson,
+      );
+      final service = MealRefreshService(
+        cache: cache,
+        fetchRaw: (_) async => '[]',
+      );
+
+      await expectLater(service.refreshMealData(), throwsFormatException);
+
+      expect(storedRaw, isNull);
+    });
   });
 }
 

@@ -37,7 +37,10 @@ Future<void> initializeMealBackgroundRefresh() async {
     mealRefreshTaskName,
     mealRefreshTaskName,
     frequency: mealRefreshTaskFrequency,
-    constraints: Constraints(networkType: NetworkType.connected),
+    // iOS BGAppRefreshTask does not enforce Workmanager network constraints.
+    constraints: Platform.isAndroid
+        ? Constraints(networkType: NetworkType.connected)
+        : null,
     existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
   );
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/network/http_client.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -15,8 +17,9 @@ class MealRefreshService {
 
   Future<WeekMeal> refreshMealData() async {
     final rawMeal = await _fetchRaw(ApiConstants.mealEndpoint);
+    final weekMeal = _parseValidRawMeal(rawMeal);
     await _cache.writeRawMealJson(rawMeal);
-    return parseRawMeal(rawMeal);
+    return weekMeal;
   }
 
   Future<WeekMeal> getFreshOrRefreshMealData({DateTime? now}) async {
@@ -30,5 +33,14 @@ class MealRefreshService {
     }
 
     return refreshMealData();
+  }
+
+  WeekMeal _parseValidRawMeal(String rawMeal) {
+    final decoded = jsonDecode(rawMeal);
+    if (decoded is! List || decoded.isEmpty) {
+      throw FormatException('Invalid meal API response');
+    }
+
+    return parseRawMeal(rawMeal);
   }
 }

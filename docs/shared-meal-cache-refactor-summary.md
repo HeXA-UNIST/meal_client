@@ -36,7 +36,7 @@ Future<bool> hasFreshMealCache(DateTime now);
 ### Shared Refresh Service
 
 - Added `lib/features/meal/meal_refresh_service.dart`.
-- `MealRefreshService.refreshMealData()` always fetches the backend, writes raw JSON to `MealCache`, and returns parsed `WeekMeal`.
+- `MealRefreshService.refreshMealData()` always fetches the backend, validates/parses the raw JSON, writes only valid non-empty array responses to `MealCache`, and returns parsed `WeekMeal`.
 - `MealRefreshService.getFreshOrRefreshMealData()` reads fresh cache first and falls back to backend fetch when the cache is stale, missing, or corrupt.
 
 ### Meal Data Source Rewrite
@@ -67,6 +67,7 @@ The implementation now routes through shared cache/refresh plumbing, but does no
 - The Workmanager callback is annotated with `@pragma('vm:entry-point')`.
 - The background isolate initializes its own Flutter bindings before refreshing meal data.
 - When notification evaluation is added, that dispatcher must also initialize `SharedPreferences` and construct `AppSettings` inside the background isolate before reading notification settings.
+- Android registration uses `NetworkType.connected`; iOS does not receive an equivalent Workmanager network constraint because `BGAppRefreshTaskRequest` does not enforce it.
 
 Current background task responsibility:
 
@@ -96,8 +97,14 @@ The `NetworkType.connected` constraint used for Workmanager registration is enfo
 - Rebasing onto `develop-widget` kept the native Android widget providers, config activities, layouts, and periodic widget worker.
 - `BapUWidgetFetcher.fetch(context)` now reads `context.filesDir/meal.json` first, which is the same raw cache file written by Flutter on Android.
 - Native widget cache freshness mirrors Dart by comparing file `lastModified` with the current time using the monotonic KST week ID rule.
-- The existing native network fetch remains only as a fallback when the shared cache is missing, stale, or invalid.
+- The existing native network fetch remains only as a fallback when the shared cache is missing, stale, or invalid, and successful fallback responses are parsed before being written back to `meal.json`.
 - Widget update entry points now pass `Context` into `BapUWidgetFetcher` so providers, config screens, and `BapUWidgetUpdateWorker` all use cache-first loading.
+
+### Cache Robustness
+
+- Native Dart cache writes now use a temporary file and rename into place to avoid readers seeing a partially written `meal.json`.
+- Cache freshness check failures are logged with stack traces before returning stale, so storage/plugin regressions are not silently reduced to cache misses.
+- Foreground widget refresh MethodChannel failures are logged in release builds instead of only inside debug assertions.
 
 ### Android Desugaring
 

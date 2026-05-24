@@ -47,7 +47,7 @@ object BapUWidgetFetcher {
         val cal = Calendar.getInstance(KST)
         val dayType = DAY_TYPES[cal.get(Calendar.DAY_OF_WEEK)] ?: return null
         loadFromFreshCache(context, dayType, mealType, mealOfDay)
-            ?: fetchFromNetwork(dayType, mealType, mealOfDay)
+            ?: fetchFromNetwork(context, dayType, mealType, mealOfDay)
     } catch (e: Exception) {
         null
     }
@@ -69,12 +69,15 @@ object BapUWidgetFetcher {
     }
 
     private fun fetchFromNetwork(
+        context: Context?,
         dayType: String,
         mealType: String,
         mealOfDay: Int
     ): WidgetMealData {
         val json = httpGet(API_URL)
-        return parse(json, dayType, mealType, mealOfDay)
+        val data = parse(json, dayType, mealType, mealOfDay)
+        writeCache(context, json)
+        return data
     }
 
     private fun hasFreshMealCache(lastModifiedMs: Long): Boolean =
@@ -85,6 +88,7 @@ object BapUWidgetFetcher {
 
     private fun parse(json: String, dayType: String, mealType: String, mealOfDay: Int): WidgetMealData {
         val arr = JSONArray(json)
+        if (arr.length() == 0) throw IllegalArgumentException("Empty meal API response")
         var dormKoreanMenu: List<String>? = null; var dormKoreanKcal: Int? = null
         var dormHalalMenu: List<String>? = null;  var dormHalalKcal: Int? = null
         var studentMenu: List<String>? = null;    var studentKcal: Int? = null
@@ -121,6 +125,21 @@ object BapUWidgetFetcher {
             facultyMenu    = facultyMenu    ?: emptyList(),
             facultyKcal    = facultyKcal,
         )
+    }
+
+    private fun writeCache(context: Context?, json: String) {
+        if (context == null) return
+        try {
+            val file = File(context.filesDir, MEAL_CACHE_FILE)
+            val tmp = File(context.filesDir, "$MEAL_CACHE_FILE.tmp.${System.nanoTime()}")
+            tmp.writeText(json, Charsets.UTF_8)
+            if (!tmp.renameTo(file)) {
+                if (file.exists()) file.delete()
+                if (!tmp.renameTo(file)) tmp.delete()
+            }
+        } catch (e: Exception) {
+            // Network data was already parsed for this widget update; cache write-back is best effort.
+        }
     }
 
     private fun httpGet(urlStr: String): String {

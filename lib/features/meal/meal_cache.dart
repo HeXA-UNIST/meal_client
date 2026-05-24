@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/storage.dart';
 
@@ -39,7 +40,9 @@ class MealCache {
       final updatedAt = await getRawMealUpdatedAt();
       return MealTimeConfig.kstWeekId(updatedAt) ==
           MealTimeConfig.kstWeekId(now);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('[BapU] meal cache freshness check failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
       return false;
     }
   }

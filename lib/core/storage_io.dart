@@ -6,7 +6,19 @@ import 'package:path_provider/path_provider.dart';
 Future<void> saveFileAsString(String fileName, String data) async {
   final dir = await getApplicationSupportDirectory();
   final file = File("${dir.path}/$fileName");
-  await file.writeAsString(data, flush: true);
+  final tmpFile = File(
+    "${dir.path}/$fileName.tmp.${DateTime.now().microsecondsSinceEpoch}",
+  );
+
+  await tmpFile.writeAsString(data, flush: true);
+  try {
+    await tmpFile.rename(file.path);
+  } on FileSystemException {
+    if (await file.exists()) {
+      await file.delete();
+    }
+    await tmpFile.rename(file.path);
+  }
 }
 
 Future<String> readFileAsString(String fileName) async {
