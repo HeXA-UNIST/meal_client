@@ -1,11 +1,12 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
-import 'package:http/http.dart' as http;
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/meal/meal_background_refresh.dart';
+import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
 
@@ -21,10 +22,30 @@ Future<void> testMealKeywordCheck({List<String>? keywordsOverride}) =>
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    if (taskName == mealRefreshTaskName ||
+        taskName == Workmanager.iOSBackgroundTask) {
+      try {
+        await MealRefreshService().refreshMealData();
+        return true;
+      } catch (e, stackTrace) {
+        debugPrint('[BapU] background meal refresh failed: $e');
+        debugPrintStack(stackTrace: stackTrace);
+        return false;
+      }
+    }
+
     if (taskName == kMealKeywordTaskName) {
-      await _runMealKeywordCheck();
-      // 다음날 같은 시각으로 태스크를 다시 등록
-      await _rescheduleForNextDay();
+      try {
+        await _runMealKeywordCheck();
+        // 다음날 같은 시각으로 태스크를 다시 등록
+        await _rescheduleForNextDay();
+      } catch (e, stackTrace) {
+        debugPrint('[BapU] keyword notification worker failed: $e');
+        debugPrintStack(stackTrace: stackTrace);
+        return false;
+      }
     }
     return true;
   });
@@ -57,7 +78,8 @@ Future<void> _runMealKeywordCheck({List<String>? keywordsOverride}) async {
   if (!enabled) return;
 
   // 키워드 로드 (override 또는 prefs). 공백 제거 + 빈 항목 제외.
-  final rawKeywords = keywordsOverride ??
+  final rawKeywords =
+      keywordsOverride ??
       prefs.getStringList(StorageKeys.notificationKeywords) ??
       const <String>[];
   final keywords = rawKeywords
@@ -68,7 +90,7 @@ Future<void> _runMealKeywordCheck({List<String>? keywordsOverride}) async {
 
   final cafeteriaNames =
       prefs.getStringList(StorageKeys.notificationCafeterias) ??
-          [Cafeteria.dormitory.name];
+      [Cafeteria.dormitory.name];
   final cafeteriaMap = Cafeteria.values.asNameMap();
   final cafeterias = {
     for (final n in cafeteriaNames)
@@ -76,20 +98,9 @@ Future<void> _runMealKeywordCheck({List<String>? keywordsOverride}) async {
   };
   if (cafeterias.isEmpty) return;
 
-  // 백그라운드 isolate에서는 플랫폼별 HTTP 클라이언트 대신 기본 http 패키지 사용
-  final http.Response response;
-  try {
-    response = await http
-        .get(Uri.parse(ApiConstants.mealEndpoint))
-        .timeout(const Duration(seconds: 10));
-  } catch (_) {
-    return;
-  }
-  if (response.statusCode != 200) return;
-
   final WeekMeal weekMeal;
   try {
-    weekMeal = parseRawMeal(response.body);
+    weekMeal = await MealRefreshService().getFreshOrRefreshMealData();
   } catch (_) {
     return;
   }
@@ -116,8 +127,9 @@ Future<void> _runMealKeywordCheck({List<String>? keywordsOverride}) async {
           // 기숙사는 한식·할랄을 각각 구분해 표시
           final seen = <String>{};
           for (final meal in meals) {
-            if (!meal.menu
-                .any((item) => item.toLowerCase().contains(keywordLower))) {
+            if (!meal.menu.any(
+              (item) => item.toLowerCase().contains(keywordLower),
+            )) {
               continue;
             }
             final typeLabel = switch (meal) {
@@ -134,8 +146,11 @@ Future<void> _runMealKeywordCheck({List<String>? keywordsOverride}) async {
             Cafeteria.student => '학생',
             Cafeteria.faculty => '교직원',
           };
-          if (meals.any((meal) => meal.menu
-              .any((item) => item.toLowerCase().contains(keywordLower)))) {
+          if (meals.any(
+            (meal) => meal.menu.any(
+              (item) => item.toLowerCase().contains(keywordLower),
+            ),
+          )) {
             matches.add('$cafeteriaLabel $mealLabel');
           }
         }

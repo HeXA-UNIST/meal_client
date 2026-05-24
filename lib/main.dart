@@ -7,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
+import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
@@ -19,24 +20,26 @@ ThemeData _buildTheme(Brightness brightness) {
   return ThemeData(
     fontFamily: 'Pretendard',
     brightness: brightness,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: mainColor,
-      brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-    ).copyWith(
-      onPrimaryContainer: Colors.white,
-      surface: isLight ? Colors.white : Colors.black,
-      surfaceContainer: isLight
-          ? const Color(0xFFFAFAFA)
-          : const Color(0xFF0F0F0F),
-    ),
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: mainColor,
+          brightness: brightness,
+          dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+        ).copyWith(
+          onPrimaryContainer: Colors.white,
+          surface: isLight ? Colors.white : Colors.black,
+          surfaceContainer: isLight
+              ? const Color(0xFFFAFAFA)
+              : const Color(0xFF0F0F0F),
+        ),
   );
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
   await Workmanager().initialize(callbackDispatcher);
+  await initializeMealBackgroundRefresh();
+  final prefs = await SharedPreferences.getInstance();
   await initNotifications();
   final settings = AppSettings(prefs);
 
@@ -45,12 +48,7 @@ void main() async {
     unawaited(scheduleKeywordNotification(settings.notification.alertTime));
   }
 
-  runApp(
-    ChangeNotifierProvider.value(
-      value: settings,
-      child: const BapUApp(),
-    ),
-  );
+  runApp(ChangeNotifierProvider.value(value: settings, child: const BapUApp()));
 }
 
 class BapUApp extends StatelessWidget {
