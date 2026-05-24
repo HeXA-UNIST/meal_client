@@ -17,7 +17,7 @@ class BapUWidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ct
     override fun doWork(): Result {
         val ctx = applicationContext
         val manager = AppWidgetManager.getInstance(ctx)
-        val data = BapUWidgetFetcher.fetch()
+        val data = BapUWidgetFetcher.fetch(ctx)
 
         fun updateAll(cls: Class<*>, fn: (Int) -> Unit) {
             for (id in manager.getAppWidgetIds(ComponentName(ctx, cls))) {

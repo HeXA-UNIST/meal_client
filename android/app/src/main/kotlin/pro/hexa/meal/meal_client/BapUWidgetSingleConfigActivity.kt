@@ -97,7 +97,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
         val info = manager.getAppWidgetInfo(widgetId)
         Thread {
             try {
-                val data = BapUWidgetFetcher.fetch()
+                val data = BapUWidgetFetcher.fetch(ctx)
                 when (info?.provider?.className) {
                     BapUWidget2x2Provider::class.java.name ->
                         BapUWidget2x2Provider.updateWidget(ctx, manager, widgetId, data)

@@ -94,7 +94,7 @@ class BapUWidgetDualConfigActivity : Activity() {
             val widgetId = appWidgetId
             Thread {
                 try {
-                    val data = BapUWidgetFetcher.fetch()
+                    val data = BapUWidgetFetcher.fetch(ctx)
                     BapUWidget4x2DualProvider.updateWidget(ctx, manager, widgetId, data)
                 } catch (e: Exception) {
                     Log.e(TAG, "update failed", e)

@@ -18,7 +18,7 @@ class BapUWidget4x2DualProvider : AppWidgetProvider() {
         val pending = goAsync()
         Thread {
             try {
-                val data = BapUWidgetFetcher.fetch()
+                val data = BapUWidgetFetcher.fetch(context)
                 for (id in appWidgetIds) {
                     try { updateWidget(context, appWidgetManager, id, data) }
                     catch (e: Exception) { Log.e(TAG, "update failed id=$id", e) }
@@ -38,7 +38,7 @@ class BapUWidget4x2DualProvider : AppWidgetProvider() {
         val pending = goAsync()
         Thread {
             try {
-                val data = BapUWidgetFetcher.fetch()
+                val data = BapUWidgetFetcher.fetch(context)
                 updateWidget(context, appWidgetManager, appWidgetId, data)
             } finally {
                 pending.finish()

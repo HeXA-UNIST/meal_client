@@ -1,9 +1,12 @@
 package pro.hexa.meal.meal_client
 
+import android.content.Context
 import org.json.JSONArray
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Calendar
+import java.util.GregorianCalendar
 import java.util.TimeZone
 
 data class WidgetMealData(
@@ -19,8 +22,17 @@ data class WidgetMealData(
 )
 
 object BapUWidgetFetcher {
+    private const val MEAL_CACHE_FILE = "meal.json"
+    // Keep this URL synchronized with ApiConstants.mealEndpoint in Dart.
     private const val API_URL = "https://meal.hexa.pro/mainpage/data"
     private val KST = TimeZone.getTimeZone("Asia/Seoul")
+    private val UTC = TimeZone.getTimeZone("UTC")
+    private const val KST_OFFSET_MS = 9L * 60 * 60 * 1000
+    private const val WEEK_MS = 7L * 24 * 60 * 60 * 1000
+    private val WEEK_EPOCH_MS = GregorianCalendar(UTC).apply {
+        set(1970, Calendar.JANUARY, 5, 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
     private val DAY_TYPES = mapOf(
         Calendar.MONDAY to "MON", Calendar.TUESDAY to "TUE",
         Calendar.WEDNESDAY to "WED", Calendar.THURSDAY to "THU",
@@ -29,16 +41,47 @@ object BapUWidgetFetcher {
     )
     private val MEAL_TYPES = arrayOf("BREAKFAST", "LUNCH", "DINNER")
 
-    fun fetch(): WidgetMealData? = try {
+    fun fetch(context: Context? = null): WidgetMealData? = try {
         val mealOfDay = currentMealOfDay()
         val mealType = MEAL_TYPES[mealOfDay]
         val cal = Calendar.getInstance(KST)
         val dayType = DAY_TYPES[cal.get(Calendar.DAY_OF_WEEK)] ?: return null
-        val json = httpGet(API_URL)
-        parse(json, dayType, mealType, mealOfDay)
+        loadFromFreshCache(context, dayType, mealType, mealOfDay)
+            ?: fetchFromNetwork(dayType, mealType, mealOfDay)
     } catch (e: Exception) {
         null
     }
+
+    private fun loadFromFreshCache(
+        context: Context?,
+        dayType: String,
+        mealType: String,
+        mealOfDay: Int
+    ): WidgetMealData? {
+        if (context == null) return null
+        return try {
+            val file = File(context.filesDir, MEAL_CACHE_FILE)
+            if (!file.isFile || !hasFreshMealCache(file.lastModified())) return null
+            parse(file.readText(Charsets.UTF_8), dayType, mealType, mealOfDay)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun fetchFromNetwork(
+        dayType: String,
+        mealType: String,
+        mealOfDay: Int
+    ): WidgetMealData {
+        val json = httpGet(API_URL)
+        return parse(json, dayType, mealType, mealOfDay)
+    }
+
+    private fun hasFreshMealCache(lastModifiedMs: Long): Boolean =
+        kstWeekId(lastModifiedMs) == kstWeekId(System.currentTimeMillis())
+
+    private fun kstWeekId(ms: Long): Long =
+        (ms + KST_OFFSET_MS - WEEK_EPOCH_MS) / WEEK_MS
 
     private fun parse(json: String, dayType: String, mealType: String, mealOfDay: Int): WidgetMealData {
         val arr = JSONArray(json)
