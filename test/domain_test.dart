@@ -41,6 +41,48 @@ void main() {
     });
   });
 
+  group('MealTimeConfig.kstWeekId', () {
+    test('같은 KST 주의 월요일과 일요일은 같은 ID', () {
+      final mondayKst = DateTime.utc(2026, 4, 12, 15);
+      final sundayKst = DateTime.utc(2026, 4, 19, 14, 59);
+
+      expect(
+        MealTimeConfig.kstWeekId(mondayKst),
+        MealTimeConfig.kstWeekId(sundayKst),
+      );
+    });
+
+    test('같은 KST 주는 UTC 연도 경계를 지나도 같은 ID', () {
+      final jan1Kst = DateTime.utc(2025, 12, 31, 15);
+      final sundayKst = DateTime.utc(2026, 1, 4, 14, 59);
+
+      expect(
+        MealTimeConfig.kstWeekId(jan1Kst),
+        MealTimeConfig.kstWeekId(sundayKst),
+      );
+    });
+
+    test('월요일 00:00 KST 경계에서 주 ID가 바뀜', () {
+      final sunday2359Kst = DateTime.utc(2026, 1, 4, 14, 59);
+      final monday0000Kst = DateTime.utc(2026, 1, 4, 15);
+
+      expect(
+        MealTimeConfig.kstWeekId(monday0000Kst),
+        MealTimeConfig.kstWeekId(sunday2359Kst) + 1,
+      );
+    });
+
+    test('1월 1일이 일요일이어도 전년도 마지막 주와 같은 ID', () {
+      final dec31SatKst = DateTime.utc(2022, 12, 31, 14, 59);
+      final jan1SunKst = DateTime.utc(2022, 12, 31, 15);
+
+      expect(
+        MealTimeConfig.kstWeekId(jan1SunKst),
+        MealTimeConfig.kstWeekId(dec31SatKst),
+      );
+    });
+  });
+
   group('Cafeteria.fromApiKey', () {
     test('기숙사 식당 → dormitory', () {
       expect(Cafeteria.fromApiKey('기숙사 식당'), Cafeteria.dormitory);
@@ -129,8 +171,7 @@ void main() {
         },
       ]);
       final weekMeal = parseRawMeal(json);
-      final meals =
-          weekMeal[DayOfWeek.tue][MealOfDay.lunch][Cafeteria.student];
+      final meals = weekMeal[DayOfWeek.tue][MealOfDay.lunch][Cafeteria.student];
       expect(meals.first.kcal, isNull);
     });
 
