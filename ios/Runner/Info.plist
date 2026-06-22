@@ -68,5 +68,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UIBackgroundModes</key>
+    <array>
+        <string>processing</string>
+    </array>
+
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.bapu.periodic_task</string>
+    </array>
 </dict>
 </plist>
