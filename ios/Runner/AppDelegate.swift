@@ -9,6 +9,10 @@ import workmanager_apple
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
+    WorkmanagerPlugin.registerPeriodicTask(
+      withIdentifier: "bapu_meal_refresh",
+      frequency: NSNumber(value: 15 * 60) // 15 minutes (minimum)
+    )
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -16,7 +20,3 @@ import workmanager_apple
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 }
-WorkmanagerPlugin.registerPeriodicTask(
-  withIdentifier: "com.bapu.periodic_task",
-  frequency: NSNumber(value: 15 * 60) // 20 minutes (15 min minimum)
-)
