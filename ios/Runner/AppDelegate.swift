@@ -16,7 +16,3 @@ import workmanager_apple
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 }
-WorkmanagerPlugin.registerPeriodicTask(
-  withIdentifier: "com.bapu.periodic_task",
-  frequency: NSNumber(value: 15 * 60) // 20 minutes (15 min minimum)
-)
