@@ -137,7 +137,9 @@ fun getOperatingStatus(cafeteria: Int, mealOfDay: Int): OperatingResult {
             else OperatingResult(OperatingStatus.CLOSING_SOON, left)
         }
         nowMins <= endMins + 30 -> OperatingResult(OperatingStatus.JUST_CLOSED)
-        else -> OperatingResult(OperatingStatus.BEFORE_OPEN)
+        // 저녁이 완전히 끝난 후 자정까지는 운영 종료, 자정 이후엔 mealOfDay가 0으로 바뀌어 운영 전으로 전환됨
+        else -> if (mealOfDay == 2) OperatingResult(OperatingStatus.JUST_CLOSED)
+                else OperatingResult(OperatingStatus.BEFORE_OPEN)
     }
 }
 
