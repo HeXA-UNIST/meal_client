@@ -15,36 +15,38 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/tv_cafeteria_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="@string/cafeteria_dormitory"
-            android:textColor="@color/widget_text_cafeteria"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:fontFamily="@font/spoqa_han_sans_neo"
-            android:letterSpacing="-0.02" />
-
-        <TextView
-            android:id="@+id/tv_food_type"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:text="@string/food_korean"
-            android:textColor="@color/widget_text_food_type"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:fontFamily="@font/spoqa_han_sans_neo"
-            android:letterSpacing="-0.02"
-            android:visibility="gone" />
-
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_cafeteria_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:text="@string/cafeteria_dormitory"
+                android:textColor="@color/widget_text_cafeteria"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/spoqa_han_sans_neo"
+                android:letterSpacing="-0.02" />
+
+            <TextView
+                android:id="@+id/tv_food_type"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:maxLines="1"
+                android:text="@string/food_korean"
+                android:textColor="@color/widget_text_food_type"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/spoqa_han_sans_neo"
+                android:letterSpacing="-0.02"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tv_meal_of_day"
@@ -72,14 +74,14 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
-            android:ellipsize="end"
             android:maxLines="6"
             android:text=""
             android:textColor="@color/widget_text_menu"
             android:textSize="12sp"
             android:fontFamily="@font/spoqa_han_sans_neo"
             android:letterSpacing="-0.02"
-            android:lineSpacingExtra="3sp" />
+            android:lineSpacingExtra="3sp"
+            android:gravity="top" />
 
         <TextView
             android:id="@+id/tv_menu_right"
@@ -87,48 +89,28 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:layout_marginStart="8dp"
-            android:ellipsize="end"
             android:maxLines="6"
             android:text=""
             android:textColor="@color/widget_text_menu"
             android:textSize="12sp"
             android:fontFamily="@font/spoqa_han_sans_neo"
             android:letterSpacing="-0.02"
-            android:lineSpacingExtra="3sp" />
+            android:lineSpacingExtra="3sp"
+            android:gravity="top" />
     </LinearLayout>
 
-    <!-- 하단: [칼로리 | 운영 상태] 각 절반씩 가운데 정렬 -->
-    <LinearLayout
+    <!-- 운영 상태 -->
+    <TextView
+        android:id="@+id/tv_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/tv_kcal"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text=""
-            android:textColor="@color/widget_text_kcal"
-            android:textSize="10sp"
-            android:fontFamily="@font/spoqa_han_sans_neo"
-            android:letterSpacing="-0.02"
-            android:gravity="center"
-            android:textAlignment="center" />
-
-        <TextView
-            android:id="@+id/tv_status"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/status_before_open"
-            android:textColor="@color/widget_status_before"
-            android:textSize="10sp"
-            android:textStyle="bold"
-            android:fontFamily="@font/spoqa_han_sans_neo"
-            android:letterSpacing="-0.02"
-            android:gravity="center"
-            android:textAlignment="center" />
-    </LinearLayout>
+        android:text="@string/status_before_open"
+        android:textColor="@color/widget_status_before"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:fontFamily="@font/spoqa_han_sans_neo"
+        android:letterSpacing="-0.02"
+        android:gravity="center"
+        android:textAlignment="center" />
 </LinearLayout>

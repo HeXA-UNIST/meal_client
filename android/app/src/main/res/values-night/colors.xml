@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 위젯 설정 화면 색상 (다크) — Flutter 다크 팔레트 기준 -->
+    <color name="config_bg">#000000</color>
+    <color name="config_item_bg">#1C1C1E</color>
+    <color name="config_text_primary">#FFFFFF</color>
+    <color name="config_text_hint">#8E8E93</color>
+    <color name="config_btn_text">#FFFFFF</color>
+</resources>

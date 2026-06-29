@@ -19,6 +19,9 @@ class BapUWidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ct
         val manager = AppWidgetManager.getInstance(ctx)
         val data = BapUWidgetFetcher.fetch(ctx)
 
+        // 캐시도 없고 네트워크도 실패한 경우 재시도 요청
+        if (data == null) return Result.retry()
+
         fun updateAll(cls: Class<*>, fn: (Int) -> Unit) {
             for (id in manager.getAppWidgetIds(ComponentName(ctx, cls))) {
                 try { fn(id) } catch (e: Exception) { Log.e(TAG, "update failed id=$id", e) }

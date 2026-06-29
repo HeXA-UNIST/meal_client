@@ -3,11 +3,14 @@ package pro.hexa.meal.meal_client
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /**
@@ -40,6 +43,19 @@ class BapUWidgetDualConfigActivity : Activity() {
         }
 
         setContentView(R.layout.widget_config_dual)
+
+        // 상단바 높이만큼 top padding 추가 (좌우 padding은 내부 LinearLayout이 유지)
+        val root = findViewById<ScrollView>(R.id.root_config_dual)
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetTop
+            }
+            v.setPadding(0, topInset, 0, 0)
+            insets
+        }
 
         // CAFE_OPTIONS 순서와 동일하게 [한식, 할랄, 학생, 교직원]
         items0 = listOf(
@@ -120,10 +136,7 @@ class BapUWidgetDualConfigActivity : Activity() {
                 else R.drawable.widget_config_item_normal
             )
             val tv = layout.getChildAt(0) as? TextView
-            tv?.setTextColor(
-                if (isSelected) getColor(R.color.black)
-                else getColor(R.color.white)
-            )
+            tv?.setTextColor(getColor(R.color.config_text_primary))
             dots[index].visibility = if (isSelected) View.VISIBLE else View.GONE
         }
     }

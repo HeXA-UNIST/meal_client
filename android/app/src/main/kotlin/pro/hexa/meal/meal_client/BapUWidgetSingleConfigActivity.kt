@@ -3,9 +3,11 @@ package pro.hexa.meal.meal_client
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -38,6 +40,20 @@ class BapUWidgetSingleConfigActivity : Activity() {
 
         setContentView(R.layout.widget_config_single)
 
+        // 상단바 높이만큼 top padding 추가 (좌우 padding은 XML 유지)
+        val root = findViewById<LinearLayout>(R.id.root_config_single)
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            } else {
+                @Suppress("DEPRECATION")
+                insets.systemWindowInsetTop
+            }
+            val p24 = (24 * resources.displayMetrics.density).toInt()
+            v.setPadding(p24, p24 + topInset, p24, p24)
+            insets
+        }
+
         // CAFE_OPTIONS 순서와 동일하게 [한식, 할랄, 학생, 교직원]
         items = listOf(
             findViewById(R.id.item_dorm_korean),
@@ -66,8 +82,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
             saveSingleCafeteria(this, appWidgetId, selectedCafeteria)
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
-            val manager = AppWidgetManager.getInstance(this)
-            triggerWidgetUpdate(manager)
+            BapUWidgetUpdateWorker.enqueueOneTime(this)
 
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()
@@ -83,33 +98,9 @@ class BapUWidgetSingleConfigActivity : Activity() {
                 else R.drawable.widget_config_item_normal
             )
             val tv = layout.getChildAt(0) as? TextView
-            tv?.setTextColor(
-                if (selected) getColor(R.color.black)
-                else getColor(R.color.white)
-            )
+            tv?.setTextColor(getColor(R.color.config_text_primary))
             dots[index].visibility = if (selected) View.VISIBLE else View.GONE
         }
-    }
-
-    private fun triggerWidgetUpdate(manager: AppWidgetManager) {
-        val ctx = applicationContext
-        val widgetId = appWidgetId
-        val info = manager.getAppWidgetInfo(widgetId)
-        Thread {
-            try {
-                val data = BapUWidgetFetcher.fetch(ctx)
-                when (info?.provider?.className) {
-                    BapUWidget2x2Provider::class.java.name ->
-                        BapUWidget2x2Provider.updateWidget(ctx, manager, widgetId, data)
-                    BapUWidget4x2StatusProvider::class.java.name ->
-                        BapUWidget4x2StatusProvider.updateWidget(ctx, manager, widgetId, data)
-                    else ->
-                        BapUWidget2x2Provider.updateWidget(ctx, manager, widgetId, data)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "triggerWidgetUpdate failed", e)
-            }
-        }.start()
     }
 
     companion object {

@@ -20,4 +20,11 @@
     <color name="widget_status_closing">#000000</color>
     <color name="widget_status_closed">#717171</color>
     <color name="widget_status_before">#717171</color>
+
+    <!-- 위젯 설정 화면 색상 (라이트 기본값 / 다크는 values-night/colors.xml) -->
+    <color name="config_bg">#FFFFFF</color>
+    <color name="config_item_bg">#F2F2F7</color>
+    <color name="config_text_primary">#000000</color>
+    <color name="config_text_hint">#717171</color>
+    <color name="config_btn_text">#000000</color>
 </resources>

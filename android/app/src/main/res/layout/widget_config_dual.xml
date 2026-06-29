@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_config_dual"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/widget_bg">
+    android:background="@color/config_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -15,7 +16,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="24dp"
             android:text="@string/widget_config_title"
-            android:textColor="@color/white"
+            android:textColor="@color/config_text_primary"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -25,7 +26,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="10dp"
             android:text="@string/widget_config_first"
-            android:textColor="@color/widget_text_secondary"
+            android:textColor="@color/config_text_hint"
             android:textSize="13sp"
             android:textAllCaps="true" />
 
@@ -44,7 +45,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_dorm_korean"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot0_dorm_korean"
@@ -69,7 +70,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_dorm_halal"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot0_dorm_halal"
@@ -94,7 +95,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_student"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot0_student"
@@ -119,7 +120,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_faculty"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot0_faculty"
@@ -135,7 +136,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="10dp"
             android:text="@string/widget_config_second"
-            android:textColor="@color/widget_text_secondary"
+            android:textColor="@color/config_text_hint"
             android:textSize="13sp"
             android:textAllCaps="true" />
 
@@ -154,7 +155,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_dorm_korean"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot1_dorm_korean"
@@ -179,7 +180,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_dorm_halal"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot1_dorm_halal"
@@ -204,7 +205,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_student"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot1_student"
@@ -229,7 +230,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/cafeteria_faculty"
-                android:textColor="@color/white"
+                android:textColor="@color/config_text_primary"
                 android:textSize="15sp" />
             <View
                 android:id="@+id/dot1_faculty"
@@ -245,7 +246,7 @@
             android:layout_height="52dp"
             android:background="@drawable/widget_config_btn"
             android:text="@string/widget_config_confirm"
-            android:textColor="@color/black"
+            android:textColor="@color/config_btn_text"
             android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>

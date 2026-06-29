@@ -30,35 +30,37 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/tv_name_dorm_korean"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="@string/cafeteria_dormitory"
-                    android:textColor="@color/widget_text_cafeteria"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/spoqa_han_sans_neo"
-                    android:letterSpacing="-0.02" />
-
-                <TextView
-                    android:id="@+id/tv_food_type_dorm_korean"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/food_korean"
-                    android:textColor="@color/widget_text_food_type"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/spoqa_han_sans_neo"
-                    android:letterSpacing="-0.02" />
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1" />
+                    android:layout_weight="1"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_name_dorm_korean"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:text="@string/cafeteria_dormitory"
+                        android:textColor="@color/widget_text_cafeteria"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/spoqa_han_sans_neo"
+                        android:letterSpacing="-0.02" />
+
+                    <TextView
+                        android:id="@+id/tv_food_type_dorm_korean"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:maxLines="1"
+                        android:text="@string/food_korean"
+                        android:textColor="@color/widget_text_food_type"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/spoqa_han_sans_neo"
+                        android:letterSpacing="-0.02" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tv_meal_dorm_korean"
@@ -78,23 +80,24 @@
                 android:layout_height="0dp"
                 android:layout_marginTop="6dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
                 android:maxLines="6"
                 android:text="@string/widget_loading"
                 android:textColor="@color/widget_text_menu"
                 android:textSize="12sp"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
-                android:lineSpacingExtra="3sp" />
+                android:lineSpacingExtra="3sp"
+                android:gravity="top" />
 
             <TextView
-                android:id="@+id/tv_kcal_dorm_korean"
+                android:id="@+id/tv_status_dorm_korean"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text=""
-                android:textColor="@color/widget_text_kcal"
+                android:text="@string/status_before_open"
+                android:textColor="@color/widget_status_before"
                 android:textSize="10sp"
+                android:textStyle="bold"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
                 android:gravity="center"
@@ -115,35 +118,37 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/tv_name_dorm_halal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="@string/cafeteria_dormitory"
-                    android:textColor="@color/widget_text_cafeteria"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/spoqa_han_sans_neo"
-                    android:letterSpacing="-0.02" />
-
-                <TextView
-                    android:id="@+id/tv_food_type_dorm_halal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:text="@string/food_halal"
-                    android:textColor="@color/widget_text_food_type"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:fontFamily="@font/spoqa_han_sans_neo"
-                    android:letterSpacing="-0.02" />
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1" />
+                    android:layout_weight="1"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_name_dorm_halal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:text="@string/cafeteria_dormitory"
+                        android:textColor="@color/widget_text_cafeteria"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/spoqa_han_sans_neo"
+                        android:letterSpacing="-0.02" />
+
+                    <TextView
+                        android:id="@+id/tv_food_type_dorm_halal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:maxLines="1"
+                        android:text="@string/food_halal"
+                        android:textColor="@color/widget_text_food_type"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:fontFamily="@font/spoqa_han_sans_neo"
+                        android:letterSpacing="-0.02" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tv_meal_dorm_halal"
@@ -163,23 +168,24 @@
                 android:layout_height="0dp"
                 android:layout_marginTop="6dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
                 android:maxLines="6"
                 android:text="@string/widget_loading"
                 android:textColor="@color/widget_text_menu"
                 android:textSize="12sp"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
-                android:lineSpacingExtra="3sp" />
+                android:lineSpacingExtra="3sp"
+                android:gravity="top" />
 
             <TextView
-                android:id="@+id/tv_kcal_dorm_halal"
+                android:id="@+id/tv_status_dorm_halal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text=""
-                android:textColor="@color/widget_text_kcal"
+                android:text="@string/status_before_open"
+                android:textColor="@color/widget_status_before"
                 android:textSize="10sp"
+                android:textStyle="bold"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
                 android:gravity="center"
@@ -211,8 +217,9 @@
 
                 <TextView
                     android:id="@+id/tv_name_student"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:text="@string/cafeteria_student"
@@ -221,11 +228,6 @@
                     android:textStyle="bold"
                     android:fontFamily="@font/spoqa_han_sans_neo"
                     android:letterSpacing="-0.02" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
 
                 <TextView
                     android:id="@+id/tv_meal_student"
@@ -245,23 +247,24 @@
                 android:layout_height="0dp"
                 android:layout_marginTop="6dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
                 android:maxLines="6"
                 android:text="@string/widget_loading"
                 android:textColor="@color/widget_text_menu"
                 android:textSize="12sp"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
-                android:lineSpacingExtra="3sp" />
+                android:lineSpacingExtra="3sp"
+                android:gravity="top" />
 
             <TextView
-                android:id="@+id/tv_kcal_student"
+                android:id="@+id/tv_status_student"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text=""
-                android:textColor="@color/widget_text_kcal"
+                android:text="@string/status_before_open"
+                android:textColor="@color/widget_status_before"
                 android:textSize="10sp"
+                android:textStyle="bold"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
                 android:gravity="center"
@@ -284,8 +287,9 @@
 
                 <TextView
                     android:id="@+id/tv_name_faculty"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:text="@string/cafeteria_faculty"
@@ -294,11 +298,6 @@
                     android:textStyle="bold"
                     android:fontFamily="@font/spoqa_han_sans_neo"
                     android:letterSpacing="-0.02" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
 
                 <TextView
                     android:id="@+id/tv_meal_faculty"
@@ -318,23 +317,24 @@
                 android:layout_height="0dp"
                 android:layout_marginTop="6dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
                 android:maxLines="6"
                 android:text="@string/widget_loading"
                 android:textColor="@color/widget_text_menu"
                 android:textSize="12sp"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
-                android:lineSpacingExtra="3sp" />
+                android:lineSpacingExtra="3sp"
+                android:gravity="top" />
 
             <TextView
-                android:id="@+id/tv_kcal_faculty"
+                android:id="@+id/tv_status_faculty"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text=""
-                android:textColor="@color/widget_text_kcal"
+                android:text="@string/status_before_open"
+                android:textColor="@color/widget_status_before"
                 android:textSize="10sp"
+                android:textStyle="bold"
                 android:fontFamily="@font/spoqa_han_sans_neo"
                 android:letterSpacing="-0.02"
                 android:gravity="center"

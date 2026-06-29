@@ -35,29 +35,38 @@ fun getWidgetConfigPrefs(context: Context): SharedPreferences =
     context.getSharedPreferences(WIDGET_CONFIG_PREFS, Context.MODE_PRIVATE)
 
 /**
- * 표시할 최대 [maxLines]줄로 자른다. 넘치면 마지막 줄에 "..." 추가.
- * 기본값 MAX_MENU_LINES(6)는 공간 계산 없이 쓸 때의 안전 상한.
+ * 표시할 최대 물리 줄 수([maxLines])로 자른다. 넘치면 마지막 줄에 "..." 추가.
+ * [charsPerLine]이 지정되면 각 항목이 몇 줄을 차지하는지 추정해 물리 줄 수로 계산한다.
+ * Int.MAX_VALUE(기본값)이면 항목당 1줄로 가정한다.
  */
-fun truncateMenu(items: List<String>, maxLines: Int = 6): String {
-    if (items.isEmpty()) return "-"
-    if (items.size <= maxLines) return items.joinToString("\n")
-    val truncated = items.take(maxLines - 1).toMutableList()
-    truncated.add("...")
-    return truncated.joinToString("\n")
+fun truncateMenu(items: List<String>, maxLines: Int = 6, charsPerLine: Int = Int.MAX_VALUE): String {
+    val filtered = items.filter { it.isNotEmpty() }
+    if (filtered.isEmpty()) return "-"
+    var used = 0
+    val result = mutableListOf<String>()
+    for (item in filtered) {
+        val physLines = if (charsPerLine < Int.MAX_VALUE)
+            ((item.length - 1) / charsPerLine) + 1
+        else 1
+        if (used + physLines > maxLines) {
+            if (used < maxLines) result.add("...")
+            break
+        }
+        result.add(item)
+        used += physLines
+    }
+    return if (result.isEmpty()) "-" else result.joinToString("\n")
 }
 
 /**
  * 메뉴를 두 열로 나눈다. 첫 열: 앞 절반, 둘째 열: 나머지.
- * [maxLines]는 열 하나당 최대 줄 수.
+ * 각 열 독립적으로 [maxLines] 물리 줄을 넘으면 별도 줄로 "..." 추가.
  */
-fun splitMenuTwoColumns(items: List<String>, maxLines: Int = 6): Pair<String, String> {
+fun splitMenuTwoColumns(items: List<String>, maxLines: Int = 6, charsPerLine: Int = Int.MAX_VALUE): Pair<String, String> {
     if (items.isEmpty()) return Pair("-", "")
-    val all = if (items.size > maxLines * 2) {
-        items.take(maxLines * 2 - 1) + listOf("...")
-    } else items
-    val half = (all.size + 1) / 2
-    val left = all.take(half).joinToString("\n")
-    val right = all.drop(half).joinToString("\n")
+    val half  = (items.size + 1) / 2
+    val left  = truncateMenu(items.take(half), maxLines, charsPerLine)
+    val right = items.drop(half).let { if (it.isEmpty()) "" else truncateMenu(it, maxLines, charsPerLine) }
     return Pair(left, right)
 }
 
@@ -87,18 +96,18 @@ data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val 
 fun operatingPeriod(cafeteria: Int, mealOfDay: Int): OperatingPeriod? {
     val cafe = if (cafeteria == CAFE_DORM_HALAL) CAFE_DORM_KOREAN else cafeteria
     return when (cafe) {
-        0 -> when (mealOfDay) {
+        CAFE_DORM_KOREAN -> when (mealOfDay) {
             0 -> OperatingPeriod(8, 0, 9, 20)
             1 -> OperatingPeriod(11, 30, 13, 30)
             2 -> OperatingPeriod(17, 30, 19, 0)
             else -> null
         }
-        1 -> when (mealOfDay) {
+        CAFE_STUDENT -> when (mealOfDay) {
             1 -> OperatingPeriod(11, 0, 13, 30)
             2 -> OperatingPeriod(17, 0, 19, 0)
             else -> null
         }
-        2 -> when (mealOfDay) {
+        CAFE_FACULTY -> when (mealOfDay) {
             1 -> OperatingPeriod(11, 0, 13, 0)
             2 -> OperatingPeriod(17, 30, 19, 30)
             else -> null
@@ -121,8 +130,8 @@ fun getOperatingStatus(cafeteria: Int, mealOfDay: Int): OperatingResult {
     val endMins = period.endH * 60 + period.endM
 
     return when {
-        nowMins < startMins -> OperatingResult(OperatingStatus.BEFORE_OPEN)
-        nowMins <= endMins -> {
+        nowMins < startMins  -> OperatingResult(OperatingStatus.BEFORE_OPEN)
+        nowMins < endMins    -> {
             val left = endMins - nowMins
             if (left >= 45) OperatingResult(OperatingStatus.OPEN)
             else OperatingResult(OperatingStatus.CLOSING_SOON, left)
@@ -197,11 +206,31 @@ fun widgetWidthDp(manager: AppWidgetManager, widgetId: Int): Int {
     return if (min > 0) min else 160
 }
 
-/** AppWidget 옵션에서 세로 모드 최소 높이(dp)를 읽는다. */
+/**
+ * AppWidget 옵션에서 세로 모드 실제 높이(dp)를 읽는다.
+ * MIN_HEIGHT = 가로 모드(더 좁은 방향) 높이, MAX_HEIGHT = 세로 모드(더 큰 방향) 높이.
+ * 줄 수 계산은 세로 모드 기준이므로 MAX_HEIGHT 를 사용한다.
+ */
 fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
-    val min = manager.getAppWidgetOptions(widgetId)
-        .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-    return if (min > 0) min else 150
+    val max = manager.getAppWidgetOptions(widgetId)
+        .getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+    return if (max > 0) max else 150
+}
+
+/**
+ * 위젯 전체 너비와 패널 수로 패널 하나의 콘텐츠 너비(dp)를 반환한다.
+ * 루트 패딩 28dp(=14×2) + 패널 간 간격 24dp×(columns-1) 를 제외한 값.
+ */
+fun calcPanelWidthDp(widthDp: Int, columns: Int = 1): Int =
+    (widthDp - 28 - 24 * (columns - 1)) / columns
+
+/**
+ * 패널 너비와 텍스트 크기로 한 줄에 들어갈 한글 글자 수를 추정한다.
+ * 한글 자모는 약 0.9em 기준으로 계산 (보수적 추정으로 오버플로 방지).
+ */
+fun calcCharsPerLine(panelWidthDp: Int, textSp: Float, fontScale: Float): Int {
+    val charWidthDp = textSp * fontScale * 0.9f
+    return (panelWidthDp / charWidthDp).toInt().coerceAtLeast(4)
 }
 
 /**
@@ -214,8 +243,7 @@ fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
  * @param columns  가로 패널 수 (단일=1, 좌우 분할=2)
  */
 fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float {
-    // 패널 사이 간격: 좌우 각 12dp → 총 24dp
-    val panelDp = (widthDp - 28 - 24 * (columns - 1)) / columns
+    val panelDp = calcPanelWidthDp(widthDp, columns)
     return when {
         panelDp >= 100 -> 14f
         panelDp >= 70  -> 13f
@@ -223,26 +251,30 @@ fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float {
     }
 }
 
-/** 메뉴 sp 에서 kcal sp 를 계산한다 (메뉴보다 2sp 작게, 최소 8sp). */
-fun calcKcalTextSp(menuSp: Float): Float = (menuSp - 2f).coerceAtLeast(8f)
+/** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (메뉴보다 2sp 작게, 최소 8sp). */
+fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 2f).coerceAtLeast(8f)
 
 /**
- * 패널 높이와 텍스트 크기를 기반으로 칼로리까지 들어갈 최대 메뉴 줄 수를 계산한다.
+ * 패널 높이와 텍스트 크기를 기반으로 칼로리 바 위까지 들어갈 최대 메뉴 줄 수를 계산한다.
  *
- * 고정 영역 = 헤더(menuSp) + 마진(6dp) + 마진(2dp) + kcal(kcalSp) + 안전 여유(6dp)
- * 줄 높이   = menuSp + lineSpacingExtra(3sp)  (마지막 줄 포함해서 여유 확보)
+ * sp 값은 화면 렌더링 시 [fontScale] 이 곱해진 dp 로 표시되므로 폰트 스케일을 반영해야
+ * 운영상태와 겹치지 않는 정확한 줄 수를 구할 수 있다.
  *
- * @param panelHeightDp  패널 하나의 높이(dp). 위젯 루트 패딩(28dp)·행 갭은 호출 측에서 차감 후 전달.
- * @param menuSp         현재 메뉴 텍스트 크기(sp)
+ * @param panelHeightDp  패널 하나의 높이(dp). 루트 패딩(28dp)·행 갭은 호출 측에서 차감 후 전달.
+ * @param menuSp         메뉴 텍스트 크기(sp)
+ * @param fontScale      시스템 폰트 스케일 (context.resources.configuration.fontScale)
  */
-fun calcMaxMenuLines(panelHeightDp: Int, menuSp: Float): Int {
-    val kcalSp = calcKcalTextSp(menuSp)
-    // 고정 영역: 헤더(menuSp) + 마진(6) + 마진(2) + kcal(kcalSp) + 안전 여유(6)
-    val fixedDp  = (menuSp + 6 + 2 + kcalSp + 6).toInt()
-    val available = panelHeightDp - fixedDp
-    if (available <= 0) return 3
-    // 줄 높이 = menuSp + lineSpacingExtra(3)  (마지막 줄에도 포함해서 여유 확보)
-    val lineHeightDp = menuSp + 3f
+fun calcMaxMenuLines(panelHeightDp: Int, menuSp: Float, fontScale: Float = 1f): Int {
+    val statusSp = calcStatusTextSp(menuSp)
+    // sp → 실제 렌더 dp 변환
+    val headerDp  = menuSp * fontScale
+    val statusDp  = statusSp * fontScale
+    // 고정 영역: 헤더(1줄) + 상단마진(6) + 하단마진(2) + 운영상태(1줄)
+    val fixedDp   = headerDp + 6f + 2f + statusDp
+    val available = panelHeightDp.toFloat() - fixedDp
+    if (available <= 0f) return 3
+    // 줄 높이 = (textSize + lineSpacingExtra 3sp) × fontScale
+    val lineHeightDp = (menuSp + 3f) * fontScale
     return (available / lineHeightDp).toInt().coerceIn(3, 10)
 }
 
@@ -252,12 +284,37 @@ fun calcMaxMenuLines(panelHeightDp: Int, menuSp: Float): Int {
  */
 fun RemoteViews.applyTextSizes(
     menuSp: Float, menuIds: List<Int>,
-    kcalSp: Float, kcalIds: List<Int>,
+    statusSp: Float, statusIds: List<Int>,
     headerIds: List<Int> = emptyList()
 ) {
-    for (id in menuIds)  setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, menuSp)
-    for (id in kcalIds)  setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, kcalSp)
+    for (id in menuIds)   setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, menuSp)
+    for (id in statusIds) setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, statusSp)
     for (id in headerIds) setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, menuSp)
+}
+
+/** cafeteria/mealOfDay 기준 운영 상태를 tvStatus 뷰에 적용한다. */
+fun RemoteViews.applyOperatingStatus(context: Context, tvStatus: Int, cafeteria: Int, mealOfDay: Int) {
+    val result = getOperatingStatus(cafeteria, mealOfDay)
+    val (color, text) = when (result.status) {
+        OperatingStatus.BEFORE_OPEN  -> Pair(
+            context.getColor(R.color.widget_status_before),
+            context.getString(R.string.status_before_open)
+        )
+        OperatingStatus.OPEN         -> Pair(
+            context.getColor(R.color.widget_status_open),
+            context.getString(R.string.status_open)
+        )
+        OperatingStatus.CLOSING_SOON -> Pair(
+            context.getColor(R.color.widget_status_closing),
+            context.getString(R.string.status_closing_soon, result.minutesLeft)
+        )
+        OperatingStatus.JUST_CLOSED  -> Pair(
+            context.getColor(R.color.widget_status_closed),
+            context.getString(R.string.status_just_closed)
+        )
+    }
+    setTextViewText(tvStatus, text)
+    setTextColor(tvStatus, color)
 }
 
 /** 위젯을 탭하면 앱을 실행하는 PendingIntent 를 만든다. */
