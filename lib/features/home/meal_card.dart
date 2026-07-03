@@ -30,7 +30,7 @@ class MealCard extends StatelessWidget {
         : theme.colorScheme.outline;
     final operatingTimeStyle = theme.textTheme.labelMedium!.copyWith(
       color: operatingTimeColor,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
       height: 1,
@@ -106,7 +106,7 @@ class MealCard extends StatelessWidget {
                               children: [
                                 Icon(
                                   Icons.access_time,
-                                  size: 14,
+                                  size: 13,
                                   color: operatingTimeColor,
                                 ),
                                 const SizedBox(width: 4),
@@ -127,9 +127,8 @@ class MealCard extends StatelessWidget {
                         : Text(
                             "${meal.kcal} kcal",
                             style: theme.textTheme.labelMedium!.copyWith(
-                              fontSize: 11.5,
-                              letterSpacing: 0.1,
-                              height: 1,
+                              fontSize: 11,
+                              letterSpacing: 0
                             ),
                           ),
                   ],
