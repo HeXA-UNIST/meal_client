@@ -23,17 +23,21 @@ class HomeAnnouncementDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: _HomeDialogTitle(title: title),
-      content: SingleChildScrollView(
-        child: ListBody(children: [Text(content)]),
-      ),
-      actions: [
-        TextButton(
-          child: Text(close),
-          onPressed: () => Navigator.of(context).pop(),
+    return SelectionArea(
+      child: AlertDialog(
+        title: _HomeDialogTitle(title: title),
+        content: SingleChildScrollView(
+          child: ListBody(children: [Text(content)]),
         ),
-      ],
+        actions: [
+          SelectionContainer.disabled(
+            child: TextButton(
+              child: Text(close),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -108,18 +112,22 @@ class HomeOperationHoursDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: _HomeDialogTitle(title: title),
-      contentPadding: EdgeInsets.fromLTRB(24, 14, 24, 8),
-      content: SingleChildScrollView(
-        child: _OperationHoursDialogContent(operatingHours: operatingHours),
-      ),
-      actions: [
-        TextButton(
-          child: Text(close),
-          onPressed: () => Navigator.of(context).pop(),
+    return SelectionArea(
+      child: AlertDialog(
+        title: _HomeDialogTitle(title: title),
+        contentPadding: EdgeInsets.fromLTRB(24, 14, 24, 8),
+        content: SingleChildScrollView(
+          child: _OperationHoursDialogContent(operatingHours: operatingHours),
         ),
-      ],
+        actions: [
+          SelectionContainer.disabled(
+            child: TextButton(
+              child: Text(close),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
