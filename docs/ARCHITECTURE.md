@@ -18,7 +18,7 @@
 │  HomePageModel  ◄── owned        └── MealCard × 3       │
 │  ValueNotifier  ◄── owned                               │
 └─────────────┬───────────────────────────────────────────┘
-              │ FutureBuilder (캐시 → 네트워크)
+              │ FutureBuilder (식단 캐시 → 네트워크) + shared AppInfo future
 ┌─────────────▼───────────────────────────────────────────┐
 │  상태 / 도메인                                           │
 │                                                         │
@@ -36,8 +36,10 @@
 │    │                 └── iOS/Android/Web 분기           │
 │    └── core/storage  ──  파일 캐시 / stub (웹)          │
 │                                                         │
-│  features/announcement/announcement_service  ──  공지 확인     │
-│    └── core/network/http_client                          │
+│  features/info/app_info  ──  /v2/info 모델              │
+│  features/info/info_data_source  ──  /v2/info HTTP fetch│
+│  features/info/announcement_state                        │
+│    └── 공지 저장값 비교 + 표시 여부 판단                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -54,7 +56,7 @@ UI 레이어        → lib/features/home/ (home_page, home_app_bar, week_meal_v
                   lib/core/constants.dart,
                   lib/features/settings/ (AppSettings + 값 객체)
 i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLocalizations)
-데이터 / 인프라  → lib/features/announcement/announcement_service.dart,
+데이터 / 인프라  → lib/features/info/ (app_info.dart, info_data_source.dart, announcement_state.dart),
                   lib/features/meal/meal_data_source.dart,
                   lib/core/storage*.dart, lib/core/network/
 ```
@@ -66,10 +68,10 @@ i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLoca
 | `BapUApp` | `main.dart` | MaterialApp 구성, 테마 적용 | `AppSettings` watch (themeMode) |
 | `HomePage` | `features/home/home_page.dart` | 데이터 로딩, 공지 확인, Scaffold 조합 | `HomePageModel`, `ValueNotifier<MealOfDay>` 소유 |
 | `HomeAppBar` | `features/home/home_app_bar.dart` | AppBar 구성 — 날짜, 요일 탭, 끼니 전환 버튼 | `ValueNotifier<MealOfDay>` 구독 (버튼만) |
-| `WeekMealTabBarView` | `features/home/week_meal_view.dart` | 요일 탭뷰 + 반응형 카드 테이블 | — |
+| `WeekMealTabBarView` | `features/home/week_meal_view.dart` | 요일 탭뷰 + 반응형 카드 테이블, 식단 카드 운영시간 연결 | `Future<AppInfo>` read |
 | `NestedPageScrollView` | `features/home/nested_page_scroll.dart` | 끼니 간 수평 PageView + 카드 내 수직 스크롤 통합 | — |
-| `MealCard` | `features/home/meal_card.dart` | 식당별 메뉴 카드 표시, 공유 | — |
-| `HomePageDrawer` | `features/home/home_drawer.dart` | 사이드바 — 공지, 운영 시간, 설정 진입점 | — |
+| `MealCard` | `features/home/meal_card.dart` | 식당별 메뉴 카드 표시, 운영시간/칼로리 표시, 공유 | — |
+| `HomePageDrawer` | `features/home/home_drawer.dart` | 사이드바 — 공지/운영시간 다이얼로그, 설정 진입점 | `Future<AppInfo>` read |
 | `SettingsPage` | `features/settings/settings_page.dart` | 설정 화면 (테마/알레르기/알림/위젯 섹션) | `AppSettings` read/watch |
 | `AllergySelectionPage` | `features/settings/allergy_selection_page.dart` | 19개 알레르겐 체크리스트 | `AppSettings` read/write |
 | `AppSettings` | `features/settings/app_settings.dart` | 앱 전역 설정 상태 소유 + SharedPreferences 영속화 | ChangeNotifier Provider 루트 배치 |
@@ -86,6 +88,8 @@ BapUApp
       │   │   └─ MealOfDaySwitchButton
       │   └─ DayOfWeekTabBar
       ├─ Drawer → HomePageDrawer
+      │             ├─ 공지사항 다이얼로그
+      │             ├─ 운영시간 다이얼로그
       │             └─ [Settings 진입] → SettingsPage
       │                                    └─ AllergySelectionPage
       └─ Body (FutureBuilder: cachedMeal)
@@ -100,7 +104,7 @@ BapUApp
 두 종류의 상태가 분리되어 있습니다.
 
 - **`HomePageModel`** (`lib/features/home/model.dart`)
-  화면 로컬 선택 상태(현재 끼니, 요일 등). 평범한 가변 객체이며 `_HomePageState`에서 `setState`로 관리합니다. 끼니 전환 같은 일부 상태는 `ValueNotifier`로 분리해 리빌드 범위를 좁혔습니다.
+  화면 로컬 선택 상태(현재 끼니, 요일 등). 평범한 가변 객체이며 `_HomePageState`가 소유합니다. 끼니 버튼 상태는 `ValueNotifier<MealOfDay>`로 분리해 끼니 전환 시 `MealOfDaySwitchButton` 중심으로 리빌드 범위를 좁혔습니다.
 
 - **`AppSettings extends ChangeNotifier`** (`lib/features/settings/app_settings.dart`)
   앱 전역 사용자 설정의 단일 소유자입니다. 루트에 `ChangeNotifierProvider<AppSettings>`가 한 번만 배치되며, `context.watch<AppSettings>()` 또는 `context.read<AppSettings>()`로 접근합니다. `SharedPreferences`에 즉시 영속화하고, 변경 시 `notifyListeners()`를 호출합니다.
@@ -150,7 +154,7 @@ MaterialApp(
 
 ## 데이터 흐름
 
-### 데이터 로딩 흐름
+### 식단 데이터 로딩 흐름
 
 ```
 앱 시작
@@ -190,6 +194,33 @@ downloadedMeal = cachedMeal.then(
 | 캐시 실패, 네트워크 로딩 중 | 스피너 |
 | 캐시 + 네트워크 모두 실패 | `l10n.cannotLoadMeal` 텍스트 |
 | 네트워크만 실패 | 캐시 데이터 유지 (에러 숨김) |
+
+### 앱 정보(`/v2/info`) 로딩 흐름
+
+`_HomePageState.initState()`에서 식단 Future와 별도로 앱 정보 Future를 한 번 생성합니다.
+
+```dart
+late final Future<AppInfo> appInfo;
+
+@override
+void initState() {
+  ...
+  appInfo = fetchAppInfo();
+  _checkAnnouncement();
+}
+```
+
+이 `Future<AppInfo>`는 세 곳에서 공유됩니다.
+
+| 소비자 | 사용 목적 |
+|---|---|
+| `_checkAnnouncement()` | `AppInfo.announcement`를 기존 저장 공지와 비교하고 새 공지이면 자동 팝업 |
+| `HomePageDrawer` | 공지사항 수동 확인, 운영시간 다이얼로그 표시 |
+| `WeekMealTabBarView` | 선택한 날짜/끼니/식당의 운영시간을 식단 카드에 전달 |
+
+`/v2/info`의 운영시간은 로컬에 별도 저장하거나 비교하지 않습니다. 현재 앱 세션에서는 `HomePage` 생성 시 fetch된 값을 공유하며, 백엔드에서 변경된 운영시간은 `AppInfo`가 다시 fetch될 때 반영됩니다.
+
+공지사항과 운영시간 다이얼로그는 `SelectionArea`로 감싸져 있어 제목과 본문 텍스트를 선택/복사할 수 있습니다.
 
 ### 캐시 무효화
 
@@ -234,6 +265,39 @@ WeekMeal
 - API 응답의 한국어 식당 키 (`"기숙사 식당"`, `"학생 식당"`, `"교직원 식당"`)는 `Cafeteria.fromApiKey()`로 매핑합니다.
 - `parseRawMeal`은 본래 `api_v2.dart`에 있었으나 도메인 책임을 명확히 하기 위해 `meal.dart`로 이동했습니다 (`0d331a2`).
 
+## 앱 정보 모델
+
+`lib/features/info/app_info.dart`는 `/v2/info` 응답을 모델링합니다.
+
+```
+AppInfo
+ ├─ AppAnnouncement? announcement
+ │   ├─ LocalizedText? title
+ │   ├─ LocalizedText content
+ │   └─ bool showAnnouncementEveryTime
+ └─ OperatingHours operatingHours
+     ├─ OperatingHoursPeriod weekday
+     └─ OperatingHoursPeriod weekend
+         └─ Cafeteria → MealOfDay → OperatingTimeRange
+```
+
+- `announcement` 자체가 `null`일 수 있습니다.
+- `announcement.title`도 `null`일 수 있으며, UI는 기본 i18n 라벨(`공지사항` / `Announcement`)로 fallback합니다.
+- `announcement.content`는 `LocalizedText`로 한국어/영어 값을 갖습니다.
+- `features/info/announcement_state.dart`는 저장된 공지 JSON과 새 공지의 `contentFingerprint`를 비교합니다. 기존 버전에서 저장된 raw string 공지도 `fromStoredString()`으로 읽을 수 있습니다.
+- `OperatingHours.forDate(DateTime kstDate)`는 KST 날짜 기준으로 평일/주말 운영시간을 고릅니다.
+- `OperatingTimeRange.contains(DateTime time)`는 현재 시간이 해당 운영시간 안인지 판정합니다.
+
+## API 엔드포인트
+
+`lib/core/constants.dart`의 `ApiConstants`에 엔드포인트를 모았습니다.
+
+| 엔드포인트 | 용도 | 현재 소비자 |
+|---|---|---|
+| `mealEndpoint` (`/mainpage/data`) | 식단 데이터 | `features/meal/meal_data_source.dart` |
+| `infoEndpoint` (`/v2/info`) | 공지사항 + 운영시간 | `features/info/info_data_source.dart` |
+| `noticeEndpoint` (`/notice`) | 기존 공지 API 상수 | 현재 주요 흐름에서는 `/v2/info`의 `announcement` 사용 |
+
 ## 커스텀 스크롤 시스템
 
 **해결하는 문제:** Flutter의 `PageView`(수평 스와이프)와 그 안에 중첩된 `ListView`(수직 스크롤) 사이에서 발생하는 제스처 충돌 — 수직에 가까운 스와이프가 내부 스크롤에 빼앗기거나, 수평 스와이프가 외부 PageView로 넘어가지 못하는 현상을 처리합니다.
@@ -272,15 +336,17 @@ lib/
 │   ├── home/
 │   │   ├── home_page.dart                 메인 화면, FutureBuilder 체인
 │   │   ├── home_app_bar.dart              AppBar (끼니 스위치 / 요일 탭 / 날짜)
-│   │   ├── home_drawer.dart               드로어, 공지 다이얼로그, 설정 진입점
-│   │   ├── meal_card.dart                 식당별 메뉴 카드
+│   │   ├── home_drawer.dart               드로어, 공지/운영시간 다이얼로그, 설정 진입점
+│   │   ├── meal_card.dart                 식당별 메뉴 카드, 운영시간/칼로리 표시
 │   │   ├── model.dart                     HomePageModel
 │   │   ├── nested_page_scroll.dart        중첩 스크롤 시스템
 │   │   └── week_meal_view.dart            요일 탭뷰 + 반응형 카드 테이블
+│   ├── info/
+│   │   ├── app_info.dart                  /v2/info 모델 (공지 + 운영시간)
+│   │   ├── info_data_source.dart          /v2/info HTTP fetch
+│   │   └── announcement_state.dart        /v2/info 공지 비교·저장
 │   ├── meal/
 │   │   └── meal_data_source.dart          식단 HTTP fetch + 캐시 정책
-│   ├── announcement/
-│   │   └── announcement_service.dart      공지 HTTP fetch + JSON 파싱 + 비교·저장
 │   └── settings/
 │       ├── app_settings.dart              AppSettings ChangeNotifier
 │       ├── allergy_selection_page.dart    19개 알레르겐 체크리스트
@@ -294,6 +360,10 @@ lib/
 ## 테스트
 
 - `test/domain_test.dart` — 도메인 모델 / 파싱 로직 단위 테스트
+- `test/info_test.dart` — `/v2/info` 모델 파싱, 공지 저장/비교 로직 테스트
+- `test/home_drawer_test.dart` — 드로어 운영시간 항목과 평일/주말 팝업 테스트
+- `test/meal_card_test.dart` — 식단 카드 운영시간 표시 상태 테스트
+- `test/week_meal_view_test.dart` — 선택 요일/끼니 운영시간 전달 테스트
 - `test/settings_test.dart` — `AppSettings` 및 값 객체 단위 테스트
 - `test/widget_test.dart` — 앱 렌더링 / 테마 스모크 테스트
 
