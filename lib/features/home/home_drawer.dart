@@ -25,6 +25,9 @@ class HomeAnnouncementDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectionArea(
       child: AlertDialog(
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
         title: _HomeDialogTitle(title: title),
         content: SingleChildScrollView(
           child: ListBody(children: [Text(content)]),
@@ -114,6 +117,9 @@ class HomeOperationHoursDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectionArea(
       child: AlertDialog(
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
         title: _HomeDialogTitle(title: title),
         contentPadding: EdgeInsets.fromLTRB(24, 14, 24, 8),
         content: SingleChildScrollView(

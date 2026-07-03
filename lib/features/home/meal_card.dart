@@ -54,9 +54,7 @@ class MealCard extends StatelessWidget {
     return Card.filled(
       color: theme.colorScheme.surfaceContainer,
       margin: EdgeInsetsGeometry.all(8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadiusGeometry.circular(24),
-      ),
+      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       child: Column(
