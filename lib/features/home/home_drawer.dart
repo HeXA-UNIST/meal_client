@@ -23,23 +23,8 @@ class HomeAnnouncementDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return AlertDialog(
-      title: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
-            'assets/imgs/bapu_logo.svg',
-            height: 24,
-            colorFilter: ColorFilter.mode(
-              theme.colorScheme.primaryContainer,
-              BlendMode.srcIn,
-            ),
-          ),
-          SizedBox(height: 10),
-          Text(title),
-        ],
-      ),
+      title: _HomeDialogTitle(title: title),
       content: SingleChildScrollView(
         child: ListBody(children: [Text(content)]),
       ),
@@ -48,6 +33,33 @@ class HomeAnnouncementDialog extends StatelessWidget {
           child: Text(close),
           onPressed: () => Navigator.of(context).pop(),
         ),
+      ],
+    );
+  }
+}
+
+class _HomeDialogTitle extends StatelessWidget {
+  final String title;
+
+  const _HomeDialogTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SvgPicture.asset(
+          'assets/imgs/bapu_logo.svg',
+          height: 24,
+          colorFilter: ColorFilter.mode(
+            theme.colorScheme.primaryContainer,
+            BlendMode.srcIn,
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(title, textAlign: TextAlign.center),
       ],
     );
   }
@@ -82,106 +94,183 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-class _OperationHoursSection extends StatelessWidget {
-  final Future<AppInfo> infoFuture;
-  final DateTime currentKstDate;
+class HomeOperationHoursDialog extends StatelessWidget {
+  final String close;
+  final String title;
+  final OperatingHours operatingHours;
 
-  const _OperationHoursSection({
-    required this.infoFuture,
-    required this.currentKstDate,
+  const HomeOperationHoursDialog({
+    super.key,
+    required this.close,
+    required this.title,
+    required this.operatingHours,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: _HomeDialogTitle(title: title),
+      contentPadding: EdgeInsets.fromLTRB(24, 14, 24, 8),
+      content: SingleChildScrollView(
+        child: _OperationHoursDialogContent(operatingHours: operatingHours),
+      ),
+      actions: [
+        TextButton(
+          child: Text(close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+}
+
+class _OperationHoursDialogContent extends StatelessWidget {
+  final OperatingHours operatingHours;
+
+  const _OperationHoursDialogContent({required this.operatingHours});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (!_hasAnyHours(operatingHours.weekday) &&
+        !_hasAnyHours(operatingHours.weekend)) {
+      return Text(l10n.noOperationHours, textAlign: TextAlign.center);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _OperationHoursPeriodSection(
+          title: l10n.weekday,
+          period: operatingHours.weekday,
+        ),
+        SizedBox(height: 18),
+        _OperationHoursPeriodSection(
+          title: l10n.weekend,
+          period: operatingHours.weekend,
+        ),
+      ],
+    );
+  }
+}
+
+class _OperationHoursPeriodSection extends StatelessWidget {
+  final String title;
+  final OperatingHoursPeriod period;
+
+  const _OperationHoursPeriodSection({
+    required this.title,
+    required this.period,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
+    final theme = Theme.of(context);
+    final entries = Cafeteria.values
+        .map(
+          (cafeteria) => _OperationHoursCafeteriaEntry(
+            cafeteria: cafeteria,
+            period: period,
+          ),
+        )
+        .where((entry) => entry.hasHours)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        SizedBox(height: 8),
+        if (entries.isEmpty)
           Text(
-            l10n.operationHours,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+            l10n.noOperationHours,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
+          )
+        else
+          ...entries.expand(
+            (entry) => [entry, if (entry != entries.last) SizedBox(height: 10)],
           ),
-          SizedBox(height: 16),
-          FutureBuilder<AppInfo>(
-            future: infoFuture,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return const SizedBox.shrink();
-              }
-              if (!snapshot.hasData) {
-                return SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                );
-              }
-
-              final period = snapshot.data!.operatingHours.forDate(currentKstDate);
-              final entries = Cafeteria.values
-                  .map((cafeteria) {
-                    final hours = period.timesFor(cafeteria);
-                    if (hours.isEmpty) {
-                      return null;
-                    }
-                    return _OperationHoursEntry(
-                      name: _cafeteriaName(l10n, cafeteria),
-                      hours: hours.map((time) => time.label).toList(),
-                    );
-                  })
-                  .nonNulls
-                  .toList();
-
-              return Column(
-                children: [
-                  for (final (index, entry) in entries.indexed) ...[
-                    if (index > 0) SizedBox(height: 12),
-                    entry,
-                  ],
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _OperationHoursEntry extends StatelessWidget {
-  final String name;
-  final List<String> hours;
+class _OperationHoursCafeteriaEntry extends StatelessWidget {
+  final Cafeteria cafeteria;
+  final OperatingHoursPeriod period;
 
-  const _OperationHoursEntry({required this.name, required this.hours});
+  const _OperationHoursCafeteriaEntry({
+    required this.cafeteria,
+    required this.period,
+  });
+
+  bool get hasHours {
+    return MealOfDay.values.any((mealOfDay) {
+      return period.timeFor(cafeteria, mealOfDay) != null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final mealLabelStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    );
+    final timeStyle = theme.textTheme.bodyMedium?.copyWith(height: 1.4);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          name,
-          style: TextStyle(
-            fontSize: 15,
+          _cafeteriaName(l10n, cafeteria),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: Colors.white,
           ),
         ),
         SizedBox(height: 4),
-        ...hours.map(
-          (h) => Text(
-            h,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.white,
+        Center(
+          child: IntrinsicWidth(
+            child: Table(
+              columnWidths: const {
+                0: IntrinsicColumnWidth(),
+                1: FixedColumnWidth(20),
+                2: IntrinsicColumnWidth(),
+              },
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: [
+                for (final mealOfDay in MealOfDay.values)
+                  if (period.timeFor(cafeteria, mealOfDay) case final time?)
+                    TableRow(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.zero,
+                          child: Text(
+                            _mealOfDayName(l10n, mealOfDay),
+                            textAlign: TextAlign.end,
+                            style: mealLabelStyle,
+                          ),
+                        ),
+                        SizedBox(),
+                        Padding(
+                          padding: EdgeInsets.zero,
+                          child: Text(time.label, style: timeStyle),
+                        ),
+                      ],
+                    ),
+              ],
             ),
           ),
         ),
@@ -192,13 +281,8 @@ class _OperationHoursEntry extends StatelessWidget {
 
 class HomePageDrawer extends StatefulWidget {
   final Future<AppInfo>? infoFuture;
-  final DateTime? currentKstDate;
 
-  const HomePageDrawer({
-    super.key,
-    this.infoFuture,
-    this.currentKstDate,
-  });
+  const HomePageDrawer({super.key, this.infoFuture});
 
   @override
   State<HomePageDrawer> createState() => _HomePageDrawerState();
@@ -226,8 +310,6 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
     final l10n = AppLocalizations.of(context)!;
-    final currentKstDate =
-        widget.currentKstDate ?? DateTime.now().toUtc().add(const Duration(hours: 9));
 
     return Drawer(
       backgroundColor: brightness == Brightness.light
@@ -264,15 +346,17 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
               announcement ??= (await _infoFuture).announcement;
               if (announcement != null && rootContext.mounted) {
                 final dialogL10n = AppLocalizations.of(rootContext)!;
-                final languageCode =
-                    Localizations.localeOf(rootContext).languageCode;
+                final languageCode = Localizations.localeOf(
+                  rootContext,
+                ).languageCode;
                 showDialog(
                   context: rootContext,
                   barrierDismissible: false,
                   builder: (BuildContext context) {
                     return HomeAnnouncementDialog(
                       close: dialogL10n.close,
-                      title: announcement!.title?.textFor(languageCode) ??
+                      title:
+                          announcement!.title?.textFor(languageCode) ??
                           dialogL10n.announcement,
                       content: announcement.content.textFor(languageCode),
                     );
@@ -295,18 +379,51 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
             },
           ),
           _DrawerItem(
+            icon: Icons.access_time,
+            title: l10n.operationHours,
+            onTap: () async {
+              final rootNavigator = Navigator.of(context, rootNavigator: true);
+              final rootContext = rootNavigator.context;
+              Navigator.of(context).pop();
+              try {
+                final appInfo = await _infoFuture;
+                if (rootContext.mounted) {
+                  final dialogL10n = AppLocalizations.of(rootContext)!;
+                  showDialog(
+                    context: rootContext,
+                    barrierDismissible: false,
+                    builder: (BuildContext context) {
+                      return HomeOperationHoursDialog(
+                        close: dialogL10n.close,
+                        title: dialogL10n.operationHours,
+                        operatingHours: appInfo.operatingHours,
+                      );
+                    },
+                  );
+                }
+              } on Object {
+                if (rootContext.mounted) {
+                  final dialogL10n = AppLocalizations.of(rootContext)!;
+                  showDialog(
+                    context: rootContext,
+                    barrierDismissible: false,
+                    builder: (BuildContext context) {
+                      return HomeAnnouncementDialog(
+                        close: dialogL10n.close,
+                        title: dialogL10n.operationHours,
+                        content: dialogL10n.cannotLoadOperationHours,
+                      );
+                    },
+                  );
+                }
+              }
+            },
+          ),
+          _DrawerItem(
             icon: Icons.help_outline_outlined,
             title: l10n.contactDeveloper,
             onTap: () async =>
                 await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj")),
-          ),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            child: Divider(color: Colors.white54, height: 1),
-          ),
-          _OperationHoursSection(
-            infoFuture: _infoFuture,
-            currentKstDate: currentKstDate,
           ),
           const SafeArea(top: false, child: SizedBox(height: 12)),
         ],
@@ -321,4 +438,20 @@ String _cafeteriaName(AppLocalizations l10n, Cafeteria cafeteria) {
     Cafeteria.student => l10n.studentCafeteria,
     Cafeteria.faculty => l10n.facultyCafeteria,
   };
+}
+
+String _mealOfDayName(AppLocalizations l10n, MealOfDay mealOfDay) {
+  return switch (mealOfDay) {
+    MealOfDay.breakfast => l10n.breakfast,
+    MealOfDay.lunch => l10n.lunch,
+    MealOfDay.dinner => l10n.dinner,
+  };
+}
+
+bool _hasAnyHours(OperatingHoursPeriod period) {
+  return Cafeteria.values.any((cafeteria) {
+    return MealOfDay.values.any((mealOfDay) {
+      return period.timeFor(cafeteria, mealOfDay) != null;
+    });
+  });
 }

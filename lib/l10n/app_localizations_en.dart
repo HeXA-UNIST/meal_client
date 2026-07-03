@@ -27,6 +27,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get operationHours => 'Operation Hours';
 
   @override
+  String get weekday => 'Weekday';
+
+  @override
+  String get weekend => 'Weekend';
+
+  @override
+  String get cannotLoadOperationHours => 'Cannot load operation hours.';
+
+  @override
+  String get noOperationHours => 'No operation hours available.';
+
+  @override
   String get contactDeveloper => 'Contact Developer';
 
   @override
