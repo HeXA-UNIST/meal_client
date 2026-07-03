@@ -45,16 +45,15 @@ class MealOfDaySwitchButton extends StatelessWidget {
 }
 
 class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
-  DayOfWeekTabBar({
-    super.key,
-    required this.tabController,
-  });
+  DayOfWeekTabBar({super.key, required this.tabController});
 
   final TabController tabController;
 
   final _preferredSize = Size.fromHeight(46.0);
 
-  static const _overlayColor = WidgetStatePropertyAll<Color>(Colors.transparent);
+  static const _overlayColor = WidgetStatePropertyAll<Color>(
+    Colors.transparent,
+  );
 
   @override
   Size get preferredSize => _preferredSize;
@@ -176,12 +175,32 @@ String _getLocalizedDate(int month, int day, Locale locale) {
   final isKorean = locale.languageCode == 'ko';
 
   const engMonths = [
-    'Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.',
-    'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.',
+    'Jan.',
+    'Feb.',
+    'Mar.',
+    'Apr.',
+    'May',
+    'Jun.',
+    'Jul.',
+    'Aug.',
+    'Sep.',
+    'Oct.',
+    'Nov.',
+    'Dec.',
   ];
   const korMonths = [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
   ];
 
   if (month < 1 || month > 12) {

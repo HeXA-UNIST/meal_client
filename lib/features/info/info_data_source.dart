@@ -6,9 +6,7 @@ import 'package:meal_client/features/info/app_info.dart';
 
 typedef RawInfoFetcher = Future<String> Function(String url);
 
-Future<AppInfo> fetchAppInfo({
-  RawInfoFetcher fetch = fetchRawString,
-}) async {
+Future<AppInfo> fetchAppInfo({RawInfoFetcher fetch = fetchRawString}) async {
   final raw = await fetch(ApiConstants.infoEndpoint);
   return AppInfo.fromJson(jsonDecode(raw) as Map<String, dynamic>);
 }

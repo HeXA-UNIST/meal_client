@@ -51,10 +51,7 @@ void main() {
     });
 
     test('announcement가 null이면 공지 없음으로 파싱한다', () {
-      final info = AppInfo.fromJson({
-        ...infoJson,
-        'announcement': null,
-      });
+      final info = AppInfo.fromJson({...infoJson, 'announcement': null});
 
       expect(info.announcement, isNull);
     });
@@ -69,8 +66,10 @@ void main() {
         '08:00 - 09:20',
       );
       expect(
-        info.operatingHours.weekday
-            .timeFor(Cafeteria.student, MealOfDay.breakfast),
+        info.operatingHours.weekday.timeFor(
+          Cafeteria.student,
+          MealOfDay.breakfast,
+        ),
         isNull,
       );
       expect(
