@@ -72,22 +72,30 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// [time]이 null이면 해당 시간대 알림을 끈다.
+  /// [time]이 null이면 해당 시간대 알림을 끈다(마지막 선택 시각은 기억해 둔다).
   /// 그렇지 않으면 해당 시간대에 지정 시각으로 알림을 등록한다.
   void setPeriodAlertTime(MealAlertPeriod period, TimeOfDay? time) {
     final next = Map<MealAlertPeriod, TimeOfDay?>.from(_notification.alertTimes);
+    final remembered =
+        Map<MealAlertPeriod, TimeOfDay>.from(_notification.rememberedTimes);
     if (time == null) {
       next.remove(period);
     } else {
       next[period] = time;
+      remembered[period] = time;
     }
-    _notification = _notification.copyWith(alertTimes: next);
+    _notification =
+        _notification.copyWith(alertTimes: next, rememberedTimes: remembered);
 
     final key = '${StorageKeys.notificationPeriodTimePrefix}${period.name}';
     if (time == null) {
       _prefs.remove(key);
     } else {
       _prefs.setString(key, _formatTime(time));
+      _prefs.setString(
+        '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
+        _formatTime(time),
+      );
     }
     notifyListeners();
 
@@ -140,6 +148,8 @@ class AppSettings extends ChangeNotifier {
     _prefs.setStringList(StorageKeys.notificationKeywords, []);
     for (final period in MealAlertPeriod.values) {
       _prefs.remove('${StorageKeys.notificationPeriodTimePrefix}${period.name}');
+      _prefs.remove(
+          '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}');
     }
     _prefs.setStringList(
         StorageKeys.notificationCafeterias, [Cafeteria.dormitory.name]);
@@ -220,10 +230,26 @@ class AppSettings extends ChangeNotifier {
       }
     }
 
+    // 시간대별 "마지막 선택 시각" 로드. 꺼진 시간대라도 이전 선택을 복원하기 위함.
+    // 저장된 값이 없으면 현재 켜져 있는 시각으로 시드한다.
+    final remembered = <MealAlertPeriod, TimeOfDay>{};
+    for (final period in MealAlertPeriod.values) {
+      final key =
+          '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}';
+      final stored = p.getString(key);
+      final parsed = stored != null ? _parseTime(stored) : null;
+      if (parsed != null && _isWithinPeriodSlots(period, parsed)) {
+        remembered[period] = parsed;
+      } else if (alertTimes[period] != null) {
+        remembered[period] = alertTimes[period]!;
+      }
+    }
+
     return NotificationSettings(
       enabled: p.getBool(StorageKeys.notificationEnabled) ?? false,
       keywords: keywords,
       alertTimes: alertTimes,
+      rememberedTimes: remembered,
       cafeterias: cafeterias.isEmpty ? {Cafeteria.dormitory} : cafeterias,
     );
   }

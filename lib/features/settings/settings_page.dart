@@ -323,11 +323,9 @@ class _PeriodAlertCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final notification = context.watch<AppSettings>().notification;
-    final currentTime = notification.alertTimeOf(period);
-    final enabled = currentTime != null;
+    final enabled = notification.isPeriodEnabled(period);
+    final displayTime = notification.displayTimeOf(period);
     final theme = Theme.of(context);
-    final rangeText =
-        '${_formatTime(period.startTime)} ~ ${_formatTime(period.endTime)}';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
@@ -335,45 +333,46 @@ class _PeriodAlertCard extends StatelessWidget {
         margin: EdgeInsets.zero,
         elevation: 0,
         color: theme.colorScheme.surfaceContainerHighest,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SwitchListTile(
-              dense: true,
-              title: Text(_label(l10n)),
-              subtitle: Text(
-                enabled ? _formatTime(currentTime) : rangeText,
-                style: theme.textTheme.bodySmall,
-              ),
-              value: enabled,
-              onChanged: (v) {
-                final next = v ? period.defaultSlot : null;
-                context.read<AppSettings>().setPeriodAlertTime(period, next);
-              },
-            ),
-            if (enabled)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final slot in period.allSlots)
-                      ChoiceChip(
-                        label: Text(_formatTime(slot)),
-                        selected: slot.hour == currentTime.hour &&
-                            slot.minute == currentTime.minute,
-                        onSelected: (selected) {
-                          if (!selected) return;
-                          context
-                              .read<AppSettings>()
-                              .setPeriodAlertTime(period, slot);
-                        },
-                      ),
-                  ],
+        child: ListTile(
+          dense: true,
+          title: Text(_label(l10n)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButton<TimeOfDay>(
+                value: enabled ? displayTime : null,
+                underline: const SizedBox(),
+                disabledHint: Text(
+                  _formatTime(displayTime),
+                  style: TextStyle(color: theme.disabledColor),
                 ),
+                onChanged: enabled
+                    ? (slot) {
+                        if (slot == null) return;
+                        context
+                            .read<AppSettings>()
+                            .setPeriodAlertTime(period, slot);
+                      }
+                    : null,
+                items: [
+                  for (final slot in period.allSlots)
+                    DropdownMenuItem(
+                      value: slot,
+                      child: Text(_formatTime(slot)),
+                    ),
+                ],
               ),
-          ],
+              const SizedBox(width: 8),
+              Switch(
+                value: enabled,
+                onChanged: (v) {
+                  // 켤 때는 마지막으로 선택했던 시각(없으면 기본 슬롯)으로 복원한다.
+                  final next = v ? displayTime : null;
+                  context.read<AppSettings>().setPeriodAlertTime(period, next);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

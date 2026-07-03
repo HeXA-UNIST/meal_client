@@ -299,6 +299,34 @@ void main() {
       expect(settings.notification.activePeriods, isEmpty);
     });
 
+    test('시간대를 꺼도 마지막 선택 시각은 유지된다 (displayTime)', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      const picked = TimeOfDay(hour: 11, minute: 15);
+      settings.setPeriodAlertTime(MealAlertPeriod.lunch, picked);
+      // 끄면 alertTime은 사라지지만 displayTime은 이전 선택값 유지
+      settings.setPeriodAlertTime(MealAlertPeriod.lunch, null);
+      expect(settings.notification.isPeriodEnabled(MealAlertPeriod.lunch),
+          isFalse);
+      expect(settings.notification.displayTimeOf(MealAlertPeriod.lunch), picked);
+
+      // 재로드해도 기억값이 유지된다
+      final settings2 = AppSettings(prefs);
+      expect(settings2.notification.isPeriodEnabled(MealAlertPeriod.lunch),
+          isFalse);
+      expect(
+          settings2.notification.displayTimeOf(MealAlertPeriod.lunch), picked);
+    });
+
+    test('displayTime — 한 번도 설정 안 하면 기본 슬롯', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      expect(
+        settings.notification.displayTimeOf(MealAlertPeriod.lunch),
+        MealAlertPeriod.lunch.defaultSlot,
+      );
+    });
+
     test('로드: 유효하지 않은 슬롯은 무시', () async {
       SharedPreferences.setMockInitialValues({
         'settings_notification_period_time_lunch': '11:07', // 15분 슬롯 아님
