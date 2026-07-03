@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/announcement/announcement_service.dart';
+import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

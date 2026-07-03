@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:meal_client/features/announcement/announcement_service.dart';
+import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
