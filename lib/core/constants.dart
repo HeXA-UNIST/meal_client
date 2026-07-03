@@ -16,8 +16,13 @@ class StorageKeys {
   static const allergenIds = 'settings_allergen_ids';
   static const notificationEnabled = 'settings_notification_enabled';
   static const notificationKeywords = 'settings_notification_keywords';
-  static const notificationTime = 'settings_notification_time';
   static const notificationCafeterias = 'settings_notification_cafeterias';
+
+  /// 시간대별 알림 시각 저장 키 prefix.
+  /// 실제 키는 `${notificationPeriodTimePrefix}${period.name}` 형태로,
+  /// 값은 'HH:MM' 문자열. 키가 없으면 그 시간대는 꺼진 상태.
+  static const notificationPeriodTimePrefix =
+      'settings_notification_period_time_';
   static const widgetCafeteria = 'settings_widget_cafeteria';
   static const widgetMealOfDay = 'settings_widget_meal_of_day';
   static const themeMode = 'settings_theme_mode';

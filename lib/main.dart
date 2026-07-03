@@ -43,9 +43,10 @@ void main() async {
   await initNotifications();
   final settings = AppSettings(prefs);
 
-  // 앱 실생히 알림 재스케쥴(Work Manager 오류 해결용)
+  // 앱 시작 시 활성화된 시간대 알림을 모두 재스케줄한다.
+  // (백그라운드 워커가 다음 회차 등록에 실패하는 케이스에 대한 방어책)
   if (settings.notification.enabled) {
-    unawaited(scheduleKeywordNotification(settings.notification.alertTime));
+    unawaited(scheduleAllKeywordNotifications(settings.notification.alertTimes));
   }
 
   runApp(ChangeNotifierProvider.value(value: settings, child: const BapUApp()));

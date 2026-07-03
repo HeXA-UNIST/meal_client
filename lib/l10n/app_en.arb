@@ -44,6 +44,7 @@
   "notificationKeywordLabel": "Keyword",
   "notificationKeywordHint": "e.g. Chicken Cutlet",
   "notificationTimeLabel": "Notification Time",
+  "notificationPeriodNight": "Night (Tomorrow morning)",
   "notificationCafeteriasLabel": "Target Cafeterias",
   "widgetSettings": "Home Screen Widget",
   "widgetCafeteriaLabel": "Display Cafeteria",

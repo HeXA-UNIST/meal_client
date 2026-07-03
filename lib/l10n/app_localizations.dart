@@ -332,6 +332,12 @@ abstract class AppLocalizations {
   /// **'알림 시간'**
   String get notificationTimeLabel;
 
+  /// No description provided for @notificationPeriodNight.
+  ///
+  /// In ko, this message translates to:
+  /// **'밤 (내일 아침)'**
+  String get notificationPeriodNight;
+
   /// No description provided for @notificationCafeteriasLabel.
   ///
   /// In ko, this message translates to:

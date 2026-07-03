@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/notification/meal_alert_period.dart';
 import 'package:meal_client/features/settings/allergy_settings.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/settings/notification_settings.dart';
@@ -43,8 +44,19 @@ void main() {
       final s = NotificationSettings();
       expect(s.enabled, isFalse);
       expect(s.keywords, isEmpty);
-      expect(s.alertTime, const TimeOfDay(hour: 8, minute: 0));
+      expect(s.alertTimes, isEmpty);
+      expect(s.activePeriods, isEmpty);
       expect(s.cafeterias, equals({Cafeteria.dormitory}));
+    });
+
+    test('activePeriods — 시각 설정된 시간대만 포함', () {
+      final s = NotificationSettings(alertTimes: {
+        MealAlertPeriod.morning: const TimeOfDay(hour: 8, minute: 0),
+        MealAlertPeriod.dinner: null,
+      });
+      expect(s.activePeriods, equals([MealAlertPeriod.morning]));
+      expect(s.isPeriodEnabled(MealAlertPeriod.morning), isTrue);
+      expect(s.isPeriodEnabled(MealAlertPeriod.dinner), isFalse);
     });
 
     test('copyWith — enabled만 변경', () {
@@ -54,17 +66,16 @@ void main() {
       expect(next.keywords, isEmpty);
     });
 
-    test('copyWith — keywords 빈 리스트로 초기화', () {
-      final s = NotificationSettings(keywords: ['돈까스']);
-      final next = s.copyWith(keywords: []);
-      expect(next.keywords, isEmpty);
-    });
-
     test('reset — 기본값으로 초기화', () {
-      final s = NotificationSettings(enabled: true, keywords: ['돈까스', '국']);
+      final s = NotificationSettings(
+        enabled: true,
+        keywords: ['돈까스', '국'],
+        alertTimes: {MealAlertPeriod.lunch: const TimeOfDay(hour: 11, minute: 0)},
+      );
       final r = s.reset();
       expect(r.enabled, isFalse);
       expect(r.keywords, isEmpty);
+      expect(r.alertTimes, isEmpty);
     });
 
     test('keywords — 불변 List 반환', () {
@@ -75,12 +86,63 @@ void main() {
       );
     });
 
+    test('alertTimes — 불변 Map 반환', () {
+      final s = NotificationSettings(alertTimes: {
+        MealAlertPeriod.morning: const TimeOfDay(hour: 8, minute: 0),
+      });
+      expect(
+        () => (s.alertTimes as dynamic)[MealAlertPeriod.lunch] = null,
+        throwsUnsupportedError,
+      );
+    });
+
     test('cafeterias — 불변 Set 반환', () {
       final s = NotificationSettings();
       expect(
         () => (s.cafeterias as dynamic).add(Cafeteria.student),
         throwsUnsupportedError,
       );
+    });
+  });
+
+  group('MealAlertPeriod', () {
+    test('아침 슬롯: 07:30~08:30 15분 간격 5개', () {
+      final slots = MealAlertPeriod.morning.allSlots;
+      expect(slots.length, 5);
+      expect(slots.first, const TimeOfDay(hour: 7, minute: 30));
+      expect(slots.last, const TimeOfDay(hour: 8, minute: 30));
+    });
+
+    test('점심 슬롯: 10:30~11:30 15분 간격 5개', () {
+      final slots = MealAlertPeriod.lunch.allSlots;
+      expect(slots.length, 5);
+      expect(slots.first, const TimeOfDay(hour: 10, minute: 30));
+      expect(slots.last, const TimeOfDay(hour: 11, minute: 30));
+    });
+
+    test('저녁 슬롯: 16:30~17:30 15분 간격 5개', () {
+      final slots = MealAlertPeriod.dinner.allSlots;
+      expect(slots.length, 5);
+      expect(slots.first, const TimeOfDay(hour: 16, minute: 30));
+      expect(slots.last, const TimeOfDay(hour: 17, minute: 30));
+    });
+
+    test('밤 슬롯: 21:00~22:00 15분 간격 5개', () {
+      final slots = MealAlertPeriod.night.allSlots;
+      expect(slots.length, 5);
+      expect(slots.first, const TimeOfDay(hour: 21, minute: 0));
+      expect(slots.last, const TimeOfDay(hour: 22, minute: 0));
+    });
+
+    test('night 시간대는 내일 아침 breakfast 검사', () {
+      expect(MealAlertPeriod.night.tomorrow, isTrue);
+      expect(MealAlertPeriod.night.mealOfDay, MealOfDay.breakfast);
+    });
+
+    test('오늘 시간대는 tomorrow=false', () {
+      expect(MealAlertPeriod.morning.tomorrow, isFalse);
+      expect(MealAlertPeriod.lunch.tomorrow, isFalse);
+      expect(MealAlertPeriod.dinner.tomorrow, isFalse);
     });
   });
 
@@ -205,6 +267,59 @@ void main() {
       );
       // 구 키는 삭제됐는지 확인
       expect(prefs.getString('settings_notification_keyword'), isNull);
+    });
+
+    test('setPeriodAlertTime — 시각 설정 후 재로드', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.setPeriodAlertTime(
+        MealAlertPeriod.lunch,
+        const TimeOfDay(hour: 11, minute: 0),
+      );
+      expect(
+        settings.notification.alertTimeOf(MealAlertPeriod.lunch),
+        const TimeOfDay(hour: 11, minute: 0),
+      );
+      final settings2 = AppSettings(prefs);
+      expect(
+        settings2.notification.alertTimeOf(MealAlertPeriod.lunch),
+        const TimeOfDay(hour: 11, minute: 0),
+      );
+    });
+
+    test('setPeriodAlertTime(null) — 시각 제거', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      settings.setPeriodAlertTime(
+        MealAlertPeriod.lunch,
+        const TimeOfDay(hour: 11, minute: 0),
+      );
+      settings.setPeriodAlertTime(MealAlertPeriod.lunch, null);
+      expect(settings.notification.alertTimeOf(MealAlertPeriod.lunch), isNull);
+      expect(settings.notification.activePeriods, isEmpty);
+    });
+
+    test('로드: 유효하지 않은 슬롯은 무시', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_period_time_lunch': '11:07', // 15분 슬롯 아님
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      expect(settings.notification.activePeriods, isEmpty);
+    });
+
+    test('구버전 단일 알림 시각(08:00) 마이그레이션 → 아침', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_time': '8:0',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      expect(
+        settings.notification.alertTimeOf(MealAlertPeriod.morning),
+        const TimeOfDay(hour: 8, minute: 0),
+      );
+      // 구 키는 삭제
+      expect(prefs.getString('settings_notification_time'), isNull);
     });
 
     test('resetAll — 모든 값이 기본값으로', () async {

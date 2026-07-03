@@ -128,6 +128,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationTimeLabel => 'Notification Time';
 
   @override
+  String get notificationPeriodNight => 'Night (Tomorrow morning)';
+
+  @override
   String get notificationCafeteriasLabel => 'Target Cafeterias';
 
   @override

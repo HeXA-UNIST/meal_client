@@ -128,6 +128,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationTimeLabel => '알림 시간';
 
   @override
+  String get notificationPeriodNight => '밤 (내일 아침)';
+
+  @override
   String get notificationCafeteriasLabel => '알림 대상 식당';
 
   @override

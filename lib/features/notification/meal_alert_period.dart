@@ -1,0 +1,78 @@
+import 'package:flutter/material.dart' show TimeOfDay;
+
+import 'package:meal_client/domain/meal.dart';
+
+enum MealAlertPeriod {
+  morning(
+    startHour: 7, startMinute: 30,
+    endHour: 8, endMinute: 30,
+    mealOfDay: MealOfDay.breakfast, tomorrow: false,
+  ),
+  lunch(
+    startHour: 10, startMinute: 30,
+    endHour: 11, endMinute: 30,
+    mealOfDay: MealOfDay.lunch, tomorrow: false,
+  ),
+  dinner(
+    startHour: 16, startMinute: 30,
+    endHour: 17, endMinute: 30,
+    mealOfDay: MealOfDay.dinner, tomorrow: false,
+  ),
+  night(
+    startHour: 21, startMinute: 0,
+    endHour: 22, endMinute: 0,
+    mealOfDay: MealOfDay.breakfast, tomorrow: true,
+  );
+
+  const MealAlertPeriod({
+    required this.startHour,
+    required this.startMinute,
+    required this.endHour,
+    required this.endMinute,
+    required this.mealOfDay,
+    required this.tomorrow,
+  });
+
+  final int startHour;
+  final int startMinute;
+  final int endHour;
+  final int endMinute;
+
+  /// 이 시간대가 검사할 식사 시간대
+  final MealOfDay mealOfDay;
+
+  /// 오늘(false) 내일(true)
+  final bool tomorrow;
+
+  TimeOfDay get startTime => TimeOfDay(hour: startHour, minute: startMinute);
+  TimeOfDay get endTime => TimeOfDay(hour: endHour, minute: endMinute);
+
+  /// 슬롯 기본값: 각 범위의 중간 지점 (아침 8:00, 점심 11:00, 저녁 17:00, 밤 21:30)
+  TimeOfDay get defaultSlot {
+    final slots = allSlots;
+    return slots[slots.length ~/ 2];
+  }
+
+  /// 15분 단위 슬롯 목록. 시작·끝 포함.
+  List<TimeOfDay> get allSlots {
+    final result = <TimeOfDay>[];
+    var h = startHour;
+    var m = startMinute;
+    while (h < endHour || (h == endHour && m <= endMinute)) {
+      result.add(TimeOfDay(hour: h, minute: m));
+      m += 15;
+      if (m >= 60) {
+        h += m ~/ 60;
+        m %= 60;
+      }
+    }
+    return result;
+  }
+
+  static MealAlertPeriod? tryFromName(String name) {
+    for (final p in values) {
+      if (p.name == name) return p;
+    }
+    return null;
+  }
+}
