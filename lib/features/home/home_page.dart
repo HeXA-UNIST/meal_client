@@ -4,7 +4,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:meal_client/features/announcement/announcement_service.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
-import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'home_drawer.dart';
@@ -60,19 +59,21 @@ class _HomePageState extends State<HomePage>
 
   void _initializeDataLoading() {
     cachedMeal = getCachedMealData();
-    downloadedMeal = cachedMeal.then(
-      (cache) => fetchAndCacheMealData(),
-      onError: (e) => fetchAndCacheMealData(),
-    ).then((meal) {
+    downloadedMeal = cachedMeal
+        .then(
+          (cache) => fetchAndCacheMealData(),
+          onError: (e) => fetchAndCacheMealData(),
+        )
+        .then((meal) {
       updateHomeWidgets();
       return meal;
     }).catchError((e) {
-      assert(() {
-        debugPrint('[BapU] meal fetch failed: $e');
-        return true;
-      }());
-      throw e;
-    });
+          assert(() {
+            debugPrint('[BapU] meal fetch failed: $e');
+            return true;
+          }());
+          throw e;
+        });
   }
 
   void _initializeControllers() {
@@ -102,19 +103,21 @@ class _HomePageState extends State<HomePage>
   }
 
   void _checkAnnouncement() {
-    checkForNewAnnouncement().then((announcement) {
-      if (announcement != null && mounted) {
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _showAnnouncementDialog(announcement);
+    checkForNewAnnouncement(loadInfo: () => appInfo)
+        .then((announcement) {
+          if (announcement != null && mounted) {
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _showAnnouncementDialog(announcement);
+            });
+          }
+        })
+        .catchError((e) {
+          assert(() {
+            debugPrint('[BapU] announcement fetch failed: $e');
+            return true;
+          }());
         });
-      }
-    }).catchError((e) {
-      assert(() {
-        debugPrint('[BapU] announcement fetch failed: $e');
-        return true;
-      }());
-    });
   }
 
   @override

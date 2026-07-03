@@ -45,16 +45,15 @@ class MealOfDaySwitchButton extends StatelessWidget {
 }
 
 class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
-  DayOfWeekTabBar({
-    super.key,
-    required this.tabController,
-  });
+  DayOfWeekTabBar({super.key, required this.tabController});
 
   final TabController tabController;
 
   final _preferredSize = Size.fromHeight(46.0);
 
-  static const _overlayColor = WidgetStatePropertyAll<Color>(Colors.transparent);
+  static const _overlayColor = WidgetStatePropertyAll<Color>(
+    Colors.transparent,
+  );
 
   @override
   Size get preferredSize => _preferredSize;
@@ -73,9 +72,11 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
     return PreferredSize(
       preferredSize: _preferredSize,
       child: Container(
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(128.0),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(128),
+          ),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 8.0),
         padding: const EdgeInsets.all(4.0),
@@ -92,9 +93,11 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
           labelColor: colorScheme.onPrimaryContainer,
           unselectedLabelColor: unselectedLabelColor,
           indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(
+          indicator: ShapeDecoration(
             color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(128),
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(128),
+            ),
           ),
           labelStyle: theme.textTheme.titleSmall!.copyWith(
             fontSize: 16,
@@ -176,12 +179,32 @@ String _getLocalizedDate(int month, int day, Locale locale) {
   final isKorean = locale.languageCode == 'ko';
 
   const engMonths = [
-    'Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.',
-    'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.',
+    'Jan.',
+    'Feb.',
+    'Mar.',
+    'Apr.',
+    'May',
+    'Jun.',
+    'Jul.',
+    'Aug.',
+    'Sep.',
+    'Oct.',
+    'Nov.',
+    'Dec.',
   ];
   const korMonths = [
-    '1월', '2월', '3월', '4월', '5월', '6월',
-    '7월', '8월', '9월', '10월', '11월', '12월',
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
   ];
 
   if (month < 1 || month > 12) {
