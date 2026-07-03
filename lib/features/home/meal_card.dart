@@ -128,7 +128,7 @@ class MealCard extends StatelessWidget {
                             "${meal.kcal} kcal",
                             style: theme.textTheme.labelMedium!.copyWith(
                               fontSize: 11,
-                              letterSpacing: 0
+                              letterSpacing: 0,
                             ),
                           ),
                   ],

@@ -17,10 +17,7 @@ class NestedPageScrollController extends PageController {
     super.onAttach,
     super.onDetach,
     required this.pageCount,
-  }) : _reverseList = List.generate(
-         pageCount,
-         (page) => page < initialPage,
-       );
+  }) : _reverseList = List.generate(pageCount, (page) => page < initialPage);
 
   bool pageReversed(int page) => _reverseList[page];
 
