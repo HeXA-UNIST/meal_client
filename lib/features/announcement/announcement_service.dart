@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/info/app_info.dart';
-import 'package:meal_client/features/info/info_service.dart';
+import 'package:meal_client/features/info/info_data_source.dart';
 
 Future<AppAnnouncement?> checkForNewAnnouncement({
   Future<AppInfo> Function() loadInfo = fetchAppInfo,
