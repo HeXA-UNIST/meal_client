@@ -6,8 +6,31 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences  // getWidgetConfigPrefs 에서 사용
 import android.util.TypedValue
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.RemoteViews
+import android.widget.TextView
 import java.util.Calendar
+
+/** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
+const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
+
+/**
+ * AppWidgetManager의 MIN/MAX WIDTH·HEIGHT 옵션(dp)으로 계산한 픽셀 크기가 실제 위젯
+ * 호스트(런처)가 그리는 크기보다 클 수 있다. 실기기(Samsung One UI)에서 확인한 결과,
+ * 계산값이 실제 AppWidgetHostView 크기보다 가로·세로 모두 정확히 0.833배 크게 나옴
+ * (예: 계산 528×636px, 실제 440×530px — uiautomator dump로 확인). 기기별 이런 차이를
+ * 정확히 알 방법이 없으므로, 실측 판정에 쓰는 크기는 보수적으로 줄여서 실제보다 크다고
+ * 착각해 겹침을 놓치는 일이 없게 한다.
+ *
+ * 실측값(0.833)에 딱 맞추면 항목이 너무 적게 보인다는 피드백에 따라 0.9로 완화함 — 실측값보다
+ * 커서 이론상 항목이 폭 넓게 잘리는(=겹치는) 경계 상황에서 다시 겹칠 여지가 아주 약간 있지만,
+ * 그 정도는 감수하고 더 많은 항목을 보여주는 쪽을 선택함.
+ */
+private const val WIDGET_HOST_SIZE_SAFETY_FACTOR = 0.9f
+
+/** 실측(fit 판정)에 쓸 안전한 픽셀 크기로 보정한다. */
+fun safeMeasureSizePx(px: Int): Int = (px * WIDGET_HOST_SIZE_SAFETY_FACTOR).toInt()
 
 // 위젯 인스턴스별 설정 저장용
 private const val WIDGET_CONFIG_PREFS = "bapu_widget_config"
@@ -35,38 +58,92 @@ fun getWidgetConfigPrefs(context: Context): SharedPreferences =
     context.getSharedPreferences(WIDGET_CONFIG_PREFS, Context.MODE_PRIVATE)
 
 /**
- * 표시할 최대 물리 줄 수([maxLines])로 자른다. 넘치면 마지막 줄에 "..." 추가.
- * [charsPerLine]이 지정되면 각 항목이 몇 줄을 차지하는지 추정해 물리 줄 수로 계산한다.
- * Int.MAX_VALUE(기본값)이면 항목당 1줄로 가정한다.
+ * [layoutResId] 위젯 레이아웃을 오프스크린으로 inflate & measure 해서, [menuViewId] TextView가
+ * 후보 텍스트를 실제로 필요한 만큼 그리려면 배정된 높이를 넘는지(=화면에서 다른 뷰와 겹치게
+ * 되는지) 직접 확인한다. 항목을 하나씩 채워보다가 넘치는 시점에 "..."으로 대체하고, 그것도
+ * 안 들어가면 마지막으로 채운 항목을 통째로 "..."으로 교체한다.
+ *
+ * StaticLayout으로 직접 폭 추정하는 대신 실제 레이아웃을 그대로 inflate하는 이유: 이 앱의
+ * 커스텀 폰트를 `ResourcesCompat.getFont()`로 직접 불러오면 일부 기기에서 스레드와 무관하게
+ * 예외가 나는데, `LayoutInflater`를 통한 정상적인 inflate는 같은 폰트를 문제없이 해석한다.
+ * 그래서 실제 폰트/줄바꿈/여백을 전부 안드로이드의 실제 레이아웃 계산에 맡긴다.
+ *
+ * @param setup 헤더/운영상태/텍스트 크기 등 메뉴를 뺀 나머지를 채우는 콜백. 후보마다 새로
+ *              inflate 하므로 매번 호출된다.
  */
-fun truncateMenu(items: List<String>, maxLines: Int = 6, charsPerLine: Int = Int.MAX_VALUE): String {
+fun truncateMenuByRealLayout(
+    context: Context,
+    layoutResId: Int,
+    menuViewId: Int,
+    widthPx: Int,
+    heightPx: Int,
+    items: List<String>,
+    setup: (root: View) -> Unit
+): String {
     val filtered = items.filter { it.isNotEmpty() }
     if (filtered.isEmpty()) return "-"
-    var used = 0
-    val result = mutableListOf<String>()
-    for (item in filtered) {
-        val physLines = if (charsPerLine < Int.MAX_VALUE)
-            ((item.length - 1) / charsPerLine) + 1
-        else 1
-        if (used + physLines > maxLines) {
-            if (used < maxLines) result.add("...")
-            break
-        }
-        result.add(item)
-        used += physLines
+
+    fun fits(text: String): Boolean {
+        val root = LayoutInflater.from(context).inflate(layoutResId, null)
+        setup(root)
+        val menuView = root.findViewById<TextView>(menuViewId)
+        menuView.maxLines = WIDGET_MENU_MAX_LINES_SAFETY_CAP
+        menuView.text = text
+
+        // 1단계: 실제 위젯 크기로 전체 레이아웃을 측정해서 tv_menu에 배정되는 높이를 구한다.
+        root.measure(
+            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+        )
+        val assignedHeight = menuView.measuredHeight
+        val menuWidthSpec = View.MeasureSpec.makeMeasureSpec(menuView.measuredWidth, View.MeasureSpec.EXACTLY)
+
+        // 2단계: 폭/높이 둘 다 EXACTLY로 측정하면 TextView가 내용 기반 계산을 건너뛰어
+        // getLayout()이 비어있을 수 있다. 같은 텍스트/폭으로 menuView만 높이 제한 없이
+        // 다시 측정해서 실제로 필요한 높이를 직접 얻는다.
+        menuView.measure(menuWidthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        val neededHeight = menuView.measuredHeight
+
+        return neededHeight <= assignedHeight
     }
-    return if (result.isEmpty()) "-" else result.joinToString("\n")
+
+    val accepted = mutableListOf<String>()
+    for (item in filtered) {
+        val candidate = accepted + item
+        if (fits(candidate.joinToString("\n"))) {
+            accepted.add(item)
+            continue
+        }
+        val withEllipsis = accepted + "..."
+        return when {
+            fits(withEllipsis.joinToString("\n")) -> withEllipsis.joinToString("\n")
+            accepted.isNotEmpty() -> (accepted.dropLast(1) + "...").joinToString("\n")
+            else -> "..."
+        }
+    }
+    return accepted.joinToString("\n")
 }
 
 /**
  * 메뉴를 두 열로 나눈다. 첫 열: 앞 절반, 둘째 열: 나머지.
- * 각 열 독립적으로 [maxLines] 물리 줄을 넘으면 별도 줄로 "..." 추가.
+ * 두 열 모두 같은 오프스크린 레이아웃 안에서 독립적으로 [truncateMenuByRealLayout]을 적용한다.
  */
-fun splitMenuTwoColumns(items: List<String>, maxLines: Int = 6, charsPerLine: Int = Int.MAX_VALUE): Pair<String, String> {
+fun splitMenuTwoColumnsByRealLayout(
+    context: Context,
+    layoutResId: Int,
+    leftMenuViewId: Int,
+    rightMenuViewId: Int,
+    widthPx: Int,
+    heightPx: Int,
+    items: List<String>,
+    setup: (root: View) -> Unit
+): Pair<String, String> {
     if (items.isEmpty()) return Pair("-", "")
     val half  = (items.size + 1) / 2
-    val left  = truncateMenu(items.take(half), maxLines, charsPerLine)
-    val right = items.drop(half).let { if (it.isEmpty()) "" else truncateMenu(it, maxLines, charsPerLine) }
+    val left  = truncateMenuByRealLayout(context, layoutResId, leftMenuViewId, widthPx, heightPx, items.take(half), setup)
+    val right = items.drop(half).let {
+        if (it.isEmpty()) "" else truncateMenuByRealLayout(context, layoutResId, rightMenuViewId, widthPx, heightPx, it, setup)
+    }
     return Pair(left, right)
 }
 
@@ -227,15 +304,6 @@ fun calcPanelWidthDp(widthDp: Int, columns: Int = 1): Int =
     (widthDp - 28 - 24 * (columns - 1)) / columns
 
 /**
- * 패널 너비와 텍스트 크기로 한 줄에 들어갈 한글 글자 수를 추정한다.
- * 한글 자모는 약 0.9em 기준으로 계산 (보수적 추정으로 오버플로 방지).
- */
-fun calcCharsPerLine(panelWidthDp: Int, textSp: Float, fontScale: Float): Int {
-    val charWidthDp = textSp * fontScale * 0.9f
-    return (panelWidthDp / charWidthDp).toInt().coerceAtLeast(4)
-}
-
-/**
  * 패널 너비(dp)에 따라 메뉴 텍스트 크기(sp)를 결정한다.
  *   ≥ 100dp → 14sp  (표준 이상 크기)
  *   ≥  70dp → 13sp  (소형 셀)
@@ -256,29 +324,9 @@ fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float {
 /** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (메뉴보다 2sp 작게, 최소 8sp). */
 fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 2f).coerceAtLeast(8f)
 
-/**
- * 패널 높이와 텍스트 크기를 기반으로 칼로리 바 위까지 들어갈 최대 메뉴 줄 수를 계산한다.
- *
- * sp 값은 화면 렌더링 시 [fontScale] 이 곱해진 dp 로 표시되므로 폰트 스케일을 반영해야
- * 운영상태와 겹치지 않는 정확한 줄 수를 구할 수 있다.
- *
- * @param panelHeightDp  패널 하나의 높이(dp). 루트 패딩(28dp)·행 갭은 호출 측에서 차감 후 전달.
- * @param menuSp         메뉴 텍스트 크기(sp)
- * @param fontScale      시스템 폰트 스케일 (context.resources.configuration.fontScale)
- */
-fun calcMaxMenuLines(panelHeightDp: Int, menuSp: Float, fontScale: Float = 1f): Int {
-    val statusSp = calcStatusTextSp(menuSp)
-    // sp → 실제 렌더 dp 변환
-    val headerDp  = menuSp * fontScale
-    val statusDp  = statusSp * fontScale
-    // 고정 영역: 헤더(1줄) + 상단마진(6) + 하단마진(2) + 운영상태(1줄)
-    val fixedDp   = headerDp + 6f + 2f + statusDp
-    val available = panelHeightDp.toFloat() - fixedDp
-    if (available <= 0f) return 3
-    // 줄 높이 = (textSize + lineSpacingExtra 3sp) × fontScale
-    val lineHeightDp = (menuSp + 3f) * fontScale
-    return (available / lineHeightDp).toInt().coerceIn(3, 10)
-}
+/** dp 값을 현재 기기의 실제 px 로 변환한다. */
+fun dpToPx(context: Context, dp: Float): Float =
+    TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.resources.displayMetrics)
 
 /**
  * RemoteViews 에 메뉴/kcal 텍스트 크기를 일괄 적용한다.
@@ -294,10 +342,14 @@ fun RemoteViews.applyTextSizes(
     for (id in headerIds) setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, menuSp)
 }
 
-/** cafeteria/mealOfDay 기준 운영 상태를 tvStatus 뷰에 적용한다. */
-fun RemoteViews.applyOperatingStatus(context: Context, tvStatus: Int, cafeteria: Int, mealOfDay: Int) {
+/**
+ * cafeteria/mealOfDay 기준 운영 상태의 (색상, 표시 문구)를 반환한다.
+ * 메뉴에 실제로 쓸 수 있는 높이를 계산할 때도 이 문구를 그대로 실측에 사용해야 하므로
+ * RemoteViews 에 바로 적용하지 않고 별도 함수로 분리되어 있다.
+ */
+fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pair<Int, String> {
     val result = getOperatingStatus(cafeteria, mealOfDay)
-    val (color, text) = when (result.status) {
+    return when (result.status) {
         OperatingStatus.BEFORE_OPEN  -> Pair(
             context.getColor(R.color.widget_status_before),
             context.getString(R.string.status_before_open)
@@ -315,8 +367,6 @@ fun RemoteViews.applyOperatingStatus(context: Context, tvStatus: Int, cafeteria:
             context.getString(R.string.status_just_closed)
         )
     }
-    setTextViewText(tvStatus, text)
-    setTextColor(tvStatus, color)
 }
 
 /** 위젯을 탭하면 앱을 실행하는 PendingIntent 를 만든다. */

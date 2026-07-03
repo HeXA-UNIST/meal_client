@@ -3,7 +3,10 @@ package pro.hexa.meal.meal_client
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.util.Log
+import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
+import android.widget.TextView
 
 class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
 
@@ -23,30 +26,26 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
             val mealOfDay = data?.mealOfDay ?: currentMealOfDay()
             val mealLabel = context.getString(mealOfDayResId(mealOfDay))
 
-            val widthDp      = widgetWidthDp(manager, widgetId)
-            val heightDp     = widgetHeightDp(manager, widgetId)
-            val panelWidthDp = calcPanelWidthDp(widthDp, columns = 2)
-            val menuSp       = calcMenuTextSp(widthDp, columns = 2)
-            val statusSp     = calcStatusTextSp(menuSp)
-            val fontScale    = context.resources.configuration.fontScale
-            // 4×4는 상하 2행: 패널 높이 = (전체 - 패딩28 - 행간갭24) / 2
-            val panelH       = (heightDp - 28 - 24) / 2
-            val maxLines     = calcMaxMenuLines(panelH, menuSp, fontScale)
-            val charsPerLine = calcCharsPerLine(panelWidthDp, menuSp, fontScale)
+            val widthDp  = widgetWidthDp(manager, widgetId)
+            val heightDp = widgetHeightDp(manager, widgetId)
+            val menuSp   = calcMenuTextSp(widthDp, columns = 2)
+            val statusSp = calcStatusTextSp(menuSp)
+            val widthPx  = safeMeasureSizePx(dpToPx(context, widthDp.toFloat()).toInt())
+            val heightPx = safeMeasureSizePx(dpToPx(context, heightDp.toFloat()).toInt())
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_DORM_KOREAN, maxLines, charsPerLine,
+            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_DORM_KOREAN, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_dorm_korean, tvMeal = R.id.tv_meal_dorm_korean,
                 tvMenu = R.id.tv_menu_dorm_korean, tvStatus = R.id.tv_status_dorm_korean)
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_DORM_HALAL, maxLines, charsPerLine,
+            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_DORM_HALAL, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_dorm_halal, tvMeal = R.id.tv_meal_dorm_halal,
                 tvMenu = R.id.tv_menu_dorm_halal, tvStatus = R.id.tv_status_dorm_halal)
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_STUDENT, maxLines, charsPerLine,
+            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_STUDENT, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_student, tvMeal = R.id.tv_meal_student,
                 tvMenu = R.id.tv_menu_student, tvStatus = R.id.tv_status_student)
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_FACULTY, maxLines, charsPerLine,
+            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_FACULTY, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_faculty, tvMeal = R.id.tv_meal_faculty,
                 tvMenu = R.id.tv_menu_faculty, tvStatus = R.id.tv_status_faculty)
 
@@ -54,7 +53,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
                 R.id.tv_menu_dorm_korean, R.id.tv_menu_dorm_halal,
                 R.id.tv_menu_student,     R.id.tv_menu_faculty
             )
-            for (id in menuIds) views.setInt(id, "setMaxLines", maxLines)
+            for (id in menuIds) views.setInt(id, "setMaxLines", WIDGET_MENU_MAX_LINES_SAFETY_CAP)
 
             views.applyTextSizes(
                 menuSp, menuIds,
@@ -81,15 +80,41 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
             mealLabel: String,
             mealOfDay: Int,
             cafeteria: Int,
-            maxLines: Int,
-            charsPerLine: Int,
+            widthPx: Int,
+            heightPx: Int,
+            menuSp: Float,
+            statusSp: Float,
             tvName: Int, tvMeal: Int, tvMenu: Int, tvStatus: Int
         ) {
-            views.setTextViewText(tvName, context.getString(cafeteriaNameResId(cafeteria)))
+            val cafeteriaName = context.getString(cafeteriaNameResId(cafeteria))
+            views.setTextViewText(tvName, cafeteriaName)
             views.setTextViewText(tvMeal, mealLabel)
-            views.setTextViewText(tvMenu,
-                truncateMenu(if (data != null) menuFromData(data, cafeteria) else emptyList(), maxLines, charsPerLine))
-            views.applyOperatingStatus(context, tvStatus, cafeteria, mealOfDay)
+
+            val (statusColor, statusText) = operatingStatusDisplay(context, cafeteria, mealOfDay)
+
+            fun setup(root: View) {
+                root.findViewById<TextView>(tvName).apply {
+                    text = cafeteriaName
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
+                }
+                root.findViewById<TextView>(tvMeal).apply {
+                    text = mealLabel
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
+                }
+                root.findViewById<TextView>(tvStatus).apply {
+                    text = statusText
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, statusSp)
+                }
+            }
+
+            val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
+            val menuText = truncateMenuByRealLayout(
+                context, R.layout.widget_4x4, tvMenu, widthPx, heightPx, items, ::setup
+            )
+            views.setTextViewText(tvMenu, menuText)
+
+            views.setTextViewText(tvStatus, statusText)
+            views.setTextColor(tvStatus, statusColor)
         }
     }
 }

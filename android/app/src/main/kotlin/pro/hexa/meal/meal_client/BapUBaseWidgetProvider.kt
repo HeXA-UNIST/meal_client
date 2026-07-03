@@ -36,6 +36,9 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                     try { performUpdate(context, appWidgetManager, id, data) }
                     catch (e: Exception) { Log.e(TAG, "update failed id=$id", e) }
                 }
+                // onEnabled는 위젯이 처음 추가될 때만 불리므로, 앱 업데이트로 재설치된 경우
+                // 기존 위젯의 예약 호출 체인이 안 걸려있을 수 있다. 여기서도 매번 보정해준다.
+                BapUWidgetScheduleManager.scheduleNext(context)
             } finally {
                 pending.finish()
             }
@@ -61,9 +64,13 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         BapUWidgetUpdateWorker.schedule(context)
+        BapUWidgetScheduleManager.scheduleNext(context)
     }
 
     override fun onDisabled(context: Context) {
-        if (!BapUWidgetUpdateWorker.hasAnyWidget(context)) BapUWidgetUpdateWorker.cancel(context)
+        if (!BapUWidgetUpdateWorker.hasAnyWidget(context)) {
+            BapUWidgetUpdateWorker.cancel(context)
+            BapUWidgetScheduleManager.cancel(context)
+        }
     }
 }

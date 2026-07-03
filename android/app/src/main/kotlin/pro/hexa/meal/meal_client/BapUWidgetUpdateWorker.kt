@@ -22,16 +22,9 @@ class BapUWidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ct
         // 캐시도 없고 네트워크도 실패한 경우 재시도 요청
         if (data == null) return Result.retry()
 
-        fun updateAll(cls: Class<*>, fn: (Int) -> Unit) {
-            for (id in manager.getAppWidgetIds(ComponentName(ctx, cls))) {
-                try { fn(id) } catch (e: Exception) { Log.e(TAG, "update failed id=$id", e) }
-            }
-        }
-
-        updateAll(BapUWidget2x2Provider::class.java)       { BapUWidget2x2Provider.updateWidget(ctx, manager, it, data) }
-        updateAll(BapUWidget4x2DualProvider::class.java)   { BapUWidget4x2DualProvider.updateWidget(ctx, manager, it, data) }
-        updateAll(BapUWidget4x2StatusProvider::class.java) { BapUWidget4x2StatusProvider.updateWidget(ctx, manager, it, data) }
-        updateAll(BapUWidget4x4Provider::class.java)       { BapUWidget4x4Provider.updateWidget(ctx, manager, it, data) }
+        updateAllWidgets(ctx, manager, data)
+        // 운영시간 경계 호출 예약이 어떤 이유로든 끊겼을 경우를 대비한 재동기화(안전장치).
+        BapUWidgetScheduleManager.scheduleNext(ctx)
 
         return Result.success()
     }
@@ -39,6 +32,20 @@ class BapUWidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ct
     companion object {
         private const val TAG = "BapUWidgetUpdateWorker"
         private const val WORK_NAME = "bapu_widget_periodic_update"
+
+        /** 4개 위젯 종류 전부에 대해 현재 등록된 인스턴스를 갱신한다. */
+        fun updateAllWidgets(context: Context, manager: AppWidgetManager, data: WidgetMealData?) {
+            fun updateAll(cls: Class<*>, fn: (Int) -> Unit) {
+                for (id in manager.getAppWidgetIds(ComponentName(context, cls))) {
+                    try { fn(id) } catch (e: Exception) { Log.e(TAG, "update failed id=$id", e) }
+                }
+            }
+
+            updateAll(BapUWidget2x2Provider::class.java)       { BapUWidget2x2Provider.updateWidget(context, manager, it, data) }
+            updateAll(BapUWidget4x2DualProvider::class.java)   { BapUWidget4x2DualProvider.updateWidget(context, manager, it, data) }
+            updateAll(BapUWidget4x2StatusProvider::class.java) { BapUWidget4x2StatusProvider.updateWidget(context, manager, it, data) }
+            updateAll(BapUWidget4x4Provider::class.java)       { BapUWidget4x4Provider.updateWidget(context, manager, it, data) }
+        }
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context)
