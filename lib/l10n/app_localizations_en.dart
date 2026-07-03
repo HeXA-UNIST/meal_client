@@ -18,7 +18,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get announcement => 'Announcement';
 
   @override
-  String get noAnnouncement => 'There\'s no announcement.';
+  String get noAnnouncement => 'There is no announcement.';
 
   @override
   String get cannotLoadAnnouncement => 'Cannot load announcement.';
