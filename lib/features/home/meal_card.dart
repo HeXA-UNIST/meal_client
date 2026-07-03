@@ -3,10 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:meal_client/domain/meal.dart';
 
 class MealCard extends StatelessWidget {
-  const MealCard({super.key, required this.title, required this.meal});
+  const MealCard({
+    super.key,
+    required this.title,
+    required this.meal,
+    this.operatingTimeLabel,
+    this.isOperating = false,
+  });
 
   final String title;
   final Meal meal;
+  final String? operatingTimeLabel;
+  final bool isOperating;
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +25,16 @@ class MealCard extends StatelessWidget {
     final isLight = theme.brightness == Brightness.light;
     final menuTextStyle = theme.textTheme.bodyMedium!.copyWith(height: 1.1);
     final menuLineGap = (menuTextStyle.fontSize ?? 14.0) * 0.65;
+    final operatingTimeColor = isOperating
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outline;
+    final operatingTimeStyle = theme.textTheme.labelMedium!.copyWith(
+      color: operatingTimeColor,
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+      height: 1,
+    );
 
     final menuWidgets = <Widget>[];
     for (final menuItem in meal.menu) {
@@ -60,7 +78,7 @@ class MealCard extends StatelessWidget {
                         .withSaturation(0.8)
                         .withLightness(isLight ? 0.3 : 0.7)
                         .toColor(),
-                    fontWeight: FontWeight.w600
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -71,19 +89,51 @@ class MealCard extends StatelessWidget {
           const SizedBox(height: 8),
           Flexible(
             child: Align(
-              alignment: Alignment.bottomRight,
+              alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 4,
                 ),
-                child: meal.kcal == null
-                    ? const SizedBox()
-                    : Text(
-                        "${meal.kcal} kcal",
-                        style: theme.textTheme.labelMedium!.copyWith(
-                            fontSize: 11.5, letterSpacing: 0.1),
-                      ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: operatingTimeLabel == null
+                          ? const SizedBox()
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.access_time,
+                                  size: 14,
+                                  color: operatingTimeColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    operatingTimeLabel!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: operatingTimeStyle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                    if (meal.kcal != null) const SizedBox(width: 8),
+                    meal.kcal == null
+                        ? const SizedBox()
+                        : Text(
+                            "${meal.kcal} kcal",
+                            style: theme.textTheme.labelMedium!.copyWith(
+                              fontSize: 11.5,
+                              letterSpacing: 0.1,
+                              height: 1,
+                            ),
+                          ),
+                  ],
+                ),
               ),
             ),
           ),

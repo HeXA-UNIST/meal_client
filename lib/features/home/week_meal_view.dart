@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/info/app_info.dart';
 import 'meal_card.dart';
 import 'nested_page_scroll.dart';
 
@@ -19,6 +20,9 @@ class WeekMealTabBarView extends StatelessWidget {
     required this.pageControllerGroup,
     required this.pageCount,
     required this.onPageChanged,
+    required this.appInfo,
+    required this.mondayOfWeek,
+    this.currentKstDateTime,
   });
 
   final WeekMeal weekMeal;
@@ -26,6 +30,9 @@ class WeekMealTabBarView extends StatelessWidget {
   final NestedPageScrollControllerGroup pageControllerGroup;
   final int pageCount;
   final void Function(int) onPageChanged;
+  final Future<AppInfo> appInfo;
+  final DateTime mondayOfWeek;
+  final DateTime? currentKstDateTime;
 
   @override
   Widget build(BuildContext context) {
@@ -41,136 +48,162 @@ class WeekMealTabBarView extends StatelessWidget {
             final nowMeal = weekMeal
                 .fromDayOfWeek(DayOfWeek.values[tabIndex])
                 .fromMealOfDay(MealOfDay.values[pageIndex]);
-            return SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final cards = Cafeteria.values
-                      .map<Iterable<Widget>>(
-                        (cafeteria) {
-                          final meals = nowMeal.fromCafeteria(cafeteria);
-                          return meals.map((meal) {
-                            var title = switch (cafeteria) {
-                              Cafeteria.dormitory => l10n.dormitoryCafeteria,
-                              Cafeteria.student   => l10n.studentCafeteria,
-                              Cafeteria.faculty   => l10n.facultyCafeteria,
-                            };
-
-                            // 한식, 할랄 표기는 기숙사 식당에 한정하여 표기한다.
-                            if (cafeteria == Cafeteria.dormitory) {
-                              title += switch (meal) {
-                                KoreanMeal _ => " ${l10n.menuKorean}",
-                                HalalMeal _ => " ${l10n.menuHalal}",
-                                _ => "",
+            final targetDate = DateUtils.dateOnly(
+              mondayOfWeek,
+            ).add(Duration(days: tabIndex));
+            return FutureBuilder<AppInfo>(
+              future: appInfo,
+              builder: (context, infoSnapshot) {
+                return SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cards = Cafeteria.values
+                          .map<Iterable<Widget>>((cafeteria) {
+                            final meals = nowMeal.fromCafeteria(cafeteria);
+                            return meals.map((meal) {
+                              var title = switch (cafeteria) {
+                                Cafeteria.dormitory => l10n.dormitoryCafeteria,
+                                Cafeteria.student => l10n.studentCafeteria,
+                                Cafeteria.faculty => l10n.facultyCafeteria,
                               };
-                            }
 
-                            return GestureDetector(
-                              onLongPress: () {
-                                // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
-                                // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
-                                if (!kIsWeb) {
-                                  HapticFeedback.lightImpact();
-                                  SharePlus.instance.share(
-                                    ShareParams(
-                                      text:
-                                      "[$title]\n${meal.menu.map((
-                                          aMenu) => "- $aMenu").join(
-                                          "\n")}${meal.kcal == null
-                                          ? ""
-                                          : "\n\n${meal.kcal} kcal"}",
-                                    ),
+                              // 한식, 할랄 표기는 기숙사 식당에 한정하여 표기한다.
+                              if (cafeteria == Cafeteria.dormitory) {
+                                title += switch (meal) {
+                                  KoreanMeal _ => " ${l10n.menuKorean}",
+                                  HalalMeal _ => " ${l10n.menuHalal}",
+                                  _ => "",
+                                };
+                              }
+
+                              final operatingTime = infoSnapshot
+                                  .data
+                                  ?.operatingHours
+                                  .forDate(targetDate)
+                                  .timeFor(
+                                    cafeteria,
+                                    MealOfDay.values[pageIndex],
                                   );
-                                }
-                              },
-                              child: MealCard(title: title, meal: meal),
-                            );
-                          });
-                        },
-                      )
-                      .expand((e) => e)
-                      .toList(growable: true);
+                              final now =
+                                  currentKstDateTime ??
+                                  DateTime.now().toUtc().add(
+                                    const Duration(hours: 9),
+                                  );
+                              final isOperating =
+                                  operatingTime != null &&
+                                  DateUtils.isSameDay(targetDate, now) &&
+                                  operatingTime.contains(now);
 
-                  if (cards.isEmpty) {
-                    return Center(
-                      child: Text(
-                        l10n.noMeal,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    );
-                  }
+                              return GestureDetector(
+                                onLongPress: () {
+                                  // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
+                                  // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
+                                  if (!kIsWeb) {
+                                    HapticFeedback.lightImpact();
+                                    SharePlus.instance.share(
+                                      ShareParams(
+                                        text:
+                                            "[$title]\n${meal.menu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: MealCard(
+                                  title: title,
+                                  meal: meal,
+                                  operatingTimeLabel: operatingTime?.label,
+                                  isOperating: isOperating,
+                                ),
+                              );
+                            });
+                          })
+                          .expand((e) => e)
+                          .toList(growable: true);
 
-                  final double cardWidth;
-                  final int columns;
-                  final int leftFill;
-                  {
-                    var divided = (constraints.maxWidth / _cardMaxWidth)
-                        .toInt();
-                    if (divided < 2) {
-                      final halfCardWidth = constraints.maxWidth / 2;
-                      if (halfCardWidth > _cardMinWidth) {
-                        divided = 2;
-                        cardWidth = halfCardWidth;
-                      } else {
-                        cardWidth = _cardMaxWidth.toDouble();
+                      if (cards.isEmpty) {
+                        return Center(
+                          child: Text(
+                            l10n.noMeal,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        );
                       }
-                    } else {
-                      cardWidth = _cardMaxWidth.toDouble();
-                    }
 
-                    if (cards.length <= divided) {
-                      columns = cards.length;
-                      leftFill = 0;
-                    } else {
-                      columns = divided;
-                      leftFill = (columns - (cards.length / columns).toInt());
-                    }
-                  }
-                  for (var i = 0; i < leftFill; i++) {
-                    cards.add(const SizedBox());
-                  }
+                      final double cardWidth;
+                      final int columns;
+                      final int leftFill;
+                      {
+                        var divided = (constraints.maxWidth / _cardMaxWidth)
+                            .toInt();
+                        if (divided < 2) {
+                          final halfCardWidth = constraints.maxWidth / 2;
+                          if (halfCardWidth > _cardMinWidth) {
+                            divided = 2;
+                            cardWidth = halfCardWidth;
+                          } else {
+                            cardWidth = _cardMaxWidth.toDouble();
+                          }
+                        } else {
+                          cardWidth = _cardMaxWidth.toDouble();
+                        }
 
-                  final rows = (cards.length / columns).toInt();
-                  final row = <TableRow>[];
-                  for (var i = 0; i < rows; i++) {
-                    final end = (i + 1) * columns;
-                    row.add(
-                      TableRow(
-                        children: [
-                          const TableCell(child: SizedBox()),
-                          ...cards
-                              .sublist(
-                                i * columns,
-                                end < cards.length ? end : cards.length,
-                              )
-                              .map((card) => TableCell(child: card)),
-                          const TableCell(child: SizedBox()),
-                        ],
-                      ),
-                    );
-                  }
-                  final remain = cards
-                      .sublist(columns * rows)
-                      .map((card) => TableCell(child: card))
-                      .toList();
-                  if (remain.isNotEmpty) {
-                    remain.insert(0, const TableCell(child: SizedBox()));
-                    remain.add(const TableCell(child: SizedBox()));
-                    row.add(TableRow(children: remain));
-                  }
+                        if (cards.length <= divided) {
+                          columns = cards.length;
+                          leftFill = 0;
+                        } else {
+                          columns = divided;
+                          leftFill =
+                              (columns - (cards.length / columns).toInt());
+                        }
+                      }
+                      for (var i = 0; i < leftFill; i++) {
+                        cards.add(const SizedBox());
+                      }
 
-                  return Table(
-                    border: const TableBorder(),
-                    defaultColumnWidth: FixedColumnWidth(cardWidth),
-                    columnWidths: {
-                      0: FlexColumnWidth(),
-                      columns + 1: FlexColumnWidth(),
+                      final rows = (cards.length / columns).toInt();
+                      final row = <TableRow>[];
+                      for (var i = 0; i < rows; i++) {
+                        final end = (i + 1) * columns;
+                        row.add(
+                          TableRow(
+                            children: [
+                              const TableCell(child: SizedBox()),
+                              ...cards
+                                  .sublist(
+                                    i * columns,
+                                    end < cards.length ? end : cards.length,
+                                  )
+                                  .map((card) => TableCell(child: card)),
+                              const TableCell(child: SizedBox()),
+                            ],
+                          ),
+                        );
+                      }
+                      final remain = cards
+                          .sublist(columns * rows)
+                          .map((card) => TableCell(child: card))
+                          .toList();
+                      if (remain.isNotEmpty) {
+                        remain.insert(0, const TableCell(child: SizedBox()));
+                        remain.add(const TableCell(child: SizedBox()));
+                        row.add(TableRow(children: remain));
+                      }
+
+                      return Table(
+                        border: const TableBorder(),
+                        defaultColumnWidth: FixedColumnWidth(cardWidth),
+                        columnWidths: {
+                          0: FlexColumnWidth(),
+                          columns + 1: FlexColumnWidth(),
+                        },
+                        defaultVerticalAlignment:
+                            TableCellVerticalAlignment.intrinsicHeight,
+                        children: row,
+                      );
                     },
-                    defaultVerticalAlignment:
-                        TableCellVerticalAlignment.intrinsicHeight,
-                    children: row,
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             );
           },
         ),

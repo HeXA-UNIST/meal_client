@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:meal_client/core/constants.dart';
-import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/announcement/announcement_service.dart';
+import 'package:meal_client/features/info/app_info.dart';
+import 'package:meal_client/features/info/info_service.dart';
 import 'package:meal_client/features/settings/settings_page.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
 
 class HomeAnnouncementDialog extends StatelessWidget {
   final String close;
@@ -80,9 +82,14 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-// 운영시간은 일단 하드코딩. 추후 백엔드 API로 받아올 예정
 class _OperationHoursSection extends StatelessWidget {
-  const _OperationHoursSection();
+  final Future<AppInfo> infoFuture;
+  final DateTime currentKstDate;
+
+  const _OperationHoursSection({
+    required this.infoFuture,
+    required this.currentKstDate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -101,19 +108,47 @@ class _OperationHoursSection extends StatelessWidget {
             ),
           ),
           SizedBox(height: 16),
-          _OperationHoursEntry(
-            name: l10n.dormitoryCafeteria,
-            hours: ['08:00 - 09:20', '11:30 - 13:30', '17:30 - 19:00'],
-          ),
-          SizedBox(height: 12),
-          _OperationHoursEntry(
-            name: l10n.studentCafeteria,
-            hours: ['11:00 - 13:30', '17:00 - 19:00'],
-          ),
-          SizedBox(height: 12),
-          _OperationHoursEntry(
-            name: l10n.facultyCafeteria,
-            hours: ['11:00 - 13:00', '17:30 - 19:30'],
+          FutureBuilder<AppInfo>(
+            future: infoFuture,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const SizedBox.shrink();
+              }
+              if (!snapshot.hasData) {
+                return SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                );
+              }
+
+              final period = snapshot.data!.operatingHours.forDate(currentKstDate);
+              final entries = Cafeteria.values
+                  .map((cafeteria) {
+                    final hours = period.timesFor(cafeteria);
+                    if (hours.isEmpty) {
+                      return null;
+                    }
+                    return _OperationHoursEntry(
+                      name: _cafeteriaName(l10n, cafeteria),
+                      hours: hours.map((time) => time.label).toList(),
+                    );
+                  })
+                  .nonNulls
+                  .toList();
+
+              return Column(
+                children: [
+                  for (final (index, entry) in entries.indexed) ...[
+                    if (index > 0) SizedBox(height: 12),
+                    entry,
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -155,14 +190,44 @@ class _OperationHoursEntry extends StatelessWidget {
   }
 }
 
-class HomePageDrawer extends StatelessWidget {
-  const HomePageDrawer({super.key});
+class HomePageDrawer extends StatefulWidget {
+  final Future<AppInfo>? infoFuture;
+  final DateTime? currentKstDate;
+
+  const HomePageDrawer({
+    super.key,
+    this.infoFuture,
+    this.currentKstDate,
+  });
+
+  @override
+  State<HomePageDrawer> createState() => _HomePageDrawerState();
+}
+
+class _HomePageDrawerState extends State<HomePageDrawer> {
+  late Future<AppInfo> _infoFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _infoFuture = widget.infoFuture ?? fetchAppInfo();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePageDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.infoFuture != oldWidget.infoFuture) {
+      _infoFuture = widget.infoFuture ?? fetchAppInfo();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
     final l10n = AppLocalizations.of(context)!;
+    final currentKstDate =
+        widget.currentKstDate ?? DateTime.now().toUtc().add(const Duration(hours: 9));
 
     return Drawer(
       backgroundColor: brightness == Brightness.light
@@ -192,19 +257,37 @@ class HomePageDrawer extends StatelessWidget {
             icon: Icons.notifications_active,
             title: l10n.announcement,
             onTap: () async {
+              final rootNavigator = Navigator.of(context, rootNavigator: true);
+              final rootContext = rootNavigator.context;
               Navigator.of(context).pop();
-              final sharedPreferences = await SharedPreferences.getInstance();
-              final announcement = sharedPreferences.getString(StorageKeys.announcementKey);
-              if (announcement != null && context.mounted) {
+              var announcement = await getStoredAnnouncement();
+              announcement ??= (await _infoFuture).announcement;
+              if (announcement != null && rootContext.mounted) {
+                final dialogL10n = AppLocalizations.of(rootContext)!;
+                final languageCode =
+                    Localizations.localeOf(rootContext).languageCode;
                 showDialog(
-                  context: context,
+                  context: rootContext,
                   barrierDismissible: false,
                   builder: (BuildContext context) {
-                    final dialogL10n = AppLocalizations.of(context)!;
+                    return HomeAnnouncementDialog(
+                      close: dialogL10n.close,
+                      title: announcement!.title?.textFor(languageCode) ??
+                          dialogL10n.announcement,
+                      content: announcement.content.textFor(languageCode),
+                    );
+                  },
+                );
+              } else if (rootContext.mounted) {
+                final dialogL10n = AppLocalizations.of(rootContext)!;
+                showDialog(
+                  context: rootContext,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) {
                     return HomeAnnouncementDialog(
                       close: dialogL10n.close,
                       title: dialogL10n.announcement,
-                      content: announcement,
+                      content: dialogL10n.noAnnouncement,
                     );
                   },
                 );
@@ -221,10 +304,21 @@ class HomePageDrawer extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             child: Divider(color: Colors.white54, height: 1),
           ),
-          _OperationHoursSection(),
+          _OperationHoursSection(
+            infoFuture: _infoFuture,
+            currentKstDate: currentKstDate,
+          ),
           const SafeArea(top: false, child: SizedBox(height: 12)),
         ],
       ),
     );
   }
+}
+
+String _cafeteriaName(AppLocalizations l10n, Cafeteria cafeteria) {
+  return switch (cafeteria) {
+    Cafeteria.dormitory => l10n.dormitoryCafeteria,
+    Cafeteria.student => l10n.studentCafeteria,
+    Cafeteria.faculty => l10n.facultyCafeteria,
+  };
 }

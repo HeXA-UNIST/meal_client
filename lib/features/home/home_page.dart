@@ -3,6 +3,8 @@ import 'package:flutter/scheduler.dart';
 
 import 'package:meal_client/features/announcement/announcement_service.dart';
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/features/info/app_info.dart';
+import 'package:meal_client/features/info/info_service.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -28,6 +30,7 @@ class _HomePageState extends State<HomePage>
 
   late final Future<WeekMeal> cachedMeal;
   late final Future<WeekMeal> downloadedMeal;
+  late final Future<AppInfo> appInfo;
 
   // 끼니 상태는 ValueNotifier로 관리한다.
   // MealOfDaySwitchButton만 이 값을 구독하므로, 끼니 전환 시
@@ -44,6 +47,7 @@ class _HomePageState extends State<HomePage>
     _initializeModelAndDate();
     _initializeDataLoading();
     _initializeControllers();
+    appInfo = fetchAppInfo();
     _checkAnnouncement();
   }
 
@@ -59,16 +63,18 @@ class _HomePageState extends State<HomePage>
 
   void _initializeDataLoading() {
     cachedMeal = getCachedMealData();
-    downloadedMeal = cachedMeal.then(
-      (cache) => fetchAndCacheMealData(),
-      onError: (e) => fetchAndCacheMealData(),
-    ).catchError((e) {
-      assert(() {
-        debugPrint('[BapU] meal fetch failed: $e');
-        return true;
-      }());
-      throw e;
-    });
+    downloadedMeal = cachedMeal
+        .then(
+          (cache) => fetchAndCacheMealData(),
+          onError: (e) => fetchAndCacheMealData(),
+        )
+        .catchError((e) {
+          assert(() {
+            debugPrint('[BapU] meal fetch failed: $e');
+            return true;
+          }());
+          throw e;
+        });
   }
 
   void _initializeControllers() {
@@ -98,28 +104,28 @@ class _HomePageState extends State<HomePage>
   }
 
   void _checkAnnouncement() {
-    checkForNewAnnouncement().then((announcement) {
-      if (announcement != null && mounted) {
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _showAnnouncementDialog(announcement);
+    checkForNewAnnouncement(loadInfo: () => appInfo)
+        .then((announcement) {
+          if (announcement != null && mounted) {
+            SchedulerBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _showAnnouncementDialog(announcement);
+            });
+          }
+        })
+        .catchError((e) {
+          assert(() {
+            debugPrint('[BapU] announcement fetch failed: $e');
+            return true;
+          }());
         });
-      }
-    }).catchError((e) {
-      assert(() {
-        debugPrint('[BapU] announcement fetch failed: $e');
-        return true;
-      }());
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    final dayOfWeekTabBar = DayOfWeekTabBar(
-      tabController: _tabController,
-    );
+    final dayOfWeekTabBar = DayOfWeekTabBar(tabController: _tabController);
     final PreferredSizeWidget? bottom;
     final Widget? flexibleSpace;
     if (MediaQuery.of(context).size.width >= 840) {
@@ -135,7 +141,7 @@ class _HomePageState extends State<HomePage>
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      drawer: const HomePageDrawer(),
+      drawer: HomePageDrawer(infoFuture: appInfo),
       appBar: AppBar(
         titleSpacing: 0,
         centerTitle: false,
@@ -207,6 +213,8 @@ class _HomePageState extends State<HomePage>
                         : cacheSnapshot.data!,
                     tabController: _tabController,
                     pageControllerGroup: _mealOfDayPageControllerGroup,
+                    appInfo: appInfo,
+                    mondayOfWeek: _mondayOfWeek,
                     onPageChanged: (page) {
                       if (_isMealOfDayButtonTransition) {
                         // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
@@ -253,16 +261,17 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _showAnnouncementDialog(String announcement) {
+  void _showAnnouncementDialog(AppAnnouncement announcement) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         final l10n = AppLocalizations.of(context)!;
+        final languageCode = Localizations.localeOf(context).languageCode;
         return HomeAnnouncementDialog(
           close: l10n.close,
-          title: l10n.announcement,
-          content: announcement,
+          title: announcement.title?.textFor(languageCode) ?? l10n.announcement,
+          content: announcement.content.textFor(languageCode),
         );
       },
     );

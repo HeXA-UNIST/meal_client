@@ -5,6 +5,7 @@ class ApiConstants {
   static const baseUrl = 'https://meal.hexa.pro';
   static const mealEndpoint = '$baseUrl/mainpage/data';
   static const noticeEndpoint = '$baseUrl/notice';
+  static const infoEndpoint = '$baseUrl/v2/info';
 }
 
 /// 로컬 저장소 키
