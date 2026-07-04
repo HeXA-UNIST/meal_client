@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import 'package:meal_client/domain/meal.dart';
@@ -72,7 +73,9 @@ class MealCard extends StatelessWidget {
     return Card.filled(
       color: theme.colorScheme.surfaceContainer,
       margin: EdgeInsetsGeometry.all(8),
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+      shape: defaultTargetPlatform == TargetPlatform.iOS
+          ? RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24))
+          : RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       child: Column(
@@ -119,8 +122,8 @@ class MealCard extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     const iconSize = 13.0;
-                    const iconGap = 4.0;
-                    const kcalGap = 6.0;
+                    const iconGap = 3.0;
+                    const kcalGap = 5.0;
 
                     double measureWidth(String text, TextStyle style) {
                       final painter = TextPainter(

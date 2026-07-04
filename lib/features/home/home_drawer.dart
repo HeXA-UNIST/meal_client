@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,9 +26,7 @@ class HomeAnnouncementDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectionArea(
       child: AlertDialog(
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: _dialogShape(),
         title: _HomeDialogTitle(title: title),
         content: SingleChildScrollView(
           child: ListBody(children: [Text(content)]),
@@ -117,9 +116,7 @@ class HomeOperationHoursDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectionArea(
       child: AlertDialog(
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(28),
-        ),
+        shape: _dialogShape(),
         title: _HomeDialogTitle(title: title),
         contentPadding: EdgeInsets.fromLTRB(24, 14, 24, 8),
         content: SingleChildScrollView(
@@ -326,6 +323,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
     final l10n = AppLocalizations.of(context)!;
 
     return Drawer(
+      shape: _drawerShape(context),
       backgroundColor: brightness == Brightness.light
           ? theme.colorScheme.primaryContainer
           : theme.colorScheme.surfaceContainer,
@@ -444,6 +442,35 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
       ),
     );
   }
+}
+
+// RoundedSuperellipseBorder는 iOS 스타일(스퀴클)이므로 iOS에서만 적용하고,
+// 그 외 플랫폼에서는 일반 RoundedRectangleBorder를 사용한다.
+ShapeBorder _dialogShape() {
+  final borderRadius = BorderRadius.circular(28);
+  return defaultTargetPlatform == TargetPlatform.iOS
+      ? RoundedSuperellipseBorder(borderRadius: borderRadius)
+      : RoundedRectangleBorder(borderRadius: borderRadius);
+}
+
+// 화면 실측 모서리 반경을 드로어 오른쪽(왼쪽 화면 가장자리와 맞닿지 않는 쪽) 모서리에만 적용한다.
+// 왼쪽은 건드리지 않음(항상 0 유지). displayCornerRadii를 못 구하는 기기에서는
+// M3 기본값(16)으로 대체한다. 곡선 종류(superellipse)는 iOS에서만 사용한다.
+ShapeBorder _drawerShape(BuildContext context) {
+  const fallbackRadius = Radius.circular(16);
+  final displayCornerRadii = MediaQuery.of(context).displayCornerRadii;
+  final isLtr = Directionality.of(context) == TextDirection.ltr;
+  final topRight = displayCornerRadii?.topRight ?? fallbackRadius;
+  final bottomRight = displayCornerRadii?.bottomRight ?? fallbackRadius;
+  final topLeft = displayCornerRadii?.topLeft ?? fallbackRadius;
+  final bottomLeft = displayCornerRadii?.bottomLeft ?? fallbackRadius;
+  final borderRadius = isLtr
+      ? BorderRadius.only(topRight: topRight, bottomRight: bottomRight)
+      : BorderRadius.only(topLeft: topLeft, bottomLeft: bottomLeft);
+
+  return defaultTargetPlatform == TargetPlatform.iOS
+      ? RoundedSuperellipseBorder(borderRadius: borderRadius)
+      : RoundedRectangleBorder(borderRadius: borderRadius);
 }
 
 String _cafeteriaName(AppLocalizations l10n, Cafeteria cafeteria) {

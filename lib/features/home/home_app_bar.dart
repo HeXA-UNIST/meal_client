@@ -72,11 +72,9 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
     return PreferredSize(
       preferredSize: _preferredSize,
       child: Container(
-        decoration: ShapeDecoration(
+        decoration: BoxDecoration(
           color: colorScheme.surfaceContainer,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(128),
-          ),
+          borderRadius: BorderRadius.circular(128.0),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 8.0),
         padding: const EdgeInsets.all(4.0),
@@ -93,11 +91,9 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
           labelColor: colorScheme.onPrimaryContainer,
           unselectedLabelColor: unselectedLabelColor,
           indicatorSize: TabBarIndicatorSize.tab,
-          indicator: ShapeDecoration(
+          indicator: BoxDecoration(
             color: colorScheme.primaryContainer,
-            shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(128),
-            ),
+            borderRadius: BorderRadius.circular(128),
           ),
           labelStyle: theme.textTheme.titleSmall!.copyWith(
             fontSize: 16,
