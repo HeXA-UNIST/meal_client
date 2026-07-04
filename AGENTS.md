@@ -92,7 +92,6 @@ Data/Infra        → features/info/ (app_info, info_data_source, announcement_s
 - `provider` — `AppSettings` state management
 - `shared_preferences` — settings and announcement persistence
 - `flutter_local_notifications` + `workmanager` — background notifications (not yet wired)
-- `home_widget` — home screen widget (not yet wired)
 - `flutter_svg`, `share_plus`, `url_launcher` — UI utilities
 
 ## Known TODOs
