@@ -12,7 +12,7 @@ void main() {
   testWidgets('식단 카드에 선택한 요일과 끼니의 운영시간을 전달한다', (tester) async {
     final weekMeal = WeekMeal.empty();
     weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
-      const Meal(['쌀밥'], 935),
+      const Meal([MealMenuItem(ko: '쌀밥')], 935),
     );
 
     final tabController = TabController(length: 7, vsync: tester);

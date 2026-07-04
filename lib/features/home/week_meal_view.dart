@@ -61,6 +61,9 @@ class WeekMealTabBarView extends StatelessWidget {
                           .map<Iterable<Widget>>((cafeteria) {
                             final meals = nowMeal.fromCafeteria(cafeteria);
                             return meals.map((meal) {
+                              final localizedMenu = meal.localizedMenu(
+                                Localizations.localeOf(context).languageCode,
+                              );
                               var title = switch (cafeteria) {
                                 Cafeteria.dormitory => l10n.dormitoryCafeteria,
                                 Cafeteria.student => l10n.studentCafeteria,
@@ -103,7 +106,7 @@ class WeekMealTabBarView extends StatelessWidget {
                                     SharePlus.instance.share(
                                       ShareParams(
                                         text:
-                                            "[$title]\n${meal.menu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
+                                            "[$title]\n${localizedMenu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
                                       ),
                                     );
                                   }
