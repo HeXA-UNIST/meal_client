@@ -95,6 +95,7 @@ class _DrawerItem extends StatelessWidget {
         ),
       ),
       contentPadding: EdgeInsets.only(left: 40),
+      horizontalTitleGap: 14,
       onTap: onTap,
     );
   }
@@ -323,6 +324,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
     final l10n = AppLocalizations.of(context)!;
 
     return Drawer(
+      width: 292,
       shape: _drawerShape(context),
       backgroundColor: brightness == Brightness.light
           ? theme.colorScheme.primaryContainer
