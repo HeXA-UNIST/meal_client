@@ -61,9 +61,6 @@ class WeekMealTabBarView extends StatelessWidget {
                           .map<Iterable<Widget>>((cafeteria) {
                             final meals = nowMeal.fromCafeteria(cafeteria);
                             return meals.map((meal) {
-                              final localizedMenu = meal.localizedMenu(
-                                Localizations.localeOf(context).languageCode,
-                              );
                               var title = switch (cafeteria) {
                                 Cafeteria.dormitory => l10n.dormitoryCafeteria,
                                 Cafeteria.student => l10n.studentCafeteria,
@@ -102,6 +99,11 @@ class WeekMealTabBarView extends StatelessWidget {
                                   // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
                                   // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
                                   if (!kIsWeb) {
+                                    final localizedMenu = meal.localizedMenu(
+                                      Localizations.localeOf(
+                                        context,
+                                      ).languageCode,
+                                    );
                                     HapticFeedback.lightImpact();
                                     SharePlus.instance.share(
                                       ShareParams(

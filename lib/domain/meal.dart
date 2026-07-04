@@ -1,34 +1,57 @@
 import 'dart:convert';
 
 WeekMeal parseRawMeal(String jsonStr) {
-  final root = jsonDecode(jsonStr) as Map<String, dynamic>;
+  final root = _requiredMap(jsonDecode(jsonStr), 'root');
   final weekMeal = WeekMeal.empty();
-  final data = root['data'] as List<dynamic>;
+  final data = _requiredList(root['data'], 'data');
 
-  for (final cafeteriaJson in data.cast<Map<String, dynamic>>()) {
+  for (final cafeteriaValue in data) {
+    final cafeteriaJson = _requiredMap(cafeteriaValue, 'data[]');
     final cafeteria = Cafeteria.fromApiKey(
-      cafeteriaJson['cafeteria'] as String? ?? '',
+      _requiredString(cafeteriaJson['cafeteria'], 'data[].cafeteria'),
     );
-    final meals = cafeteriaJson['meals'] as List<dynamic>;
+    final meals = _requiredList(cafeteriaJson['meals'], 'data[].meals');
 
-    for (final mealJson in meals.cast<Map<String, dynamic>>()) {
+    for (final mealValue in meals) {
+      final mealJson = _requiredMap(mealValue, 'data[].meals[]');
       final dayOfWeek = DayOfWeek.fromApiKey(
-        mealJson['dayOfWeek'] as String? ?? '',
+        _requiredString(mealJson['dayOfWeek'], 'data[].meals[].dayOfWeek'),
       );
       final mealOfDay = MealOfDay.fromApiKey(
-        mealJson['timeType'] as String? ?? '',
+        _requiredString(mealJson['timeType'], 'data[].meals[].timeType'),
       );
       final cafeteriaMeals = weekMeal[dayOfWeek][mealOfDay][cafeteria];
-      final menuGroups = mealJson['menusByType'] as List<dynamic>;
+      final menuGroups = _requiredList(
+        mealJson['menusByType'],
+        'data[].meals[].menusByType',
+      );
 
-      for (final groupJson in menuGroups.cast<Map<String, dynamic>>()) {
-        final menuType = groupJson['menuType'] as String? ?? '';
-        final sections = groupJson['sections'] as List<dynamic>;
+      for (final groupValue in menuGroups) {
+        final groupJson = _requiredMap(
+          groupValue,
+          'data[].meals[].menusByType[]',
+        );
+        final menuType = _requiredString(
+          groupJson['menuType'],
+          'data[].meals[].menusByType[].menuType',
+        );
+        final sections = _requiredList(
+          groupJson['sections'],
+          'data[].meals[].menusByType[].sections',
+        );
         final menuItems = <MealMenuItem>[];
         final calories = <int>[];
 
-        for (final sectionJson in sections.cast<Map<String, dynamic>>()) {
-          if (sectionJson['sectionType'] != 'REGULAR') {
+        for (final sectionValue in sections) {
+          final sectionJson = _requiredMap(
+            sectionValue,
+            'data[].meals[].menusByType[].sections[]',
+          );
+          final sectionType = _requiredString(
+            sectionJson['sectionType'],
+            'data[].meals[].menusByType[].sections[].sectionType',
+          );
+          if (sectionType != 'REGULAR') {
             continue;
           }
 
@@ -37,12 +60,25 @@ WeekMeal parseRawMeal(String jsonStr) {
             calories.add(calorie.toInt());
           }
 
-          final menus = sectionJson['menus'] as List<dynamic>;
-          for (final menuJson in menus.cast<Map<String, dynamic>>()) {
+          final menus = _requiredList(
+            sectionJson['menus'],
+            'data[].meals[].menusByType[].sections[].menus',
+          );
+          for (final menuValue in menus) {
+            final menuJson = _requiredMap(
+              menuValue,
+              'data[].meals[].menusByType[].sections[].menus[]',
+            );
             menuItems.add(
               MealMenuItem(
-                ko: menuJson['ko'] as String,
-                en: menuJson['en'] as String?,
+                ko: _requiredString(
+                  menuJson['ko'],
+                  'data[].meals[].menusByType[].sections[].menus[].ko',
+                ),
+                en: _nullableString(
+                  menuJson['en'],
+                  'data[].meals[].menusByType[].sections[].menus[].en',
+                ),
               ),
             );
           }
@@ -66,6 +102,37 @@ WeekMeal parseRawMeal(String jsonStr) {
   }
 
   return weekMeal;
+}
+
+Map<String, dynamic> _requiredMap(Object? value, String fieldName) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  throw FormatException('$fieldName 필드는 object여야 합니다.');
+}
+
+List<dynamic> _requiredList(Object? value, String fieldName) {
+  if (value is List<dynamic>) {
+    return value;
+  }
+  throw FormatException('$fieldName 필드는 array여야 합니다.');
+}
+
+String _requiredString(Object? value, String fieldName) {
+  if (value is String) {
+    return value;
+  }
+  throw FormatException('$fieldName 필드는 string이어야 합니다.');
+}
+
+String? _nullableString(Object? value, String fieldName) {
+  if (value == null) {
+    return null;
+  }
+  if (value is String) {
+    return value;
+  }
+  throw FormatException('$fieldName 필드는 string 또는 null이어야 합니다.');
 }
 
 class MealMenuItem {

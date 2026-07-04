@@ -423,6 +423,61 @@ void main() {
       expect(meals, isEmpty);
     });
 
+    test('필수 메뉴 ko가 null이면 FormatException을 던진다', () {
+      final json = jsonEncode({
+        'week': {
+          'startDate': '2026-06-15',
+          'isCurrentWeek': true,
+          'nextWeekStart': null,
+        },
+        'lastUpdated': '2026-06-15T09:00:00+09:00',
+        'data': [
+          {
+            'cafeteria': 'DORMITORY',
+            'meals': [
+              {
+                'date': '2026-06-20',
+                'dayOfWeek': 'SAT',
+                'timeType': 'BREAKFAST',
+                'menusByType': [
+                  {
+                    'menuType': 'KOREAN',
+                    'sections': [
+                      {
+                        'sectionType': 'REGULAR',
+                        'sectionTitle': null,
+                        'calorie': null,
+                        'sectionAllergens': null,
+                        'menus': [
+                          {'ko': null, 'en': 'Rice', 'allergens': []},
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(() => parseRawMeal(json), throwsFormatException);
+    });
+
+    test('필수 목록 필드가 null이면 FormatException을 던진다', () {
+      final json = jsonEncode({
+        'week': {
+          'startDate': '2026-06-15',
+          'isCurrentWeek': true,
+          'nextWeekStart': null,
+        },
+        'lastUpdated': '2026-06-15T09:00:00+09:00',
+        'data': null,
+      });
+
+      expect(() => parseRawMeal(json), throwsFormatException);
+    });
+
     test('data가 빈 배열이면 모든 식사 리스트가 비어 있음', () {
       final weekMeal = parseRawMeal(
         jsonEncode({
