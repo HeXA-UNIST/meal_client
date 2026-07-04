@@ -8,8 +8,15 @@ final _plugin = FlutterLocalNotificationsPlugin();
 
 Future<void> initNotifications() async {
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const iosInit = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+
   await _plugin.initialize(
-    settings: const InitializationSettings(android: androidInit),
+    settings: const InitializationSettings(android: androidInit, iOS: iosInit,),
   );
   await _plugin
       .resolvePlatformSpecificImplementation<
@@ -24,11 +31,21 @@ Future<void> initNotifications() async {
 }
 
 Future<bool> requestNotificationPermission() async {
-  return await _plugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission() ??
-      false;
+  final androidGranted = await _plugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.requestNotificationsPermission();
+
+  final iosGranted = await _plugin
+      .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>()
+      ?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+  return androidGranted ?? iosGranted ?? false;
 }
 
 Future<void> showMealKeywordNotification({
@@ -43,6 +60,11 @@ Future<void> showMealKeywordNotification({
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       styleInformation: BigTextStyleInformation(body, contentTitle: title),
+    ),
+    iOS: const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
     ),
   );
   await _plugin.show(
