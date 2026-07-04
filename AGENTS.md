@@ -28,7 +28,11 @@ flutter test
 
 # Run a single test file
 flutter test test/domain_test.dart
+flutter test test/info_test.dart
+flutter test test/home_drawer_test.dart
+flutter test test/meal_card_test.dart
 flutter test test/settings_test.dart
+flutter test test/week_meal_view_test.dart
 flutter test test/widget_test.dart
 
 # Get dependencies
@@ -85,6 +89,8 @@ Native Android    → android/app/src/main/kotlin/.../meal_client/ (BapUWidget* 
 ### API
 
 - `parseRawMeal` maps Korean string literals from the API (`"기숙사 식당"`, `"학생 식당"`, `"교직원 식당"`) via `Cafeteria.fromApiKey()`
+- `/v2/info` maps `announcement` and `operatingHours` into `AppInfo`. `announcement` may be `null`, and `announcement.title` may also be `null`; UI falls back to the localized `announcement` label.
+- `operatingHours` is split into `weekday` and `weekend`, then cafeteria keys (`dormitory`, `student`, `faculty`) and meal keys (`breakfast`, `lunch`, `dinner`) are mapped to domain enums.
 - Global HTTP client singleton in `core/network/http_client.dart` (`appHttpClient`)
 
 ### Key Packages
