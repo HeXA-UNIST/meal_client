@@ -142,20 +142,46 @@ MealCache _memoryMealCache({
 }
 
 String _rawMealJson(String menu) {
-  return jsonEncode([
-    {
-      'dayType': 'MON',
-      'mealType': 'BREAKFAST',
-      'restaurantType': '기숙사 식당',
-      'dormitoryType': 'KOREAN',
-      'calorie': 500,
-      'menus': [menu],
+  return jsonEncode({
+    'week': {
+      'startDate': '2026-04-13',
+      'isCurrentWeek': true,
+      'nextWeekStart': null,
     },
-  ]);
+    'lastUpdated': '2026-04-13T09:00:00+09:00',
+    'data': [
+      {
+        'cafeteria': 'DORMITORY',
+        'meals': [
+          {
+            'date': '2026-04-13',
+            'dayOfWeek': 'MON',
+            'timeType': 'BREAKFAST',
+            'menusByType': [
+              {
+                'menuType': 'KOREAN',
+                'sections': [
+                  {
+                    'sectionType': 'REGULAR',
+                    'sectionTitle': null,
+                    'calorie': 500,
+                    'sectionAllergens': null,
+                    'menus': [
+                      {'ko': menu, 'en': null, 'allergens': null},
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
 }
 
 List<String> _firstDormitoryBreakfastMenu(WeekMeal weekMeal) {
   return weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
       .first
-      .menu;
+      .localizedMenu('ko');
 }

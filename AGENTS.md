@@ -72,6 +72,7 @@ Data/Infra        → features/info/ (app_info, info_data_source, announcement_s
 - **Info API**: `/v2/info` is treated as one backend resource under `features/info/`. `features/info/app_info.dart` models it (`AppInfo`, `LocalizedText`, `AppAnnouncement`, `OperatingHours`, `OperatingHoursPeriod`, `OperatingTimeRange`) and performs no network or persistence. `features/info/info_data_source.dart` fetches it (`fetchAppInfo()`, mirroring `features/meal/meal_data_source.dart`'s naming). It currently contains a nullable localized announcement plus weekday/weekend operating hours. `HomePage` creates one shared `Future<AppInfo>` and passes it to the drawer and meal view.
 - **Announcement state**: `features/info/announcement_state.dart` exposes `checkForNewAnnouncement()` and `getStoredAnnouncement()`. It reads announcement data from `/v2/info` (via `info_data_source.dart`), compares the localized content fingerprint against the stored JSON in SharedPreferences, supports legacy stored strings, and returns `AppAnnouncement?` when a popup should be shown. There is no separate `features/announcement/` folder — this is local display-decision state for the info resource, not a distinct backend feature.
 - **Operating hours**: Operating hours are read-only data from `/v2/info`. Meal cards show the selected date/meal operating time, and `HomePageDrawer` exposes operation hours as a navigation item that opens a weekday/weekend dialog. Operating hours are not cached or compared separately; they refresh when `AppInfo` is refetched. Drawer announcement/operation-hour dialogs wrap their content in `SelectionArea` for copy/select support.
+- **Menu API**: `/v2/menu` is the current-week menu entry point. It returns `data[] → meals[] → menusByType[] → sections[] → menus[]`; the client currently renders only `sectionType == REGULAR` sections. `SALAD`, `CONVENIENCE`, `SPECIAL`, `sectionTitle`, and allergen display are intentionally deferred.
 - **Meal cache flow**: `meal_data_source.dart` is a compatibility wrapper over `MealCache` and `MealRefreshService`. `HomePage` still loads cached data first (`getCachedMealData`) and then performs an unconditional foreground refresh (`fetchAndCacheMealData`) to preserve existing UX. Cache freshness uses `MealTimeConfig.kstWeekId()` based on the cache file's `lastModified` time, not calendar week numbers.
 - **Shared meal cache**: Native IO cache is stored as `meal.json` via `getApplicationSupportDirectory()` and written with temp-file + rename to reduce torn reads. Web storage intentionally has no persistent meal cache; freshness checks return stale through the cache wrapper.
 - **Background refresh**: `features/meal/meal_background_refresh*` registers the hourly `bapu_meal_refresh` Workmanager task. Do not add a second Workmanager dispatcher; `main.dart` initializes Workmanager once with `features/notification/meal_notification_worker.dart`'s `callbackDispatcher`, which handles both meal refresh and keyword notification tasks. Android applies `NetworkType.connected`; iOS BGAppRefresh does not enforce that constraint.
@@ -83,15 +84,17 @@ Data/Infra        → features/info/ (app_info, info_data_source, announcement_s
 
 - Three cafeterias: Dormitory, Student, Faculty
 - `WeekMeal` → 7 `DayMeal` (indexed by `DayOfWeek`) → 3 `CafeteriaMeal` (indexed by `MealOfDay`) → lists of `Meal` subclasses (`KoreanMeal`, `HalalMeal`)
+- `Meal` stores `List<MealMenuItem>` (`ko` required, `en` nullable). UI uses `localizedMenu(languageCode)`, with English falling back to Korean when unavailable.
 - `CafeteriaMeal.empty()` creates growable lists; `parseRawMeal` mutates them during construction (two-phase init pattern).
 
 ### API
 
-- `parseRawMeal` maps Korean string literals from the API (`"기숙사 식당"`, `"학생 식당"`, `"교직원 식당"`) via `Cafeteria.fromApiKey()`
+- `parseRawMeal` maps v2 cafeteria enum values (`DORMITORY`, `STUDENT`, `FACULTY`), `dayOfWeek` (`MON`..`SUN`), and `timeType` (`BREAKFAST`, `LUNCH`, `DINNER`) into domain enums.
+- Only `REGULAR` sections are converted to `MealMenuItem`s in this release. Non-regular sections are skipped until the card UI can represent `sectionTitle`, per-section calories, and section-level allergens.
 - `/v2/info` maps `announcement` and `operatingHours` into `AppInfo`. `announcement` may be `null`, and `announcement.title` may also be `null`; UI falls back to the localized `announcement` label.
 - `operatingHours` is split into `weekday` and `weekend`, then cafeteria keys (`dormitory`, `student`, `faculty`) and meal keys (`breakfast`, `lunch`, `dinner`) are mapped to domain enums.
 - Global HTTP client singleton in `core/network/http_client.dart` (`appHttpClient`)
-- `MealRefreshService.refreshMealData()` validates that backend JSON is a non-empty list and parses successfully before writing `meal.json`; do not write raw backend responses to cache before validation.
+- `MealRefreshService.refreshMealData()` validates that backend JSON is a non-empty object (the v2 `/menu` root map) and parses successfully before writing `meal.json`; do not write raw backend responses to cache before validation.
 
 ### Key Packages
 
@@ -105,7 +108,8 @@ Data/Infra        → features/info/ (app_info, info_data_source, announcement_s
 ## Known TODOs
 
 - Home screen widget native wiring is not on this branch. When integrating widget work, read `docs/shared-meal-cache-refactor-plan.md`; Android native code should read the shared `meal.json` from `context.filesDir` first and only fall back to network when the cache is stale or missing.
-- Allergy warning displays (requires backend API update to include allergen data in `Meal` model)
+- Allergy warning displays (requires modeling menu/section allergen data from `/v2/menu`)
+- Non-regular menu sections (`SALAD`, `CONVENIENCE`, `SPECIAL`) and `sectionTitle` rendering
 - Keyword push notifications are implemented with local Workmanager checks, but still need device/manual QA around exact scheduling behavior on Android and iOS.
 - Easy menu copying on web - a small hover button to copy the menu in text format for sharing (web clipboard API)
 

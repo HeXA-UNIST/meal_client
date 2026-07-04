@@ -20,7 +20,7 @@ void main() {
         home: Scaffold(
           body: MealCard(
             title: '기숙사 식당',
-            meal: const Meal(['쌀밥'], 935),
+            meal: const Meal([MealMenuItem(ko: '쌀밥')], 935),
             operatingTimeLabel: '08:00 - 09:20',
             isOperating: true,
           ),
@@ -48,7 +48,7 @@ void main() {
         home: Scaffold(
           body: MealCard(
             title: '기숙사 식당',
-            meal: const Meal(['쌀밥'], 935),
+            meal: const Meal([MealMenuItem(ko: '쌀밥')], 935),
             operatingTimeLabel: '08:00 - 09:20',
             isOperating: false,
           ),
@@ -63,5 +63,38 @@ void main() {
       timeStyle?.color,
       Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
     );
+  });
+
+  testWidgets('영어 locale에서는 영어 메뉴명을 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        home: Scaffold(
+          body: MealCard(
+            title: 'Dormitory',
+            meal: const Meal([MealMenuItem(ko: '쌀밥', en: 'Rice')], 935),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Rice'), findsOneWidget);
+    expect(find.text('쌀밥'), findsNothing);
+  });
+
+  testWidgets('영어 locale에서 영어 메뉴명이 없으면 한국어 메뉴명을 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        home: Scaffold(
+          body: MealCard(
+            title: 'Student',
+            meal: const Meal([MealMenuItem(ko: '된장찌개')], null),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('된장찌개'), findsOneWidget);
   });
 }

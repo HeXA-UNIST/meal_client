@@ -3,7 +3,7 @@ import 'package:meal_client/domain/meal.dart';
 /// API 관련 상수
 class ApiConstants {
   static const baseUrl = 'https://meal.hexa.pro';
-  static const mealEndpoint = '$baseUrl/mainpage/data';
+  static const mealEndpoint = '$baseUrl/v2/menu';
   static const noticeEndpoint = '$baseUrl/notice';
   static const infoEndpoint = '$baseUrl/v2/info';
 }

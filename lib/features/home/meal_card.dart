@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import 'package:meal_client/domain/meal.dart';
@@ -25,6 +27,7 @@ class MealCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final languageCode = Localizations.localeOf(context).languageCode;
 
     // primaryContainer의 HSL 변환을 한 번만 수행하여 중복 계산 방지
     final primaryHsl = HSLColor.fromColor(theme.colorScheme.primaryContainer);
@@ -55,7 +58,7 @@ class MealCard extends StatelessWidget {
     final kcalText = meal.kcal == null ? null : "${meal.kcal} kcal";
 
     final menuWidgets = <Widget>[];
-    for (final menuItem in meal.menu) {
+    for (final menuItem in meal.localizedMenu(languageCode)) {
       // Flutter Text는 자동 줄 바꿈과 강제 줄 바꿈의 줄 간격(height)을
       // 구분하지 않아서, 메뉴 항목 간 여백은 SizedBox로 분리해 넣는다.
       if (menuWidgets.isNotEmpty) {
@@ -72,7 +75,9 @@ class MealCard extends StatelessWidget {
     return Card.filled(
       color: theme.colorScheme.surfaceContainer,
       margin: EdgeInsetsGeometry.all(8),
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24)),
+      shape: defaultTargetPlatform == TargetPlatform.iOS
+          ? RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24))
+          : RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       elevation: 0,
       child: Column(
@@ -119,8 +124,8 @@ class MealCard extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     const iconSize = 13.0;
-                    const iconGap = 4.0;
-                    const kcalGap = 6.0;
+                    const iconGap = 3.0;
+                    const kcalGap = 5.0;
 
                     double measureWidth(String text, TextStyle style) {
                       final painter = TextPainter(

@@ -145,7 +145,9 @@ Future<void> _runMealKeywordCheck({
         final seen = <String>{};
         for (final meal in meals) {
           if (!meal.menu.any(
-            (item) => item.toLowerCase().contains(keywordLower),
+            (item) =>
+                item.ko.toLowerCase().contains(keywordLower) ||
+                (item.en?.toLowerCase().contains(keywordLower) ?? false),
           )) {
             continue;
           }
@@ -165,7 +167,9 @@ Future<void> _runMealKeywordCheck({
         };
         if (meals.any(
           (meal) => meal.menu.any(
-            (item) => item.toLowerCase().contains(keywordLower),
+            (item) =>
+                item.ko.toLowerCase().contains(keywordLower) ||
+                (item.en?.toLowerCase().contains(keywordLower) ?? false),
           ),
         )) {
           matches.add(cafeteriaLabel);
