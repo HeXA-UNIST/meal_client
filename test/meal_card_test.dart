@@ -12,7 +12,9 @@ void main() {
     );
   }
 
-  testWidgets('운영 중인 운영시간은 칼로리 왼쪽에 초록색 굵은 글씨로 표시한다', (tester) async {
+  testWidgets('운영시간은 칼로리보다 굵은 글씨로 표시하고, 운영 중일 때는 회색이 아닌 색으로 표시한다', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -34,7 +36,9 @@ void main() {
     expect(kcalText.style?.fontWeight, isNot(FontWeight.w700));
     expect(
       timeStyle?.color,
-      Theme.of(tester.element(find.byType(MealCard))).colorScheme.primary,
+      isNot(
+        Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
+      ),
     );
   });
 
