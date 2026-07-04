@@ -10,13 +10,13 @@ Exception createHttpException(int statusCode) =>
 
 Client _createDefaultClient() => Client();
 
-
 Client createPlatformHttpClient() {
   if (Platform.isIOS || Platform.isMacOS) {
     try {
-      // CupertinoClient는 iOS/macOS에서 네이티브 URLSession을 활용해
-      // HTTP/2와 QUIC 지원을 제공한다.
-      return CupertinoClient.defaultSessionConfiguration();
+      // CupertinoClient로 iOS 네이티브 URLSession을 사용해 최적화한다.
+      // 메뉴 캐시는 앱에서 직접 관리하므로 ephemeral 세션을 사용한다.
+      final config = URLSessionConfiguration.ephemeralSessionConfiguration();
+      return CupertinoClient.fromSessionConfiguration(config);
     } catch (_) {
       // CupertinoClient 초기화에 실패하면
       // package:http의 기본 네이티브 클라이언트로 안전하게 폴백한다.

@@ -74,6 +74,7 @@ Native Android    → android/app/src/main/kotlin/.../meal_client/ (BapUWidget* 
 - **Announcement state**: `features/info/announcement_state.dart` exposes `checkForNewAnnouncement()` and `getStoredAnnouncement()`. It reads announcement data from `/v2/info` (via `info_data_source.dart`), compares the localized content fingerprint against the stored JSON in SharedPreferences, supports legacy stored strings, and returns `AppAnnouncement?` when a popup should be shown. There is no separate `features/announcement/` folder — this is local display-decision state for the info resource, not a distinct backend feature.
 - **Operating hours**: Operating hours are read-only data from `/v2/info`. Meal cards show the selected date/meal operating time, and `HomePageDrawer` exposes operation hours as a navigation item that opens a weekday/weekend dialog. Operating hours are not cached or compared separately; they refresh when `AppInfo` is refetched. Drawer announcement/operation-hour dialogs wrap their content in `SelectionArea` for copy/select support.
 - **Meal cache and refresh**: Raw meal API JSON in `meal.json` is the canonical cache for the app, background refresh, local notifications, and Android widgets. `MealCache` wraps storage access and freshness checks; `MealRefreshService` validates/parses backend responses before writing cache. Native cache writes are temp-file + rename to avoid partial reads.
+- **Menu API**: `/v2/menu` is the current-week menu entry point. It returns `data[] → meals[] → menusByType[] → sections[] → menus[]`; the client currently renders only `sectionType == REGULAR` sections. `SALAD`, `CONVENIENCE`, `SPECIAL`, `sectionTitle`, and allergen display are intentionally deferred.
 - **Data flow**: `home_page.dart` uses a FutureBuilder chain for meals — loads cached data first (`getCachedMealData`), then always fetches fresh data (`fetchAndCacheMealData`). Cache invalidation uses `MealTimeConfig.kstWeekId`, a monotonic KST week ID anchored at Monday 1970-01-05.
 - **Background refresh**: `main.dart` initializes Workmanager via `features/meal/meal_background_refresh.dart`. Native platforms register hourly `bapu_meal_refresh`; Android uses `NetworkType.connected`, while iOS BGAppRefresh does not enforce equivalent network constraints. The background task refreshes only the shared meal cache.
 - **Android home widgets**: Implemented natively under `android/app/src/main/kotlin/pro/hexa/meal/meal_client`. Widgets read `context.filesDir/meal.json` first, mirror Dart's KST week freshness logic, and use native network fetch only as fallback. `features/widget/widget_service.dart` triggers a one-time native widget update through `MainActivity`'s MethodChannel on Android. App info is fetched separately once per `HomePage` creation.
@@ -84,11 +85,13 @@ Native Android    → android/app/src/main/kotlin/.../meal_client/ (BapUWidget* 
 
 - Three cafeterias: Dormitory, Student, Faculty
 - `WeekMeal` → 7 `DayMeal` (indexed by `DayOfWeek`) → 3 `CafeteriaMeal` (indexed by `MealOfDay`) → lists of `Meal` subclasses (`KoreanMeal`, `HalalMeal`)
+- `Meal` stores `List<MealMenuItem>` (`ko` required, `en` nullable). UI uses `localizedMenu(languageCode)`, with English falling back to Korean when unavailable.
 - `CafeteriaMeal.empty()` creates growable lists; `parseRawMeal` mutates them during construction (two-phase init pattern).
 
 ### API
 
-- `parseRawMeal` maps Korean string literals from the API (`"기숙사 식당"`, `"학생 식당"`, `"교직원 식당"`) via `Cafeteria.fromApiKey()`
+- `parseRawMeal` maps v2 cafeteria enum values (`DORMITORY`, `STUDENT`, `FACULTY`), `dayOfWeek` (`MON`..`SUN`), and `timeType` (`BREAKFAST`, `LUNCH`, `DINNER`) into domain enums.
+- Only `REGULAR` sections are converted to `MealMenuItem`s in this release. Non-regular sections are skipped until the card UI can represent `sectionTitle`, per-section calories, and section-level allergens.
 - `/v2/info` maps `announcement` and `operatingHours` into `AppInfo`. `announcement` may be `null`, and `announcement.title` may also be `null`; UI falls back to the localized `announcement` label.
 - `operatingHours` is split into `weekday` and `weekend`, then cafeteria keys (`dormitory`, `student`, `faculty`) and meal keys (`breakfast`, `lunch`, `dinner`) are mapped to domain enums.
 - Global HTTP client singleton in `core/network/http_client.dart` (`appHttpClient`)
@@ -105,7 +108,8 @@ Native Android    → android/app/src/main/kotlin/.../meal_client/ (BapUWidget* 
 ## Known TODOs
 
 - Settings screen UI is implemented (allergy, notification, widget, theme). Backend wiring for allergy warnings, notifications, and home screen widget is not yet functional.
-- Allergy warning displays (requires backend API update to include allergen data in `Meal` model)
+- Allergy warning displays (requires modeling menu/section allergen data from `/v2/menu`)
+- Non-regular menu sections (`SALAD`, `CONVENIENCE`, `SPECIAL`) and `sectionTitle` rendering
 - Keyword push notifications (requires `NotificationService` and subscription management; `flutter_local_notifications` + `workmanager` are already in pubspec)
 - Home screen widget (requires wiring `home_widget` package; note cache uses `getApplicationSupportDirectory()`, inaccessible from widgets)
 - Easy menu copying on web - a small hover button to copy the menu in text format for sharing (web clipboard API)

@@ -37,7 +37,9 @@ class MealRefreshService {
 
   WeekMeal _parseValidRawMeal(String rawMeal) {
     final decoded = jsonDecode(rawMeal);
-    if (decoded is! List || decoded.isEmpty) {
+    // v2 /menu 응답은 최상위가 Map({week, data, ...})이다. 빈 Map이나 배열 등
+    // 형식이 어긋난 응답은 캐시에 쓰기 전에 걸러낸다. 구조 검증은 parseRawMeal이 담당.
+    if (decoded is! Map || decoded.isEmpty) {
       throw FormatException('Invalid meal API response');
     }
 
