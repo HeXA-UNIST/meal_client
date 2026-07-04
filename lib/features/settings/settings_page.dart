@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:app_settings/app_settings.dart' as device_settings;
+import 'package:meal_client/features/notification/meal_alert_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
 import 'app_settings.dart';
@@ -119,9 +120,6 @@ class _NotificationTileState extends State<_NotificationTile> {
     _keywordController.clear();
   }
 
-  String _formatTime(TimeOfDay t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
   String _cafeteriaName(AppLocalizations l10n, Cafeteria cafeteria) =>
       switch (cafeteria) {
         Cafeteria.dormitory => l10n.dormitoryCafeteria,
@@ -223,24 +221,21 @@ class _NotificationTileState extends State<_NotificationTile> {
                 ],
               ),
             ),
-          // 알림 시간 선택
-          ListTile(
-            dense: true,
-            title: Text(l10n.notificationTimeLabel),
-            trailing: Text(
-              _formatTime(notification.alertTime),
-              style: Theme.of(context).textTheme.bodyMedium,
+          // 시간대별 알림 설정 (아침·점심·저녁·밤)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l10n.notificationTimeLabel,
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
             ),
-            onTap: () async {
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: notification.alertTime,
-              );
-              if (picked != null && context.mounted) {
-                context.read<AppSettings>().setNotificationTime(picked);
-              }
-            },
           ),
+          for (final period in MealAlertPeriod.values)
+            _PeriodAlertCard(period: period),
           // 알림 대상 식당 선택
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -305,6 +300,81 @@ class _NotificationTileState extends State<_NotificationTile> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _PeriodAlertCard extends StatelessWidget {
+  const _PeriodAlertCard({required this.period});
+
+  final MealAlertPeriod period;
+
+  String _label(AppLocalizations l10n) => switch (period) {
+        MealAlertPeriod.morning => l10n.breakfast,
+        MealAlertPeriod.lunch => l10n.lunch,
+        MealAlertPeriod.dinner => l10n.dinner,
+        MealAlertPeriod.night => l10n.notificationPeriodNight,
+      };
+
+  String _formatTime(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final notification = context.watch<AppSettings>().notification;
+    final enabled = notification.isPeriodEnabled(period);
+    final displayTime = notification.displayTimeOf(period);
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: ListTile(
+          dense: true,
+          title: Text(_label(l10n)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButton<TimeOfDay>(
+                value: enabled ? displayTime : null,
+                underline: const SizedBox(),
+                disabledHint: Text(
+                  _formatTime(displayTime),
+                  style: TextStyle(color: theme.disabledColor),
+                ),
+                onChanged: enabled
+                    ? (slot) {
+                        if (slot == null) return;
+                        context
+                            .read<AppSettings>()
+                            .setPeriodAlertTime(period, slot);
+                      }
+                    : null,
+                items: [
+                  for (final slot in period.allSlots)
+                    DropdownMenuItem(
+                      value: slot,
+                      child: Text(_formatTime(slot)),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Switch(
+                value: enabled,
+                onChanged: (v) {
+                  // 켤 때는 마지막으로 선택했던 시각(없으면 기본 슬롯)으로 복원한다.
+                  final next = v ? displayTime : null;
+                  context.read<AppSettings>().setPeriodAlertTime(period, next);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

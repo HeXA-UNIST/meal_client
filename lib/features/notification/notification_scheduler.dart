@@ -2,16 +2,31 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:workmanager/workmanager.dart';
 
-const kMealKeywordTaskName = 'meal_keyword_check';
+import 'meal_alert_period.dart';
 
-/// 다음 [alertTime](기기 로컬 시각)까지 남은 시간을 초기 지연으로 설정하고,
-/// 이후 24시간마다 반복 실행되는 Workmanager 태스크를 등록한다.
-/// 기기 시간대가 KST로 설정되어 있다고 가정.
-/// 1회성 태스크로 등록후 (Workmanager fix) 워커가 실행을 마치면 워커 자신이 다음날 같은 시각의
-/// 태스크를 다시 등록
-Future<void> scheduleKeywordNotification(TimeOfDay alertTime) async {
+const kMealKeywordTaskPrefix = 'meal_keyword_check_';
+
+/// (예: `meal_keyword_check_morning`).
+String taskNameOf(MealAlertPeriod period) =>
+    '$kMealKeywordTaskPrefix${period.name}';
+
+/// 태스크 이름에서 시간대를 파싱한다. 접두사 매칭 실패 시 null.
+MealAlertPeriod? periodFromTaskName(String taskName) {
+  if (!taskName.startsWith(kMealKeywordTaskPrefix)) return null;
+  return MealAlertPeriod.tryFromName(
+    taskName.substring(kMealKeywordTaskPrefix.length),
+  );
+}
+
+/// 지정한 [period]의 다음 알림을 [alertTime]에 실행되도록 등록한다.
+/// 워커가 실행을 마치면 워커 자신이 같은 시각으로 다음날 태스크를 재등록한다.
+Future<void> scheduleKeywordNotificationFor(
+  MealAlertPeriod period,
+  TimeOfDay alertTime,
+) async {
+  final taskName = taskNameOf(period);
   try {
-    await Workmanager().cancelByUniqueName(kMealKeywordTaskName);
+    await Workmanager().cancelByUniqueName(taskName);
 
     final now = DateTime.now();
     var next = DateTime(now.year, now.month, now.day,
@@ -23,36 +38,55 @@ Future<void> scheduleKeywordNotification(TimeOfDay alertTime) async {
 
     assert(() {
       debugPrint(
-        '[BapU] notification scheduled at $next '
+        '[BapU] ${period.name} scheduled at $next '
         '(in ${delay.inMinutes}m ${delay.inSeconds % 60}s)',
       );
       return true;
     }());
 
     await Workmanager().registerOneOffTask(
-      kMealKeywordTaskName,
-      kMealKeywordTaskName,
+      taskName,
+      taskName,
       initialDelay: delay,
       constraints: Constraints(networkType: NetworkType.connected),
       existingWorkPolicy: ExistingWorkPolicy.replace,
     );
   } catch (e, st) {
-    // unawaited로 호출되므로 호출자가 에러를 받지 못한다.
-    // 디버그 빌드에서만 로깅하고 swallow.
     assert(() {
-      debugPrint('[BapU] schedule failed: $e\n$st');
+      debugPrint('[BapU] schedule failed for ${period.name}: $e\n$st');
       return true;
     }());
   }
 }
 
-Future<void> cancelKeywordNotification() async {
+Future<void> cancelKeywordNotificationFor(MealAlertPeriod period) async {
   try {
-    await Workmanager().cancelByUniqueName(kMealKeywordTaskName);
+    await Workmanager().cancelByUniqueName(taskNameOf(period));
   } catch (e, st) {
     assert(() {
-      debugPrint('[BapU] cancel failed: $e\n$st');
+      debugPrint('[BapU] cancel failed for ${period.name}: $e\n$st');
       return true;
     }());
+  }
+}
+
+/// [alertTimes]에 시각이 설정된 시간대는 등록하고, 없는 시간대는 취소한다.
+Future<void> scheduleAllKeywordNotifications(
+  Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+) async {
+  for (final period in MealAlertPeriod.values) {
+    final time = alertTimes[period];
+    if (time == null) {
+      await cancelKeywordNotificationFor(period);
+    } else {
+      await scheduleKeywordNotificationFor(period, time);
+    }
+  }
+}
+
+/// 모든 시간대 태스크를 취소한다.
+Future<void> cancelAllKeywordNotifications() async {
+  for (final period in MealAlertPeriod.values) {
+    await cancelKeywordNotificationFor(period);
   }
 }
