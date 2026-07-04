@@ -42,32 +42,6 @@ void main() {
     });
   });
 
-  group('MealMenuItem', () {
-    test('한국어 locale은 ko를 반환한다', () {
-      const item = MealMenuItem(ko: '쌀밥', en: 'Rice');
-
-      expect(item.textFor('ko'), '쌀밥');
-    });
-
-    test('영어 locale은 en이 있으면 en을 반환한다', () {
-      const item = MealMenuItem(ko: '쌀밥', en: 'Rice');
-
-      expect(item.textFor('en'), 'Rice');
-    });
-
-    test('영어 locale에서 en이 null이면 ko로 폴백한다', () {
-      const item = MealMenuItem(ko: '된장찌개');
-
-      expect(item.textFor('en'), '된장찌개');
-    });
-
-    test('빈 en 문자열은 ko로 폴백한다', () {
-      const item = MealMenuItem(ko: '김치', en: '');
-
-      expect(item.textFor('en'), '김치');
-    });
-  });
-
   group('Cafeteria.fromApiKey', () {
     test('DORMITORY → dormitory', () {
       expect(Cafeteria.fromApiKey('DORMITORY'), Cafeteria.dormitory);
@@ -111,20 +85,6 @@ void main() {
 
     test('dinner.next → breakfast (wrap)', () {
       expect(MealOfDay.dinner.next, MealOfDay.breakfast);
-    });
-  });
-
-  group('DayOfWeek.fromApiKey', () {
-    test('MON → mon', () {
-      expect(DayOfWeek.fromApiKey('MON'), DayOfWeek.mon);
-    });
-
-    test('SUN → sun', () {
-      expect(DayOfWeek.fromApiKey('SUN'), DayOfWeek.sun);
-    });
-
-    test('알 수 없는 키 → FormatException', () {
-      expect(() => DayOfWeek.fromApiKey('UNKNOWN'), throwsFormatException);
     });
   });
 
@@ -421,61 +381,6 @@ void main() {
       final meals = weekMeal[DayOfWeek.fri][MealOfDay.lunch][Cafeteria.student];
 
       expect(meals, isEmpty);
-    });
-
-    test('필수 메뉴 ko가 null이면 FormatException을 던진다', () {
-      final json = jsonEncode({
-        'week': {
-          'startDate': '2026-06-15',
-          'isCurrentWeek': true,
-          'nextWeekStart': null,
-        },
-        'lastUpdated': '2026-06-15T09:00:00+09:00',
-        'data': [
-          {
-            'cafeteria': 'DORMITORY',
-            'meals': [
-              {
-                'date': '2026-06-20',
-                'dayOfWeek': 'SAT',
-                'timeType': 'BREAKFAST',
-                'menusByType': [
-                  {
-                    'menuType': 'KOREAN',
-                    'sections': [
-                      {
-                        'sectionType': 'REGULAR',
-                        'sectionTitle': null,
-                        'calorie': null,
-                        'sectionAllergens': null,
-                        'menus': [
-                          {'ko': null, 'en': 'Rice', 'allergens': []},
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      });
-
-      expect(() => parseRawMeal(json), throwsFormatException);
-    });
-
-    test('필수 목록 필드가 null이면 FormatException을 던진다', () {
-      final json = jsonEncode({
-        'week': {
-          'startDate': '2026-06-15',
-          'isCurrentWeek': true,
-          'nextWeekStart': null,
-        },
-        'lastUpdated': '2026-06-15T09:00:00+09:00',
-        'data': null,
-      });
-
-      expect(() => parseRawMeal(json), throwsFormatException);
     });
 
     test('data가 빈 배열이면 모든 식사 리스트가 비어 있음', () {

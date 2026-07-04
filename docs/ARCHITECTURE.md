@@ -18,7 +18,7 @@
 │  HomePageModel  ◄── owned        └── MealCard × 3       │
 │  ValueNotifier  ◄── owned                               │
 └─────────────┬───────────────────────────────────────────┘
-              │ FutureBuilder (식단 캐시 → 네트워크) + shared AppInfo future
+              │ FutureBuilder (식단 캐시 → /v2/menu) + shared AppInfo future
 ┌─────────────▼───────────────────────────────────────────┐
 │  상태 / 도메인                                           │
 │                                                         │
@@ -261,8 +261,10 @@ WeekMeal
 
 - 식당: 기숙사식당 / 학생식당 / 교직원식당 (`Cafeteria` enum)
 - 끼니: 아침 / 점심 / 저녁 (`MealOfDay` enum)
+- `Meal`은 `MealMenuItem(ko, en?)` 목록과 선택적 `kcal`을 갖습니다. UI는 `localizedMenu(languageCode)`로 현재 언어에 맞는 메뉴명을 얻으며, 영어 메뉴명이 없으면 한국어로 fallback합니다.
 - `CafeteriaMeal.empty()`이 growable 리스트를 만들고, `parseRawMeal`이 그 리스트를 변이시켜 채우는 **2단계 초기화 패턴**입니다. API 응답을 순서대로 파싱하면서 식당별 리스트에 추가하는 방식이기 때문에, 불변 객체로 한 번에 생성하려면 전체를 먼저 분류한 뒤 생성해야 하는 불필요한 중간 버퍼가 생깁니다.
-- API 응답의 한국어 식당 키 (`"기숙사 식당"`, `"학생 식당"`, `"교직원 식당"`)는 `Cafeteria.fromApiKey()`로 매핑합니다.
+- `/v2/menu` 응답의 식당 키(`DORMITORY`, `STUDENT`, `FACULTY`), 요일 키(`MON`..`SUN`), 끼니 키(`BREAKFAST`, `LUNCH`, `DINNER`)는 각 도메인 enum으로 매핑합니다.
+- 현재 UI는 `sectionType == REGULAR` 섹션만 표시합니다. `SALAD`, `CONVENIENCE`, `SPECIAL`, `sectionTitle`, section-level calorie/allergen 표시는 후속 UI 설계 범위입니다.
 - `parseRawMeal`은 본래 `api_v2.dart`에 있었으나 도메인 책임을 명확히 하기 위해 `meal.dart`로 이동했습니다 (`0d331a2`).
 
 ## 앱 정보 모델
@@ -294,7 +296,7 @@ AppInfo
 
 | 엔드포인트 | 용도 | 현재 소비자 |
 |---|---|---|
-| `mealEndpoint` (`/mainpage/data`) | 식단 데이터 | `features/meal/meal_data_source.dart` |
+| `mealEndpoint` (`/v2/menu`) | 현재 주 식단 데이터 | `features/meal/meal_data_source.dart` |
 | `infoEndpoint` (`/v2/info`) | 공지사항 + 운영시간 | `features/info/info_data_source.dart` |
 | `noticeEndpoint` (`/notice`) | 기존 공지 API 상수 | 현재 주요 흐름에서는 `/v2/info`의 `announcement` 사용 |
 
@@ -359,7 +361,7 @@ lib/
 
 ## 테스트
 
-- `test/domain_test.dart` — 도메인 모델 / 파싱 로직 단위 테스트
+- `test/domain_test.dart` — 도메인 모델 / `/v2/menu` 파싱 로직 단위 테스트
 - `test/info_test.dart` — `/v2/info` 모델 파싱, 공지 저장/비교 로직 테스트
 - `test/home_drawer_test.dart` — 드로어 운영시간 항목과 평일/주말 팝업 테스트
 - `test/meal_card_test.dart` — 식단 카드 운영시간 표시 상태 테스트
