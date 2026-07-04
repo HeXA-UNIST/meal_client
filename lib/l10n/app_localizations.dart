@@ -134,6 +134,30 @@ abstract class AppLocalizations {
   /// **'운영 시간'**
   String get operationHours;
 
+  /// No description provided for @weekday.
+  ///
+  /// In ko, this message translates to:
+  /// **'평일'**
+  String get weekday;
+
+  /// No description provided for @weekend.
+  ///
+  /// In ko, this message translates to:
+  /// **'주말'**
+  String get weekend;
+
+  /// No description provided for @cannotLoadOperationHours.
+  ///
+  /// In ko, this message translates to:
+  /// **'운영 시간을 불러올 수 없어요.'**
+  String get cannotLoadOperationHours;
+
+  /// No description provided for @noOperationHours.
+  ///
+  /// In ko, this message translates to:
+  /// **'등록된 운영 시간이 없어요.'**
+  String get noOperationHours;
+
   /// No description provided for @contactDeveloper.
   ///
   /// In ko, this message translates to:

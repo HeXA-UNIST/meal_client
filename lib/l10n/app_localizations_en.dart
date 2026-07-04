@@ -18,13 +18,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get announcement => 'Announcement';
 
   @override
-  String get noAnnouncement => 'There\'s no announcement.';
+  String get noAnnouncement => 'There is no announcement.';
 
   @override
   String get cannotLoadAnnouncement => 'Cannot load announcement.';
 
   @override
   String get operationHours => 'Operation Hours';
+
+  @override
+  String get weekday => 'Weekday';
+
+  @override
+  String get weekend => 'Weekend';
+
+  @override
+  String get cannotLoadOperationHours => 'Cannot load operation hours.';
+
+  @override
+  String get noOperationHours => 'No operation hours available.';
 
   @override
   String get contactDeveloper => 'Contact Developer';

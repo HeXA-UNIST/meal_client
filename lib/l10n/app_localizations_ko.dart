@@ -27,6 +27,18 @@ class AppLocalizationsKo extends AppLocalizations {
   String get operationHours => '운영 시간';
 
   @override
+  String get weekday => '평일';
+
+  @override
+  String get weekend => '주말';
+
+  @override
+  String get cannotLoadOperationHours => '운영 시간을 불러올 수 없어요.';
+
+  @override
+  String get noOperationHours => '등록된 운영 시간이 없어요.';
+
+  @override
   String get contactDeveloper => '개발자에게 문의하기';
 
   @override
