@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'meal_alert_period.dart';
@@ -18,21 +21,22 @@ import 'notification_service.dart';
 Future<void> testMealKeywordCheck({
   List<String>? keywordsOverride,
   MealAlertPeriod period = MealAlertPeriod.lunch,
-}) => _runMealKeywordCheck(
-      period: period,
-      keywordsOverride: keywordsOverride,
-    );
+}) => _runMealKeywordCheck(period: period, keywordsOverride: keywordsOverride);
 
 /// Workmanager 백그라운드 격리체(isolate) 진입점.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
 
     if (taskName == mealRefreshTaskName ||
         taskName == Workmanager.iOSBackgroundTask) {
       try {
-        await MealRefreshService().refreshMealData();
+        await MealRefreshService(
+          throwOnCacheWriteFailure: true,
+        ).refreshMealData();
+        await InfoRefreshService(throwOnCacheWriteFailure: true).refreshInfo();
         return true;
       } catch (e, stackTrace) {
         debugPrint('[BapU] background meal refresh failed: $e');
@@ -79,7 +83,8 @@ Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
     return true;
   }());
   await scheduleKeywordNotificationFor(
-    period, TimeOfDay(hour: hour, minute: minute),
+    period,
+    TimeOfDay(hour: hour, minute: minute),
   );
   assert(() {
     debugPrint('[BapU] worker: reschedule call completed');
@@ -97,7 +102,8 @@ Future<void> _runMealKeywordCheck({
   if (!enabled) return;
 
   // 키워드 로드 (override 또는 prefs). 공백 제거 + 빈 항목 제외.
-  final rawKeywords = keywordsOverride ??
+  final rawKeywords =
+      keywordsOverride ??
       prefs.getStringList(StorageKeys.notificationKeywords) ??
       const <String>[];
   final keywords = rawKeywords
@@ -108,7 +114,7 @@ Future<void> _runMealKeywordCheck({
 
   final cafeteriaNames =
       prefs.getStringList(StorageKeys.notificationCafeterias) ??
-          [Cafeteria.dormitory.name];
+      [Cafeteria.dormitory.name];
   final cafeteriaMap = Cafeteria.values.asNameMap();
   final cafeterias = {
     for (final n in cafeteriaNames)
@@ -203,8 +209,8 @@ Future<void> _runMealKeywordCheck({
 }
 
 String _periodLabel(MealAlertPeriod period) => switch (period) {
-      MealAlertPeriod.morning => '오늘 아침',
-      MealAlertPeriod.lunch => '오늘 점심',
-      MealAlertPeriod.dinner => '오늘 저녁',
-      MealAlertPeriod.night => '내일 아침',
-    };
+  MealAlertPeriod.morning => '오늘 아침',
+  MealAlertPeriod.lunch => '오늘 점심',
+  MealAlertPeriod.dinner => '오늘 저녁',
+  MealAlertPeriod.night => '내일 아침',
+};
