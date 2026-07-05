@@ -8,6 +8,8 @@
 	<array>
 		<string>bapu_meal_refresh</string>
 	</array>
+	<key>BAPU_APP_GROUP_IDENTIFIER</key>
+	<string>$(APP_GROUP_IDENTIFIER)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
