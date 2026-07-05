@@ -5,7 +5,7 @@
 ## 통합 원칙
 
 - 네이티브 위젯은 네트워크를 직접 호출하지 않습니다. 데이터 갱신의 단일 owner는 Flutter/Dart foreground 또는 Workmanager background refresh입니다.
-- 공유 캐시는 raw API 파일인 `meal.json`과 `info.json`으로 제한합니다. 범용 `core/storage_io.dart` 소비자를 App Group이나 위젯 공유 영역으로 옮기지 않습니다.
+- 공유 캐시는 raw API 파일인 `meal.json`과 `info.json`으로 제한합니다. 앱 전용 설정/기타 데이터를 App Group이나 위젯 공유 영역으로 옮기지 않습니다.
 - Android 위젯은 `context.filesDir`의 `meal.json`/`info.json`만 읽고, iOS WidgetKit 위젯은 App Group container의 같은 파일만 읽어야 합니다.
 - Dart는 iOS App Group ID를 하드코딩하지 않습니다. App Group container path는 native bridge가 반환합니다.
 - `develop` 자체가 위젯 없이 온전하게 빌드/실행되어야 한다면 iOS App Group entitlement와 bridge는 미리 단독 반영하지 않습니다.

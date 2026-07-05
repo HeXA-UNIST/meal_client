@@ -449,14 +449,24 @@ lib/
 └── l10n/                                  ARB + 자동 생성된 AppLocalizations
 
 android/app/src/main/kotlin/pro/hexa/meal/meal_client/
-├── BapUWidget*Provider.kt                 Android RemoteViews provider
+├── BapUBaseWidgetProvider.kt              공통 AppWidgetProvider lifecycle base class
+├── BapUWidget2x2Provider.kt               2x2 단일 식당 provider
+├── BapUWidget4x2DualProvider.kt           4x2 두 식당 provider
+├── BapUWidget4x2StatusProvider.kt         4x2 운영상태 provider
+├── BapUWidget4x4Provider.kt               4x4 전체 식당 provider
 ├── BapUWidgetContract.kt                  native/Dart/API drift-sensitive contract
 ├── BapUWidgetTime.kt                      KST time helpers
+├── BapUWidgetFetcher.kt                   WidgetMealData 정의 + cache-only fetch 진입점
 ├── BapUWidgetMealParser.kt                /v2/menu raw JSON parser
 ├── BapUWidgetMealRepository.kt            meal.json cache-only repository
 ├── BapUWidgetOperatingHours.kt            info.json operating status
+├── BapUWidgetDataHelper.kt                설정 SharedPreferences, layout/fitting, RemoteViews helper
+├── BapUWidgetSingleConfigActivity.kt      단일 식당 위젯 설정 화면
+├── BapUWidgetDualConfigActivity.kt        두 식당 위젯 설정 화면
 ├── BapUWidgetUpdateDispatcher.kt          render entrypoint
 ├── BapUWidgetScheduleManager.kt           AlarmManager display boundaries
+├── BapUWidgetScheduledUpdateReceiver.kt   예약 알람 수신 후 전체 위젯 갱신
+├── BapUWidgetBootReceiver.kt              부팅 후 다음 예약 복구
 └── BapUWidgetUpdateWorker.kt              legacy WorkManager shim only
 
 plugins/bapu_widget_bridge/
