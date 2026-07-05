@@ -1,0 +1,27 @@
+group = "pro.hexa.meal.bapu_widget_bridge"
+version = "1.0"
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "pro.hexa.meal.bapu_widget_bridge"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 23
+    }
+}

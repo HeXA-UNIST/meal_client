@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -17,6 +18,7 @@ import java.util.TimeZone
  * 시작)까지 한 번에 건너뛴다.
  */
 object BapUWidgetScheduleManager {
+    private const val TAG = "BapUWidgetScheduleManager"
     private const val REQUEST_CODE = 5100
     private const val ACTION_SCHEDULED_UPDATE = "pro.hexa.meal.meal_client.action.WIDGET_SCHEDULED_UPDATE"
     private val KST = TimeZone.getTimeZone("Asia/Seoul")
@@ -25,8 +27,18 @@ object BapUWidgetScheduleManager {
     fun scheduleNext(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val now = Calendar.getInstance(KST)
-        val periods = BapUWidgetOperatingHours.periodsForToday(context)
-        val triggerAtMillis = now.timeInMillis + millisUntilNextWake(now, periods)
+        val scheduleData = try {
+            val hours = BapUWidgetOperatingHours.loadRequiredFromCache(context)
+            val periods = BapUWidgetOperatingHours.periodsForToday(hours, now)
+            val transitions = BapUWidgetOperatingHours.mealTransitionsForToday(hours, now)
+            Pair(periods, transitions)
+        } catch (e: WidgetInfoCacheException) {
+            Log.e(TAG, "cannot schedule widget update without valid info cache", e)
+            cancel(context)
+            return
+        }
+        val (periods, transitions) = scheduleData
+        val triggerAtMillis = now.timeInMillis + millisUntilNextWake(now, periods, transitions)
         val pi = pendingIntent(context)
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || am.canScheduleExactAlarms()) {
@@ -51,7 +63,11 @@ object BapUWidgetScheduleManager {
     }
 
     /** 지금부터 다음 호출까지 남은 시간(ms). */
-    internal fun millisUntilNextWake(now: Calendar, periods: List<OperatingPeriod>): Long {
+    internal fun millisUntilNextWake(
+        now: Calendar,
+        periods: List<OperatingPeriod>,
+        transitions: WidgetMealTransitionMinutes,
+    ): Long {
         val nowMins = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
         val nowSec = now.get(Calendar.SECOND)
         val nowMs = now.get(Calendar.MILLISECOND)
@@ -61,7 +77,7 @@ object BapUWidgetScheduleManager {
             return 60_000L - elapsedInCurrentMinuteMs
         }
 
-        val boundaries = allBoundaryMinutesToday(periods)
+        val boundaries = allBoundaryMinutesToday(periods, transitions)
         val nextToday = boundaries.filter { it > nowMins }.minOrNull()
         val targetMins = nextToday ?: (boundaries.min() + 24 * 60)
         return (targetMins - nowMins) * 60_000L - elapsedInCurrentMinuteMs
@@ -75,11 +91,14 @@ object BapUWidgetScheduleManager {
         }
 
     /** 오늘의 "운영 시작" 시각 + "마감 45분 전" 시각을 자정 기준 분 단위로 모은 것(중복 제거). */
-    internal fun allBoundaryMinutesToday(periods: List<OperatingPeriod>): List<Int> {
+    internal fun allBoundaryMinutesToday(
+        periods: List<OperatingPeriod>,
+        transitions: WidgetMealTransitionMinutes,
+    ): List<Int> {
         val result = sortedSetOf(
             0,
-            BapUWidgetContract.MealTime.BREAKFAST_END_MINUTES + 1,
-            BapUWidgetContract.MealTime.LUNCH_END_MINUTES + 1,
+            transitions.breakfastEndMinutes + 1,
+            transitions.lunchEndMinutes + 1,
         )
         for (p in periods) {
             result.add(p.startH * 60 + p.startM)

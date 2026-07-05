@@ -12,11 +12,24 @@ data class WidgetMealData(
     val studentKcal: Int? = null,
     val facultyMenu: List<String> = emptyList(),
     val facultyKcal: Int? = null,
-)
+    val errorMessageResId: Int? = null,
+) {
+    val isError: Boolean
+        get() = errorMessageResId != null
+
+    companion object {
+        fun empty(mealOfDay: WidgetMealOfDay): WidgetMealData =
+            WidgetMealData(mealOfDay = mealOfDay.index)
+
+        fun error(): WidgetMealData =
+            WidgetMealData(mealOfDay = -1, errorMessageResId = R.string.widget_data_error)
+    }
+}
 
 object BapUWidgetFetcher {
-    fun fetch(context: Context): WidgetMealData? =
-        BapUWidgetMealRepository.fetch(context)
+    fun fetch(context: Context): WidgetMealData =
+        runCatching { BapUWidgetMealRepository.fetch(context) }
+            .getOrElse { WidgetMealData.error() }
 
     internal fun parseWidgetMealData(
         json: String,
@@ -33,6 +46,15 @@ object BapUWidgetFetcher {
             languageCode = languageCode
         )
 }
+
+fun WidgetMealData.mealLabel(context: Context): String =
+    if (isError) context.getString(R.string.widget_error_title) else context.getString(mealOfDayResId(mealOfDay))
+
+fun WidgetMealData.menuItems(context: Context, cafeteria: Int): List<String> =
+    errorMessageResId?.let { listOf(context.getString(it)) } ?: menuFromData(this, cafeteria)
+
+fun WidgetMealData.operatingStatus(context: Context, cafeteria: Int): Pair<Int, String>? =
+    if (isError) null else operatingStatusDisplay(context, cafeteria, mealOfDay)
 
 fun menuFromData(data: WidgetMealData, cafeteria: Int): List<String> = when (WidgetCafeteria.fromPrefValue(cafeteria)) {
     WidgetCafeteria.DORM_KOREAN -> data.dormKoreanMenu

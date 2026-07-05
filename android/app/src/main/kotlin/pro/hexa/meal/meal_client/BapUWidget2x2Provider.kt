@@ -12,7 +12,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
 
     override val TAG = Companion.TAG
 
-    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData?) =
+    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) =
         Companion.updateWidget(context, manager, widgetId, data)
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -22,13 +22,12 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
     companion object {
         const val TAG = "BapUWidget2x2"
 
-        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData?) {
+        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
             Log.d(TAG, "updateWidget id=$widgetId data=$data")
             val views = RemoteViews(context.packageName, R.layout.widget_2x2)
-            val mealOfDay = data?.mealOfDay ?: currentMealOfDay()
             val cafeteria = loadSingleCafeteria(context, widgetId)
             val cafeteriaName = context.getString(cafeteriaNameResId(cafeteria))
-            val mealLabel = context.getString(mealOfDayResId(mealOfDay))
+            val mealLabel = data.mealLabel(context)
 
             views.setTextViewText(R.id.tv_cafeteria_name, cafeteriaName)
             views.setTextViewText(R.id.tv_meal_of_day, mealLabel)
@@ -41,7 +40,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             val widthPx  = safeMeasureSizePx(dpToPx(context, widthDp.toFloat()).toInt())
             val heightPx = safeMeasureSizePx(dpToPx(context, heightDp.toFloat()).toInt())
 
-            val statusDisplay = operatingStatusDisplay(context, cafeteria, mealOfDay)
+            val statusDisplay = data.operatingStatus(context, cafeteria)
 
             fun setup(root: View) {
                 root.findViewById<TextView>(R.id.tv_cafeteria_name).apply {
@@ -61,7 +60,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                 root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
 
-            val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
+            val items = data.menuItems(context, cafeteria)
             val menuText = truncateMenuByRealLayout(
                 context, R.layout.widget_2x2, R.id.tv_menu, widthPx, heightPx, items, ::setup
             )

@@ -18,6 +18,8 @@
     <string name="widget_loading">Loading…</string>
     <string name="widget_no_data">No data</string>
     <string name="widget_no_menu">-</string>
+    <string name="widget_error_title">Error</string>
+    <string name="widget_data_error">Widget data error</string>
     <string name="widget_kcal">%d kcal</string>
 
     <!-- 식사 시간 -->

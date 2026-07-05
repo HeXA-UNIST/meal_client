@@ -18,7 +18,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         context: Context,
         manager: AppWidgetManager,
         widgetId: Int,
-        data: WidgetMealData?
+        data: WidgetMealData
     )
 
     override fun onUpdate(

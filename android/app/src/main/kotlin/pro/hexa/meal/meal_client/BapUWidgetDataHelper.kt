@@ -146,11 +146,6 @@ fun splitMenuTwoColumnsByRealLayout(
     return Pair(left, right)
 }
 
-// ─── 현재 식사 시간 결정 (MealTimeConfig와 동일한 기준) ───────────────────
-
-/** 0=조식, 1=중식, 2=석식 */
-fun currentMealOfDay(): Int = BapUWidgetTime.currentMealOfDay().index
-
 data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val endM: Int)
 
 enum class OperatingStatus { BEFORE_OPEN, OPEN, CLOSING_SOON, JUST_CLOSED }

@@ -289,9 +289,9 @@ Android 홈 화면 위젯은 `android/app/src/main/kotlin/pro/hexa/meal/meal_cli
 | `BapUWidgetScheduleManager.kt` | AlarmManager 경계 예약 |
 | `BapUWidgetDataHelper.kt` | 설정 SharedPreferences, layout/fitting, RemoteViews helper |
 
-Android 위젯은 네트워크를 직접 호출하지 않습니다. `meal.json`이 없거나 stale/corrupt이면 빈 메뉴 상태를 렌더하고, `info.json`이 없거나 corrupt이면 운영상태를 숨깁니다. 데이터 갱신의 단일 owner는 Dart foreground/background refresh입니다.
+Android 위젯은 네트워크를 직접 호출하지 않습니다. `meal.json`이 없거나 stale/corrupt이면 `info.json`으로 계산한 현재 끼니의 빈 메뉴 상태를 렌더합니다. `info.json`이 없거나 corrupt이거나 breakfast/lunch 전환 계산에 필요한 운영시간이 없으면 고정 경계로 대체하지 않고 위젯 데이터 오류를 표시합니다. 데이터 갱신의 단일 owner는 Dart foreground/background refresh입니다.
 
-표시 전환은 AlarmManager로 처리합니다. 기본 예약 경계는 자정, 09:21, 13:31이며, `info.json`이 있으면 운영 시작과 마감임박 시작(종료 45분 전)도 추가합니다. 마감임박 구간에서는 1분 단위로 다시 예약해 “N분 남음” 표시를 갱신합니다. provider XML의 `updatePeriodMillis`는 `0`이며, 순수 native 주기 fallback이 필요해질 때만 다시 검토합니다.
+표시 전환은 AlarmManager로 처리합니다. 예약 경계는 자정, `info.json`에서 계산한 끼니 전환 시각(오늘 모든 식당의 breakfast/lunch 중 가장 늦은 종료 시각 + 1분), 운영 시작, 마감임박 시작(종료 45분 전)입니다. 마감임박 구간에서는 1분 단위로 다시 예약해 “N분 남음” 표시를 갱신합니다. provider XML의 `updatePeriodMillis`는 `0`이며, 순수 native 주기 안전망이 필요해질 때만 다시 검토합니다.
 
 `BapUWidgetUpdateWorker`는 legacy WorkManager class 이름을 보존해 기존 예약이 missing class가 되지 않게 하는 shim입니다. active render path가 아니며, 실행되면 legacy unique work를 cancel하고 성공 종료합니다.
 
@@ -306,7 +306,7 @@ Android render bridge는 로컬 Flutter plugin `plugins/bapu_widget_bridge`가 �
 - `ios/Runner.xcodeproj/project.pbxproj`: `APP_GROUP_IDENTIFIER = group.com.wjddnwls7879.unistbab`
 - `lib/core/widget_shared_storage_io.dart`: iOS에서 native bridge로 App Group container path 조회
 
-iOS WidgetKit extension을 추가할 때는 같은 App Group ID를 extension target에도 설정하고, `TimelineProvider`가 App Group의 `meal.json`/`info.json`만 읽도록 유지해야 합니다. WidgetKit은 Android AlarmManager처럼 분 단위 갱신을 보장하지 않으므로 timeline entry에 자정, 09:21, 13:31, 운영 시작, 마감임박 시작, 운영 종료를 미리 넣는 방식으로 설계합니다.
+iOS WidgetKit extension을 추가할 때는 같은 App Group ID를 extension target에도 설정하고, `TimelineProvider`가 App Group의 `meal.json`/`info.json`만 읽도록 유지해야 합니다. WidgetKit은 Android AlarmManager처럼 분 단위 갱신을 보장하지 않으므로 timeline entry에 자정, `info.json`에서 계산한 끼니 전환 시각, 운영 시작, 마감임박 시작, 운영 종료를 미리 넣는 방식으로 설계합니다.
 
 ## 플랫폼 분기
 

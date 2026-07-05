@@ -12,7 +12,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
 
     override val TAG = Companion.TAG
 
-    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData?) =
+    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) =
         Companion.updateWidget(context, manager, widgetId, data)
 
     // 4x4는 식당별 설정이 없으므로 onDeleted 불필요
@@ -20,11 +20,10 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
     companion object {
         const val TAG = "BapUWidget4x4"
 
-        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData?) {
+        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
             Log.d(TAG, "updateWidget id=$widgetId")
             val views = RemoteViews(context.packageName, R.layout.widget_4x4)
-            val mealOfDay = data?.mealOfDay ?: currentMealOfDay()
-            val mealLabel = context.getString(mealOfDayResId(mealOfDay))
+            val mealLabel = data.mealLabel(context)
 
             val widthDp  = widgetWidthDp(manager, widgetId)
             val heightDp = widgetHeightDp(manager, widgetId)
@@ -33,19 +32,19 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
             val widthPx  = safeMeasureSizePx(dpToPx(context, widthDp.toFloat()).toInt())
             val heightPx = safeMeasureSizePx(dpToPx(context, heightDp.toFloat()).toInt())
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_DORM_KOREAN, widthPx, heightPx, menuSp, statusSp,
+            bindPanel(context, views, data, mealLabel, CAFE_DORM_KOREAN, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_dorm_korean, tvMeal = R.id.tv_meal_dorm_korean,
                 tvMenu = R.id.tv_menu_dorm_korean, tvStatus = R.id.tv_status_dorm_korean)
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_DORM_HALAL, widthPx, heightPx, menuSp, statusSp,
+            bindPanel(context, views, data, mealLabel, CAFE_DORM_HALAL, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_dorm_halal, tvMeal = R.id.tv_meal_dorm_halal,
                 tvMenu = R.id.tv_menu_dorm_halal, tvStatus = R.id.tv_status_dorm_halal)
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_STUDENT, widthPx, heightPx, menuSp, statusSp,
+            bindPanel(context, views, data, mealLabel, CAFE_STUDENT, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_student, tvMeal = R.id.tv_meal_student,
                 tvMenu = R.id.tv_menu_student, tvStatus = R.id.tv_status_student)
 
-            bindPanel(context, views, data, mealLabel, mealOfDay, CAFE_FACULTY, widthPx, heightPx, menuSp, statusSp,
+            bindPanel(context, views, data, mealLabel, CAFE_FACULTY, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_name_faculty, tvMeal = R.id.tv_meal_faculty,
                 tvMenu = R.id.tv_menu_faculty, tvStatus = R.id.tv_status_faculty)
 
@@ -76,9 +75,8 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
         private fun bindPanel(
             context: Context,
             views: RemoteViews,
-            data: WidgetMealData?,
+            data: WidgetMealData,
             mealLabel: String,
-            mealOfDay: Int,
             cafeteria: Int,
             widthPx: Int,
             heightPx: Int,
@@ -90,7 +88,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
             views.setTextViewText(tvName, cafeteriaName)
             views.setTextViewText(tvMeal, mealLabel)
 
-            val statusDisplay = operatingStatusDisplay(context, cafeteria, mealOfDay)
+            val statusDisplay = data.operatingStatus(context, cafeteria)
 
             fun setup(root: View) {
                 root.findViewById<TextView>(tvName).apply {
@@ -104,7 +102,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
                 root.findViewById<TextView>(tvStatus).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
 
-            val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
+            val items = data.menuItems(context, cafeteria)
             val menuText = truncateMenuByRealLayout(
                 context, R.layout.widget_4x4, tvMenu, widthPx, heightPx, items, ::setup
             )

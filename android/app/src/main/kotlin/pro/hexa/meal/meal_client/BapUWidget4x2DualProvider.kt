@@ -12,7 +12,7 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
 
     override val TAG = Companion.TAG
 
-    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData?) =
+    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) =
         Companion.updateWidget(context, manager, widgetId, data)
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -22,10 +22,9 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
     companion object {
         const val TAG = "BapUWidget4x2Dual"
 
-        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData?) {
+        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
             Log.d(TAG, "updateWidget id=$widgetId")
             val views = RemoteViews(context.packageName, R.layout.widget_4x2_dual)
-            val mealOfDay = data?.mealOfDay ?: currentMealOfDay()
             val (c0, c1) = loadDualCafeterias(context, widgetId)
 
             val widthDp  = widgetWidthDp(manager, widgetId)
@@ -35,14 +34,14 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
             val widthPx  = safeMeasureSizePx(dpToPx(context, widthDp.toFloat()).toInt())
             val heightPx = safeMeasureSizePx(dpToPx(context, heightDp.toFloat()).toInt())
 
-            bindPanel(context, views, data, mealOfDay, c0, widthPx, heightPx, menuSp, statusSp,
+            bindPanel(context, views, data, c0, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_cafeteria_name_0,
                 tvMeal = R.id.tv_meal_of_day_0,
                 tvFoodType = R.id.tv_food_type_0,
                 tvMenu = R.id.tv_menu_0,
                 tvStatus = R.id.tv_status_0)
 
-            bindPanel(context, views, data, mealOfDay, c1, widthPx, heightPx, menuSp, statusSp,
+            bindPanel(context, views, data, c1, widthPx, heightPx, menuSp, statusSp,
                 tvName = R.id.tv_cafeteria_name_1,
                 tvMeal = R.id.tv_meal_of_day_1,
                 tvFoodType = R.id.tv_food_type_1,
@@ -65,8 +64,7 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
         private fun bindPanel(
             context: Context,
             views: RemoteViews,
-            data: WidgetMealData?,
-            mealOfDay: Int,
+            data: WidgetMealData,
             cafeteria: Int,
             widthPx: Int,
             heightPx: Int,
@@ -75,12 +73,12 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
             tvName: Int, tvMeal: Int, tvFoodType: Int, tvMenu: Int, tvStatus: Int
         ) {
             val cafeteriaName = context.getString(cafeteriaNameResId(cafeteria))
-            val mealLabel = context.getString(mealOfDayResId(mealOfDay))
+            val mealLabel = data.mealLabel(context)
             views.setTextViewText(tvName, cafeteriaName)
             views.setTextViewText(tvMeal, mealLabel)
             views.bindFoodType(context, tvFoodType, cafeteria)
 
-            val statusDisplay = operatingStatusDisplay(context, cafeteria, mealOfDay)
+            val statusDisplay = data.operatingStatus(context, cafeteria)
 
             fun setup(root: View) {
                 root.findViewById<TextView>(tvName).apply {
@@ -100,7 +98,7 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
                 root.findViewById<TextView>(tvStatus).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
 
-            val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
+            val items = data.menuItems(context, cafeteria)
             val menuText = truncateMenuByRealLayout(
                 context, R.layout.widget_4x2_dual, tvMenu, widthPx, heightPx, items, ::setup
             )

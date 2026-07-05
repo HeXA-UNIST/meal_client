@@ -18,6 +18,8 @@
     <string name="widget_loading">데이터 로딩 중…</string>
     <string name="widget_no_data">데이터 없음</string>
     <string name="widget_no_menu">-</string>
+    <string name="widget_error_title">오류</string>
+    <string name="widget_data_error">위젯 데이터 오류</string>
     <string name="widget_kcal">%d kcal</string>
 
     <!-- 식사 시간 -->
