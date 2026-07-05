@@ -91,6 +91,9 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
       return false;
     }
 
+    // develop-widget 병합 시에도 notification 브랜치의 기준은 유지한다.
+    // meal cache 갱신이 끝난 뒤 /v2/info fetch/parse 실패만으로는 키워드 알림용
+    // background task를 실패시키지 않는다. 공유 cache write 실패만 strict 처리한다.
     _logBackgroundRefreshFailure(
       'background info refresh skipped',
       infoFailure,
