@@ -75,7 +75,7 @@ i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLoca
                   lib/features/meal/ (meal_data_source.dart, meal_cache.dart,
                                       meal_refresh_service.dart, meal_background_refresh.dart),
                   lib/features/widget/widget_service*.dart,
-                  lib/core/storage*.dart, lib/core/widget_shared_storage*.dart,
+                  lib/core/widget_shared_storage*.dart,
                   lib/core/network/
 네이티브 위젯    → android/app/src/main/kotlin/.../meal_client/BapUWidget*.kt,
                   plugins/bapu_widget_bridge/,
@@ -313,13 +313,13 @@ iOS WidgetKit extension을 추가할 때는 같은 App Group ID를 extension tar
 조건부 export(`dart.library.js_interop` 기반 컴파일 타임 분기)로 플랫폼별 구현을 선택합니다.
 
 ```dart
-// core/storage.dart
-export 'storage_io.dart' if (dart.library.js_interop) 'storage_web.dart';
+// core/widget_shared_storage.dart
+export 'widget_shared_storage_io.dart'
+    if (dart.library.js_interop) 'widget_shared_storage_web.dart';
 ```
 
 | 추상 모듈 | 네이티브 (`*_io.dart`) | 웹 (`*_web.dart`) |
 |---|---|---|
-| `lib/core/storage.dart` | `getApplicationSupportDirectory()` 기반 JSON 파일 캐시 | 파일 캐시 비활성, 매번 fetch |
 | `lib/core/widget_shared_storage.dart` | Android: app support/filesDir, iOS: App Group bridge | 공유 위젯 캐시 미지원 stub |
 | `lib/features/widget/widget_service.dart` | Android/iOS MethodChannel render trigger | no-op stub |
 | `lib/core/network/platform_http_client.dart` | iOS: `cupertino_http` / Android: `cronet_http` | 기본 `http` 패키지 |
@@ -403,8 +403,6 @@ lib/
 ├── main.dart                              앱 진입점, ChangeNotifierProvider, MaterialApp
 ├── core/
 │   ├── constants.dart                     ApiConstants, MealTimeConfig, StorageKeys
-│   ├── storage.dart                       조건부 export
-│   ├── storage_io.dart / storage_web.dart 플랫폼별 캐시 구현
 │   ├── widget_shared_storage.dart         raw widget cache 조건부 export
 │   ├── widget_shared_storage_io.dart      Android filesDir / iOS App Group shared cache
 │   ├── widget_shared_storage_web.dart     웹 stub
