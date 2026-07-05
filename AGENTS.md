@@ -58,7 +58,8 @@ Data/Infra        → features/info/ (app_info, info_data_source, announcement_s
                                     meal_background_refresh*)
                     features/notification/ (meal_notification_worker, notification_scheduler,
                                             notification_service)
-                    core/storage*.dart, core/network/ (platform_http_client*, http_client)
+                    core/widget_shared_storage*.dart,
+                    core/network/ (platform_http_client*, http_client)
 ```
 
 ### Key Architectural Decisions
@@ -74,10 +75,10 @@ Data/Infra        → features/info/ (app_info, info_data_source, announcement_s
 - **Operating hours**: Operating hours are read-only data from `/v2/info`. Meal cards show the selected date/meal operating time, and `HomePageDrawer` exposes operation hours as a navigation item that opens a weekday/weekend dialog. Operating hours are not cached or compared separately; they refresh when `AppInfo` is refetched. Drawer announcement/operation-hour dialogs wrap their content in `SelectionArea` for copy/select support.
 - **Menu API**: `/v2/menu` is the current-week menu entry point. It returns `data[] → meals[] → menusByType[] → sections[] → menus[]`; the client currently renders only `sectionType == REGULAR` sections. `SALAD`, `CONVENIENCE`, `SPECIAL`, `sectionTitle`, and allergen display are intentionally deferred.
 - **Meal cache flow**: `meal_data_source.dart` is a compatibility wrapper over `MealCache` and `MealRefreshService`. `HomePage` still loads cached data first (`getCachedMealData`) and then performs an unconditional foreground refresh (`fetchAndCacheMealData`) to preserve existing UX. Cache freshness uses `MealTimeConfig.kstWeekId()` based on the cache file's `lastModified` time, not calendar week numbers.
-- **Shared meal cache**: Native IO cache is stored as `meal.json` via `getApplicationSupportDirectory()` and written with temp-file + rename to reduce torn reads. Web storage intentionally has no persistent meal cache; freshness checks return stale through the cache wrapper.
+- **Shared widget cache**: Raw `/v2/menu` JSON is stored as `meal.json` and raw `/v2/info` JSON is stored as `info.json` through `core/widget_shared_storage.dart`. Android and desktop use app support storage; iOS resolves an App Group container through a MethodChannel; web has no persistent shared widget cache. Writes use temp-file + rename to reduce torn reads.
 - **Background refresh**: `features/meal/meal_background_refresh*` registers the hourly `bapu_meal_refresh` Workmanager task. Do not add a second Workmanager dispatcher; `main.dart` initializes Workmanager once with `features/notification/meal_notification_worker.dart`'s `callbackDispatcher`, which handles both meal refresh and keyword notification tasks. Android applies `NetworkType.connected`; iOS BGAppRefresh does not enforce that constraint.
 - **Notifications**: Keyword notifications are wired through `features/notification/`. The notification worker reads settings directly from SharedPreferences in the background isolate and gets menu data through `MealRefreshService.getFreshOrRefreshMealData()` so notification checks share the same cache as the foreground app.
-- **Platform branching**: Conditional exports for storage (`core/storage.dart` → `storage_io.dart` / `storage_web.dart`) and HTTP client (`core/network/platform_http_client.dart` → `*_io.dart` / `*_web.dart`). iOS uses cupertino_http, Android uses cronet_http.
+- **Platform branching**: Conditional exports for shared widget cache (`core/widget_shared_storage.dart` → `widget_shared_storage_io.dart` / `widget_shared_storage_web.dart`) and HTTP client (`core/network/platform_http_client.dart` → `*_io.dart` / `*_web.dart`). iOS uses cupertino_http, Android uses cronet_http.
 - **Custom scroll system**: `nested_page_scroll.dart` implements a complex nested PageView+ScrollView system for swiping between meals (breakfast/lunch/dinner) with inner content scrolling. The most complex part of the codebase — read its comments carefully before modifying.
 
 ### Domain Model

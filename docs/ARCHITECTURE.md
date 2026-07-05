@@ -34,7 +34,7 @@
 │    ├── core/network/http_client  ──  싱글톤 클라이언트   │
 │    │           └── core/network/platform_http_client    │
 │    │                 └── iOS/Android/Web 분기           │
-│    └── core/storage  ──  파일 캐시 / stub (웹)          │
+│    └── core/widget_shared_storage ─ shared raw cache    │
 │                                                         │
 │  features/info/app_info  ──  /v2/info 모델              │
 │  features/info/info_data_source  ──  /v2/info HTTP fetch│
@@ -58,7 +58,7 @@ UI 레이어        → lib/features/home/ (home_page, home_app_bar, week_meal_v
 i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLocalizations)
 데이터 / 인프라  → lib/features/info/ (app_info.dart, info_data_source.dart, announcement_state.dart),
                   lib/features/meal/meal_data_source.dart,
-                  lib/core/storage*.dart, lib/core/network/
+                  lib/core/widget_shared_storage*.dart, lib/core/network/
 ```
 
 ## 핵심 컴포넌트
@@ -239,13 +239,14 @@ int _getKstWeekNumber(DateTime time) {
 조건부 export(`dart.library.js_interop` 기반 컴파일 타임 분기)로 플랫폼별 구현을 선택합니다.
 
 ```dart
-// core/storage.dart
-export 'storage_io.dart' if (dart.library.js_interop) 'storage_web.dart';
+// core/widget_shared_storage.dart
+export 'widget_shared_storage_io.dart'
+    if (dart.library.js_interop) 'widget_shared_storage_web.dart';
 ```
 
 | 추상 모듈 | 네이티브 (`*_io.dart`) | 웹 (`*_web.dart`) |
 |---|---|---|
-| `lib/core/storage.dart` | `getApplicationSupportDirectory()` 기반 JSON 파일 캐시 | 파일 캐시 비활성, 매번 fetch |
+| `lib/core/widget_shared_storage.dart` | Android/desktop: app support storage, iOS: App Group container | 공유 위젯 캐시 없음 |
 | `lib/core/network/platform_http_client.dart` | iOS: `cupertino_http` / Android: `cronet_http` | 기본 `http` 패키지 |
 
 `core/network/http_client.dart`는 전역 HTTP 클라이언트 싱글톤(`appHttpClient`)을 보유합니다. 앱 시작 시 `createPlatformHttpClient()`로 한 번 생성되고, 앱 종료 시까지 재사용됩니다. 타임아웃은 10초.
@@ -325,8 +326,9 @@ lib/
 ├── main.dart                              앱 진입점, ChangeNotifierProvider, MaterialApp
 ├── core/
 │   ├── constants.dart                     ApiConstants, MealTimeConfig, StorageKeys
-│   ├── storage.dart                       조건부 export
-│   ├── storage_io.dart / storage_web.dart 플랫폼별 캐시 구현
+│   ├── widget_shared_storage.dart         조건부 export
+│   ├── widget_shared_storage_io.dart      공유 raw cache 파일 저장소
+│   ├── widget_shared_storage_web.dart     웹 stub
 │   └── network/
 │       ├── http_client.dart               전역 HTTP 싱글톤 + fetchRawString
 │       ├── platform_http_client.dart      조건부 export
@@ -369,7 +371,7 @@ lib/
 - `test/settings_test.dart` — `AppSettings` 및 값 객체 단위 테스트
 - `test/widget_test.dart` — 앱 렌더링 / 테마 스모크 테스트
 
-미커버 영역: `nested_page_scroll.dart` 제스처 상호작용, 웹 플랫폼 전용 분기(`storage_web.dart`).
+미커버 영역: `nested_page_scroll.dart` 제스처 상호작용, 웹 플랫폼 전용 분기(`widget_shared_storage_web.dart`).
 
 테스트 설명은 한국어로 작성합니다.
 
