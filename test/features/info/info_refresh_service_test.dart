@@ -31,6 +31,23 @@ void main() {
 
       expect(storedRaw, isNull);
     });
+
+    test('refreshInfo는 strict 모드에서 cache write 실패를 구분 가능한 예외로 throw', () async {
+      final service = InfoRefreshService(
+        cache: InfoCache(
+          writeFile: (_, _) async => throw Exception('disk full'),
+          readFile: (_) async => '',
+          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
+        ),
+        fetchRaw: (_) async => _rawInfoJson(),
+        throwOnCacheWriteFailure: true,
+      );
+
+      await expectLater(
+        service.refreshInfo(),
+        throwsA(isA<InfoCacheWriteException>()),
+      );
+    });
   });
 }
 

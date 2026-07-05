@@ -14,6 +14,8 @@ import 'meal_alert_period.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
 
+typedef BackgroundCacheRefresh = Future<void> Function();
+
 /// 디버그 빌드에서 UI의 테스트 버튼이 호출하는 함수.
 /// 백그라운드 태스크와 동일한 로직을 메인 isolate에서 즉시 실행한다.
 /// [keywordsOverride]를 전달하면 SharedPreferences 값 대신 그 키워드 리스트로
@@ -32,17 +34,7 @@ void callbackDispatcher() {
 
     if (taskName == mealRefreshTaskName ||
         taskName == Workmanager.iOSBackgroundTask) {
-      try {
-        await MealRefreshService(
-          throwOnCacheWriteFailure: true,
-        ).refreshMealData();
-        await InfoRefreshService(throwOnCacheWriteFailure: true).refreshInfo();
-        return true;
-      } catch (e, stackTrace) {
-        debugPrint('[BapU] background meal refresh failed: $e');
-        debugPrintStack(stackTrace: stackTrace);
-        return false;
-      }
+      return refreshBackgroundMealAndInfoCaches();
     }
 
     final period = periodFromTaskName(taskName);
@@ -59,6 +51,81 @@ void callbackDispatcher() {
     }
     return true;
   });
+}
+
+Future<bool> refreshBackgroundMealAndInfoCaches({
+  BackgroundCacheRefresh? refreshMealCache,
+  BackgroundCacheRefresh? refreshInfoCache,
+}) async {
+  final mealRefresh =
+      refreshMealCache ??
+      () async {
+        await MealRefreshService(
+          throwOnCacheWriteFailure: true,
+        ).refreshMealData();
+      };
+  final infoRefresh =
+      refreshInfoCache ??
+      () async {
+        await InfoRefreshService(throwOnCacheWriteFailure: true).refreshInfo();
+      };
+
+  final failures = await Future.wait([
+    _captureBackgroundRefreshFailure('meal', mealRefresh),
+    _captureBackgroundRefreshFailure('info', infoRefresh),
+  ]);
+
+  final mealFailure = failures[0];
+  if (mealFailure != null) {
+    _logBackgroundRefreshFailure('background meal refresh failed', mealFailure);
+    return false;
+  }
+
+  final infoFailure = failures[1];
+  if (infoFailure != null) {
+    if (infoFailure.error is InfoCacheWriteException) {
+      _logBackgroundRefreshFailure(
+        'background info cache write failed',
+        infoFailure,
+      );
+      return false;
+    }
+
+    _logBackgroundRefreshFailure(
+      'background info refresh skipped',
+      infoFailure,
+    );
+  }
+
+  return true;
+}
+
+Future<_BackgroundRefreshFailure?> _captureBackgroundRefreshFailure(
+  String label,
+  BackgroundCacheRefresh refresh,
+) async {
+  try {
+    await refresh();
+    return null;
+  } catch (e, stackTrace) {
+    return _BackgroundRefreshFailure(label, e, stackTrace);
+  }
+}
+
+void _logBackgroundRefreshFailure(
+  String message,
+  _BackgroundRefreshFailure failure,
+) {
+  debugPrint('[BapU] $message (${failure.label}): ${failure.error}');
+  debugPrintStack(stackTrace: failure.stackTrace);
+}
+
+class _BackgroundRefreshFailure {
+  const _BackgroundRefreshFailure(this.label, this.error, this.stackTrace);
+
+  final String label;
+  final Object error;
+  final StackTrace stackTrace;
 }
 
 Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
