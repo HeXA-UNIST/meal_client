@@ -80,7 +80,7 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
             views.setTextViewText(tvMeal, mealLabel)
             views.bindFoodType(context, tvFoodType, cafeteria)
 
-            val (statusColor, statusText) = operatingStatusDisplay(context, cafeteria, mealOfDay)
+            val statusDisplay = operatingStatusDisplay(context, cafeteria, mealOfDay)
 
             fun setup(root: View) {
                 root.findViewById<TextView>(tvName).apply {
@@ -97,10 +97,7 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
                     if (foodTypeResId != null) text = context.getString(foodTypeResId)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
                 }
-                root.findViewById<TextView>(tvStatus).apply {
-                    text = statusText
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, statusSp)
-                }
+                root.findViewById<TextView>(tvStatus).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
 
             val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
@@ -110,8 +107,7 @@ class BapUWidget4x2DualProvider : BapUBaseWidgetProvider() {
             views.setTextViewText(tvMenu, menuText)
             views.setInt(tvMenu, "setMaxLines", WIDGET_MENU_MAX_LINES_SAFETY_CAP)
 
-            views.setTextViewText(tvStatus, statusText)
-            views.setTextColor(tvStatus, statusColor)
+            views.bindOperatingStatus(tvStatus, statusDisplay)
         }
     }
 }

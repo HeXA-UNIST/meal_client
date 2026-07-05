@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:meal_client/core/constants.dart';
-import 'package:meal_client/core/storage.dart';
+import 'package:meal_client/core/widget_shared_storage.dart';
 
 typedef MealCacheWriter = Future<void> Function(String fileName, String data);
 typedef MealCacheReader = Future<String> Function(String fileName);
@@ -14,9 +14,10 @@ class MealCache {
     MealCacheReader? readFile,
     MealCacheLastModifiedReader? readLastModified,
   }) : _fileName = fileName,
-       _writeFile = writeFile ?? saveFileAsString,
-       _readFile = readFile ?? readFileAsString,
-       _readLastModified = readLastModified ?? getLastModifiedOfFile;
+       _writeFile = writeFile ?? saveSharedWidgetFileAsString,
+       _readFile = readFile ?? readSharedWidgetFileAsString,
+       _readLastModified =
+           readLastModified ?? getLastModifiedOfSharedWidgetFile;
 
   final String _fileName;
   final MealCacheWriter _writeFile;

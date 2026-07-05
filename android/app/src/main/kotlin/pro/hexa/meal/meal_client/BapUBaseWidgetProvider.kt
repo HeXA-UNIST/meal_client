@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -27,14 +26,11 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        Log.d(TAG, "onUpdate ids=${appWidgetIds.toList()}")
         val pending = goAsync()
         Thread {
             try {
-                val data = BapUWidgetFetcher.fetch(context)
-                for (id in appWidgetIds) {
-                    try { performUpdate(context, appWidgetManager, id, data) }
-                    catch (e: Exception) { Log.e(TAG, "update failed id=$id", e) }
+                BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, appWidgetIds) { id, data ->
+                    performUpdate(context, appWidgetManager, id, data)
                 }
                 // onEnabled는 위젯이 처음 추가될 때만 불리므로, 앱 업데이트로 재설치된 경우
                 // 기존 위젯의 예약 호출 체인이 안 걸려있을 수 있다. 여기서도 매번 보정해준다.
@@ -54,8 +50,9 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         val pending = goAsync()
         Thread {
             try {
-                val data = BapUWidgetFetcher.fetch(context)
-                performUpdate(context, appWidgetManager, appWidgetId, data)
+                BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, intArrayOf(appWidgetId)) { id, data ->
+                    performUpdate(context, appWidgetManager, id, data)
+                }
             } finally {
                 pending.finish()
             }
@@ -63,13 +60,13 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onEnabled(context: Context) {
-        BapUWidgetUpdateWorker.schedule(context)
+        BapUWidgetUpdateDispatcher.renderAllWidgets(context)
         BapUWidgetScheduleManager.scheduleNext(context)
     }
 
     override fun onDisabled(context: Context) {
-        if (!BapUWidgetUpdateWorker.hasAnyWidget(context)) {
-            BapUWidgetUpdateWorker.cancel(context)
+        if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
+            BapUWidgetUpdateWorker.cancelLegacy(context)
             BapUWidgetScheduleManager.cancel(context)
         }
     }

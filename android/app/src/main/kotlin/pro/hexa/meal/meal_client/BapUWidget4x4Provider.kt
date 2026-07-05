@@ -90,7 +90,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
             views.setTextViewText(tvName, cafeteriaName)
             views.setTextViewText(tvMeal, mealLabel)
 
-            val (statusColor, statusText) = operatingStatusDisplay(context, cafeteria, mealOfDay)
+            val statusDisplay = operatingStatusDisplay(context, cafeteria, mealOfDay)
 
             fun setup(root: View) {
                 root.findViewById<TextView>(tvName).apply {
@@ -101,10 +101,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
                     text = mealLabel
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
                 }
-                root.findViewById<TextView>(tvStatus).apply {
-                    text = statusText
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, statusSp)
-                }
+                root.findViewById<TextView>(tvStatus).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
 
             val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
@@ -113,8 +110,7 @@ class BapUWidget4x4Provider : BapUBaseWidgetProvider() {
             )
             views.setTextViewText(tvMenu, menuText)
 
-            views.setTextViewText(tvStatus, statusText)
-            views.setTextColor(tvStatus, statusColor)
+            views.bindOperatingStatus(tvStatus, statusDisplay)
         }
     }
 }

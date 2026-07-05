@@ -7,7 +7,8 @@
     android:minResizeHeight="200dp"
     android:targetCellWidth="4"
     android:targetCellHeight="4"
-    android:updatePeriodMillis="1800000"
+    android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
     android:description="@string/widget_4x4_label"
     android:resizeMode="none" />
+<!-- Periodic AppWidget fallback candidate: 1800000. Active path is AlarmManager + Dart render push. -->

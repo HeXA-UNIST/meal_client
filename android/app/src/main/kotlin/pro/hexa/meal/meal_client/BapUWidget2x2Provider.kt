@@ -41,7 +41,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             val widthPx  = safeMeasureSizePx(dpToPx(context, widthDp.toFloat()).toInt())
             val heightPx = safeMeasureSizePx(dpToPx(context, heightDp.toFloat()).toInt())
 
-            val (statusColor, statusText) = operatingStatusDisplay(context, cafeteria, mealOfDay)
+            val statusDisplay = operatingStatusDisplay(context, cafeteria, mealOfDay)
 
             fun setup(root: View) {
                 root.findViewById<TextView>(R.id.tv_cafeteria_name).apply {
@@ -58,10 +58,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                     if (foodTypeResId != null) text = context.getString(foodTypeResId)
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
                 }
-                root.findViewById<TextView>(R.id.tv_status).apply {
-                    text = statusText
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, statusSp)
-                }
+                root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
 
             val items = if (data != null) menuFromData(data, cafeteria) else emptyList()
@@ -71,8 +68,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             views.setTextViewText(R.id.tv_menu, menuText)
             views.setInt(R.id.tv_menu, "setMaxLines", WIDGET_MENU_MAX_LINES_SAFETY_CAP)
 
-            views.setTextViewText(R.id.tv_status, statusText)
-            views.setTextColor(R.id.tv_status, statusColor)
+            views.bindOperatingStatus(R.id.tv_status, statusDisplay)
 
             views.applyTextSizes(
                 menuSp, listOf(R.id.tv_menu),

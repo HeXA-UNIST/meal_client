@@ -10,7 +10,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.TextView
-import java.util.Calendar
 
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
 const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
@@ -150,75 +149,13 @@ fun splitMenuTwoColumnsByRealLayout(
 // ─── 현재 식사 시간 결정 (MealTimeConfig와 동일한 기준) ───────────────────
 
 /** 0=조식, 1=중식, 2=석식 */
-fun currentMealOfDay(): Int {
-    val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-    val h = cal.get(Calendar.HOUR_OF_DAY)
-    val m = cal.get(Calendar.MINUTE)
-    val mins = h * 60 + m
-    return when {
-        mins <= 9 * 60 + 20 -> 0   // 아침: ~09:20 (포함)
-        mins <= 13 * 60 + 30 -> 1  // 점심: ~13:30 (포함)
-        else -> 2                   // 저녁
-    }
-}
-
-// ─── 식당별 운영 시간 (하드코딩) ────────────────────────────────────────────
+fun currentMealOfDay(): Int = BapUWidgetTime.currentMealOfDay().index
 
 data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val endM: Int)
-
-/**
- * cafeteria: CAFE_DORM_KOREAN/HALAL=기숙사, CAFE_STUDENT=학생, CAFE_FACULTY=교직원
- * mealOfDay: 0=조식, 1=중식, 2=석식
- */
-fun operatingPeriod(cafeteria: Int, mealOfDay: Int): OperatingPeriod? {
-    val cafe = if (cafeteria == CAFE_DORM_HALAL) CAFE_DORM_KOREAN else cafeteria
-    return when (cafe) {
-        CAFE_DORM_KOREAN -> when (mealOfDay) {
-            0 -> OperatingPeriod(8, 0, 9, 20)
-            1 -> OperatingPeriod(11, 30, 13, 30)
-            2 -> OperatingPeriod(17, 30, 19, 0)
-            else -> null
-        }
-        CAFE_STUDENT -> when (mealOfDay) {
-            1 -> OperatingPeriod(11, 0, 13, 30)
-            2 -> OperatingPeriod(17, 0, 19, 0)
-            else -> null
-        }
-        CAFE_FACULTY -> when (mealOfDay) {
-            1 -> OperatingPeriod(11, 0, 13, 0)
-            2 -> OperatingPeriod(17, 30, 19, 30)
-            else -> null
-        }
-        else -> null
-    }
-}
 
 enum class OperatingStatus { BEFORE_OPEN, OPEN, CLOSING_SOON, JUST_CLOSED }
 
 data class OperatingResult(val status: OperatingStatus, val minutesLeft: Int = 0)
-
-fun getOperatingStatus(cafeteria: Int, mealOfDay: Int): OperatingResult {
-    val period = operatingPeriod(cafeteria, mealOfDay)
-        ?: return OperatingResult(OperatingStatus.BEFORE_OPEN)
-
-    val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Seoul"))
-    val nowMins = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-    val startMins = period.startH * 60 + period.startM
-    val endMins = period.endH * 60 + period.endM
-
-    return when {
-        nowMins < startMins  -> OperatingResult(OperatingStatus.BEFORE_OPEN)
-        nowMins < endMins    -> {
-            val left = endMins - nowMins
-            if (left >= 45) OperatingResult(OperatingStatus.OPEN)
-            else OperatingResult(OperatingStatus.CLOSING_SOON, left)
-        }
-        nowMins <= endMins + 30 -> OperatingResult(OperatingStatus.JUST_CLOSED)
-        // 저녁이 완전히 끝난 후 자정까지는 운영 종료, 자정 이후엔 mealOfDay가 0으로 바뀌어 운영 전으로 전환됨
-        else -> if (mealOfDay == 2) OperatingResult(OperatingStatus.JUST_CLOSED)
-                else OperatingResult(OperatingStatus.BEFORE_OPEN)
-    }
-}
 
 // ─── 위젯 인스턴스별 식당 설정 ───────────────────────────────────────────────
 
@@ -347,8 +284,8 @@ fun RemoteViews.applyTextSizes(
  * 메뉴에 실제로 쓸 수 있는 높이를 계산할 때도 이 문구를 그대로 실측에 사용해야 하므로
  * RemoteViews 에 바로 적용하지 않고 별도 함수로 분리되어 있다.
  */
-fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pair<Int, String> {
-    val result = getOperatingStatus(cafeteria, mealOfDay)
+fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pair<Int, String>? {
+    val result = BapUWidgetOperatingHours.statusFor(context, cafeteria, mealOfDay) ?: return null
     return when (result.status) {
         OperatingStatus.BEFORE_OPEN  -> Pair(
             context.getColor(R.color.widget_status_before),
@@ -367,6 +304,24 @@ fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pa
             context.getString(R.string.status_just_closed)
         )
     }
+}
+
+fun RemoteViews.bindOperatingStatus(statusViewId: Int, display: Pair<Int, String>?) {
+    if (display == null) {
+        setViewVisibility(statusViewId, View.GONE)
+        setTextViewText(statusViewId, "")
+        return
+    }
+
+    setViewVisibility(statusViewId, View.VISIBLE)
+    setTextViewText(statusViewId, display.second)
+    setTextColor(statusViewId, display.first)
+}
+
+fun TextView.bindOperatingStatusForMeasure(display: Pair<Int, String>?, statusSp: Float) {
+    visibility = if (display == null) View.GONE else View.VISIBLE
+    text = display?.second ?: ""
+    setTextSize(TypedValue.COMPLEX_UNIT_SP, statusSp)
 }
 
 /** 위젯을 탭하면 앱을 실행하는 PendingIntent 를 만든다. */

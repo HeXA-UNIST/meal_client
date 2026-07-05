@@ -7,9 +7,10 @@
     android:minResizeHeight="100dp"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
-    android:updatePeriodMillis="1800000"
+    android:updatePeriodMillis="0"
     android:configure="pro.hexa.meal.meal_client.BapUWidgetSingleConfigActivity"
     android:widgetFeatures="reconfigurable"
     android:widgetCategory="home_screen"
     android:description="@string/widget_2x2_label"
     android:resizeMode="none" />
+<!-- Periodic AppWidget fallback candidate: 1800000. Active path is AlarmManager + Dart render push. -->

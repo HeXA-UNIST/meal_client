@@ -82,7 +82,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
             saveSingleCafeteria(this, appWidgetId, selectedCafeteria)
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
-            BapUWidgetUpdateWorker.enqueueOneTime(this)
+            BapUWidgetUpdateDispatcher.renderAllWidgets(this)
 
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()

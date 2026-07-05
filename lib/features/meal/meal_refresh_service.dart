@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/network/http_client.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -8,17 +9,22 @@ import 'package:meal_client/features/meal/meal_cache.dart';
 typedef RawStringFetcher = Future<String> Function(String url);
 
 class MealRefreshService {
-  MealRefreshService({MealCache? cache, RawStringFetcher? fetchRaw})
-    : _cache = cache ?? MealCache(),
-      _fetchRaw = fetchRaw ?? fetchRawString;
+  MealRefreshService({
+    MealCache? cache,
+    RawStringFetcher? fetchRaw,
+    bool throwOnCacheWriteFailure = false,
+  }) : _cache = cache ?? MealCache(),
+       _fetchRaw = fetchRaw ?? fetchRawString,
+       _throwOnCacheWriteFailure = throwOnCacheWriteFailure;
 
   final MealCache _cache;
   final RawStringFetcher _fetchRaw;
+  final bool _throwOnCacheWriteFailure;
 
   Future<WeekMeal> refreshMealData() async {
     final rawMeal = await _fetchRaw(ApiConstants.mealEndpoint);
     final weekMeal = _parseValidRawMeal(rawMeal);
-    await _cache.writeRawMealJson(rawMeal);
+    await _writeRawMealJson(rawMeal);
     return weekMeal;
   }
 
@@ -44,5 +50,17 @@ class MealRefreshService {
     }
 
     return parseRawMeal(rawMeal);
+  }
+
+  Future<void> _writeRawMealJson(String rawMeal) async {
+    try {
+      await _cache.writeRawMealJson(rawMeal);
+    } catch (e, stackTrace) {
+      if (_throwOnCacheWriteFailure) {
+        Error.throwWithStackTrace(e, stackTrace);
+      }
+      debugPrint('[BapU] meal cache write failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 }

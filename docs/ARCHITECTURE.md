@@ -1,6 +1,6 @@
 # 아키텍처
 
-밥먹어U(`meal_client`)의 코드 구조와 핵심 설계 결정을 정리한 문서입니다. AI 에이전트용 요약은 루트의 [AGENTS.md](../AGENTS.md)를 참고하세요.
+밥먹어U(`meal_client`)의 코드 구조와 핵심 설계 결정을 정리한 문서입니다. AI 에이전트용 요약은 루트의 [AGENTS.md](../AGENTS.md)를 참고하세요. `develop-widget`를 `develop`에 통합할 때의 병합 순서와 주의사항은 [develop-widget 통합 참고 노트](develop-widget-integration-notes.ko.md)를 별도로 유지합니다.
 
 ## High-level System Diagram
 
@@ -34,12 +34,27 @@
 │    ├── core/network/http_client  ──  싱글톤 클라이언트   │
 │    │           └── core/network/platform_http_client    │
 │    │                 └── iOS/Android/Web 분기           │
-│    └── core/storage  ──  파일 캐시 / stub (웹)          │
+│    └── core/widget_shared_storage                       │
+│          └── meal.json / info.json 공유 캐시            │
 │                                                         │
 │  features/info/app_info  ──  /v2/info 모델              │
-│  features/info/info_data_source  ──  /v2/info HTTP fetch│
+│  features/info/info_refresh_service                     │
+│    └── /v2/info HTTP fetch + info.json raw cache write  │
 │  features/info/announcement_state                        │
 │    └── 공지 저장값 비교 + 표시 여부 판단                 │
+└─────────────────────────────────────────────────────────┘
+              │ refreshWidgets()
+┌─────────────▼───────────────────────────────────────────┐
+│  네이티브 위젯                                           │
+│                                                         │
+│  Android BapUWidget*Provider                            │
+│    ├── meal.json / info.json cache-only read            │
+│    ├── AlarmManager boundary render                     │
+│    └── bapu_widget_bridge MethodChannel                 │
+│                                                         │
+│  iOS AppDelegate bridge                                 │
+│    ├── App Group cache path                             │
+│    └── WidgetCenter.reloadAllTimelines()                │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -57,8 +72,14 @@ UI 레이어        → lib/features/home/ (home_page, home_app_bar, week_meal_v
                   lib/features/settings/ (AppSettings + 값 객체)
 i18n             → lib/l10n/ (app_ko.arb, app_en.arb, 자동 생성된 AppLocalizations)
 데이터 / 인프라  → lib/features/info/ (app_info.dart, info_data_source.dart, announcement_state.dart),
-                  lib/features/meal/meal_data_source.dart,
-                  lib/core/storage*.dart, lib/core/network/
+                  lib/features/meal/ (meal_data_source.dart, meal_cache.dart,
+                                      meal_refresh_service.dart, meal_background_refresh.dart),
+                  lib/features/widget/widget_service*.dart,
+                  lib/core/storage*.dart, lib/core/widget_shared_storage*.dart,
+                  lib/core/network/
+네이티브 위젯    → android/app/src/main/kotlin/.../meal_client/BapUWidget*.kt,
+                  plugins/bapu_widget_bridge/,
+                  ios/Runner/AppDelegate.swift (App Group / WidgetKit bridge)
 ```
 
 ## 핵심 컴포넌트
@@ -115,7 +136,7 @@ BapUApp
   - `WidgetSettings` (`lib/features/settings/widget_settings.dart`) — 위젯에 표시할 식당과 끼니
   - `ThemeMode` — Flutter 표준 enum 그대로 사용
 
-  주의: 알레르기 / 알림 / 위젯은 **저장만 되는 플레이스홀더**입니다. 실제 알레르겐 하이라이트, 푸시 스케줄링, 위젯 플랫폼 코드는 후속 작업입니다. 테마 전환만 즉시 반영되는 실기능입니다.
+  주의: 알레르기 / 알림은 **저장만 되는 플레이스홀더**입니다. Android 홈 화면 위젯은 네이티브 provider/config activity로 구현되어 있으며, 설정 화면의 `WidgetSettings`는 아직 네이티브 위젯 인스턴스 설정과 직접 연결되지 않습니다. 테마 전환만 즉시 반영되는 실기능입니다.
 
 `BapUModel` 플레이스홀더는 더 이상 존재하지 않습니다(`d1da738`에서 삭제).
 
@@ -149,7 +170,8 @@ MaterialApp(
 - `ApiConstants` — 백엔드 엔드포인트 URL
 - `MealTimeConfig` — 끼니 시간 경계 및 `determineMealOfDay()` 로직
 - `StorageKeys` — `SharedPreferences` 키와 캐시 파일 이름
-  - 식단 캐시: `mealCacheFile`, 공지 비교: `announcementKey`
+  - raw 공유 캐시: `mealCacheFile`(`meal.json`), `infoCacheFile`(`info.json`)
+  - 공지 비교: `announcementKey`
   - 설정: `settings_*` prefix로 통일 (`allergenIds`, `notificationEnabled`, `notificationKeyword`, `notificationTime`, `notificationCafeterias`, `widgetCafeteria`, `widgetMealOfDay`, `themeMode`)
 
 ## 데이터 흐름
@@ -218,21 +240,73 @@ void initState() {
 | `HomePageDrawer` | 공지사항 수동 확인, 운영시간 다이얼로그 표시 |
 | `WeekMealTabBarView` | 선택한 날짜/끼니/식당의 운영시간을 식단 카드에 전달 |
 
-`/v2/info`의 운영시간은 로컬에 별도 저장하거나 비교하지 않습니다. 현재 앱 세션에서는 `HomePage` 생성 시 fetch된 값을 공유하며, 백엔드에서 변경된 운영시간은 `AppInfo`가 다시 fetch될 때 반영됩니다.
+`fetchAppInfo()`는 내부적으로 `InfoRefreshService.refreshInfo()`를 호출합니다. 이 서비스는 `/v2/info` raw JSON을 먼저 파싱/검증한 뒤, native 위젯이 읽는 공유 캐시 위치에 `info.json`으로 저장하고 `AppInfo`를 반환합니다. 앱 UI는 현재 세션의 `Future<AppInfo>`를 공유하고, Android 위젯 운영상태는 같은 raw `info.json`을 cache-only로 읽습니다.
 
 공지사항과 운영시간 다이얼로그는 `SelectionArea`로 감싸져 있어 제목과 본문 텍스트를 선택/복사할 수 있습니다.
 
-### 캐시 무효화
+### 공유 캐시와 무효화
 
-`getCachedMealData()`는 캐시 파일의 마지막 수정 시각과 현재 시각을 모두 **KST(UTC+9) 기준 ISO week number**로 변환해 비교합니다. 주차가 다르면 `Exception("Outdated cache")`를 던지고 네트워크 fetch로 폴백합니다.
+`meal.json`과 `info.json`은 앱, background refresh, native 위젯이 공유하는 raw JSON 캐시입니다. 이 두 파일만 `core/widget_shared_storage.dart`를 통해 저장 위치를 고릅니다.
 
-```dart
-int _getKstWeekNumber(DateTime time) {
-  final kst = time.toUtc().add(Duration(hours: 9));
-  // ISO 주의 첫날(월요일)을 기준으로 경과 일수 계산
-  ...
-}
-```
+- Android: `getApplicationSupportDirectory()`와 native `context.filesDir`가 같은 앱 내부 디렉터리를 가리킵니다.
+- iOS: native bridge가 반환하는 App Group 컨테이너를 사용합니다. Dart에는 App Group ID를 하드코딩하지 않습니다.
+- Web: 공유 파일 캐시가 없으므로 stub이 예외/no-op로 동작합니다.
+
+`MealCache.hasFreshMealCache()`와 Android `BapUWidgetMealRepository`는 파일 마지막 수정 시각과 현재 시각을 모두 KST 기준 단조 week id로 변환해 비교합니다. 기준점은 1970-01-05 월요일 00:00 UTC이며, ISO week-number나 연도 경계 영향을 받지 않습니다. 주 ID가 다르면 stale로 보고 Dart foreground/background fetch가 `/v2/menu`를 다시 받아 `meal.json`을 갱신합니다.
+
+`info.json`은 별도 freshness 판정 없이 `/v2/info` refresh 성공 시마다 raw 응답으로 갱신됩니다. Android 위젯은 `info.json`이 없거나 깨졌거나 해당 식당/끼니 운영시간이 없으면 운영상태를 표시하지 않습니다.
+
+### 백그라운드 새로고침
+
+`main.dart`는 native 플랫폼에서 Workmanager를 초기화합니다. 등록 task 이름은 `bapu_meal_refresh`이고, 주기는 1시간입니다.
+
+background dispatcher는 다음 순서로 동작합니다.
+
+1. `WidgetsFlutterBinding.ensureInitialized()`
+2. `DartPluginRegistrant.ensureInitialized()`
+3. `MealRefreshService(throwOnCacheWriteFailure: true).refreshMealData()`
+4. `InfoRefreshService(throwOnCacheWriteFailure: true).refreshInfo()`
+5. `refreshWidgets(throwOnFailure: true)`
+
+Android는 WorkManager `NetworkType.connected` 제약을 사용합니다. iOS BGTaskScheduler는 동일한 네트워크 제약을 보장하지 않으며, 실행 시점도 시스템 정책에 좌우됩니다. background 경로에서는 cache write나 native render bridge 실패를 삼키지 않고 task failure로 돌려 Workmanager가 실패를 관찰할 수 있게 합니다.
+
+### 홈 화면 위젯
+
+#### Android
+
+Android 홈 화면 위젯은 `android/app/src/main/kotlin/pro/hexa/meal/meal_client/` 아래 네이티브 provider로 구현되어 있습니다.
+
+핵심 구조:
+
+| 파일 | 역할 |
+|---|---|
+| `BapUWidgetContract.kt` | cache 파일명, API enum, KST/끼니 경계, 식당/끼니 enum |
+| `BapUWidgetTime.kt` | KST 현재 끼니, day api key, KST week id |
+| `BapUWidgetMealParser.kt` | `/v2/menu` raw JSON → `WidgetMealData` parser (`REGULAR` only, 영어 fallback) |
+| `BapUWidgetMealRepository.kt` | `meal.json` cache-only read/freshness |
+| `BapUWidgetOperatingHours.kt` | `info.json` cache-only read, 운영상태 계산, scheduler periods |
+| `BapUWidgetUpdateDispatcher.kt` | 모든 provider 렌더 공통 진입점 |
+| `BapUWidgetScheduleManager.kt` | AlarmManager 경계 예약 |
+| `BapUWidgetDataHelper.kt` | 설정 SharedPreferences, layout/fitting, RemoteViews helper |
+
+Android 위젯은 네트워크를 직접 호출하지 않습니다. `meal.json`이 없거나 stale/corrupt이면 빈 메뉴 상태를 렌더하고, `info.json`이 없거나 corrupt이면 운영상태를 숨깁니다. 데이터 갱신의 단일 owner는 Dart foreground/background refresh입니다.
+
+표시 전환은 AlarmManager로 처리합니다. 기본 예약 경계는 자정, 09:21, 13:31이며, `info.json`이 있으면 운영 시작과 마감임박 시작(종료 45분 전)도 추가합니다. 마감임박 구간에서는 1분 단위로 다시 예약해 “N분 남음” 표시를 갱신합니다. provider XML의 `updatePeriodMillis`는 `0`이며, 순수 native 주기 fallback이 필요해질 때만 다시 검토합니다.
+
+`BapUWidgetUpdateWorker`는 legacy WorkManager class 이름을 보존해 기존 예약이 missing class가 되지 않게 하는 shim입니다. active render path가 아니며, 실행되면 legacy unique work를 cancel하고 성공 종료합니다.
+
+Android render bridge는 로컬 Flutter plugin `plugins/bapu_widget_bridge`가 담당합니다. foreground Activity가 없어도 background/headless engine에서 MethodChannel handler가 등록될 수 있도록 application context를 사용하고, `BapUWidgetUpdateDispatcher.renderAllWidgets()`를 호출합니다.
+
+#### iOS 준비 상태
+
+현재 저장/렌더 bridge는 준비되어 있지만, 실제 iOS WidgetKit extension target과 `TimelineProvider`는 아직 없습니다.
+
+- `ios/Runner/AppDelegate.swift`: App Group path 조회 channel(`pro.hexa.meal.meal_client/widget_shared_storage`)과 WidgetKit reload channel(`pro.hexa.meal.meal_client/widget`) 등록
+- `ios/Runner/Runner.entitlements`: Runner App Group capability
+- `ios/Runner.xcodeproj/project.pbxproj`: `APP_GROUP_IDENTIFIER = group.com.wjddnwls7879.unistbab`
+- `lib/core/widget_shared_storage_io.dart`: iOS에서 native bridge로 App Group container path 조회
+
+iOS WidgetKit extension을 추가할 때는 같은 App Group ID를 extension target에도 설정하고, `TimelineProvider`가 App Group의 `meal.json`/`info.json`만 읽도록 유지해야 합니다. WidgetKit은 Android AlarmManager처럼 분 단위 갱신을 보장하지 않으므로 timeline entry에 자정, 09:21, 13:31, 운영 시작, 마감임박 시작, 운영 종료를 미리 넣는 방식으로 설계합니다.
 
 ## 플랫폼 분기
 
@@ -246,6 +320,8 @@ export 'storage_io.dart' if (dart.library.js_interop) 'storage_web.dart';
 | 추상 모듈 | 네이티브 (`*_io.dart`) | 웹 (`*_web.dart`) |
 |---|---|---|
 | `lib/core/storage.dart` | `getApplicationSupportDirectory()` 기반 JSON 파일 캐시 | 파일 캐시 비활성, 매번 fetch |
+| `lib/core/widget_shared_storage.dart` | Android: app support/filesDir, iOS: App Group bridge | 공유 위젯 캐시 미지원 stub |
+| `lib/features/widget/widget_service.dart` | Android/iOS MethodChannel render trigger | no-op stub |
 | `lib/core/network/platform_http_client.dart` | iOS: `cupertino_http` / Android: `cronet_http` | 기본 `http` 패키지 |
 
 `core/network/http_client.dart`는 전역 HTTP 클라이언트 싱글톤(`appHttpClient`)을 보유합니다. 앱 시작 시 `createPlatformHttpClient()`로 한 번 생성되고, 앱 종료 시까지 재사용됩니다. 타임아웃은 10초.
@@ -315,6 +391,8 @@ AppInfo
 | `cupertino_http` | iOS 네이티브 NSURLSession 기반 클라이언트 |
 | `cronet_http` | Android Cronet 기반 클라이언트 (HTTP/3 지원) |
 | `shared_preferences` | 설정 값 영속화 |
+| `workmanager` | Android/iOS background refresh 등록 |
+| `bapu_widget_bridge` (local) | Android background-safe widget render MethodChannel |
 | `flutter_svg` | 사이드바 로고(`bapu_logo.svg`) 렌더링 |
 | `flutter_localizations` + `intl` | 한국어/영어 다국어 지원 |
 
@@ -327,6 +405,9 @@ lib/
 │   ├── constants.dart                     ApiConstants, MealTimeConfig, StorageKeys
 │   ├── storage.dart                       조건부 export
 │   ├── storage_io.dart / storage_web.dart 플랫폼별 캐시 구현
+│   ├── widget_shared_storage.dart         raw widget cache 조건부 export
+│   ├── widget_shared_storage_io.dart      Android filesDir / iOS App Group shared cache
+│   ├── widget_shared_storage_web.dart     웹 stub
 │   └── network/
 │       ├── http_client.dart               전역 HTTP 싱글톤 + fetchRawString
 │       ├── platform_http_client.dart      조건부 export
@@ -345,10 +426,21 @@ lib/
 │   │   └── week_meal_view.dart            요일 탭뷰 + 반응형 카드 테이블
 │   ├── info/
 │   │   ├── app_info.dart                  /v2/info 모델 (공지 + 운영시간)
-│   │   ├── info_data_source.dart          /v2/info HTTP fetch
+│   │   ├── info_cache.dart                info.json raw cache
+│   │   ├── info_refresh_service.dart      /v2/info HTTP fetch + cache write
+│   │   ├── info_data_source.dart          fetchAppInfo facade
 │   │   └── announcement_state.dart        /v2/info 공지 비교·저장
 │   ├── meal/
-│   │   └── meal_data_source.dart          식단 HTTP fetch + 캐시 정책
+│   │   ├── meal_cache.dart                meal.json raw cache + freshness
+│   │   ├── meal_refresh_service.dart      /v2/menu HTTP fetch + cache write
+│   │   ├── meal_background_refresh.dart   조건부 export
+│   │   ├── meal_background_refresh_io.dart Workmanager background refresh
+│   │   ├── meal_background_refresh_stub.dart
+│   │   └── meal_data_source.dart          식단 loading facade
+│   ├── widget/
+│   │   ├── widget_service.dart            조건부 export
+│   │   ├── widget_service_io.dart         Android/iOS render MethodChannel
+│   │   └── widget_service_stub.dart       Web/no-op
 │   └── settings/
 │       ├── app_settings.dart              AppSettings ChangeNotifier
 │       ├── allergy_selection_page.dart    19개 알레르겐 체크리스트
@@ -357,6 +449,20 @@ lib/
 │       ├── settings_page.dart             설정 화면 (테마 / 알레르기 / 알림 / 위젯)
 │       └── widget_settings.dart           WidgetSettings 값 객체
 └── l10n/                                  ARB + 자동 생성된 AppLocalizations
+
+android/app/src/main/kotlin/pro/hexa/meal/meal_client/
+├── BapUWidget*Provider.kt                 Android RemoteViews provider
+├── BapUWidgetContract.kt                  native/Dart/API drift-sensitive contract
+├── BapUWidgetTime.kt                      KST time helpers
+├── BapUWidgetMealParser.kt                /v2/menu raw JSON parser
+├── BapUWidgetMealRepository.kt            meal.json cache-only repository
+├── BapUWidgetOperatingHours.kt            info.json operating status
+├── BapUWidgetUpdateDispatcher.kt          render entrypoint
+├── BapUWidgetScheduleManager.kt           AlarmManager display boundaries
+└── BapUWidgetUpdateWorker.kt              legacy WorkManager shim only
+
+plugins/bapu_widget_bridge/
+└── android/.../BapUWidgetBridgePlugin.java Android headless render bridge
 ```
 
 ## 테스트
@@ -368,8 +474,12 @@ lib/
 - `test/week_meal_view_test.dart` — 선택 요일/끼니 운영시간 전달 테스트
 - `test/settings_test.dart` — `AppSettings` 및 값 객체 단위 테스트
 - `test/widget_test.dart` — 앱 렌더링 / 테마 스모크 테스트
+- `test/features/info/info_refresh_service_test.dart` — `/v2/info` raw cache write 검증
+- `test/features/meal/meal_cache_test.dart` — `meal.json` raw cache freshness 검증
+- `test/features/meal/meal_refresh_service_test.dart` — `/v2/menu` refresh/cache write 검증
+- `android/app/src/test/kotlin/.../BapUWidget*Test.kt` — Android native widget contract/time/parser/operating-hours/scheduler 단위 테스트
 
-미커버 영역: `nested_page_scroll.dart` 제스처 상호작용, 웹 플랫폼 전용 분기(`storage_web.dart`).
+미커버 영역: `nested_page_scroll.dart` 제스처 상호작용, 실제 launcher RemoteViews 렌더링, iOS WidgetKit extension/timeline provider, iOS App Group signing/provisioning.
 
 테스트 설명은 한국어로 작성합니다.
 

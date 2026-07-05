@@ -1,6 +1,5 @@
 package pro.hexa.meal.meal_client
 
-import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,14 +15,12 @@ class BapUWidgetScheduledUpdateReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread {
             try {
-                val manager = AppWidgetManager.getInstance(context)
-                val data = BapUWidgetFetcher.fetch(context)
-                BapUWidgetUpdateWorker.updateAllWidgets(context, manager, data)
+                BapUWidgetUpdateDispatcher.renderAllWidgets(context)
             } catch (e: Exception) {
                 Log.e(TAG, "scheduled update failed", e)
             } finally {
                 // 위젯이 남아있는 한 계속 다음 호출을 예약한다.
-                if (BapUWidgetUpdateWorker.hasAnyWidget(context)) {
+                if (BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
                     BapUWidgetScheduleManager.scheduleNext(context)
                 }
                 pending.finish()

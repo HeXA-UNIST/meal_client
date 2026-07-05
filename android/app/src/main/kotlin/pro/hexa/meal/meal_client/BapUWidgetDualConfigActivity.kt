@@ -105,17 +105,7 @@ class BapUWidgetDualConfigActivity : Activity() {
             saveDualCafeterias(this, appWidgetId, selected0, selected1)
             Log.d(TAG, "saved c0=$selected0 c1=$selected1 for widget=$appWidgetId")
 
-            val manager = AppWidgetManager.getInstance(this)
-            val ctx = applicationContext
-            val widgetId = appWidgetId
-            Thread {
-                try {
-                    val data = BapUWidgetFetcher.fetch(ctx)
-                    BapUWidget4x2DualProvider.updateWidget(ctx, manager, widgetId, data)
-                } catch (e: Exception) {
-                    Log.e(TAG, "update failed", e)
-                }
-            }.start()
+            BapUWidgetUpdateDispatcher.renderAllWidgets(this)
 
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()
