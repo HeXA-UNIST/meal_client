@@ -236,6 +236,24 @@ abstract class AppLocalizations {
   /// **'식단 정보가 없어요.'**
   String get noMeal;
 
+  /// No description provided for @nextWeekPreview.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 주 식단 미리보기'**
+  String get nextWeekPreview;
+
+  /// No description provided for @previewingNextWeek.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 주 미리보기 중'**
+  String get previewingNextWeek;
+
+  /// No description provided for @nextWeekNotReady.
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 주 식단이 아직 준비되지 않았어요.'**
+  String get nextWeekNotReady;
+
   /// No description provided for @language.
   ///
   /// In ko, this message translates to:

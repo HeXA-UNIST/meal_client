@@ -78,6 +78,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noMeal => '식단 정보가 없어요.';
 
   @override
+  String get nextWeekPreview => '다음 주 식단 미리보기';
+
+  @override
+  String get previewingNextWeek => '다음 주 미리보기 중';
+
+  @override
+  String get nextWeekNotReady => '다음 주 식단이 아직 준비되지 않았어요.';
+
+  @override
   String get language => '언어 / Language';
 
   @override
