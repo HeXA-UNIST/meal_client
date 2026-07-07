@@ -62,12 +62,13 @@ class _HomePageState extends State<HomePage>
   }
 
   void _initializeDataLoading() {
-    cachedMeal = getCachedMealData();
+    cachedMeal = getCachedMealData().then((r) => r.weekMeal);
     downloadedMeal = cachedMeal
         .then(
           (cache) => fetchAndCacheMealData(),
           onError: (e) => fetchAndCacheMealData(),
         )
+        .then((r) => r.weekMeal)
         .catchError((e) {
           assert(() {
             debugPrint('[BapU] meal fetch failed: $e');

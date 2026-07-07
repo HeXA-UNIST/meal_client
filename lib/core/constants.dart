@@ -6,6 +6,8 @@ class ApiConstants {
   static const mealEndpoint = '$baseUrl/v2/menu';
   static const noticeEndpoint = '$baseUrl/notice';
   static const infoEndpoint = '$baseUrl/v2/info';
+
+  static String mealEndpointFor(String date) => '$mealEndpoint/$date';
 }
 
 /// 로컬 저장소 키
