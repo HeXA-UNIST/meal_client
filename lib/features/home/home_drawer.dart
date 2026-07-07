@@ -9,6 +9,7 @@ import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/settings/settings_page.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+import 'next_week_preview_page.dart';
 
 class HomeAnnouncementDialog extends StatelessWidget {
   final String close;
@@ -293,8 +294,9 @@ class _OperationHoursCafeteriaEntry extends StatelessWidget {
 
 class HomePageDrawer extends StatefulWidget {
   final Future<AppInfo>? infoFuture;
+  final Future<String?>? nextWeekStart;
 
-  const HomePageDrawer({super.key, this.infoFuture});
+  const HomePageDrawer({super.key, this.infoFuture, this.nextWeekStart});
 
   @override
   State<HomePageDrawer> createState() => _HomePageDrawerState();
@@ -302,11 +304,13 @@ class HomePageDrawer extends StatefulWidget {
 
 class _HomePageDrawerState extends State<HomePageDrawer> {
   late Future<AppInfo> _infoFuture;
+  late Future<String?> _nextWeekStart;
 
   @override
   void initState() {
     super.initState();
     _infoFuture = widget.infoFuture ?? fetchAppInfo();
+    _nextWeekStart = widget.nextWeekStart ?? Future.value(null);
   }
 
   @override
@@ -314,6 +318,9 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
     super.didUpdateWidget(oldWidget);
     if (widget.infoFuture != oldWidget.infoFuture) {
       _infoFuture = widget.infoFuture ?? fetchAppInfo();
+    }
+    if (widget.nextWeekStart != oldWidget.nextWeekStart) {
+      _nextWeekStart = widget.nextWeekStart ?? Future.value(null);
     }
   }
 
@@ -346,6 +353,22 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
+            },
+          ),
+          _DrawerItem(
+            icon: Icons.calendar_month_outlined,
+            title: l10n.nextWeekPreview,
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => NextWeekPreviewPage(
+                    nextWeekStartFuture: _nextWeekStart,
+                    appInfo: _infoFuture,
+                  ),
+                ),
               );
             },
           ),
