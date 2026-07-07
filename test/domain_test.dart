@@ -402,4 +402,40 @@ void main() {
       );
     });
   });
+
+  group('parseWeekMeta', () {
+    test('week 객체를 파싱한다 — nextWeekStart가 있는 경우', () {
+      final json = jsonEncode({
+        'week': {
+          'startDate': '2026-06-15',
+          'isCurrentWeek': true,
+          'nextWeekStart': '2026-06-22',
+        },
+        'lastUpdated': '2026-06-15T09:00:00+09:00',
+        'data': [],
+      });
+
+      final weekMeta = parseWeekMeta(json);
+
+      expect(weekMeta.startDate, DateTime.parse('2026-06-15'));
+      expect(weekMeta.isCurrentWeek, true);
+      expect(weekMeta.nextWeekStart, '2026-06-22');
+    });
+
+    test('week 객체를 파싱한다 — nextWeekStart가 null인 경우', () {
+      final json = jsonEncode({
+        'week': {
+          'startDate': '2026-06-15',
+          'isCurrentWeek': true,
+          'nextWeekStart': null,
+        },
+        'lastUpdated': '2026-06-15T09:00:00+09:00',
+        'data': [],
+      });
+
+      final weekMeta = parseWeekMeta(json);
+
+      expect(weekMeta.nextWeekStart, isNull);
+    });
+  });
 }

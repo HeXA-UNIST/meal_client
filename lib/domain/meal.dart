@@ -104,6 +104,36 @@ WeekMeal parseRawMeal(String jsonStr) {
   return weekMeal;
 }
 
+class WeekMeta {
+  final DateTime startDate;
+  final bool isCurrentWeek;
+  final String? nextWeekStart;
+
+  const WeekMeta({
+    required this.startDate,
+    required this.isCurrentWeek,
+    required this.nextWeekStart,
+  });
+}
+
+WeekMeta parseWeekMeta(String jsonStr) {
+  final root = _requiredMap(jsonDecode(jsonStr), 'root');
+  final weekJson = _requiredMap(root['week'], 'week');
+  return WeekMeta(
+    startDate: DateTime.parse(
+      _requiredString(weekJson['startDate'], 'week.startDate'),
+    ),
+    isCurrentWeek: _requiredBool(
+      weekJson['isCurrentWeek'],
+      'week.isCurrentWeek',
+    ),
+    nextWeekStart: _nullableString(
+      weekJson['nextWeekStart'],
+      'week.nextWeekStart',
+    ),
+  );
+}
+
 Map<String, dynamic> _requiredMap(Object? value, String fieldName) {
   if (value is Map<String, dynamic>) {
     return value;
@@ -133,6 +163,13 @@ String? _nullableString(Object? value, String fieldName) {
     return value;
   }
   throw FormatException('$fieldName 필드는 string 또는 null이어야 합니다.');
+}
+
+bool _requiredBool(Object? value, String fieldName) {
+  if (value is bool) {
+    return value;
+  }
+  throw FormatException('$fieldName 필드는 boolean이어야 합니다.');
 }
 
 class MealMenuItem {
