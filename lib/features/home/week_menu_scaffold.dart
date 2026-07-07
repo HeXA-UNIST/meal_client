@@ -80,6 +80,9 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     if (_model.dayOfWeek == nextDayOfWeek) {
       return;
     }
+    // setState 없이 직접 대입한다: _model.dayOfWeek는 build()의 위젯 트리에서
+    // 직접 사용되지 않으므로(animateToPage의 activeIndex는 onPressed 콜백에서만
+    // 읽힘) rebuild를 발생시킬 이유가 없다.
     _model.dayOfWeek = nextDayOfWeek;
   }
 
@@ -130,7 +133,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
               };
               return MealOfDaySwitchButton(
                 onPressed: () async {
+                  // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
+                  // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
                   final nextMeal = _mealOfDayNotifier.value.next;
+                  // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
                   _mealOfDayNotifier.value = nextMeal;
                   _isMealOfDayButtonTransition = true;
 
@@ -139,9 +145,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
                       nextMeal.index,
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.ease,
+                      // 현재 선택된 요일 탭만 애니메이션 처리
                       activeIndex: _model.dayOfWeek.index,
                     );
                   } finally {
+                    // _isMealOfDayButtonTransition은 build()가 아닌
+                    // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
+                    // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
+                    // 해제해도 렌더링에 영향이 없다.
                     _isMealOfDayButtonTransition = false;
                   }
                 },
@@ -238,6 +249,8 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       appInfo: widget.appInfo,
       mondayOfWeek: widget.mondayOfWeek,
       onPageChanged: (page) {
+        // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
+        // 상단 버튼 상태에 반영하지 않는다.
         if (_isMealOfDayButtonTransition) {
           return;
         }
@@ -245,6 +258,8 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
         if (_mealOfDayNotifier.value == nextMealOfDay) {
           return;
         }
+        // 수동 스와이프 전환은 기존처럼 즉시 버튼 상태에 반영한다.
+        // ValueNotifier 갱신으로 MealOfDaySwitchButton만 rebuild된다.
         _mealOfDayNotifier.value = nextMealOfDay;
       },
     );
