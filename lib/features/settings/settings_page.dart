@@ -236,6 +236,44 @@ class _NotificationTileState extends State<_NotificationTile> {
           ),
           for (final period in MealAlertPeriod.values)
             _PeriodAlertCard(period: period),
+          // 알림 받을 요일 선택 (일월화수목금토)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l10n.notificationDaysLabel,
+                style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                for (final day in _notificationDayOrder)
+                  _DayToggle(
+                    label: _dayLabel(l10n, day),
+                    selected: notification.isDayEnabled(day),
+                    onTap: () {
+                      final current = notification.days;
+                      final next = current.contains(day)
+                          ? current.where((d) => d != day).toSet()
+                          : {...current, day};
+                      // 최소 1개 요일은 유지
+                      if (next.isNotEmpty) {
+                        context
+                            .read<AppSettings>()
+                            .setNotificationDays(next);
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
           // 알림 대상 식당 선택
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -300,6 +338,69 @@ class _NotificationTileState extends State<_NotificationTile> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// 요일 토글 표시 순서: 일월화수목금토
+const List<DayOfWeek> _notificationDayOrder = [
+  DayOfWeek.sun,
+  DayOfWeek.mon,
+  DayOfWeek.tue,
+  DayOfWeek.wed,
+  DayOfWeek.thu,
+  DayOfWeek.fri,
+  DayOfWeek.sat,
+];
+
+String _dayLabel(AppLocalizations l10n, DayOfWeek day) => switch (day) {
+      DayOfWeek.mon => l10n.mon,
+      DayOfWeek.tue => l10n.tue,
+      DayOfWeek.wed => l10n.wed,
+      DayOfWeek.thu => l10n.thu,
+      DayOfWeek.fri => l10n.fri,
+      DayOfWeek.sat => l10n.sat,
+      DayOfWeek.sun => l10n.sun,
+    };
+
+/// 요일별 알림 on/off를 위한 원형 토글 버튼.
+class _DayToggle extends StatelessWidget {
+  const _DayToggle({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 38,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: selected ? scheme.primary : Colors.transparent,
+          border: Border.all(
+            color: selected ? scheme.primary : scheme.outlineVariant,
+          ),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -146,6 +146,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationCafeteriasLabel => 'Target Cafeterias';
 
   @override
+  String get notificationDaysLabel => 'Notification Days';
+
+  @override
   String get widgetSettings => 'Home Screen Widget';
 
   @override

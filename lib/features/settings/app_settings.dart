@@ -113,6 +113,17 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 알림을 받을 요일 집합을 설정한다. 워커가 발송 시점에 prefs를 읽어 필터하므로
+  /// 재스케줄은 필요 없다.
+  void setNotificationDays(Set<DayOfWeek> days) {
+    _notification = _notification.copyWith(days: days);
+    _prefs.setStringList(
+      StorageKeys.notificationDays,
+      days.map((e) => e.name).toList(),
+    );
+    notifyListeners();
+  }
+
   // --- 위젯 ---
 
   void setWidgetCafeteria(Cafeteria c) {
@@ -153,6 +164,7 @@ class AppSettings extends ChangeNotifier {
     }
     _prefs.setStringList(
         StorageKeys.notificationCafeterias, [Cafeteria.dormitory.name]);
+    _prefs.remove(StorageKeys.notificationDays); // 기본값(모든 요일)으로 복귀
     _prefs.setString(StorageKeys.widgetCafeteria, Cafeteria.dormitory.name);
     _prefs.setString(StorageKeys.widgetMealOfDay, MealOfDay.lunch.name);
     _prefs.setString(StorageKeys.themeMode, ThemeMode.system.name);
@@ -245,12 +257,23 @@ class AppSettings extends ChangeNotifier {
       }
     }
 
+    // 알림 요일 로드. 키가 없으면 모든 요일 활성(기본값).
+    final dayMap = DayOfWeek.values.asNameMap();
+    final storedDays = p.getStringList(StorageKeys.notificationDays);
+    final days = storedDays == null
+        ? DayOfWeek.values.toSet()
+        : {
+            for (final n in storedDays)
+              if (dayMap[n] != null) dayMap[n]!,
+          };
+
     return NotificationSettings(
       enabled: p.getBool(StorageKeys.notificationEnabled) ?? false,
       keywords: keywords,
       alertTimes: alertTimes,
       rememberedTimes: remembered,
       cafeterias: cafeterias.isEmpty ? {Cafeteria.dormitory} : cafeterias,
+      days: days,
     );
   }
 

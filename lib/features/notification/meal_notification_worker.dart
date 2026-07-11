@@ -23,7 +23,11 @@ typedef BackgroundCacheRefresh = Future<void> Function();
 Future<void> testMealKeywordCheck({
   List<String>? keywordsOverride,
   MealAlertPeriod period = MealAlertPeriod.lunch,
-}) => _runMealKeywordCheck(period: period, keywordsOverride: keywordsOverride);
+}) => _runMealKeywordCheck(
+      period: period,
+      keywordsOverride: keywordsOverride,
+      checkDay: false, // 테스트는 요일 필터 무시하고 매칭 로직만 확인
+    );
 
 /// Workmanager 백그라운드 격리체(isolate) 진입점.
 @pragma('vm:entry-point')
@@ -165,11 +169,22 @@ Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
 Future<void> _runMealKeywordCheck({
   required MealAlertPeriod period,
   List<String>? keywordsOverride,
+  bool checkDay = true,
 }) async {
   final prefs = await SharedPreferences.getInstance();
 
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
+
+  // 요일 (null 이면 모든 요일(기본값))
+  if (checkDay) {
+    final dayNames = prefs.getStringList(StorageKeys.notificationDays);
+    if (dayNames != null) {
+      final kstToday = DateTime.now().toUtc().add(const Duration(hours: 9));
+      final firingDay = DayOfWeek.values[kstToday.weekday - 1];
+      if (!dayNames.contains(firingDay.name)) return;
+    }
+  }
 
   // 키워드 로드 (override 또는 prefs). 공백 제거 + 빈 항목 제외.
   final rawKeywords =

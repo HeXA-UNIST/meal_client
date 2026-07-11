@@ -31,6 +31,10 @@ class StorageKeys {
   /// 실제 키는 `${notificationPeriodRememberedPrefix}${period.name}` 형태.
   static const notificationPeriodRememberedPrefix =
       'settings_notification_period_remembered_';
+
+  /// 알림을 받을 요일 저장 키. 값은 켜진 요일의 [DayOfWeek.name] 리스트.
+  /// 키가 없으면 모든 요일 활성(기본값).
+  static const notificationDays = 'settings_notification_days';
   static const widgetCafeteria = 'settings_widget_cafeteria';
   static const widgetMealOfDay = 'settings_widget_meal_of_day';
   static const themeMode = 'settings_theme_mode';

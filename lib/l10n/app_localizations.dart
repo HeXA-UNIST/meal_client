@@ -368,6 +368,12 @@ abstract class AppLocalizations {
   /// **'알림 대상 식당'**
   String get notificationCafeteriasLabel;
 
+  /// No description provided for @notificationDaysLabel.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 받을 요일'**
+  String get notificationDaysLabel;
+
   /// No description provided for @widgetSettings.
   ///
   /// In ko, this message translates to:

@@ -146,6 +146,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationCafeteriasLabel => '알림 대상 식당';
 
   @override
+  String get notificationDaysLabel => '알림 받을 요일';
+
+  @override
   String get widgetSettings => '홈 화면 위젯';
 
   @override

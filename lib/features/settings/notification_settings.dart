@@ -17,16 +17,22 @@ class NotificationSettings {
 
   final Set<Cafeteria> cafeterias;
 
+  /// 알림을 받을 요일. 이 집합에 없는 요일에는 알림이 발송되지 않는다.
+  /// 기본값은 모든 요일.
+  final Set<DayOfWeek> days;
+
   NotificationSettings({
     this.enabled = false,
     List<String> keywords = const [],
     Map<MealAlertPeriod, TimeOfDay?> alertTimes = const {},
     Map<MealAlertPeriod, TimeOfDay> rememberedTimes = const {},
     Set<Cafeteria> cafeterias = const {Cafeteria.dormitory},
+    Set<DayOfWeek>? days,
   })  : keywords = List.unmodifiable(keywords),
         alertTimes = Map.unmodifiable(alertTimes),
         rememberedTimes = Map.unmodifiable(rememberedTimes),
-        cafeterias = Set.unmodifiable(cafeterias);
+        cafeterias = Set.unmodifiable(cafeterias),
+        days = Set.unmodifiable(days ?? DayOfWeek.values.toSet());
 
   /// 활성화된 시간대 (알림 시각이 설정된 것).
   Iterable<MealAlertPeriod> get activePeriods =>
@@ -40,12 +46,15 @@ class NotificationSettings {
   TimeOfDay displayTimeOf(MealAlertPeriod p) =>
       alertTimes[p] ?? rememberedTimes[p] ?? p.defaultSlot;
 
+  bool isDayEnabled(DayOfWeek d) => days.contains(d);
+
   NotificationSettings copyWith({
     bool? enabled,
     List<String>? keywords,
     Map<MealAlertPeriod, TimeOfDay?>? alertTimes,
     Map<MealAlertPeriod, TimeOfDay>? rememberedTimes,
     Set<Cafeteria>? cafeterias,
+    Set<DayOfWeek>? days,
   }) =>
       NotificationSettings(
         enabled: enabled ?? this.enabled,
@@ -53,6 +62,7 @@ class NotificationSettings {
         alertTimes: alertTimes ?? this.alertTimes,
         rememberedTimes: rememberedTimes ?? this.rememberedTimes,
         cafeterias: cafeterias ?? this.cafeterias,
+        days: days ?? this.days,
       );
 
   NotificationSettings reset() => NotificationSettings();

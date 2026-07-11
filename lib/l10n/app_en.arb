@@ -50,6 +50,7 @@
   "notificationTimeLabel": "Notification Time",
   "notificationPeriodNight": "Night (Tomorrow morning)",
   "notificationCafeteriasLabel": "Target Cafeterias",
+  "notificationDaysLabel": "Notification Days",
   "widgetSettings": "Home Screen Widget",
   "widgetCafeteriaLabel": "Display Cafeteria",
   "about": "About",

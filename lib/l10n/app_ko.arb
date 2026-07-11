@@ -50,6 +50,7 @@
   "notificationTimeLabel": "알림 시간",
   "notificationPeriodNight": "밤 (내일 아침)",
   "notificationCafeteriasLabel": "알림 대상 식당",
+  "notificationDaysLabel": "알림 받을 요일",
   "widgetSettings": "홈 화면 위젯",
   "widgetCafeteriaLabel": "표시할 식당",
   "about": "앱 정보",

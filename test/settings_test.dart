@@ -327,6 +327,36 @@ void main() {
       );
     });
 
+    test('알림 요일 — 기본값은 모든 요일', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      expect(
+        settings.notification.days,
+        equals(DayOfWeek.values.toSet()),
+      );
+      for (final d in DayOfWeek.values) {
+        expect(settings.notification.isDayEnabled(d), isTrue);
+      }
+    });
+
+    test('setNotificationDays — 저장 후 재로드', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+      final weekdaysOnly = {
+        DayOfWeek.mon,
+        DayOfWeek.tue,
+        DayOfWeek.wed,
+        DayOfWeek.thu,
+        DayOfWeek.fri,
+      };
+      settings.setNotificationDays(weekdaysOnly);
+      expect(settings.notification.isDayEnabled(DayOfWeek.sat), isFalse);
+      expect(settings.notification.isDayEnabled(DayOfWeek.mon), isTrue);
+
+      final settings2 = AppSettings(prefs);
+      expect(settings2.notification.days, equals(weekdaysOnly));
+    });
+
     test('로드: 유효하지 않은 슬롯은 무시', () async {
       SharedPreferences.setMockInitialValues({
         'settings_notification_period_time_lunch': '11:07', // 15분 슬롯 아님
