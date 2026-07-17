@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 카드 배경 (시안: 평면 흰색, radius 36px→18dp. box-shadow는 RemoteViews에서 재현 불가라 생략) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <gradient
-        android:startColor="#FFFFFF"
-        android:endColor="#F2F2F7"
-        android:type="linear"
-        android:angle="270" />
-    <corners android:radius="28dp" />
+    <solid android:color="@color/widget_card_bg" />
+    <corners android:radius="18dp" />
 </shape>

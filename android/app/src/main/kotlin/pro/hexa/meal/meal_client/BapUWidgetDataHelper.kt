@@ -123,32 +123,13 @@ fun truncateMenuByRealLayout(
     return accepted.joinToString("\n")
 }
 
-/**
- * 메뉴를 두 열로 나눈다. 첫 열: 앞 절반, 둘째 열: 나머지.
- * 두 열 모두 같은 오프스크린 레이아웃 안에서 독립적으로 [truncateMenuByRealLayout]을 적용한다.
- */
-fun splitMenuTwoColumnsByRealLayout(
-    context: Context,
-    layoutResId: Int,
-    leftMenuViewId: Int,
-    rightMenuViewId: Int,
-    widthPx: Int,
-    heightPx: Int,
-    items: List<String>,
-    setup: (root: View) -> Unit
-): Pair<String, String> {
-    if (items.isEmpty()) return Pair("-", "")
-    val half  = (items.size + 1) / 2
-    val left  = truncateMenuByRealLayout(context, layoutResId, leftMenuViewId, widthPx, heightPx, items.take(half), setup)
-    val right = items.drop(half).let {
-        if (it.isEmpty()) "" else truncateMenuByRealLayout(context, layoutResId, rightMenuViewId, widthPx, heightPx, it, setup)
-    }
-    return Pair(left, right)
-}
-
 data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val endM: Int)
 
-enum class OperatingStatus { BEFORE_OPEN, OPEN, CLOSING_SOON, JUST_CLOSED }
+enum class OperatingStatus {
+    BEFORE_OPEN, OPEN, CLOSING_SOON, JUST_CLOSED,
+    /** 오늘 이 식당/끼니의 운영시간 자체가 없음 (예: 주말 학생·교직원 식당, 교직원 조식). */
+    NO_SERVICE,
+}
 
 data class OperatingResult(val status: OperatingStatus, val minutesLeft: Int = 0)
 
@@ -162,22 +143,10 @@ fun saveSingleCafeteria(context: Context, widgetId: Int, cafeteria: Int) =
         .putInt("config_${widgetId}_cafeteria", cafeteria)
         .apply()
 
-fun loadDualCafeterias(context: Context, widgetId: Int): Pair<Int, Int> {
-    val prefs = getWidgetConfigPrefs(context)
-    val c0 = prefs.getInt("config_${widgetId}_cafeteria_0", CAFE_DORM_KOREAN)
-    val c1 = prefs.getInt("config_${widgetId}_cafeteria_1", CAFE_STUDENT)
-    return Pair(c0, c1)
-}
-
-fun saveDualCafeterias(context: Context, widgetId: Int, c0: Int, c1: Int) =
-    getWidgetConfigPrefs(context).edit()
-        .putInt("config_${widgetId}_cafeteria_0", c0)
-        .putInt("config_${widgetId}_cafeteria_1", c1)
-        .apply()
-
 fun clearWidgetConfig(context: Context, widgetId: Int) =
     getWidgetConfigPrefs(context).edit()
         .remove("config_${widgetId}_cafeteria")
+        // 과거 Dual 위젯이 쓰던 키 — 남아있을 수 있어 함께 정리한다.
         .remove("config_${widgetId}_cafeteria_0")
         .remove("config_${widgetId}_cafeteria_1")
         .apply()
@@ -230,48 +199,40 @@ fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
 
 /**
  * 위젯 전체 너비와 패널 수로 패널 하나의 콘텐츠 너비(dp)를 반환한다.
- * 루트 패딩 28dp(=14×2) + 패널 간 간격 24dp×(columns-1) 를 제외한 값.
+ * 루트 패딩 22dp(=11×2) + 패널 간 간격 24dp×(columns-1) 를 제외한 값.
  */
 fun calcPanelWidthDp(widthDp: Int, columns: Int = 1): Int =
-    (widthDp - 28 - 24 * (columns - 1)) / columns
+    (widthDp - 22 - 24 * (columns - 1)) / columns
 
 /**
- * 패널 너비(dp)에 따라 메뉴 텍스트 크기(sp)를 결정한다.
- *   ≥ 100dp → 14sp  (표준 이상 크기)
- *   ≥  70dp → 13sp  (소형 셀)
- *   <  70dp → 12sp  (매우 좁은 셀)
- *
- * @param widthDp  위젯 전체 너비(dp)
- * @param columns  가로 패널 수 (단일=1, 좌우 분할=2)
+ * 메뉴 텍스트 크기(sp). 위젯 크기와 무관하게 항상 동일한 크기를 쓴다
+ * (2x2와 확대 상태에서 폰트가 달라지지 않도록). 공간이 부족하면 실측 truncate가
+ * 항목 수를 줄이는 것으로 대응한다.
  */
-fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float {
-    val panelDp = calcPanelWidthDp(widthDp, columns)
-    return when {
-        panelDp >= 100 -> 14f
-        panelDp >= 70  -> 13f
-        else           -> 12f
-    }
-}
+fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float = 12f
 
-/** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (메뉴보다 2sp 작게, 최소 8sp). */
-fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 2f).coerceAtLeast(8f)
+/** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (시안 비율: 메뉴보다 1sp 작게, 최소 8sp). */
+fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 1f).coerceAtLeast(8f)
+
+/** 메뉴 sp 에서 헤더(식당명·음식종류) 텍스트 sp 를 계산한다 (시안 비율: 메뉴보다 1sp 크게). */
+fun calcHeaderTextSp(menuSp: Float): Float = menuSp + 1f
 
 /** dp 값을 현재 기기의 실제 px 로 변환한다. */
 fun dpToPx(context: Context, dp: Float): Float =
     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.resources.displayMetrics)
 
 /**
- * RemoteViews 에 메뉴/kcal 텍스트 크기를 일괄 적용한다.
+ * RemoteViews 에 메뉴/상태/헤더 텍스트 크기를 일괄 적용한다.
  * SP 단위로 설정하므로 사용자의 글자 크기 접근성 설정도 반영된다.
  */
 fun RemoteViews.applyTextSizes(
     menuSp: Float, menuIds: List<Int>,
     statusSp: Float, statusIds: List<Int>,
-    headerIds: List<Int> = emptyList()
+    headerSp: Float = menuSp + 1f, headerIds: List<Int> = emptyList()
 ) {
     for (id in menuIds)   setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, menuSp)
     for (id in statusIds) setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, statusSp)
-    for (id in headerIds) setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, menuSp)
+    for (id in headerIds) setTextViewTextSize(id, TypedValue.COMPLEX_UNIT_SP, headerSp)
 }
 
 /**
@@ -297,6 +258,10 @@ fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pa
         OperatingStatus.JUST_CLOSED  -> Pair(
             context.getColor(R.color.widget_status_closed),
             context.getString(R.string.status_just_closed)
+        )
+        OperatingStatus.NO_SERVICE   -> Pair(
+            context.getColor(R.color.widget_status_closed),
+            context.getString(R.string.status_no_service)
         )
     }
 }

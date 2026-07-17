@@ -43,7 +43,11 @@ object BapUWidgetOperatingHours {
         mealOfDay: Int,
         now: Calendar = Calendar.getInstance(BapUWidgetTime.kstTimeZone),
     ): OperatingResult? {
-        val period = periodFor(hours, cafeteria, mealOfDay, now) ?: return null
+        // hours 자체가 없으면 데이터 문제(표시 숨김), 있는데 해당 식당/끼니 항목이 없으면
+        // 오늘 운영하지 않는 것이므로 "미운영"으로 구분해 표시한다.
+        if (hours == null) return null
+        val period = periodFor(hours, cafeteria, mealOfDay, now)
+            ?: return OperatingResult(OperatingStatus.NO_SERVICE)
         val nowMins = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
         val startMins = period.startH * 60 + period.startM
         val endMins = period.endH * 60 + period.endM
@@ -60,7 +64,13 @@ object BapUWidgetOperatingHours {
             }
             nowMins <= endMins + BapUWidgetContract.MealTime.JUST_CLOSED_DURATION_MINUTES ->
                 OperatingResult(OperatingStatus.JUST_CLOSED)
-            else -> OperatingResult(OperatingStatus.BEFORE_OPEN)
+            // 저녁이 완전히 끝난 뒤 자정까지는 "운영 종료"를 유지한다 (자정이 지나면
+            // mealOfDay가 조식으로 바뀌면서 자연스럽게 "운영 전"으로 전환됨).
+            else -> if (WidgetMealOfDay.fromIndex(mealOfDay) == WidgetMealOfDay.DINNER) {
+                OperatingResult(OperatingStatus.JUST_CLOSED)
+            } else {
+                OperatingResult(OperatingStatus.BEFORE_OPEN)
+            }
         }
     }
 

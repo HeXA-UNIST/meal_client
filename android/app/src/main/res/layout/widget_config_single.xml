@@ -1,141 +1,176 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root_config_single"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/config_bg"
-    android:orientation="vertical"
-    android:paddingHorizontal="24dp"
-    android:paddingBottom="24dp">
+    android:fillViewport="true">
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        android:text="@string/widget_config_title"
-        android:textColor="@color/config_text_primary"
-        android:textSize="22sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <!-- 기숙사 식당 (한식) -->
-    <LinearLayout
-        android:id="@+id/item_dorm_korean"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginBottom="10dp"
-        android:background="@drawable/widget_config_item_normal"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
+        <!-- 라이브 미리보기: 실제 위젯 레이아웃을 그대로 inflate해서 선택 결과를 바로 보여준다 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp">
+
+            <include
+                android:id="@+id/preview_widget"
+                layout="@layout/widget_2x2"
+                android:layout_width="180dp"
+                android:layout_height="180dp"
+                android:layout_gravity="center" />
+        </FrameLayout>
 
         <TextView
-            android:id="@+id/tv_dorm_korean"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/cafeteria_dorm_korean"
+            android:layout_marginBottom="20dp"
+            android:text="@string/widget_config_title"
             android:textColor="@color/config_text_primary"
-            android:textSize="15sp" />
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/spoqa_han_sans_neo"
+            android:letterSpacing="-0.02" />
 
-        <View
-            android:id="@+id/dot_dorm_korean"
-            android:layout_width="10dp"
-            android:layout_height="10dp"
-            android:background="@drawable/widget_status_dot_open"
-            android:visibility="gone" />
+        <!-- 기숙사 식당 (한식) -->
+        <LinearLayout
+            android:id="@+id/item_dorm_korean"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/widget_config_item_normal"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+
+            <TextView
+                android:id="@+id/tv_dorm_korean"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cafeteria_dorm_korean"
+                android:textColor="@color/config_text_primary"
+                android:textSize="15sp"
+                android:fontFamily="@font/spoqa_han_sans_neo"
+                android:letterSpacing="-0.02" />
+
+            <ImageView
+                android:id="@+id/dot_dorm_korean"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_config_check"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- 기숙사 식당 (할랄) -->
+        <LinearLayout
+            android:id="@+id/item_dorm_halal"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/widget_config_item_normal"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+
+            <TextView
+                android:id="@+id/tv_dorm_halal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cafeteria_dorm_halal"
+                android:textColor="@color/config_text_primary"
+                android:textSize="15sp"
+                android:fontFamily="@font/spoqa_han_sans_neo"
+                android:letterSpacing="-0.02" />
+
+            <ImageView
+                android:id="@+id/dot_dorm_halal"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_config_check"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- 학생 식당 -->
+        <LinearLayout
+            android:id="@+id/item_student"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="10dp"
+            android:background="@drawable/widget_config_item_normal"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+
+            <TextView
+                android:id="@+id/tv_student"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cafeteria_student"
+                android:textColor="@color/config_text_primary"
+                android:textSize="15sp"
+                android:fontFamily="@font/spoqa_han_sans_neo"
+                android:letterSpacing="-0.02" />
+
+            <ImageView
+                android:id="@+id/dot_student"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_config_check"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- 교직원 식당 -->
+        <LinearLayout
+            android:id="@+id/item_faculty"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="32dp"
+            android:background="@drawable/widget_config_item_normal"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+
+            <TextView
+                android:id="@+id/tv_faculty"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/cafeteria_faculty"
+                android:textColor="@color/config_text_primary"
+                android:textSize="15sp"
+                android:fontFamily="@font/spoqa_han_sans_neo"
+                android:letterSpacing="-0.02" />
+
+            <ImageView
+                android:id="@+id/dot_faculty"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_config_check"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_confirm"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@drawable/widget_config_btn"
+            android:text="@string/widget_config_confirm"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:fontFamily="@font/spoqa_han_sans_neo"
+            android:letterSpacing="-0.02" />
     </LinearLayout>
-
-    <!-- 기숙사 식당 (할랄) -->
-    <LinearLayout
-        android:id="@+id/item_dorm_halal"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginBottom="10dp"
-        android:background="@drawable/widget_config_item_normal"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
-
-        <TextView
-            android:id="@+id/tv_dorm_halal"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/cafeteria_dorm_halal"
-            android:textColor="@color/config_text_primary"
-            android:textSize="15sp" />
-
-        <View
-            android:id="@+id/dot_dorm_halal"
-            android:layout_width="10dp"
-            android:layout_height="10dp"
-            android:background="@drawable/widget_status_dot_open"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <!-- 학생 식당 -->
-    <LinearLayout
-        android:id="@+id/item_student"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginBottom="10dp"
-        android:background="@drawable/widget_config_item_normal"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
-
-        <TextView
-            android:id="@+id/tv_student"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/cafeteria_student"
-            android:textColor="@color/config_text_primary"
-            android:textSize="15sp" />
-
-        <View
-            android:id="@+id/dot_student"
-            android:layout_width="10dp"
-            android:layout_height="10dp"
-            android:background="@drawable/widget_status_dot_open"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <!-- 교직원 식당 -->
-    <LinearLayout
-        android:id="@+id/item_faculty"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_marginBottom="32dp"
-        android:background="@drawable/widget_config_item_normal"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
-
-        <TextView
-            android:id="@+id/tv_faculty"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/cafeteria_faculty"
-            android:textColor="@color/config_text_primary"
-            android:textSize="15sp" />
-
-        <View
-            android:id="@+id/dot_faculty"
-            android:layout_width="10dp"
-            android:layout_height="10dp"
-            android:background="@drawable/widget_status_dot_open"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <Button
-        android:id="@+id/btn_confirm"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:background="@drawable/widget_config_btn"
-        android:text="@string/widget_config_confirm"
-        android:textColor="@color/config_btn_text"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-</LinearLayout>
+</ScrollView>

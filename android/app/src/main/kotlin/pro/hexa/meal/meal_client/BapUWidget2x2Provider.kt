@@ -37,6 +37,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             val heightDp = widgetHeightDp(manager, widgetId)
             val menuSp   = calcMenuTextSp(widthDp, columns = 1)
             val statusSp = calcStatusTextSp(menuSp)
+            val headerSp = calcHeaderTextSp(menuSp)
             val widthPx  = safeMeasureSizePx(dpToPx(context, widthDp.toFloat()).toInt())
             val heightPx = safeMeasureSizePx(dpToPx(context, heightDp.toFloat()).toInt())
 
@@ -45,7 +46,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             fun setup(root: View) {
                 root.findViewById<TextView>(R.id.tv_cafeteria_name).apply {
                     text = cafeteriaName
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, headerSp)
                 }
                 root.findViewById<TextView>(R.id.tv_meal_of_day).apply {
                     text = mealLabel
@@ -55,7 +56,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                     val foodTypeResId = cafeteriaFoodTypeResId(cafeteria)
                     visibility = if (foodTypeResId != null) View.VISIBLE else View.GONE
                     if (foodTypeResId != null) text = context.getString(foodTypeResId)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, headerSp)
                 }
                 root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, statusSp)
             }
@@ -70,9 +71,10 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             views.bindOperatingStatus(R.id.tv_status, statusDisplay)
 
             views.applyTextSizes(
-                menuSp, listOf(R.id.tv_menu),
+                menuSp, listOf(R.id.tv_menu, R.id.tv_meal_of_day),
                 statusSp, listOf(R.id.tv_status),
-                headerIds = listOf(R.id.tv_cafeteria_name, R.id.tv_food_type, R.id.tv_meal_of_day)
+                headerSp = headerSp,
+                headerIds = listOf(R.id.tv_cafeteria_name, R.id.tv_food_type)
             )
             views.setOnClickPendingIntent(R.id.widget_root, makeLaunchPendingIntent(context))
 

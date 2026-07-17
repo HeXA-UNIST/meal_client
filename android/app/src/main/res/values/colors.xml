@@ -4,15 +4,20 @@
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
 
-    <!-- 위젯 색상 (공통) -->
+    <!-- 위젯 색상 (라이트 기본값 / 다크는 values-night/colors.xml) -->
     <color name="widget_bg">#F2F2F7</color>
     <color name="widget_text_secondary">#717171</color>
+    <color name="widget_card_bg">#FFFFFF</color>
 
-    <!-- 위젯 텍스트 색상 -->
+    <!-- 위젯 메뉴 패널 (시안: 카드 안 둥근 그라데이션 상자, 180° #F6F6F8→#F1F1F4) -->
+    <color name="widget_menu_panel_start">#F6F6F8</color>
+    <color name="widget_menu_panel_end">#F1F1F4</color>
+
+    <!-- 위젯 텍스트 색상 (시안 기준: 음식종류 검정, 메뉴 #2E2E2E) -->
     <color name="widget_text_cafeteria">#00CD80</color>
     <color name="widget_text_meal">#000000</color>
-    <color name="widget_text_food_type">#717171</color>
-    <color name="widget_text_menu">#717171</color>
+    <color name="widget_text_food_type">#000000</color>
+    <color name="widget_text_menu">#2E2E2E</color>
     <color name="widget_text_kcal">#7C7C7C</color>
 
     <!-- 운영 상태 색상 -->
@@ -24,6 +29,7 @@
     <!-- 위젯 설정 화면 색상 (라이트 기본값 / 다크는 values-night/colors.xml) -->
     <color name="config_bg">#FFFFFF</color>
     <color name="config_item_bg">#F2F2F7</color>
+    <color name="config_item_selected_bg">#E4F9F0</color>
     <color name="config_text_primary">#000000</color>
     <color name="config_text_hint">#717171</color>
     <color name="config_btn_text">#000000</color>

@@ -23,15 +23,6 @@ object BapUWidgetUpdateDispatcher {
         updateAll(context, manager, BapUWidget2x2Provider::class.java) {
             BapUWidget2x2Provider.updateWidget(context, manager, it, data)
         }
-        updateAll(context, manager, BapUWidget4x2DualProvider::class.java) {
-            BapUWidget4x2DualProvider.updateWidget(context, manager, it, data)
-        }
-        updateAll(context, manager, BapUWidget4x2StatusProvider::class.java) {
-            BapUWidget4x2StatusProvider.updateWidget(context, manager, it, data)
-        }
-        updateAll(context, manager, BapUWidget4x4Provider::class.java) {
-            BapUWidget4x4Provider.updateWidget(context, manager, it, data)
-        }
     }
 
     fun renderWidgetIds(
@@ -52,12 +43,7 @@ object BapUWidgetUpdateDispatcher {
 
     fun hasAnyWidget(context: Context): Boolean {
         val manager = AppWidgetManager.getInstance(context)
-        return listOf(
-            BapUWidget2x2Provider::class.java,
-            BapUWidget4x2DualProvider::class.java,
-            BapUWidget4x2StatusProvider::class.java,
-            BapUWidget4x4Provider::class.java
-        ).any { manager.getAppWidgetIds(ComponentName(context, it)).isNotEmpty() }
+        return manager.getAppWidgetIds(ComponentName(context, BapUWidget2x2Provider::class.java)).isNotEmpty()
     }
 
     private fun updateAll(
