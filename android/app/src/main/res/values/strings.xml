@@ -30,7 +30,7 @@
     <string name="food_halal">Halal</string>
 
     <!-- 운영 상태 -->
-    <string name="status_before_open">Before Hours</string>
+    <string name="status_before_open">Opens at %1$02d:%2$02d</string>
     <string name="status_open">Open</string>
     <string name="status_closing_soon">Closing in %d min</string>
     <string name="status_just_closed">Closed</string>

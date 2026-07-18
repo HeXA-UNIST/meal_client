@@ -27,7 +27,7 @@
     <string name="food_halal">할랄</string>
 
     <!-- 운영 상태 -->
-    <string name="status_before_open">운영 전</string>
+    <string name="status_before_open">%1$02d:%2$02d부터 운영</string>
     <string name="status_open">운영 중</string>
     <string name="status_closing_soon">종료 %d분 전</string>
     <string name="status_just_closed">운영 종료</string>

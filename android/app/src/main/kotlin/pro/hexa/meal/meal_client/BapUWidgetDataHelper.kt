@@ -131,7 +131,16 @@ enum class OperatingStatus {
     NO_SERVICE,
 }
 
-data class OperatingResult(val status: OperatingStatus, val minutesLeft: Int = 0)
+/**
+ * @param nextStartH/[nextStartM] BEFORE_OPEN일 때 다음 운영 시작 시각 ("17:30부터 운영" 등에 사용).
+ *        BEFORE_OPEN 외 상태에서는 의미 없음(0).
+ */
+data class OperatingResult(
+    val status: OperatingStatus,
+    val minutesLeft: Int = 0,
+    val nextStartH: Int = 0,
+    val nextStartM: Int = 0,
+)
 
 // ─── 위젯 인스턴스별 식당 설정 ───────────────────────────────────────────────
 
@@ -239,13 +248,17 @@ fun RemoteViews.applyTextSizes(
  * cafeteria/mealOfDay 기준 운영 상태의 (색상, 표시 문구)를 반환한다.
  * 메뉴에 실제로 쓸 수 있는 높이를 계산할 때도 이 문구를 그대로 실측에 사용해야 하므로
  * RemoteViews 에 바로 적용하지 않고 별도 함수로 분리되어 있다.
+ *
+ * info.json 캐시 자체를 못 불러온 경우(운영시간 데이터 없음)는 상태 줄을 숨기지 않고
+ * "-"로 표시한다 — 오늘 미운영(NO_SERVICE, "미운영")과는 다른, "몰라서 못 보여줌" 상태.
  */
-fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pair<Int, String>? {
-    val result = BapUWidgetOperatingHours.statusFor(context, cafeteria, mealOfDay) ?: return null
+fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pair<Int, String> {
+    val result = BapUWidgetOperatingHours.statusFor(context, cafeteria, mealOfDay)
+        ?: return Pair(context.getColor(R.color.widget_status_closed), context.getString(R.string.widget_no_menu))
     return when (result.status) {
         OperatingStatus.BEFORE_OPEN  -> Pair(
             context.getColor(R.color.widget_status_before),
-            context.getString(R.string.status_before_open)
+            context.getString(R.string.status_before_open, result.nextStartH, result.nextStartM)
         )
         OperatingStatus.OPEN         -> Pair(
             context.getColor(R.color.widget_status_open),
@@ -266,21 +279,15 @@ fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pa
     }
 }
 
-fun RemoteViews.bindOperatingStatus(statusViewId: Int, display: Pair<Int, String>?) {
-    if (display == null) {
-        setViewVisibility(statusViewId, View.GONE)
-        setTextViewText(statusViewId, "")
-        return
-    }
-
+fun RemoteViews.bindOperatingStatus(statusViewId: Int, display: Pair<Int, String>) {
     setViewVisibility(statusViewId, View.VISIBLE)
     setTextViewText(statusViewId, display.second)
     setTextColor(statusViewId, display.first)
 }
 
-fun TextView.bindOperatingStatusForMeasure(display: Pair<Int, String>?, statusSp: Float) {
-    visibility = if (display == null) View.GONE else View.VISIBLE
-    text = display?.second ?: ""
+fun TextView.bindOperatingStatusForMeasure(display: Pair<Int, String>, statusSp: Float) {
+    visibility = View.VISIBLE
+    text = display.second
     setTextSize(TypedValue.COMPLEX_UNIT_SP, statusSp)
 }
 

@@ -12,7 +12,8 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- 라이브 미리보기: 실제 위젯 레이아웃을 그대로 inflate해서 선택 결과를 바로 보여준다 -->
+        <!-- 라이브 미리보기: 실제 위젯 레이아웃을 그대로 inflate해서 선택 결과를 바로 보여준다.
+             화면 배경 자체가 연한 회색(config_bg)이라 흰 카드가 자연스럽게 떠 보인다. -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

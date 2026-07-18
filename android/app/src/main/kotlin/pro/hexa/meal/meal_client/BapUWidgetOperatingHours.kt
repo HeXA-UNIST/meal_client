@@ -53,7 +53,8 @@ object BapUWidgetOperatingHours {
         val endMins = period.endH * 60 + period.endM
 
         return when {
-            nowMins < startMins -> OperatingResult(OperatingStatus.BEFORE_OPEN)
+            nowMins < startMins ->
+                OperatingResult(OperatingStatus.BEFORE_OPEN, nextStartH = period.startH, nextStartM = period.startM)
             nowMins < endMins -> {
                 val left = endMins - nowMins
                 if (left >= BapUWidgetContract.MealTime.CLOSING_SOON_THRESHOLD_MINUTES) {
@@ -69,7 +70,7 @@ object BapUWidgetOperatingHours {
             else -> if (WidgetMealOfDay.fromIndex(mealOfDay) == WidgetMealOfDay.DINNER) {
                 OperatingResult(OperatingStatus.JUST_CLOSED)
             } else {
-                OperatingResult(OperatingStatus.BEFORE_OPEN)
+                OperatingResult(OperatingStatus.BEFORE_OPEN, nextStartH = period.startH, nextStartM = period.startM)
             }
         }
     }

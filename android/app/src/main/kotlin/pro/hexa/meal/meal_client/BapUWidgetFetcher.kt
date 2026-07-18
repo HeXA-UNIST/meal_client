@@ -53,8 +53,13 @@ fun WidgetMealData.mealLabel(context: Context): String =
 fun WidgetMealData.menuItems(context: Context, cafeteria: Int): List<String> =
     errorMessageResId?.let { listOf(context.getString(it)) } ?: menuFromData(this, cafeteria)
 
-fun WidgetMealData.operatingStatus(context: Context, cafeteria: Int): Pair<Int, String>? =
-    if (isError) null else operatingStatusDisplay(context, cafeteria, mealOfDay)
+/**
+ * 데이터 자체를 못 불러온 경우(isError, mealOfDay=-1이라 실제 조회가 무의미함)도
+ * 상태 줄을 숨기지 않고 "-"로 표시한다 — 메뉴 쪽은 이미 에러 문구를 보여주므로 일관되게.
+ */
+fun WidgetMealData.operatingStatus(context: Context, cafeteria: Int): Pair<Int, String> =
+    if (isError) Pair(context.getColor(R.color.widget_status_closed), context.getString(R.string.widget_no_menu))
+    else operatingStatusDisplay(context, cafeteria, mealOfDay)
 
 fun menuFromData(data: WidgetMealData, cafeteria: Int): List<String> = when (WidgetCafeteria.fromPrefValue(cafeteria)) {
     WidgetCafeteria.DORM_KOREAN -> data.dormKoreanMenu

@@ -124,10 +124,13 @@ class BapUWidgetSingleConfigActivity : Activity() {
         bindPreview()
     }
 
-    /** 미리보기 카드의 텍스트 크기를 실제 위젯 렌더 값(12sp 고정 체계)에 맞춘다. */
+    /**
+     * 미리보기 카드의 텍스트 크기를 실제 위젯 렌더 값(12sp 고정 체계)에 맞춘다.
+     * 그림자는 View.elevation 대신 XML의 backing 사각형으로 대체했다(elevation 그림자가
+     * 렌더러/기기에 따라 지저분하게 나오는 문제가 있었음).
+     */
     private fun stylePreview() {
         val preview = findViewById<View>(R.id.preview_widget) ?: return
-        preview.elevation = 8f * resources.displayMetrics.density
         preview.findViewById<TextView>(R.id.tv_cafeteria_name)
             .setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         preview.findViewById<TextView>(R.id.tv_food_type)
@@ -140,51 +143,79 @@ class BapUWidgetSingleConfigActivity : Activity() {
             .setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
     }
 
-    /** 현재 선택된 식당 기준으로 미리보기 카드를 다시 채운다. */
+    /**
+     * 현재 선택된 식당 기준으로 미리보기 카드를 다시 채운다.
+     * 카드는 [PREVIEW_SIZE_DP] 고정 크기이므로, 실제 위젯이 쓰는 것과 같은
+     * [truncateMenuByRealLayout]로 정확히 그만큼만 채우고 넘치면 "..."로 표시한다
+     * (전체를 그냥 이어붙이면 고정 카드 밖으로 넘친 마지막 줄이 예고 없이 잘려 보인다).
+     */
     private fun bindPreview() {
         val preview = findViewById<View>(R.id.preview_widget) ?: return
         val cafeteria = selectedCafeteria
 
-        preview.findViewById<TextView>(R.id.tv_cafeteria_name).text =
-            getString(cafeteriaNameResId(cafeteria))
+        val cafeteriaName = getString(cafeteriaNameResId(cafeteria))
         val foodTypeResId = cafeteriaFoodTypeResId(cafeteria)
-        preview.findViewById<TextView>(R.id.tv_food_type).apply {
-            visibility = if (foodTypeResId != null) View.VISIBLE else View.GONE
-            if (foodTypeResId != null) text = getString(foodTypeResId)
-        }
-
-        val mealView = preview.findViewById<TextView>(R.id.tv_meal_of_day)
-        val menuView = preview.findViewById<TextView>(R.id.tv_menu)
-        val statusView = preview.findViewById<TextView>(R.id.tv_status)
+        val foodTypeText = foodTypeResId?.let { getString(it) }
 
         val data = previewData
+        val mealLabel: String
+        val menuItems: List<String>
+        val statusDisplay: Pair<Int, String>
         if (data == null || data.isError) {
             // 캐시가 아직 없음(신규 설치 직후 등) — 샘플 데이터로 모양만 보여준다
-            mealView.text = getString(R.string.meal_lunch)
-            menuView.text = getString(R.string.widget_preview_menu)
-            statusView.visibility = View.VISIBLE
-            statusView.text = getString(R.string.status_open)
-            statusView.setTextColor(getColor(R.color.widget_status_open))
-            return
+            mealLabel = getString(R.string.meal_lunch)
+            menuItems = getString(R.string.widget_preview_menu).split("\n")
+            statusDisplay = Pair(getColor(R.color.widget_status_open), getString(R.string.status_open))
+        } else {
+            mealLabel = data.mealLabel(this)
+            menuItems = menuFromData(data, cafeteria).filter { it.isNotEmpty() }
+            statusDisplay = data.operatingStatus(this, cafeteria)
         }
 
-        mealView.text = data.mealLabel(this)
-        val menuItems = menuFromData(data, cafeteria).filter { it.isNotEmpty() }
-        menuView.text =
-            if (menuItems.isEmpty()) getString(R.string.widget_no_menu)
-            else menuItems.joinToString("\n")
+        preview.findViewById<TextView>(R.id.tv_cafeteria_name).text = cafeteriaName
+        preview.findViewById<TextView>(R.id.tv_food_type).apply {
+            visibility = if (foodTypeText != null) View.VISIBLE else View.GONE
+            if (foodTypeText != null) text = foodTypeText
+        }
+        preview.findViewById<TextView>(R.id.tv_meal_of_day).text = mealLabel
+        preview.findViewById<TextView>(R.id.tv_status).apply {
+            visibility = View.VISIBLE
+            text = statusDisplay.second
+            setTextColor(statusDisplay.first)
+        }
 
-        val display = data.operatingStatus(this, cafeteria)
-        if (display == null) {
-            statusView.visibility = View.GONE
+        fun setupMeasure(root: View) {
+            root.findViewById<TextView>(R.id.tv_cafeteria_name).apply {
+                text = cafeteriaName
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            }
+            root.findViewById<TextView>(R.id.tv_meal_of_day).apply {
+                text = mealLabel
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            }
+            root.findViewById<TextView>(R.id.tv_food_type).apply {
+                visibility = if (foodTypeText != null) View.VISIBLE else View.GONE
+                if (foodTypeText != null) text = foodTypeText
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            }
+            root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, 11f)
+        }
+
+        val previewSizePx = dpToPx(this, PREVIEW_SIZE_DP).toInt()
+        val menuView = preview.findViewById<TextView>(R.id.tv_menu)
+        menuView.text = if (menuItems.isEmpty()) {
+            getString(R.string.widget_no_menu)
         } else {
-            statusView.visibility = View.VISIBLE
-            statusView.text = display.second
-            statusView.setTextColor(display.first)
+            truncateMenuByRealLayout(
+                this, R.layout.widget_2x2, R.id.tv_menu, previewSizePx, previewSizePx, menuItems, ::setupMeasure
+            )
         }
     }
 
     companion object {
         private const val TAG = "BapUWidgetSingleConfig"
+
+        /** widget_config_single.xml의 preview_widget include 크기(180dp)와 반드시 일치해야 한다. */
+        private const val PREVIEW_SIZE_DP = 180f
     }
 }
