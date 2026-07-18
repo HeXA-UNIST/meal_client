@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
+import 'package:meal_client/features/notification/meal_alert_period.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
 
 void main() {
@@ -48,6 +50,26 @@ void main() {
 
       expect(result, isTrue);
       expect(infoStartedBeforeMealCompleted, isTrue);
+    });
+  });
+
+  group('알림 메뉴 대상 요일', () {
+    test('밤 알림은 다음 날 아침 메뉴의 요일을 사용한다', () {
+      final thursdayNight = DateTime(2026, 7, 16, 21, 30);
+
+      expect(
+        notificationTargetDayFor(MealAlertPeriod.night, thursdayNight),
+        DayOfWeek.fri,
+      );
+    });
+
+    test('오늘 식사 알림은 실행 당일의 요일을 사용한다', () {
+      final thursdayLunch = DateTime(2026, 7, 16, 11);
+
+      expect(
+        notificationTargetDayFor(MealAlertPeriod.lunch, thursdayLunch),
+        DayOfWeek.thu,
+      );
     });
   });
 }

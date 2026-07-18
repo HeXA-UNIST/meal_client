@@ -24,10 +24,10 @@ Future<void> testMealKeywordCheck({
   List<String>? keywordsOverride,
   MealAlertPeriod period = MealAlertPeriod.lunch,
 }) => _runMealKeywordCheck(
-      period: period,
-      keywordsOverride: keywordsOverride,
-      checkDay: false, // 테스트는 요일 필터 무시하고 매칭 로직만 확인
-    );
+  period: period,
+  keywordsOverride: keywordsOverride,
+  checkDay: false, // 테스트는 요일 필터 무시하고 매칭 로직만 확인
+);
 
 /// Workmanager 백그라운드 격리체(isolate) 진입점.
 @pragma('vm:entry-point')
@@ -176,13 +176,14 @@ Future<void> _runMealKeywordCheck({
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
 
+  final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
+  final targetDay = notificationTargetDayFor(period, kstNow);
+
   // 요일 (null 이면 모든 요일(기본값))
   if (checkDay) {
     final dayNames = prefs.getStringList(StorageKeys.notificationDays);
     if (dayNames != null) {
-      final kstToday = DateTime.now().toUtc().add(const Duration(hours: 9));
-      final firingDay = DayOfWeek.values[kstToday.weekday - 1];
-      if (!dayNames.contains(firingDay.name)) return;
+      if (!dayNames.contains(targetDay.name)) return;
     }
   }
 
@@ -214,12 +215,6 @@ Future<void> _runMealKeywordCheck({
     return;
   }
 
-  // 이 시간대가 검사할 요일(오늘 또는 내일)
-  final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
-  final targetDate = period.tomorrow
-      ? kstNow.add(const Duration(days: 1))
-      : kstNow;
-  final targetDay = DayOfWeek.values[targetDate.weekday - 1];
   final mealOfDay = period.mealOfDay;
 
   // 키워드별 매칭 결과: { "떡갈비" -> ["기숙사 한식"], "국" -> [...] }
@@ -291,6 +286,17 @@ Future<void> _runMealKeywordCheck({
 
   await initNotifications();
   await showMealKeywordNotification(title: title, body: body);
+}
+
+/// [period]가 검사할 메뉴의 요일을 반환한다.
+///
+/// [kstNow]는 한국 표준시 기준이어야 한다. 밤 알림은 다음 날 아침 메뉴를
+/// 검사하므로, 요일 선택도 실행 시점이 아닌 메뉴 대상 날짜를 기준으로 한다.
+DayOfWeek notificationTargetDayFor(MealAlertPeriod period, DateTime kstNow) {
+  final targetDate = period.tomorrow
+      ? kstNow.add(const Duration(days: 1))
+      : kstNow;
+  return DayOfWeek.values[targetDate.weekday - 1];
 }
 
 String _periodLabel(MealAlertPeriod period) => switch (period) {
