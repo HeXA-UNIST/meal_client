@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -10,6 +9,7 @@ android {
     compileSdk = flutter.compileSdkVersion
     // temporarily change ndk version to ensure 16kb page size support
     // ndkVersion = flutter.ndkVersion
+    // https://blog.naver.com/rlawnguq12/223428084454
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -18,9 +18,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
     }
+
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
