@@ -42,12 +42,18 @@ class StorageKeys {
 
 /// 식사 시간 기준 (KST 기준)
 class MealTimeConfig {
+  /// 한국 표준시(UTC+9) 보정값.
+  static const kstOffset = Duration(hours: 9);
+
+  /// 주어진 시각을 KST로 변환한다.
+  static DateTime toKst(DateTime time) => time.toUtc().add(kstOffset);
+
   /// 주간 메뉴 캐시 판별용 KST 기준 주 ID.
   ///
   /// 1970-01-05는 월요일이므로, KST로 보정한 시각을 이 기준점에서
   /// 7일 단위로 나누면 연도 경계와 ISO week-number 영향을 받지 않는다.
   static int kstWeekId(DateTime time) {
-    final kstTime = time.toUtc().add(const Duration(hours: 9));
+    final kstTime = toKst(time);
     final epoch = DateTime.utc(1970, 1, 5);
     return kstTime.difference(epoch).inDays ~/ 7;
   }

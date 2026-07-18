@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 
 enum MealAlertPeriod {
@@ -98,4 +99,13 @@ DayOfWeek notificationTargetDayFor(MealAlertPeriod period, DateTime kstNow) {
       ? kstNow.add(const Duration(days: 1))
       : kstNow;
   return DayOfWeek.values[targetDate.weekday - 1];
+}
+
+/// 저장된 요일 이름을 알림 요일 집합으로 변환한다.
+///
+/// 저장값이 없으면 기존 사용자와의 호환을 위해 모든 요일을 활성화한다.
+Set<DayOfWeek> notificationDaysFromNames(Iterable<String>? names) {
+  if (names == null) return DayOfWeek.values.toSet();
+
+  return enumSetFromNames(names, DayOfWeek.values);
 }

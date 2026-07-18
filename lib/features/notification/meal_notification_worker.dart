@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
@@ -180,7 +181,7 @@ Future<void> _runMealKeywordCheck({
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
 
-  final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
+  final kstNow = MealTimeConfig.toKst(DateTime.now());
   final targetDay = notificationTargetDayFor(period, kstNow);
 
   // 요일 (키가 없으면 모든 요일이 기본값)
@@ -200,11 +201,7 @@ Future<void> _runMealKeywordCheck({
   final cafeteriaNames =
       prefs.getStringList(StorageKeys.notificationCafeterias) ??
       [Cafeteria.dormitory.name];
-  final cafeteriaMap = Cafeteria.values.asNameMap();
-  final cafeterias = {
-    for (final n in cafeteriaNames)
-      if (cafeteriaMap[n] != null) cafeteriaMap[n]!,
-  };
+  final cafeterias = enumSetFromNames(cafeteriaNames, Cafeteria.values);
   if (cafeterias.isEmpty) return;
 
   final WeekMeal weekMeal;
@@ -288,11 +285,9 @@ Future<void> _runMealKeywordCheck({
 }
 
 Set<DayOfWeek> _loadNotificationDays(SharedPreferences prefs) {
-  final names = prefs.getStringList(StorageKeys.notificationDays);
-  if (names == null) return DayOfWeek.values.toSet();
-
-  final dayMap = DayOfWeek.values.asNameMap();
-  return {for (final name in names) ?dayMap[name]};
+  return notificationDaysFromNames(
+    prefs.getStringList(StorageKeys.notificationDays),
+  );
 }
 
 String _periodLabel(MealAlertPeriod period) => switch (period) {

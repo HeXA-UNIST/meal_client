@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_alert_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
@@ -18,17 +19,22 @@ class AppSettings extends ChangeNotifier {
   NotificationSettings _notification;
   WidgetSettings _widget;
   ThemeMode _themeMode;
+  final NotificationScheduleCoordinator _notificationScheduleCoordinator;
 
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
   WidgetSettings get widget => _widget;
   ThemeMode get themeMode => _themeMode;
 
-  AppSettings(this._prefs)
-    : _allergy = _loadAllergy(_prefs),
-      _notification = _loadNotification(_prefs),
-      _widget = _loadWidget(_prefs),
-      _themeMode = _loadThemeMode(_prefs);
+  AppSettings(
+    this._prefs, {
+    NotificationScheduleCoordinator? notificationScheduleCoordinator,
+  }) : _notificationScheduleCoordinator =
+           notificationScheduleCoordinator ?? NotificationScheduleCoordinator(),
+       _allergy = _loadAllergy(_prefs),
+       _notification = _loadNotification(_prefs),
+       _widget = _loadWidget(_prefs),
+       _themeMode = _loadThemeMode(_prefs);
 
   // --- 알레르기 ---
 
@@ -48,14 +54,16 @@ class AppSettings extends ChangeNotifier {
     _prefs.setBool(StorageKeys.notificationEnabled, v);
     notifyListeners();
     if (v) {
-      unawaited(
-        scheduleAllKeywordNotifications(
-          _notification.alertTimes,
-          _notification.days,
-        ),
-      );
+      _requestNotificationReschedule(immediately: true);
     } else {
-      unawaited(cancelAllKeywordNotifications());
+      unawaited(_notificationScheduleCoordinator.cancelAll());
+    }
+  }
+
+  /// 앱 시작 등에서 현재 알림 설정을 다시 Workmanager에 반영한다.
+  void rescheduleKeywordNotifications() {
+    if (_notification.enabled) {
+      _requestNotificationReschedule(immediately: true);
     }
   }
 
@@ -110,12 +118,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
 
     if (_notification.enabled) {
-      unawaited(
-        scheduleAllKeywordNotifications(
-          _notification.alertTimes,
-          _notification.days,
-        ),
-      );
+      _requestNotificationReschedule();
     }
   }
 
@@ -137,13 +140,22 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      unawaited(
-        scheduleAllKeywordNotifications(
-          _notification.alertTimes,
-          _notification.days,
-        ),
-      );
+      _requestNotificationReschedule();
     }
+  }
+
+  void _requestNotificationReschedule({bool immediately = false}) {
+    unawaited(
+      immediately
+          ? _notificationScheduleCoordinator.scheduleNow(
+              _notification.alertTimes,
+              _notification.days,
+            )
+          : _notificationScheduleCoordinator.schedule(
+              _notification.alertTimes,
+              _notification.days,
+            ),
+    );
   }
 
   // --- 위젯 ---
@@ -175,7 +187,7 @@ class AppSettings extends ChangeNotifier {
     _notification = _notification.reset();
     _widget = _widget.reset();
     _themeMode = ThemeMode.system;
-    unawaited(cancelAllKeywordNotifications());
+    unawaited(_notificationScheduleCoordinator.cancelAll());
     _prefs.setStringList(StorageKeys.allergenIds, []);
     _prefs.setBool(StorageKeys.notificationEnabled, false);
     _prefs.setStringList(StorageKeys.notificationKeywords, []);
@@ -197,6 +209,12 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    _notificationScheduleCoordinator.dispose();
+    super.dispose();
+  }
+
   // --- 로드 헬퍼 ---
 
   static AllergySettings _loadAllergy(SharedPreferences p) {
@@ -215,14 +233,10 @@ class AppSettings extends ChangeNotifier {
   static const _legacyAlertTimeKey = 'settings_notification_time';
 
   static NotificationSettings _loadNotification(SharedPreferences p) {
-    final cafeteriaMap = Cafeteria.values.asNameMap();
     final cafeteriaNames = p.getStringList(StorageKeys.notificationCafeterias);
     final cafeterias = cafeteriaNames == null
         ? <Cafeteria>{Cafeteria.dormitory}
-        : {
-            for (final n in cafeteriaNames)
-              if (cafeteriaMap[n] != null) cafeteriaMap[n]!,
-          };
+        : enumSetFromNames(cafeteriaNames, Cafeteria.values);
 
     // 키워드 로드 + 구버전 마이그레이션
     var keywords = p.getStringList(StorageKeys.notificationKeywords);
@@ -284,14 +298,9 @@ class AppSettings extends ChangeNotifier {
     }
 
     // 알림 요일 로드. 키가 없으면 모든 요일 활성(기본값).
-    final dayMap = DayOfWeek.values.asNameMap();
-    final storedDays = p.getStringList(StorageKeys.notificationDays);
-    final days = storedDays == null
-        ? DayOfWeek.values.toSet()
-        : {
-            for (final n in storedDays)
-              if (dayMap[n] != null) dayMap[n]!,
-          };
+    final days = notificationDaysFromNames(
+      p.getStringList(StorageKeys.notificationDays),
+    );
 
     return NotificationSettings(
       enabled: p.getBool(StorageKeys.notificationEnabled) ?? false,

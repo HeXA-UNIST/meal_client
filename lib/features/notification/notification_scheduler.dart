@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:workmanager/workmanager.dart';
 
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'meal_alert_period.dart';
 
@@ -18,8 +21,6 @@ MealAlertPeriod? periodFromTaskName(String taskName) {
     taskName.substring(kMealKeywordTaskPrefix.length),
   );
 }
-
-const _kstOffset = Duration(hours: 9);
 
 /// [enabledDays]의 메뉴 요일에 해당하는 가장 가까운 실행 시각을 반환한다.
 ///
@@ -52,7 +53,7 @@ DateTime? nextEnabledFireTime({
   }
 
   for (var offset = 0; offset < 7; offset++) {
-    final kstCandidate = candidate.toUtc().add(_kstOffset);
+    final kstCandidate = MealTimeConfig.toKst(candidate);
     final targetDay = notificationTargetDayFor(period, kstCandidate);
     if (enabledDays.contains(targetDay)) return candidate;
 
@@ -66,6 +67,130 @@ DateTime? nextEnabledFireTime({
   }
 
   throw StateError('활성화된 알림 요일의 다음 실행 시각을 찾지 못했습니다.');
+}
+
+typedef KeywordNotificationScheduler =
+    Future<void> Function(
+      Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+      Set<DayOfWeek> enabledDays,
+    );
+
+typedef KeywordNotificationCanceler = Future<void> Function();
+
+/// 예약 요청의 최종 처리 결과.
+enum NotificationScheduleOutcome { scheduled, superseded, canceled, disposed }
+
+/// 연속된 알림 설정 변경을 합치고, Workmanager 갱신을 순서대로 실행한다.
+///
+/// 설정 UI는 즉시 반영하되, 짧은 시간에 여러 번 누른 경우에는 마지막 상태만
+/// 예약한다. 진행 중인 예약 뒤에 다음 작업을 연결하므로 이전 상태가 최종
+/// Workmanager 등록을 덮어쓰지 않는다.
+class NotificationScheduleCoordinator {
+  NotificationScheduleCoordinator({
+    KeywordNotificationScheduler? schedule,
+    KeywordNotificationCanceler? cancel,
+    this.debounce = const Duration(milliseconds: 300),
+  }) : _schedule = schedule ?? scheduleAllKeywordNotifications,
+       _cancel = cancel ?? cancelAllKeywordNotifications;
+
+  final KeywordNotificationScheduler _schedule;
+  final KeywordNotificationCanceler _cancel;
+  final Duration debounce;
+
+  Future<void> _queue = Future.value();
+  Timer? _pendingTimer;
+  Completer<NotificationScheduleOutcome>? _pendingCompleter;
+  int _revision = 0;
+  bool _disposed = false;
+
+  /// 최신 [alertTimes], [enabledDays]로 예약을 요청한다.
+  Future<NotificationScheduleOutcome> schedule(
+    Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+    Set<DayOfWeek> enabledDays,
+  ) {
+    if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
+
+    final snapshotTimes = Map<MealAlertPeriod, TimeOfDay?>.unmodifiable(
+      alertTimes,
+    );
+    final snapshotDays = Set<DayOfWeek>.unmodifiable(enabledDays);
+    _invalidatePending(NotificationScheduleOutcome.superseded);
+    final revision = _revision;
+
+    final completer = Completer<NotificationScheduleOutcome>();
+    _pendingCompleter = completer;
+    _pendingTimer = Timer(debounce, () {
+      _pendingTimer = null;
+      _pendingCompleter = null;
+      _enqueueSchedule(revision, snapshotTimes, snapshotDays).then(
+        completer.complete,
+        onError: (Object error, StackTrace stackTrace) {
+          completer.completeError(error, stackTrace);
+        },
+      );
+    });
+    return completer.future;
+  }
+
+  /// 디바운스를 거치지 않고 즉시 예약 작업을 큐에 추가한다.
+  Future<NotificationScheduleOutcome> scheduleNow(
+    Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+    Set<DayOfWeek> enabledDays,
+  ) {
+    if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
+
+    final snapshotTimes = Map<MealAlertPeriod, TimeOfDay?>.unmodifiable(
+      alertTimes,
+    );
+    final snapshotDays = Set<DayOfWeek>.unmodifiable(enabledDays);
+    _invalidatePending(NotificationScheduleOutcome.superseded);
+    return _enqueueSchedule(_revision, snapshotTimes, snapshotDays);
+  }
+
+  /// 보류 중인 예약 요청을 무효화하고, 모든 알림 작업을 취소한다.
+  Future<void> cancelAll() {
+    if (_disposed) return Future.value();
+
+    _invalidatePending(NotificationScheduleOutcome.canceled);
+    return _enqueue(_cancel);
+  }
+
+  /// 보류 중인 예약을 취소하고, 아직 시작하지 않은 예약 요청을 무효화한다.
+  /// 이미 시작된 Workmanager 플러그인 호출은 중단할 수 없어 완료될 수 있다.
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+
+    _invalidatePending(NotificationScheduleOutcome.disposed);
+  }
+
+  void _invalidatePending(NotificationScheduleOutcome outcome) {
+    _revision++;
+    _pendingTimer?.cancel();
+    _pendingTimer = null;
+    _pendingCompleter?.complete(outcome);
+    _pendingCompleter = null;
+  }
+
+  Future<NotificationScheduleOutcome> _enqueueSchedule(
+    int revision,
+    Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+    Set<DayOfWeek> enabledDays,
+  ) => _enqueue(() async {
+    if (_disposed) return NotificationScheduleOutcome.disposed;
+    if (revision != _revision) {
+      return NotificationScheduleOutcome.superseded;
+    }
+    await _schedule(alertTimes, enabledDays);
+    return NotificationScheduleOutcome.scheduled;
+  });
+
+  Future<T> _enqueue<T>(Future<T> Function() operation) {
+    final queued = _queue.then<T>((_) => operation());
+    // 예약 실패가 이후 요청을 막지 않게 큐는 항상 계속 진행한다.
+    _queue = queued.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return queued;
+  }
 }
 
 /// 지정한 [period]의 다음 알림을 [alertTime]에 실행되도록 등록한다.

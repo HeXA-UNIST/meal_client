@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage>
   }
 
   void _initializeModelAndDate() {
-    final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
+    final kstNow = MealTimeConfig.toKst(DateTime.now());
     _model = HomePageModel(
       mealOfDay: MealTimeConfig.determineMealOfDay(kstNow),
       dayOfWeek: DayOfWeek.values[kstNow.weekday - 1],
