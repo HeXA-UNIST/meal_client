@@ -4,24 +4,36 @@ import 'package:meal_client/domain/meal.dart';
 
 enum MealAlertPeriod {
   morning(
-    startHour: 7, startMinute: 30,
-    endHour: 8, endMinute: 30,
-    mealOfDay: MealOfDay.breakfast, tomorrow: false,
+    startHour: 7,
+    startMinute: 30,
+    endHour: 8,
+    endMinute: 30,
+    mealOfDay: MealOfDay.breakfast,
+    tomorrow: false,
   ),
   lunch(
-    startHour: 10, startMinute: 30,
-    endHour: 11, endMinute: 30,
-    mealOfDay: MealOfDay.lunch, tomorrow: false,
+    startHour: 10,
+    startMinute: 30,
+    endHour: 11,
+    endMinute: 30,
+    mealOfDay: MealOfDay.lunch,
+    tomorrow: false,
   ),
   dinner(
-    startHour: 16, startMinute: 30,
-    endHour: 17, endMinute: 30,
-    mealOfDay: MealOfDay.dinner, tomorrow: false,
+    startHour: 16,
+    startMinute: 30,
+    endHour: 17,
+    endMinute: 30,
+    mealOfDay: MealOfDay.dinner,
+    tomorrow: false,
   ),
   night(
-    startHour: 21, startMinute: 0,
-    endHour: 22, endMinute: 0,
-    mealOfDay: MealOfDay.breakfast, tomorrow: true,
+    startHour: 21,
+    startMinute: 0,
+    endHour: 22,
+    endMinute: 0,
+    mealOfDay: MealOfDay.breakfast,
+    tomorrow: true,
   );
 
   const MealAlertPeriod({
@@ -75,4 +87,15 @@ enum MealAlertPeriod {
     }
     return null;
   }
+}
+
+/// [period]가 검사할 메뉴의 요일을 반환한다.
+///
+/// [kstNow]는 한국 표준시 기준이어야 한다. 밤 알림은 다음 날 아침 메뉴를
+/// 검사하므로, 요일 선택도 실행 시점이 아닌 메뉴 대상 날짜를 기준으로 한다.
+DayOfWeek notificationTargetDayFor(MealAlertPeriod period, DateTime kstNow) {
+  final targetDate = period.tomorrow
+      ? kstNow.add(const Duration(days: 1))
+      : kstNow;
+  return DayOfWeek.values[targetDate.weekday - 1];
 }

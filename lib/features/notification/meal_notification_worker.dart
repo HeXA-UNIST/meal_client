@@ -150,6 +150,9 @@ Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
   final minute = int.tryParse(parts[1]);
   if (hour == null || minute == null) return;
 
+  final enabledDays = _loadNotificationDays(prefs);
+  if (enabledDays.isEmpty) return;
+
   assert(() {
     debugPrint(
       '[BapU] worker: rescheduling ${period.name} for next day at $hour:$minute',
@@ -159,6 +162,7 @@ Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
   await scheduleKeywordNotificationFor(
     period,
     TimeOfDay(hour: hour, minute: minute),
+    enabledDays,
   );
   assert(() {
     debugPrint('[BapU] worker: reschedule call completed');
@@ -179,13 +183,8 @@ Future<void> _runMealKeywordCheck({
   final kstNow = DateTime.now().toUtc().add(const Duration(hours: 9));
   final targetDay = notificationTargetDayFor(period, kstNow);
 
-  // 요일 (null 이면 모든 요일(기본값))
-  if (checkDay) {
-    final dayNames = prefs.getStringList(StorageKeys.notificationDays);
-    if (dayNames != null) {
-      if (!dayNames.contains(targetDay.name)) return;
-    }
-  }
+  // 요일 (키가 없으면 모든 요일이 기본값)
+  if (checkDay && !_loadNotificationDays(prefs).contains(targetDay)) return;
 
   // 키워드 로드 (override 또는 prefs). 공백 제거 + 빈 항목 제외.
   final rawKeywords =
@@ -288,15 +287,12 @@ Future<void> _runMealKeywordCheck({
   await showMealKeywordNotification(title: title, body: body);
 }
 
-/// [period]가 검사할 메뉴의 요일을 반환한다.
-///
-/// [kstNow]는 한국 표준시 기준이어야 한다. 밤 알림은 다음 날 아침 메뉴를
-/// 검사하므로, 요일 선택도 실행 시점이 아닌 메뉴 대상 날짜를 기준으로 한다.
-DayOfWeek notificationTargetDayFor(MealAlertPeriod period, DateTime kstNow) {
-  final targetDate = period.tomorrow
-      ? kstNow.add(const Duration(days: 1))
-      : kstNow;
-  return DayOfWeek.values[targetDate.weekday - 1];
+Set<DayOfWeek> _loadNotificationDays(SharedPreferences prefs) {
+  final names = prefs.getStringList(StorageKeys.notificationDays);
+  if (names == null) return DayOfWeek.values.toSet();
+
+  final dayMap = DayOfWeek.values.asNameMap();
+  return {for (final name in names) ?dayMap[name]};
 }
 
 String _periodLabel(MealAlertPeriod period) => switch (period) {

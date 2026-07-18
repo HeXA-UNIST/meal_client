@@ -46,7 +46,12 @@ void main() async {
   // 앱 시작 시 활성화된 시간대 알림을 모두 재스케줄한다.
   // (백그라운드 워커가 다음 회차 등록에 실패하는 케이스에 대한 방어책)
   if (settings.notification.enabled) {
-    unawaited(scheduleAllKeywordNotifications(settings.notification.alertTimes));
+    unawaited(
+      scheduleAllKeywordNotifications(
+        settings.notification.alertTimes,
+        settings.notification.days,
+      ),
+    );
   }
 
   runApp(ChangeNotifierProvider.value(value: settings, child: const BapUApp()));

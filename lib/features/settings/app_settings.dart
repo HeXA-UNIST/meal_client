@@ -25,10 +25,10 @@ class AppSettings extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
 
   AppSettings(this._prefs)
-      : _allergy = _loadAllergy(_prefs),
-        _notification = _loadNotification(_prefs),
-        _widget = _loadWidget(_prefs),
-        _themeMode = _loadThemeMode(_prefs);
+    : _allergy = _loadAllergy(_prefs),
+      _notification = _loadNotification(_prefs),
+      _widget = _loadWidget(_prefs),
+      _themeMode = _loadThemeMode(_prefs);
 
   // --- 알레르기 ---
 
@@ -48,7 +48,12 @@ class AppSettings extends ChangeNotifier {
     _prefs.setBool(StorageKeys.notificationEnabled, v);
     notifyListeners();
     if (v) {
-      unawaited(scheduleAllKeywordNotifications(_notification.alertTimes));
+      unawaited(
+        scheduleAllKeywordNotifications(
+          _notification.alertTimes,
+          _notification.days,
+        ),
+      );
     } else {
       unawaited(cancelAllKeywordNotifications());
     }
@@ -75,17 +80,22 @@ class AppSettings extends ChangeNotifier {
   /// [time]이 null이면 해당 시간대 알림을 끈다(마지막 선택 시각은 기억해 둔다).
   /// 그렇지 않으면 해당 시간대에 지정 시각으로 알림을 등록한다.
   void setPeriodAlertTime(MealAlertPeriod period, TimeOfDay? time) {
-    final next = Map<MealAlertPeriod, TimeOfDay?>.from(_notification.alertTimes);
-    final remembered =
-        Map<MealAlertPeriod, TimeOfDay>.from(_notification.rememberedTimes);
+    final next = Map<MealAlertPeriod, TimeOfDay?>.from(
+      _notification.alertTimes,
+    );
+    final remembered = Map<MealAlertPeriod, TimeOfDay>.from(
+      _notification.rememberedTimes,
+    );
     if (time == null) {
       next.remove(period);
     } else {
       next[period] = time;
       remembered[period] = time;
     }
-    _notification =
-        _notification.copyWith(alertTimes: next, rememberedTimes: remembered);
+    _notification = _notification.copyWith(
+      alertTimes: next,
+      rememberedTimes: remembered,
+    );
 
     final key = '${StorageKeys.notificationPeriodTimePrefix}${period.name}';
     if (time == null) {
@@ -100,7 +110,12 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
 
     if (_notification.enabled) {
-      unawaited(scheduleAllKeywordNotifications(_notification.alertTimes));
+      unawaited(
+        scheduleAllKeywordNotifications(
+          _notification.alertTimes,
+          _notification.days,
+        ),
+      );
     }
   }
 
@@ -113,8 +128,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 알림을 받을 요일 집합을 설정한다. 워커가 발송 시점에 prefs를 읽어 필터하므로
-  /// 재스케줄은 필요 없다.
+  /// 알림을 받을 요일 집합을 설정하고, 다음 활성 메뉴 요일로 다시 예약한다.
   void setNotificationDays(Set<DayOfWeek> days) {
     _notification = _notification.copyWith(days: days);
     _prefs.setStringList(
@@ -122,6 +136,14 @@ class AppSettings extends ChangeNotifier {
       days.map((e) => e.name).toList(),
     );
     notifyListeners();
+    if (_notification.enabled) {
+      unawaited(
+        scheduleAllKeywordNotifications(
+          _notification.alertTimes,
+          _notification.days,
+        ),
+      );
+    }
   }
 
   // --- 위젯 ---
@@ -158,12 +180,16 @@ class AppSettings extends ChangeNotifier {
     _prefs.setBool(StorageKeys.notificationEnabled, false);
     _prefs.setStringList(StorageKeys.notificationKeywords, []);
     for (final period in MealAlertPeriod.values) {
-      _prefs.remove('${StorageKeys.notificationPeriodTimePrefix}${period.name}');
       _prefs.remove(
-          '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}');
+        '${StorageKeys.notificationPeriodTimePrefix}${period.name}',
+      );
+      _prefs.remove(
+        '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
+      );
     }
-    _prefs.setStringList(
-        StorageKeys.notificationCafeterias, [Cafeteria.dormitory.name]);
+    _prefs.setStringList(StorageKeys.notificationCafeterias, [
+      Cafeteria.dormitory.name,
+    ]);
     _prefs.remove(StorageKeys.notificationDays); // 기본값(모든 요일)으로 복귀
     _prefs.setString(StorageKeys.widgetCafeteria, Cafeteria.dormitory.name);
     _prefs.setString(StorageKeys.widgetMealOfDay, MealOfDay.lunch.name);
@@ -281,9 +307,11 @@ class AppSettings extends ChangeNotifier {
     final cafeteriaMap = Cafeteria.values.asNameMap();
     final mealOfDayMap = MealOfDay.values.asNameMap();
     return WidgetSettings(
-      cafeteria: cafeteriaMap[p.getString(StorageKeys.widgetCafeteria)] ??
+      cafeteria:
+          cafeteriaMap[p.getString(StorageKeys.widgetCafeteria)] ??
           Cafeteria.dormitory,
-      mealOfDay: mealOfDayMap[p.getString(StorageKeys.widgetMealOfDay)] ??
+      mealOfDay:
+          mealOfDayMap[p.getString(StorageKeys.widgetMealOfDay)] ??
           MealOfDay.lunch,
     );
   }
