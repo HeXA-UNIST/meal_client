@@ -61,34 +61,49 @@ class MealCard extends StatelessWidget {
     final kcalText = meal.kcal == null ? null : "${meal.kcal} kcal";
 
     final menuWidgets = <Widget>[];
-    for (final section in meal.sections) {
+    for (
+      var sectionIndex = 0;
+      sectionIndex < meal.sections.length;
+      sectionIndex++
+    ) {
+      final section = meal.sections[sectionIndex];
+      if (sectionIndex > 0) {
+        menuWidgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: theme.colorScheme.outlineVariant,
+            ),
+          ),
+        );
+      }
+
       final sectionTitle = section.titleFor(
         languageCode,
         convenienceLabel: l10n.menuSectionConvenience,
         specialLabel: l10n.menuSectionSpecial,
       );
       if (sectionTitle != null) {
-        if (menuWidgets.isNotEmpty) {
-          menuWidgets.add(const SizedBox(height: 8));
-        }
         menuWidgets.add(
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
+            padding: EdgeInsets.fromLTRB(16, sectionIndex == 0 ? 8 : 0, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
               child: Text(
                 sectionTitle,
-                textAlign: TextAlign.center,
                 style: theme.textTheme.labelSmall!.copyWith(
                   color: theme.colorScheme.outline,
                   fontWeight: FontWeight.w600,
+                  height: 1,
                 ),
               ),
             ),
           ),
         );
+      } else if (sectionIndex == 0) {
         menuWidgets.add(const SizedBox(height: 8));
-      } else if (menuWidgets.isNotEmpty) {
-        menuWidgets.add(const SizedBox(height: 12));
       }
 
       for (var menuIndex = 0; menuIndex < section.menu.length; menuIndex++) {
@@ -111,12 +126,8 @@ class MealCard extends StatelessWidget {
       color: theme.colorScheme.surfaceContainer,
       margin: EdgeInsetsGeometry.all(8),
       shape: defaultTargetPlatform == TargetPlatform.iOS
-          ? RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(24),
-            )
-          : RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
+          ? RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24))
+          : RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       elevation: 1,
       shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.125),
@@ -146,7 +157,6 @@ class MealCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
           ...menuWidgets,
           const SizedBox(height: 8),
           Flexible(

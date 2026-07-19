@@ -110,7 +110,7 @@ void main() {
     expect(find.text('된장찌개'), findsOneWidget);
   });
 
-  testWidgets('섹션 제목을 메뉴 위에 작은 회색 굵은 글씨로 가운데 정렬해 표시한다', (tester) async {
+  testWidgets('섹션 제목을 메뉴 위에 작은 회색 굵은 글씨로 좌측 정렬해 표시한다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('ko'),
@@ -138,8 +138,8 @@ void main() {
     );
 
     final titleText = tester.widget<Text>(find.text('천원의 아침밥'));
-    expect(titleText.textAlign, TextAlign.center);
-    expect(titleText.style?.fontWeight, FontWeight.w700);
+    expect(titleText.textAlign, isNull);
+    expect(titleText.style?.fontWeight, FontWeight.w600);
     expect(
       titleText.style?.color,
       Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
