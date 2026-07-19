@@ -168,6 +168,8 @@ void main() {
       expect(meals.first.localizedMenu('ko'), ['쌀밥', '황태해장국']);
       expect(meals.first.localizedMenu('en'), ['Rice', 'Dried pollack soup']);
       expect(meals.first.kcal, 935);
+      expect(meals.first.sections.single.type, MealSectionType.regular);
+      expect(meals.first.sections.single.title?.textFor('ko'), '천원의 아침밥');
       expect(meals.last, isA<HalalMeal>());
       expect(meals.last.localizedMenu('en'), ['Halal rice']);
       expect(meals.last.kcal, 958);
@@ -218,7 +220,7 @@ void main() {
       expect(meals.single.kcal, isNull);
     });
 
-    test('REGULAR 섹션만 표시하고 비REGULAR 섹션은 건너뛴다', () {
+    test('REGULAR 칼로리를 기본값으로 유지하며 SALAD를 제외한다', () {
       final json = jsonEncode({
         'week': {
           'startDate': '2026-06-15',
@@ -276,8 +278,15 @@ void main() {
       final meals =
           weekMeal[DayOfWeek.wed][MealOfDay.dinner][Cafeteria.dormitory];
 
-      expect(meals.single.localizedMenu('ko'), ['쌀밥']);
+      expect(meals.single.localizedMenu('ko'), ['쌀밥', '삼각김밥']);
       expect(meals.single.kcal, 700);
+      expect(meals.single.sections, hasLength(2));
+      expect(meals.single.sections.last.type, MealSectionType.convenience);
+      expect(
+        meals.single.sections.last.title?.textFor('en'),
+        'Grab-and-go meal, limited to 30 servings',
+      );
+      expect(meals.single.sections.last.kcal, 300);
     });
 
     test('여러 REGULAR 섹션의 같은 칼로리도 단일 kcal로 표시하지 않는다', () {
@@ -339,7 +348,7 @@ void main() {
       expect(meals.single.kcal, isNull);
     });
 
-    test('REGULAR 섹션이 없으면 메뉴 카드를 만들지 않는다', () {
+    test('SPECIAL 섹션만 있어도 메뉴 카드를 만든다', () {
       final json = jsonEncode({
         'week': {
           'startDate': '2026-06-15',
@@ -380,7 +389,147 @@ void main() {
       final weekMeal = parseRawMeal(json);
       final meals = weekMeal[DayOfWeek.fri][MealOfDay.lunch][Cafeteria.student];
 
-      expect(meals, isEmpty);
+      expect(meals, hasLength(1));
+      expect(meals.single.sections.single.type, MealSectionType.special);
+      expect(meals.single.localizedMenu('ko'), ['돈까스정식']);
+    });
+
+    test('누락되거나 비어 있는 섹션 제목은 제목 없음으로 처리한다', () {
+      final weekMeal = parseRawMeal(
+        jsonEncode({
+          'week': {
+            'startDate': '2026-06-15',
+            'isCurrentWeek': true,
+            'nextWeekStart': null,
+          },
+          'lastUpdated': '2026-06-15T09:00:00+09:00',
+          'data': [
+            {
+              'cafeteria': 'DORMITORY',
+              'meals': [
+                {
+                  'date': '2026-06-15',
+                  'dayOfWeek': 'MON',
+                  'timeType': 'LUNCH',
+                  'menusByType': [
+                    {
+                      'menuType': 'KOREAN',
+                      'sections': [
+                        {
+                          'sectionType': 'CONVENIENCE',
+                          'sectionTitle': {'en': 'Missing Korean title'},
+                          'calorie': null,
+                          'sectionAllergens': null,
+                          'menus': [
+                            {'ko': '간편식 A', 'en': null, 'allergens': null},
+                          ],
+                        },
+                        {
+                          'sectionType': 'SPECIAL',
+                          'sectionTitle': {
+                            'ko': null,
+                            'en': 'Null Korean title',
+                          },
+                          'calorie': null,
+                          'sectionAllergens': null,
+                          'menus': [
+                            {'ko': '특별식 B', 'en': null, 'allergens': null},
+                          ],
+                        },
+                        {
+                          'sectionType': 'SPECIAL',
+                          'sectionTitle': {
+                            'ko': '   ',
+                            'en': 'Blank Korean title',
+                          },
+                          'calorie': null,
+                          'sectionAllergens': null,
+                          'menus': [
+                            {'ko': '특별식 C', 'en': null, 'allergens': null},
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      final meal =
+          weekMeal[DayOfWeek.mon][MealOfDay.lunch][Cafeteria.dormitory].single;
+
+      expect(meal.sections, hasLength(3));
+      expect(
+        meal.sections.map((section) => section.title),
+        everyElement(isNull),
+      );
+      expect(
+        meal.sections.first.titleFor(
+          'ko',
+          convenienceLabel: '간편식',
+          specialLabel: '특별식',
+        ),
+        '간편식',
+      );
+    });
+
+    test('알 수 없는 섹션 타입은 건너뛰고 나머지 메뉴를 표시한다', () {
+      final weekMeal = parseRawMeal(
+        jsonEncode({
+          'week': {
+            'startDate': '2026-06-15',
+            'isCurrentWeek': true,
+            'nextWeekStart': null,
+          },
+          'lastUpdated': '2026-06-15T09:00:00+09:00',
+          'data': [
+            {
+              'cafeteria': 'DORMITORY',
+              'meals': [
+                {
+                  'date': '2026-06-15',
+                  'dayOfWeek': 'MON',
+                  'timeType': 'LUNCH',
+                  'menusByType': [
+                    {
+                      'menuType': 'KOREAN',
+                      'sections': [
+                        {
+                          'sectionType': 'REGULAR',
+                          'sectionTitle': null,
+                          'calorie': 700,
+                          'sectionAllergens': null,
+                          'menus': [
+                            {'ko': '쌀밥', 'en': 'Rice', 'allergens': []},
+                          ],
+                        },
+                        {
+                          'sectionType': 'FUTURE_TYPE',
+                          'sectionTitle': null,
+                          'calorie': null,
+                          'sectionAllergens': null,
+                          'menus': [
+                            {'ko': '새 메뉴', 'en': null, 'allergens': null},
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      final meals =
+          weekMeal[DayOfWeek.mon][MealOfDay.lunch][Cafeteria.dormitory];
+
+      expect(meals.single.localizedMenu('ko'), ['쌀밥']);
+      expect(meals.single.kcal, 700);
     });
 
     test('data가 빈 배열이면 모든 식사 리스트가 비어 있음', () {

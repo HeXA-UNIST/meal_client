@@ -12,6 +12,36 @@ import 'nested_page_scroll.dart';
 const _cardMinWidth = 160;
 const _cardMaxWidth = 196;
 
+String buildMealShareText({
+  required String cardTitle,
+  required Meal meal,
+  required String languageCode,
+  required String convenienceLabel,
+  required String specialLabel,
+}) {
+  final lines = <String>['[$cardTitle]'];
+  for (final section in meal.sections) {
+    final sectionTitle = section.titleFor(
+      languageCode,
+      convenienceLabel: convenienceLabel,
+      specialLabel: specialLabel,
+    );
+    if (sectionTitle != null) {
+      lines.add('');
+      lines.add('[$sectionTitle]');
+    }
+    lines.addAll(
+      section.menu.map((menuItem) => '- ${menuItem.textFor(languageCode)}'),
+    );
+  }
+  final kcal = meal.kcal;
+  if (kcal != null) {
+    lines.add('');
+    lines.add('$kcal kcal');
+  }
+  return lines.join('\n');
+}
+
 class WeekMealTabBarView extends StatelessWidget {
   const WeekMealTabBarView({
     super.key,
@@ -99,16 +129,20 @@ class WeekMealTabBarView extends StatelessWidget {
                                   // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
                                   // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
                                   if (!kIsWeb) {
-                                    final localizedMenu = meal.localizedMenu(
-                                      Localizations.localeOf(
-                                        context,
-                                      ).languageCode,
-                                    );
+                                    final languageCode = Localizations.localeOf(
+                                      context,
+                                    ).languageCode;
                                     HapticFeedback.lightImpact();
                                     SharePlus.instance.share(
                                       ShareParams(
-                                        text:
-                                            "[$title]\n${localizedMenu.map((aMenu) => "- $aMenu").join("\n")}${meal.kcal == null ? "" : "\n\n${meal.kcal} kcal"}",
+                                        text: buildMealShareText(
+                                          cardTitle: title,
+                                          meal: meal,
+                                          languageCode: languageCode,
+                                          convenienceLabel:
+                                              l10n.menuSectionConvenience,
+                                          specialLabel: l10n.menuSectionSpecial,
+                                        ),
                                       ),
                                     );
                                   }

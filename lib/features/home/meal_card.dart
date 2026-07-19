@@ -3,11 +3,13 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/main.dart' show mainColor;
 
-// Pretendard에서 가장 넓은 숫자('4')와 실사용 최대 자릿수 기준 최악의 경우 문자열.
+// Pretendard w700에서 가장 넓은 숫자('0')와 실사용 최대 자릿수 기준 최악의 경우 문자열.
 // 실제 라벨 대신 이걸 측정해야 카드마다 내용이 달라도 항상 같은 축소 배율이 나온다.
-const _worstCaseTimeLabel = '04:44 - 04:44';
+const _worstCaseTimeLabel = '06:00 - 08:00';
+// Pretendard w600, w500에서는 '4'가 가장 넓음
 const _worstCaseKcalText = '1444 kcal';
 
 class MealCard extends StatelessWidget {
@@ -27,6 +29,7 @@ class MealCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final languageCode = Localizations.localeOf(context).languageCode;
 
     // primaryContainer의 HSL 변환을 한 번만 수행하여 중복 계산 방지
@@ -58,18 +61,50 @@ class MealCard extends StatelessWidget {
     final kcalText = meal.kcal == null ? null : "${meal.kcal} kcal";
 
     final menuWidgets = <Widget>[];
-    for (final menuItem in meal.localizedMenu(languageCode)) {
-      // Flutter Text는 자동 줄 바꿈과 강제 줄 바꿈의 줄 간격(height)을
-      // 구분하지 않아서, 메뉴 항목 간 여백은 SizedBox로 분리해 넣는다.
-      if (menuWidgets.isNotEmpty) {
-        menuWidgets.add(SizedBox(height: menuLineGap));
-      }
-      menuWidgets.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(menuItem, style: menuTextStyle),
-        ),
+    for (final section in meal.sections) {
+      final sectionTitle = section.titleFor(
+        languageCode,
+        convenienceLabel: l10n.menuSectionConvenience,
+        specialLabel: l10n.menuSectionSpecial,
       );
+      if (sectionTitle != null) {
+        if (menuWidgets.isNotEmpty) {
+          menuWidgets.add(const SizedBox(height: 8));
+        }
+        menuWidgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                sectionTitle,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall!.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        );
+        menuWidgets.add(const SizedBox(height: 8));
+      } else if (menuWidgets.isNotEmpty) {
+        menuWidgets.add(const SizedBox(height: 12));
+      }
+
+      for (var menuIndex = 0; menuIndex < section.menu.length; menuIndex++) {
+        // Flutter Text는 자동 줄 바꿈과 강제 줄 바꿈의 줄 간격(height)을
+        // 구분하지 않아서, 메뉴 항목 간 여백은 SizedBox로 분리해 넣는다.
+        if (menuIndex > 0) {
+          menuWidgets.add(SizedBox(height: menuLineGap));
+        }
+        final menuItem = section.menu[menuIndex];
+        menuWidgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(menuItem.textFor(languageCode), style: menuTextStyle),
+          ),
+        );
+      }
     }
 
     return Card.filled(
@@ -105,7 +140,7 @@ class MealCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           ...menuWidgets,
           const SizedBox(height: 8),
           Flexible(

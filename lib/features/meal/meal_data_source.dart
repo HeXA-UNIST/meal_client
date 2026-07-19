@@ -11,8 +11,10 @@ Future<MealResponse> fetchAndCacheMealData({
   RawMealFetcher fetch = fetchRawString,
 }) async {
   final rawMeal = await fetch(ApiConstants.mealEndpoint);
+  final weekMeal = parseRawMeal(rawMeal);
+  final weekMeta = parseWeekMeta(rawMeal);
   await saveFileAsString(StorageKeys.mealCacheFile, rawMeal);
-  return (weekMeal: parseRawMeal(rawMeal), weekMeta: parseWeekMeta(rawMeal));
+  return (weekMeal: weekMeal, weekMeta: weekMeta);
 }
 
 int _getKstWeekNumber(DateTime time) {
@@ -27,7 +29,8 @@ int _getKstWeekNumber(DateTime time) {
 
 Future<MealResponse> getCachedMealData() async {
   final fileWeekNum = _getKstWeekNumber(
-      await getLastModifiedOfFile(StorageKeys.mealCacheFile));
+    await getLastModifiedOfFile(StorageKeys.mealCacheFile),
+  );
   final nowWeekNum = _getKstWeekNumber(DateTime.now());
   if (fileWeekNum != nowWeekNum) {
     throw Exception("Outdated cache");

@@ -105,6 +105,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get menuHalal => 'Halal';
 
   @override
+  String get menuSectionConvenience => 'Convenience meal';
+
+  @override
+  String get menuSectionSpecial => 'Special meal';
+
+  @override
   String get settings => 'Settings';
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/meal_card.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
 
 void main() {
   Finder findOperatingTimeText() {
@@ -17,10 +18,12 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
             title: '기숙사 식당',
-            meal: const Meal([MealMenuItem(ko: '쌀밥')], 935),
+            meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
             operatingTimeLabel: '08:00 - 09:20',
             isOperating: true,
           ),
@@ -45,10 +48,12 @@ void main() {
   testWidgets('운영 중이 아닌 운영시간은 회색으로 표시한다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
             title: '기숙사 식당',
-            meal: const Meal([MealMenuItem(ko: '쌀밥')], 935),
+            meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
             operatingTimeLabel: '08:00 - 09:20',
             isOperating: false,
           ),
@@ -69,10 +74,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
             title: 'Dormitory',
-            meal: const Meal([MealMenuItem(ko: '쌀밥', en: 'Rice')], 935),
+            meal: Meal.regular(
+              menu: const [MealMenuItem(ko: '쌀밥', en: 'Rice')],
+              kcal: 935,
+            ),
           ),
         ),
       ),
@@ -86,15 +96,56 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
             title: 'Student',
-            meal: const Meal([MealMenuItem(ko: '된장찌개')], null),
+            meal: Meal.regular(menu: const [MealMenuItem(ko: '된장찌개')]),
           ),
         ),
       ),
     );
 
     expect(find.text('된장찌개'), findsOneWidget);
+  });
+
+  testWidgets('섹션 제목을 메뉴 위에 작은 회색 굵은 글씨로 가운데 정렬해 표시한다', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: MealCard(
+            title: '기숙사 식당',
+            meal: const Meal(
+              sections: [
+                MealSection(
+                  type: MealSectionType.regular,
+                  title: MealSectionTitle(ko: '천원의 아침밥'),
+                  menu: [MealMenuItem(ko: '쌀밥')],
+                ),
+                MealSection(
+                  type: MealSectionType.convenience,
+                  menu: [MealMenuItem(ko: '삼각김밥')],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final titleText = tester.widget<Text>(find.text('천원의 아침밥'));
+    expect(titleText.textAlign, TextAlign.center);
+    expect(titleText.style?.fontWeight, FontWeight.w700);
+    expect(
+      titleText.style?.color,
+      Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
+    );
+    expect(find.text('간편식'), findsOneWidget);
+    expect(find.text('쌀밥'), findsOneWidget);
+    expect(find.text('삼각김밥'), findsOneWidget);
   });
 }

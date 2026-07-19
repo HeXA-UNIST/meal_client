@@ -105,6 +105,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get menuHalal => '할랄';
 
   @override
+  String get menuSectionConvenience => '간편식';
+
+  @override
+  String get menuSectionSpecial => '특별식';
+
+  @override
   String get settings => '설정';
 
   @override

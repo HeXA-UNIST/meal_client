@@ -9,10 +9,38 @@ import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 void main() {
+  test('공유 텍스트는 카드와 같은 섹션 순서와 제목을 사용한다', () {
+    const meal = Meal(
+      sections: [
+        MealSection(
+          type: MealSectionType.regular,
+          title: MealSectionTitle(ko: '천원의 아침밥'),
+          menu: [MealMenuItem(ko: '쌀밥')],
+          kcal: 700,
+        ),
+        MealSection(
+          type: MealSectionType.convenience,
+          menu: [MealMenuItem(ko: '삼각김밥')],
+        ),
+      ],
+    );
+
+    expect(
+      buildMealShareText(
+        cardTitle: '기숙사 식당 한식',
+        meal: meal,
+        languageCode: 'ko',
+        convenienceLabel: '간편식',
+        specialLabel: '특별식',
+      ),
+      '[기숙사 식당 한식]\n\n[천원의 아침밥]\n- 쌀밥\n\n[간편식]\n- 삼각김밥\n\n700 kcal',
+    );
+  });
+
   testWidgets('식단 카드에 선택한 요일과 끼니의 운영시간을 전달한다', (tester) async {
     final weekMeal = WeekMeal.empty();
     weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
-      const Meal([MealMenuItem(ko: '쌀밥')], 935),
+      Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
     );
 
     final tabController = TabController(length: 7, vsync: tester);

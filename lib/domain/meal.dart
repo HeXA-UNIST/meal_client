@@ -39,31 +39,29 @@ WeekMeal parseRawMeal(String jsonStr) {
           groupJson['sections'],
           'data[].meals[].menusByType[].sections',
         );
-        final menuItems = <MealMenuItem>[];
-        final calories = <int>[];
+        final mealSections = <MealSection>[];
 
         for (final sectionValue in sections) {
           final sectionJson = _requiredMap(
             sectionValue,
             'data[].meals[].menusByType[].sections[]',
           );
-          final sectionType = _requiredString(
-            sectionJson['sectionType'],
-            'data[].meals[].menusByType[].sections[].sectionType',
+          final sectionType = MealSectionType.fromApiKey(
+            _requiredString(
+              sectionJson['sectionType'],
+              'data[].meals[].menusByType[].sections[].sectionType',
+            ),
           );
-          if (sectionType != 'REGULAR') {
+          if (sectionType == null || sectionType == MealSectionType.salad) {
             continue;
           }
 
           final calorie = sectionJson['calorie'];
-          if (calorie is num) {
-            calories.add(calorie.toInt());
-          }
-
           final menus = _requiredList(
             sectionJson['menus'],
             'data[].meals[].menusByType[].sections[].menus',
           );
+          final menuItems = <MealMenuItem>[];
           for (final menuValue in menus) {
             final menuJson = _requiredMap(
               menuValue,
@@ -82,20 +80,31 @@ WeekMeal parseRawMeal(String jsonStr) {
               ),
             );
           }
+
+          if (menuItems.isEmpty) {
+            continue;
+          }
+          mealSections.add(
+            MealSection(
+              type: sectionType,
+              title: _nullableMealSectionTitle(sectionJson['sectionTitle']),
+              menu: menuItems,
+              kcal: calorie is num ? calorie.toInt() : null,
+            ),
+          );
         }
 
-        if (menuItems.isEmpty) {
+        if (mealSections.isEmpty) {
           continue;
         }
 
-        final kcal = calories.length == 1 ? calories.first : null;
         switch (menuType) {
           case "KOREAN":
-            cafeteriaMeals.add(KoreanMeal(menuItems, kcal));
+            cafeteriaMeals.add(KoreanMeal(sections: mealSections));
           case "HALAL":
-            cafeteriaMeals.add(HalalMeal(menuItems, kcal));
+            cafeteriaMeals.add(HalalMeal(sections: mealSections));
           default:
-            cafeteriaMeals.add(Meal(menuItems, kcal));
+            cafeteriaMeals.add(Meal(sections: mealSections));
         }
       }
     }
@@ -165,6 +174,21 @@ String? _nullableString(Object? value, String fieldName) {
   throw FormatException('$fieldName 필드는 string 또는 null이어야 합니다.');
 }
 
+MealSectionTitle? _nullableMealSectionTitle(Object? value) {
+  if (value is! Map<String, dynamic>) {
+    return null;
+  }
+  final ko = value['ko'];
+  if (ko is! String || ko.trim().isEmpty) {
+    return null;
+  }
+  final en = value['en'];
+  return MealSectionTitle(
+    ko: ko.trim(),
+    en: en is String && en.trim().isNotEmpty ? en.trim() : null,
+  );
+}
+
 bool _requiredBool(Object? value, String fieldName) {
   if (value is bool) {
     return value;
@@ -178,34 +202,117 @@ class MealMenuItem {
 
   const MealMenuItem({required this.ko, this.en});
 
-  String textFor(String languageCode) {
-    final english = en;
-    if (languageCode == 'en' && english != null && english.isNotEmpty) {
-      return english;
+  String textFor(String languageCode) =>
+      _localizedTextFor(ko, en, languageCode);
+}
+
+enum MealSectionType {
+  regular('REGULAR'),
+  salad('SALAD'),
+  convenience('CONVENIENCE'),
+  special('SPECIAL');
+
+  final String apiKey;
+  const MealSectionType(this.apiKey);
+
+  static MealSectionType? fromApiKey(String key) {
+    for (final type in values) {
+      if (type.apiKey == key) return type;
     }
-    return ko;
+    return null;
+  }
+}
+
+class MealSectionTitle {
+  final String ko;
+  final String? en;
+
+  const MealSectionTitle({required this.ko, this.en});
+
+  String textFor(String languageCode) =>
+      _localizedTextFor(ko, en, languageCode);
+}
+
+String _localizedTextFor(String ko, String? en, String languageCode) {
+  if (languageCode == 'en' && en != null && en.isNotEmpty) {
+    return en;
+  }
+  return ko;
+}
+
+class MealSection {
+  final MealSectionType type;
+  final MealSectionTitle? title;
+  final List<MealMenuItem> menu;
+  final int? kcal;
+
+  const MealSection({
+    required this.type,
+    required this.menu,
+    this.title,
+    this.kcal,
+  });
+
+  String? titleFor(
+    String languageCode, {
+    required String convenienceLabel,
+    required String specialLabel,
+  }) {
+    final sectionTitle = title;
+    if (sectionTitle != null) {
+      return sectionTitle.textFor(languageCode);
+    }
+    return switch (type) {
+      MealSectionType.regular || MealSectionType.salad => null,
+      MealSectionType.convenience => convenienceLabel,
+      MealSectionType.special => specialLabel,
+    };
   }
 }
 
 class Meal {
-  final List<MealMenuItem> menu;
-  final int? kcal;
+  final List<MealSection> sections;
 
-  const Meal(this.menu, this.kcal);
+  const Meal({required this.sections});
+
+  factory Meal.regular({
+    required List<MealMenuItem> menu,
+    int? kcal,
+    MealSectionTitle? title,
+  }) {
+    return Meal(
+      sections: [
+        MealSection(
+          type: MealSectionType.regular,
+          title: title,
+          menu: menu,
+          kcal: kcal,
+        ),
+      ],
+    );
+  }
 
   List<String> localizedMenu(String languageCode) {
-    return menu
+    return sections
+        .expand((section) => section.menu)
         .map((item) => item.textFor(languageCode))
         .toList(growable: false);
+  }
+
+  int? get kcal {
+    final regularSections = sections
+        .where((section) => section.type == MealSectionType.regular)
+        .toList(growable: false);
+    return regularSections.length == 1 ? regularSections.single.kcal : null;
   }
 }
 
 class KoreanMeal extends Meal {
-  const KoreanMeal(super.menu, super.kcal);
+  const KoreanMeal({required super.sections});
 }
 
 class HalalMeal extends Meal {
-  const HalalMeal(super.menu, super.kcal);
+  const HalalMeal({required super.sections});
 }
 
 enum Cafeteria {

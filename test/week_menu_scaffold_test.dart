@@ -8,18 +8,18 @@ import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 AppInfo _emptyAppInfo() => AppInfo.fromJson({
-      'announcement': null,
-      'operatingHours': {
-        'weekday': <String, dynamic>{},
-        'weekend': <String, dynamic>{},
-      },
-    });
+  'announcement': null,
+  'operatingHours': {
+    'weekday': <String, dynamic>{},
+    'weekend': <String, dynamic>{},
+  },
+});
 
 void main() {
   testWidgets('cachedMealFuture 없이 mealFuture만으로 데이터를 렌더링한다', (tester) async {
     final weekMeal = WeekMeal.empty();
     weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
-      const Meal([MealMenuItem(ko: '쌀밥')], 500),
+      Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 500),
     );
 
     await tester.pumpWidget(
@@ -86,11 +86,12 @@ void main() {
     tester,
   ) async {
     final cachedWeekMeal = WeekMeal.empty();
-    cachedWeekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
-        .add(const Meal([MealMenuItem(ko: '캐시된 메뉴')], 100));
+    cachedWeekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
+      Meal.regular(menu: const [MealMenuItem(ko: '캐시된 메뉴')], kcal: 100),
+    );
     final downloadedWeekMeal = WeekMeal.empty();
     downloadedWeekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
-        .add(const Meal([MealMenuItem(ko: '새 메뉴')], 200));
+        .add(Meal.regular(menu: const [MealMenuItem(ko: '새 메뉴')], kcal: 200));
     final downloadCompleter = Completer<WeekMeal>();
 
     await tester.pumpWidget(
@@ -123,10 +124,12 @@ void main() {
     expect(find.text('캐시된 메뉴'), findsNothing);
   });
 
-  testWidgets('cachedMealFuture가 실패해도 mealFuture 데이터로 정상 렌더링한다', (tester) async {
+  testWidgets('cachedMealFuture가 실패해도 mealFuture 데이터로 정상 렌더링한다', (
+    tester,
+  ) async {
     final downloadedWeekMeal = WeekMeal.empty();
     downloadedWeekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
-        .add(const Meal([MealMenuItem(ko: '새 메뉴')], 200));
+        .add(Meal.regular(menu: const [MealMenuItem(ko: '새 메뉴')], kcal: 200));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -136,9 +139,8 @@ void main() {
           mondayOfWeek: DateTime(2026, 6, 22),
           initialDayOfWeek: DayOfWeek.mon,
           initialMealOfDay: MealOfDay.breakfast,
-          cachedMealFuture: Future<WeekMeal>.error(
-            Exception('no cache'),
-          )..ignore(),
+          cachedMealFuture: Future<WeekMeal>.error(Exception('no cache'))
+            ..ignore(),
           mealFuture: Future.value(downloadedWeekMeal),
           appInfo: Future.value(_emptyAppInfo()),
         ),
@@ -161,12 +163,10 @@ void main() {
           mondayOfWeek: DateTime(2026, 6, 22),
           initialDayOfWeek: DayOfWeek.mon,
           initialMealOfDay: MealOfDay.breakfast,
-          cachedMealFuture: Future<WeekMeal>.error(
-            Exception('no cache'),
-          )..ignore(),
-          mealFuture: Future<WeekMeal>.error(
-            Exception('network error'),
-          )..ignore(),
+          cachedMealFuture: Future<WeekMeal>.error(Exception('no cache'))
+            ..ignore(),
+          mealFuture: Future<WeekMeal>.error(Exception('network error'))
+            ..ignore(),
           appInfo: Future.value(_emptyAppInfo()),
         ),
       ),

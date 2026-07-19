@@ -32,6 +32,8 @@
   "facultyCafeteria": "Faculty",
   "menuKorean": "Korean",
   "menuHalal": "Halal",
+  "menuSectionConvenience": "Convenience meal",
+  "menuSectionSpecial": "Special meal",
   "settings": "Settings",
   "allergyWarning": "Allergy Warning",
   "manageAllergies": "Manage Allergies",

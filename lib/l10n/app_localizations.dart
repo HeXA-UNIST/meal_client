@@ -290,6 +290,18 @@ abstract class AppLocalizations {
   /// **'할랄'**
   String get menuHalal;
 
+  /// No description provided for @menuSectionConvenience.
+  ///
+  /// In ko, this message translates to:
+  /// **'간편식'**
+  String get menuSectionConvenience;
+
+  /// No description provided for @menuSectionSpecial.
+  ///
+  /// In ko, this message translates to:
+  /// **'특별식'**
+  String get menuSectionSpecial;
+
   /// No description provided for @settings.
   ///
   /// In ko, this message translates to:
