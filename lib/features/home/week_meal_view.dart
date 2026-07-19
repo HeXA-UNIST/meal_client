@@ -124,35 +124,35 @@ class WeekMealTabBarView extends StatelessWidget {
                                   DateUtils.isSameDay(targetDate, now) &&
                                   operatingTime.contains(now);
 
-                              return GestureDetector(
-                                onLongPress: () {
-                                  // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
-                                  // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
-                                  if (!kIsWeb) {
-                                    final languageCode = Localizations.localeOf(
-                                      context,
-                                    ).languageCode;
-                                    HapticFeedback.lightImpact();
-                                    SharePlus.instance.share(
-                                      ShareParams(
-                                        text: buildMealShareText(
-                                          cardTitle: title,
-                                          meal: meal,
-                                          languageCode: languageCode,
-                                          convenienceLabel:
-                                              l10n.menuSectionConvenience,
-                                          specialLabel: l10n.menuSectionSpecial,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: MealCard(
-                                  title: title,
-                                  meal: meal,
-                                  operatingTimeLabel: operatingTime?.label,
-                                  isOperating: isOperating,
-                                ),
+                              return MealCard(
+                                title: title,
+                                meal: meal,
+                                operatingTimeLabel: operatingTime?.label,
+                                isOperating: isOperating,
+                                onLongPress: kIsWeb
+                                    ? null
+                                    : () {
+                                        // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
+                                        // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
+                                        final languageCode =
+                                            Localizations.localeOf(
+                                              context,
+                                            ).languageCode;
+                                        HapticFeedback.lightImpact();
+                                        SharePlus.instance.share(
+                                          ShareParams(
+                                            text: buildMealShareText(
+                                              cardTitle: title,
+                                              meal: meal,
+                                              languageCode: languageCode,
+                                              convenienceLabel:
+                                                  l10n.menuSectionConvenience,
+                                              specialLabel:
+                                                  l10n.menuSectionSpecial,
+                                            ),
+                                          ),
+                                        );
+                                      },
                               );
                             });
                           })

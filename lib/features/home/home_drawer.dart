@@ -85,19 +85,34 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 40, right: 16),
+          child: SizedBox(
+            height: 56,
+            child: Row(
+              children: [
+                Icon(icon, color: Colors.white),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      contentPadding: EdgeInsets.only(left: 40),
-      horizontalTitleGap: 14,
-      onTap: onTap,
     );
   }
 }

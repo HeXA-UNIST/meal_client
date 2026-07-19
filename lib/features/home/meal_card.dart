@@ -12,6 +12,64 @@ const _worstCaseTimeLabel = '06:00 - 08:00';
 // Pretendard w600, w500에서는 '4'가 가장 넓음
 const _worstCaseKcalText = '1444 kcal';
 
+// 기본 InkWell은 onLongPress만 넘겨도 손을 대는 즉시(터치 다운) 스플래시가 시작된다.
+// 카드 공유는 롱프레스가 실제로 인식된 순간에만 잉크 이펙트가 보이길 원하므로,
+// Material의 잉크 컨트롤러에 스플래시를 직접 추가/확정/취소하는 방식으로 구현한다.
+class _LongPressSplash extends StatefulWidget {
+  const _LongPressSplash({required this.onLongPress, required this.child});
+
+  final VoidCallback? onLongPress;
+  final Widget child;
+
+  @override
+  State<_LongPressSplash> createState() => _LongPressSplashState();
+}
+
+class _LongPressSplashState extends State<_LongPressSplash> {
+  InteractiveInkFeature? _splash;
+
+  void _handleLongPressStart(LongPressStartDetails details) {
+    final referenceBox = context.findRenderObject()! as RenderBox;
+    final theme = Theme.of(context);
+    _splash = theme.splashFactory.create(
+      controller: Material.of(context),
+      referenceBox: referenceBox,
+      position: details.localPosition,
+      color: theme.splashColor,
+      textDirection: Directionality.of(context),
+      containedInkWell: true,
+      rectCallback: () => Offset.zero & referenceBox.size,
+      onRemoved: () => _splash = null,
+    );
+    widget.onLongPress!();
+  }
+
+  void _handleLongPressEnd(LongPressEndDetails details) {
+    _splash?.confirm();
+    _splash = null;
+  }
+
+  void _handleLongPressCancel() {
+    _splash?.cancel();
+    _splash = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final onLongPress = widget.onLongPress;
+    return GestureDetector(
+      // deferToChild(기본값)로는 Column 내부의 빈 여백·패딩 영역이 히트 테스트를
+      // 통과하지 못해 롱프레스 자체가 인식되지 않는다. InkWell도 내부적으로
+      // opaque를 사용하므로 카드 전체 영역에서 반응하도록 맞춘다.
+      behavior: HitTestBehavior.opaque,
+      onLongPressStart: onLongPress == null ? null : _handleLongPressStart,
+      onLongPressEnd: onLongPress == null ? null : _handleLongPressEnd,
+      onLongPressCancel: onLongPress == null ? null : _handleLongPressCancel,
+      child: widget.child,
+    );
+  }
+}
+
 class MealCard extends StatelessWidget {
   const MealCard({
     super.key,
@@ -19,12 +77,14 @@ class MealCard extends StatelessWidget {
     required this.meal,
     this.operatingTimeLabel,
     this.isOperating = false,
+    this.onLongPress,
   });
 
   final String title;
   final Meal meal;
   final String? operatingTimeLabel;
   final bool isOperating;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -132,133 +192,148 @@ class MealCard extends StatelessWidget {
       elevation: 1,
       shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.125),
       surfaceTintColor: Colors.transparent,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ColoredBox(
-            color: primaryHsl
-                .withSaturation(0.5)
-                .withLightness(isLight ? 0.94 : 0.06)
-                .toColor(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              child: Center(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleSmall!.copyWith(
-                    color: primaryHsl
-                        .withSaturation(0.8)
-                        .withLightness(isLight ? 0.3 : 0.7)
-                        .toColor(),
-                    fontWeight: FontWeight.w600,
+      child: _LongPressSplash(
+        onLongPress: onLongPress,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ColoredBox 대신 Ink를 사용: ColoredBox는 일반 자식으로 그려져
+            // Material의 잉크 스플래시보다 항상 위에 칠해지므로 타이틀 바
+            // 영역에서 롱프레스 효과가 가려진다. Ink는 배경을 Material의
+            // 잉크 피처로 등록해 스플래시와 같은 레이어에서 그려지게 한다.
+            Ink(
+              color: primaryHsl
+                  .withSaturation(0.5)
+                  .withLightness(isLight ? 0.94 : 0.06)
+                  .toColor(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 16,
+                ),
+                child: Center(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall!.copyWith(
+                      color: primaryHsl
+                          .withSaturation(0.8)
+                          .withLightness(isLight ? 0.3 : 0.7)
+                          .toColor(),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          ...menuWidgets,
-          const SizedBox(height: 8),
-          Flexible(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                // 글꼴 크기 설정과 디스플레이 크기(DPI) 설정 모두에서 잘리지 않도록,
-                // 아이콘·운영시간·칼로리에 필요한 실제 폭을 측정해 하나의 축소
-                // 배율을 계산하고 셋 모두에 동일하게 적용한다. 각자 독립적으로
-                // FittedBox를 적용하면 여유 폭이 다른 만큼 서로 다른 배율로
-                // 줄어들어 글자 크기가 어긋나 보이는 문제가 있었다.
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    const iconSize = 13.0;
-                    const iconGap = 3.0;
-                    const kcalGap = 5.0;
+            ...menuWidgets,
+            const SizedBox(height: 8),
+            Flexible(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  // 글꼴 크기 설정과 디스플레이 크기(DPI) 설정 모두에서 잘리지 않도록,
+                  // 아이콘·운영시간·칼로리에 필요한 실제 폭을 측정해 하나의 축소
+                  // 배율을 계산하고 셋 모두에 동일하게 적용한다. 각자 독립적으로
+                  // FittedBox를 적용하면 여유 폭이 다른 만큼 서로 다른 배율로
+                  // 줄어들어 글자 크기가 어긋나 보이는 문제가 있었다.
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const iconSize = 13.0;
+                      const iconGap = 3.0;
+                      const kcalGap = 5.0;
 
-                    double measureWidth(String text, TextStyle style) {
-                      final painter = TextPainter(
-                        text: TextSpan(text: text, style: style),
-                        textDirection: TextDirection.ltr,
-                        textScaler: MediaQuery.textScalerOf(context),
-                      )..layout();
-                      return painter.width;
-                    }
+                      double measureWidth(String text, TextStyle style) {
+                        final painter = TextPainter(
+                          text: TextSpan(text: text, style: style),
+                          textDirection: TextDirection.ltr,
+                          textScaler: MediaQuery.textScalerOf(context),
+                        )..layout();
+                        return painter.width;
+                      }
 
-                    var naturalWidth = 0.0;
-                    if (operatingTimeLabel != null) {
-                      naturalWidth +=
-                          iconSize +
-                          iconGap +
-                          measureWidth(_worstCaseTimeLabel, operatingTimeStyle);
-                    }
-                    if (kcalText != null) {
-                      if (operatingTimeLabel != null) naturalWidth += kcalGap;
-                      naturalWidth += measureWidth(
-                        _worstCaseKcalText,
-                        kcalStyle,
-                      );
-                    }
+                      var naturalWidth = 0.0;
+                      if (operatingTimeLabel != null) {
+                        naturalWidth +=
+                            iconSize +
+                            iconGap +
+                            measureWidth(
+                              _worstCaseTimeLabel,
+                              operatingTimeStyle,
+                            );
+                      }
+                      if (kcalText != null) {
+                        if (operatingTimeLabel != null) naturalWidth += kcalGap;
+                        naturalWidth += measureWidth(
+                          _worstCaseKcalText,
+                          kcalStyle,
+                        );
+                      }
 
-                    final scale = naturalWidth <= constraints.maxWidth
-                        ? 1.0
-                        : constraints.maxWidth / naturalWidth;
+                      final scale = naturalWidth <= constraints.maxWidth
+                          ? 1.0
+                          : constraints.maxWidth / naturalWidth;
 
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: operatingTimeLabel == null
-                              ? const SizedBox()
-                              : Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      // 운영 여부를 색상뿐 아니라 아이콘 모양으로도
-                                      // 구분해 색각 이상 사용자도 상태를 알 수 있게 한다.
-                                      isOperating
-                                          ? Icons.restaurant
-                                          : Icons.access_time,
-                                      size: iconSize * scale,
-                                      color: operatingTimeColor,
-                                    ),
-                                    SizedBox(width: iconGap * scale),
-                                    Flexible(
-                                      child: Text(
-                                        operatingTimeLabel!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: operatingTimeStyle.copyWith(
-                                          fontSize:
-                                              operatingTimeStyle.fontSize! *
-                                              scale,
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: operatingTimeLabel == null
+                                ? const SizedBox()
+                                : Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        // 운영 여부를 색상뿐 아니라 아이콘 모양으로도
+                                        // 구분해 색각 이상 사용자도 상태를 알 수 있게 한다.
+                                        isOperating
+                                            ? Icons.restaurant
+                                            : Icons.access_time,
+                                        size: iconSize * scale,
+                                        color: operatingTimeColor,
+                                      ),
+                                      SizedBox(width: iconGap * scale),
+                                      Flexible(
+                                        child: Text(
+                                          operatingTimeLabel!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: operatingTimeStyle.copyWith(
+                                            fontSize:
+                                                operatingTimeStyle.fontSize! *
+                                                scale,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                        if (kcalText != null) SizedBox(width: kcalGap * scale),
-                        if (kcalText != null)
-                          Text(
-                            kcalText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: kcalStyle.copyWith(
-                              fontSize: kcalStyle.fontSize! * scale,
-                            ),
+                                    ],
+                                  ),
                           ),
-                      ],
-                    );
-                  },
+                          if (kcalText != null)
+                            SizedBox(width: kcalGap * scale),
+                          if (kcalText != null)
+                            Text(
+                              kcalText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: kcalStyle.copyWith(
+                                fontSize: kcalStyle.fontSize! * scale,
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
