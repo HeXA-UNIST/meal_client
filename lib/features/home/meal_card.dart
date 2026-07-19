@@ -80,7 +80,7 @@ class MealCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: theme.textTheme.labelSmall!.copyWith(
                   color: theme.colorScheme.outline,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -111,10 +111,16 @@ class MealCard extends StatelessWidget {
       color: theme.colorScheme.surfaceContainer,
       margin: EdgeInsetsGeometry.all(8),
       shape: defaultTargetPlatform == TargetPlatform.iOS
-          ? RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24))
-          : RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          ? RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(24),
+            )
+          : RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
+      elevation: 1,
+      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.125),
+      surfaceTintColor: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

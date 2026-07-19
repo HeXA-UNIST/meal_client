@@ -10,7 +10,7 @@ import 'meal_card.dart';
 import 'nested_page_scroll.dart';
 
 const _cardMinWidth = 160;
-const _cardMaxWidth = 196;
+const _cardMaxWidth = 200;
 
 String buildMealShareText({
   required String cardTitle,
