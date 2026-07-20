@@ -144,7 +144,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
                     await _mealOfDayPageControllerGroup.animateToPage(
                       nextMeal.index,
                       duration: const Duration(milliseconds: 300),
-                      curve: Curves.ease,
+                      curve: Curves.easeOutCubic,
                       // 현재 선택된 요일 탭만 애니메이션 처리
                       activeIndex: _model.dayOfWeek.index,
                     );

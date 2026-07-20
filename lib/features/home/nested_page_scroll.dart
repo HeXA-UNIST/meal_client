@@ -288,7 +288,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
           .animateToPageFromScroll(
             targetPage,
             duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
+            curve: Curves.easeOutQuad,
           )
           .whenComplete(() => _isAnimatingPage = false);
     }
