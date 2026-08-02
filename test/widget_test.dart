@@ -12,7 +12,7 @@ Widget _buildApp() {
       if (!snapshot.hasData) return const SizedBox();
       return ChangeNotifierProvider(
         create: (_) => AppSettings(snapshot.data!),
-        child: const BapUApp(),
+        child: const BapUApp(home: SizedBox()),
       );
     },
   );

@@ -19,7 +19,7 @@ import workmanager_apple
     Self.registerBapUWidgetChannels(with: self)
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)
-      Self.registerBapUWidgetChannels(with: registry)
+      AppDelegate.registerBapUWidgetChannels(with: registry)
     }
     WorkmanagerPlugin.registerPeriodicTask(
       withIdentifier: "bapu_meal_refresh",

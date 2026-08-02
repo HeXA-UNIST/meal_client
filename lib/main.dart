@@ -42,7 +42,9 @@ void main() async {
 }
 
 class BapUApp extends StatelessWidget {
-  const BapUApp({super.key});
+  const BapUApp({super.key, this.home = const HomePage()});
+
+  final Widget home;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +59,7 @@ class BapUApp extends StatelessWidget {
       themeMode: themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
-      home: const HomePage(),
+      home: home,
     );
   }
 }
