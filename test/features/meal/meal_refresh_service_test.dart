@@ -122,6 +122,35 @@ void main() {
 
       expect(storedRaw, isNull);
     });
+
+    test('refreshMealData는 기본적으로 캐시 쓰기 실패를 무시', () async {
+      final service = MealRefreshService(
+        cache: MealCache(
+          writeFile: (_, _) async => throw Exception('disk full'),
+          readFile: (_) async => _rawMealJson('이전 메뉴'),
+          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
+        ),
+        fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
+      );
+
+      final weekMeal = await service.refreshMealData();
+
+      expect(_firstDormitoryBreakfastMenu(weekMeal), contains('다운로드 메뉴'));
+    });
+
+    test('refreshMealData는 background strict 모드에서 캐시 쓰기 실패를 throw', () async {
+      final service = MealRefreshService(
+        cache: MealCache(
+          writeFile: (_, _) async => throw Exception('disk full'),
+          readFile: (_) async => _rawMealJson('이전 메뉴'),
+          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
+        ),
+        fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
+        throwOnCacheWriteFailure: true,
+      );
+
+      await expectLater(service.refreshMealData(), throwsException);
+    });
   });
 }
 
@@ -181,7 +210,6 @@ String _rawMealJson(String menu) {
 }
 
 List<String> _firstDormitoryBreakfastMenu(WeekMeal weekMeal) {
-  return weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
-      .first
+  return weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].first
       .localizedMenu('ko');
 }

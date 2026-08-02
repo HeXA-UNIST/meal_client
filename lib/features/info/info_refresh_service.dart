@@ -8,6 +8,15 @@ import 'package:meal_client/features/info/info_cache.dart';
 
 typedef RawInfoFetcher = Future<String> Function(String url);
 
+class InfoCacheWriteException implements Exception {
+  const InfoCacheWriteException(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => 'InfoCacheWriteException: $cause';
+}
+
 class InfoRefreshService {
   InfoRefreshService({
     InfoCache? cache,
@@ -42,7 +51,7 @@ class InfoRefreshService {
       await _cache.writeRawInfoJson(rawInfo);
     } catch (e, stackTrace) {
       if (_throwOnCacheWriteFailure) {
-        Error.throwWithStackTrace(e, stackTrace);
+        Error.throwWithStackTrace(InfoCacheWriteException(e), stackTrace);
       }
       debugPrint('[BapU] info cache write failed: $e');
       debugPrintStack(stackTrace: stackTrace);

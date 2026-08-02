@@ -25,7 +25,7 @@ Future<Directory> sharedWidgetCacheDir() async {
     return Directory(path);
   }
 
-  throw UnsupportedError('이 플랫폼은 위젯 공유 캐시 디렉터리를 지원하지 않습니다');
+  throw UnsupportedError('This platform does not support shared widget cache');
 }
 
 Future<void> saveSharedWidgetFileAsString(String fileName, String data) async {

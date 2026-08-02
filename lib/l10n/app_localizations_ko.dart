@@ -140,7 +140,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationTimeLabel => '알림 시간';
 
   @override
+  String get notificationPeriodNight => '밤 (내일 아침)';
+
+  @override
   String get notificationCafeteriasLabel => '알림 대상 식당';
+
+  @override
+  String get notificationDaysLabel => '알림 받을 요일';
 
   @override
   String get widgetSettings => '홈 화면 위젯';
@@ -153,4 +159,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get openSourceLicenses => '오픈소스 라이선스';
+
+  @override
+  String get notificationPermissionDenied => '알림 권한이 없습니다. 설정에서 허용해주세요.';
+
+  @override
+  String get openSystemAppSettings => '설정 열기';
 }

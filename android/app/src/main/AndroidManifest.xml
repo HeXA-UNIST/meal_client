@@ -1,8 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 운영시간 경계(운영 시작·마감임박)에 정확히 맞춰 위젯을 갱신하기 위함.
-         권한이 없거나 사용자가 거부해도 setAndAllowWhileIdle로 대체 동작함(덜 정확할 뿐 크래시 없음). -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:label="@string/app_name"
@@ -37,41 +35,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- 단일 통합 위젯 (역사적 이유로 클래스명은 2x2 유지 — 기존 인스턴스 보존) -->
-        <receiver
-            android:name=".BapUWidget2x2Provider"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info_2x2" />
-        </receiver>
-
-        <!-- 운영시간 경계(운영 시작·마감임박)마다 위젯을 갱신하는 예약 호출 수신자 -->
-        <receiver
-            android:name=".BapUWidgetScheduledUpdateReceiver"
-            android:exported="false" />
-
-        <!-- 재부팅 후 예약 호출 재등록 -->
-        <receiver
-            android:name=".BapUWidgetBootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- 식당 선택 설정 Activity -->
-        <activity
-            android:name=".BapUWidgetSingleConfigActivity"
-            android:exported="true"
-            android:theme="@style/WidgetConfigTheme">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -84,7 +47,4 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-
 </manifest>
-
-

@@ -1,5 +1,5 @@
 Never _unsupportedOnWeb() =>
-    throw UnsupportedError('웹 플랫폼은 위젯 공유 캐시를 지원하지 않습니다');
+    throw UnsupportedError('Web does not support shared widget cache');
 
 Future<Never> sharedWidgetCacheDir() async => _unsupportedOnWeb();
 
