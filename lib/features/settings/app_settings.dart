@@ -5,25 +5,21 @@ import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'allergy_settings.dart';
 import 'notification_settings.dart';
-import 'widget_settings.dart';
 
 class AppSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
 
   AllergySettings _allergy;
   NotificationSettings _notification;
-  WidgetSettings _widget;
   ThemeMode _themeMode;
 
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
-  WidgetSettings get widget => _widget;
   ThemeMode get themeMode => _themeMode;
 
   AppSettings(this._prefs)
       : _allergy = _loadAllergy(_prefs),
         _notification = _loadNotification(_prefs),
-        _widget = _loadWidget(_prefs),
         _themeMode = _loadThemeMode(_prefs);
 
   // --- 알레르기 ---
@@ -72,20 +68,6 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- 위젯 ---
-
-  void setWidgetCafeteria(Cafeteria c) {
-    _widget = _widget.copyWith(cafeteria: c);
-    _prefs.setString(StorageKeys.widgetCafeteria, c.name);
-    notifyListeners();
-  }
-
-  void setWidgetMealOfDay(MealOfDay m) {
-    _widget = _widget.copyWith(mealOfDay: m);
-    _prefs.setString(StorageKeys.widgetMealOfDay, m.name);
-    notifyListeners();
-  }
-
   // --- 테마 ---
 
   void setThemeMode(ThemeMode mode) {
@@ -99,7 +81,6 @@ class AppSettings extends ChangeNotifier {
   void resetAll() {
     _allergy = _allergy.reset();
     _notification = _notification.reset();
-    _widget = _widget.reset();
     _themeMode = ThemeMode.system;
     _prefs.setStringList(StorageKeys.allergenIds, []);
     _prefs.setBool(StorageKeys.notificationEnabled, false);
@@ -107,8 +88,6 @@ class AppSettings extends ChangeNotifier {
     _prefs.setString(StorageKeys.notificationTime, '8:0');
     _prefs.setStringList(
         StorageKeys.notificationCafeterias, [Cafeteria.dormitory.name]);
-    _prefs.setString(StorageKeys.widgetCafeteria, Cafeteria.dormitory.name);
-    _prefs.setString(StorageKeys.widgetMealOfDay, MealOfDay.lunch.name);
     _prefs.setString(StorageKeys.themeMode, ThemeMode.system.name);
     notifyListeners();
   }
@@ -147,16 +126,6 @@ class AppSettings extends ChangeNotifier {
     );
   }
 
-  static WidgetSettings _loadWidget(SharedPreferences p) {
-    final cafeteriaMap = Cafeteria.values.asNameMap();
-    final mealOfDayMap = MealOfDay.values.asNameMap();
-    return WidgetSettings(
-      cafeteria: cafeteriaMap[p.getString(StorageKeys.widgetCafeteria)] ??
-          Cafeteria.dormitory,
-      mealOfDay: mealOfDayMap[p.getString(StorageKeys.widgetMealOfDay)] ??
-          MealOfDay.lunch,
-    );
-  }
 
   static ThemeMode _loadThemeMode(SharedPreferences p) =>
       ThemeMode.values.asNameMap()[p.getString(StorageKeys.themeMode)] ??

@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
-import 'package:meal_client/domain/meal.dart';
 import 'app_settings.dart';
 import 'allergy_selection_page.dart';
 
@@ -26,9 +25,6 @@ class SettingsPage extends StatelessWidget {
             const Divider(indent: 16, endIndent: 16),
             _SectionHeader(l10n.notificationSettings),
             _NotificationTile(),
-            const Divider(indent: 16, endIndent: 16),
-            _SectionHeader(l10n.widgetSettings),
-            _WidgetCafeteriaTile(),
             const Divider(indent: 16, endIndent: 16),
           ],
           _SectionHeader(l10n.appearance),
@@ -139,37 +135,6 @@ class _NotificationTileState extends State<_NotificationTile> {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _WidgetCafeteriaTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final cafeteria = context.watch<AppSettings>().widget.cafeteria;
-
-    String cafeteriaName(Cafeteria c) => switch (c) {
-          Cafeteria.dormitory => l10n.dormitoryCafeteria,
-          Cafeteria.student   => l10n.studentCafeteria,
-          Cafeteria.faculty   => l10n.facultyCafeteria,
-        };
-
-    return ListTile(
-      title: Text(l10n.widgetCafeteriaLabel),
-      trailing: DropdownButton<Cafeteria>(
-        value: cafeteria,
-        underline: const SizedBox(),
-        items: Cafeteria.values
-            .map((c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(cafeteriaName(c)),
-                ))
-            .toList(),
-        onChanged: (c) {
-          if (c != null) context.read<AppSettings>().setWidgetCafeteria(c);
-        },
-      ),
     );
   }
 }

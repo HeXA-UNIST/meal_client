@@ -4,7 +4,6 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/settings/allergy_settings.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/settings/notification_settings.dart';
-import 'package:meal_client/features/settings/widget_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -76,21 +75,6 @@ void main() {
     });
   });
 
-  group('WidgetSettings', () {
-    test('기본값', () {
-      const s = WidgetSettings();
-      expect(s.cafeteria, Cafeteria.dormitory);
-      expect(s.mealOfDay, MealOfDay.lunch);
-    });
-
-    test('copyWith', () {
-      const s = WidgetSettings();
-      final next = s.copyWith(cafeteria: Cafeteria.student);
-      expect(next.cafeteria, Cafeteria.student);
-      expect(next.mealOfDay, MealOfDay.lunch);
-    });
-  });
-
   group('AppSettings', () {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
@@ -102,7 +86,6 @@ void main() {
       expect(settings.allergy.enabledIds, isEmpty);
       expect(settings.themeMode, ThemeMode.system);
       expect(settings.notification.enabled, isFalse);
-      expect(settings.widget.cafeteria, Cafeteria.dormitory);
     });
 
     test('toggleAllergen — 추가 및 제거', () async {
