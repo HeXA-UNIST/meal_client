@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,11 +9,22 @@ import 'package:meal_client/features/settings/app_settings.dart';
 
 const mainColor = Color(0xFF00CD80);
 
+const _defaultPageTransitionsTheme = PageTransitionsTheme();
+
+// Flutter 기본 플랫폼 전환은 유지하고 Android만 Cupertino 슬라이드로 교체한다.
+final _pageTransitionsTheme = PageTransitionsTheme(
+  builders: {
+    ..._defaultPageTransitionsTheme.builders,
+    TargetPlatform.android: const CupertinoPageTransitionsBuilder(),
+  },
+);
+
 ThemeData _buildTheme(Brightness brightness) {
   final isLight = brightness == Brightness.light;
   return ThemeData(
     fontFamily: 'Pretendard',
     brightness: brightness,
+    pageTransitionsTheme: _pageTransitionsTheme,
     colorScheme: ColorScheme.fromSeed(
       seedColor: mainColor,
       brightness: brightness,
