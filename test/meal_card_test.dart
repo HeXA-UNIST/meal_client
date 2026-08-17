@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/meal_card.dart';
@@ -68,6 +69,49 @@ void main() {
       timeStyle?.color,
       Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
     );
+  });
+
+  testWidgets('롱프레스에서는 공유 콜백을 먼저 실행하고 첫 ink 프레임 뒤 햅틱을 실행한다', (tester) async {
+    final events = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          events.add('haptic');
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: MealCard(
+            title: '기숙사 식당',
+            meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')]),
+            onLongPress: () => events.add('share'),
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(MealCard)),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(events, ['share', 'haptic']);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('영어 locale에서는 영어 메뉴명을 표시한다', (tester) async {

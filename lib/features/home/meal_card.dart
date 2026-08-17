@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -120,6 +121,8 @@ class MealCardMetadataScaleScope extends InheritedWidget {
 // 기본 InkWell은 onLongPress만 넘겨도 손을 대는 즉시(터치 다운) 스플래시가 시작된다.
 // 카드 공유는 롱프레스가 실제로 인식된 순간에만 잉크 이펙트가 보이길 원하므로,
 // Material의 잉크 컨트롤러에 스플래시를 직접 추가/확정/취소하는 방식으로 구현한다.
+// 공유 요청은 OS 팝업 준비를 최대한 빨리 시작하도록 먼저 호출하고, 햅틱은 ink가
+// 최초로 그려진 프레임 직후 실행해 시각·촉각 피드백이 함께 느껴지도록 한다.
 class _LongPressSplash extends StatefulWidget {
   const _LongPressSplash({required this.onLongPress, required this.child});
 
@@ -134,6 +137,10 @@ class _LongPressSplashState extends State<_LongPressSplash> {
   InteractiveInkFeature? _splash;
 
   void _handleLongPressStart(LongPressStartDetails details) {
+    // 공유 시트는 플랫폼에서 준비하는 시간이 필요하므로 다른 피드백보다 먼저
+    // 요청한다. 이 콜백은 Future를 기다리지 않아 이후 ink 생성은 즉시 이어진다.
+    widget.onLongPress!();
+
     final referenceBox = context.findRenderObject()! as RenderBox;
     final theme = Theme.of(context);
     _splash = theme.splashFactory.create(
@@ -146,7 +153,12 @@ class _LongPressSplashState extends State<_LongPressSplash> {
       rectCallback: () => Offset.zero & referenceBox.size,
       onRemoved: () => _splash = null,
     );
-    widget.onLongPress!();
+
+    // ink feature가 등록된 프레임의 페인팅이 끝난 뒤 햅틱을 요청한다. 공유 요청은
+    // 이미 시작된 상태이므로 OS 팝업 표시를 인위적으로 늦추지는 않는다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      HapticFeedback.lightImpact();
+    });
   }
 
   void _handleLongPressEnd(LongPressEndDetails details) {
