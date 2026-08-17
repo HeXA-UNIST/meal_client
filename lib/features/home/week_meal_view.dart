@@ -100,11 +100,17 @@ class WeekMealTabBarView extends StatelessWidget {
 
                               // 한식, 할랄 표기는 기숙사 식당에 한정하여 표기한다.
                               if (cafeteria == Cafeteria.dormitory) {
-                                title += switch (meal) {
-                                  KoreanMeal _ => " ${l10n.menuKorean}",
-                                  HalalMeal _ => " ${l10n.menuHalal}",
-                                  _ => "",
+                                final mealType = switch (meal) {
+                                  KoreanMeal _ => l10n.menuKorean,
+                                  HalalMeal _ => l10n.menuHalal,
+                                  _ => null,
                                 };
+                                if (mealType != null) {
+                                  title = l10n.cafeteriaWithMealType(
+                                    title,
+                                    mealType,
+                                  );
+                                }
                               }
 
                               final operatingTime = infoSnapshot

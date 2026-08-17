@@ -105,6 +105,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get menuHalal => '할랄';
 
   @override
+  String cafeteriaWithMealType(String cafeteria, String mealType) {
+    return '$cafeteria($mealType)';
+  }
+
+  @override
   String get menuSectionConvenience => '간편식';
 
   @override

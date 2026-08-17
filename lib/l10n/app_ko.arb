@@ -32,6 +32,13 @@
   "facultyCafeteria": "교직원 식당",
   "menuKorean": "한식",
   "menuHalal": "할랄",
+  "cafeteriaWithMealType": "{cafeteria}({mealType})",
+  "@cafeteriaWithMealType": {
+    "placeholders": {
+      "cafeteria": { "type": "String" },
+      "mealType": { "type": "String" }
+    }
+  },
   "menuSectionConvenience": "간편식",
   "menuSectionSpecial": "특별식",
   "settings": "설정",

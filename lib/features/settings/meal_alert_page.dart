@@ -170,7 +170,10 @@ class _MealAlertPageState extends State<MealAlertPage> {
                   for (final dormMealType in DormMealType.values)
                     FilterChip(
                       label: Text(
-                        '${l10n.dormitoryCafeteria} ${_dormMealTypeName(l10n, dormMealType)}',
+                        l10n.cafeteriaWithMealType(
+                          l10n.dormitoryCafeteria,
+                          _dormMealTypeName(l10n, dormMealType),
+                        ),
                       ),
                       selected: notification.isDormMealTypeEnabled(
                         dormMealType,

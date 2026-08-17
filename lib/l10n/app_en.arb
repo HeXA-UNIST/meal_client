@@ -32,6 +32,7 @@
   "facultyCafeteria": "Faculty",
   "menuKorean": "Korean",
   "menuHalal": "Halal",
+  "cafeteriaWithMealType": "{cafeteria} ({mealType})",
   "menuSectionConvenience": "Convenience meal",
   "menuSectionSpecial": "Special meal",
   "settings": "Settings",
