@@ -240,7 +240,7 @@ Future<void> _runMealKeywordCheck({
         // 기숙사는 한식·할랄을 각각 구분해 표시
         final seen = <String>{};
         for (final meal in meals) {
-          if (!_mealContainsKeyword(meal, keywordLower)) {
+          if (!mealContainsKeyword(meal, keywordLower)) {
             continue;
           }
           final typeLabel = switch (meal) {
@@ -257,7 +257,7 @@ Future<void> _runMealKeywordCheck({
           Cafeteria.student => '학생',
           Cafeteria.faculty => '교직원',
         };
-        if (meals.any((meal) => _mealContainsKeyword(meal, keywordLower))) {
+        if (meals.any((meal) => mealContainsKeyword(meal, keywordLower))) {
           matches.add(cafeteriaLabel);
         }
       }
@@ -288,7 +288,8 @@ Future<void> _runMealKeywordCheck({
   await showMealKeywordNotification(title: title, body: body);
 }
 
-bool _mealContainsKeyword(Meal meal, String keywordLower) {
+/// 알림 대상 섹션의 한글/영문 메뉴에서 소문자 키워드를 찾는다.
+bool mealContainsKeyword(Meal meal, String keywordLower) {
   return meal.sections
       .where((section) => section.type != MealSectionType.salad)
       .expand((section) => section.menu)

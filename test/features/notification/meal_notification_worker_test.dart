@@ -86,4 +86,39 @@ void main() {
       );
     });
   });
+
+  group('알림 키워드 매칭', () {
+    final meal = Meal(
+      sections: const [
+        MealSection(
+          type: MealSectionType.regular,
+          menu: [MealMenuItem(ko: '떡갈비', en: 'Grilled Short Rib Patties')],
+        ),
+        MealSection(
+          type: MealSectionType.convenience,
+          menu: [MealMenuItem(ko: '참치마요 덮밥')],
+        ),
+        MealSection(
+          type: MealSectionType.special,
+          menu: [MealMenuItem(ko: '특선 메뉴', en: 'Chef Special')],
+        ),
+        MealSection(
+          type: MealSectionType.salad,
+          menu: [MealMenuItem(ko: '시저 샐러드', en: 'Caesar Salad')],
+        ),
+      ],
+    );
+
+    test('표시 대상 섹션의 한글과 영문 메뉴를 대소문자 구분 없이 검색한다', () {
+      expect(mealContainsKeyword(meal, '떡갈비'), isTrue);
+      expect(mealContainsKeyword(meal, 'grilled short'), isTrue);
+      expect(mealContainsKeyword(meal, '참치마요'), isTrue);
+      expect(mealContainsKeyword(meal, 'chef special'), isTrue);
+    });
+
+    test('표시하지 않는 SALAD 섹션은 검색 대상에서 제외한다', () {
+      expect(mealContainsKeyword(meal, '시저'), isFalse);
+      expect(mealContainsKeyword(meal, 'caesar'), isFalse);
+    });
+  });
 }
