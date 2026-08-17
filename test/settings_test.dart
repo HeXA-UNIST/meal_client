@@ -46,7 +46,14 @@ void main() {
       expect(s.keywords, isEmpty);
       expect(s.alertTimes, isEmpty);
       expect(s.activePeriods, isEmpty);
-      expect(s.cafeterias, equals({Cafeteria.dormitory}));
+      // cafeterias는 학생·교직원만 담당하고 기본값은 비어 있다.
+      // 기숙사 식당의 알림 대상 여부는 dormMealTypes로만 판단한다.
+      expect(s.cafeterias, isEmpty);
+      expect(
+        s.dormMealTypes,
+        equals({DormMealType.korean, DormMealType.halal}),
+      );
+      expect(s.activeCafeterias, equals({Cafeteria.dormitory}));
     });
 
     test('activePeriods — 시각 설정된 시간대만 포함', () {

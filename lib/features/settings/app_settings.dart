@@ -118,11 +118,25 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
+  /// 학생·교직원 식당 알림 대상을 설정한다. 기숙사 식당은 여기서 다루지 않고
+  /// [setNotificationDormMealTypes]가 전담한다 (진실 공급원을 하나로 유지).
   void setNotificationCafeterias(Set<Cafeteria> cafeterias) {
-    _notification = _notification.copyWith(cafeterias: cafeterias);
+    final filtered = cafeterias.where((c) => c != Cafeteria.dormitory).toSet();
+    _notification = _notification.copyWith(cafeterias: filtered);
     _prefs.setStringList(
       StorageKeys.notificationCafeterias,
-      cafeterias.map((e) => e.name).toList(),
+      filtered.map((e) => e.name).toList(),
+    );
+    notifyListeners();
+  }
+
+  /// 기숙사 식당 알림 대상 메뉴 종류(한식/할랄)를 설정한다.
+  /// 이 값이 비어있으면 기숙사 식당 자체가 알림 대상에서 빠진 것으로 취급된다.
+  void setNotificationDormMealTypes(Set<DormMealType> types) {
+    _notification = _notification.copyWith(dormMealTypes: types);
+    _prefs.setStringList(
+      StorageKeys.notificationDormMealTypes,
+      types.map((e) => e.name).toList(),
     );
     notifyListeners();
   }
@@ -179,9 +193,8 @@ class AppSettings extends ChangeNotifier {
         '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
       );
     }
-    _prefs.setStringList(StorageKeys.notificationCafeterias, [
-      Cafeteria.dormitory.name,
-    ]);
+    _prefs.remove(StorageKeys.notificationCafeterias); // 기본값(빈 집합)으로 복귀
+    _prefs.remove(StorageKeys.notificationDormMealTypes); // 기본값(한식+할랄)으로 복귀
     _prefs.remove(StorageKeys.notificationDays); // 기본값(모든 요일)으로 복귀
     _prefs.setString(StorageKeys.themeMode, ThemeMode.system.name);
     notifyListeners();
@@ -211,10 +224,28 @@ class AppSettings extends ChangeNotifier {
   static const _legacyAlertTimeKey = 'settings_notification_time';
 
   static NotificationSettings _loadNotification(SharedPreferences p) {
+    // 기숙사 식당의 알림 대상 여부는 dormMealTypes 하나로만 판단하므로
+    // cafeterias에서는 항상 걸러낸다. dormMealTypes 키가 아직 없는(=이 기능 이전)
+    // 저장값이라면, 구버전에서 기숙사가 선택돼 있었는지로 기본값(둘 다 켜짐/모두 꺼짐)을
+    // 정해 기존 사용자의 알림 동작이 바뀌지 않게 한다.
     final cafeteriaNames = p.getStringList(StorageKeys.notificationCafeterias);
-    final cafeterias = cafeteriaNames == null
-        ? <Cafeteria>{Cafeteria.dormitory}
+    final storedCafeterias = cafeteriaNames == null
+        ? const <Cafeteria>{}
         : enumSetFromNames(cafeteriaNames, Cafeteria.values);
+    final hadDormitoryBefore =
+        cafeteriaNames == null || storedCafeterias.contains(Cafeteria.dormitory);
+    final cafeterias = storedCafeterias
+        .where((c) => c != Cafeteria.dormitory)
+        .toSet();
+
+    final dormMealTypeNames = p.getStringList(
+      StorageKeys.notificationDormMealTypes,
+    );
+    final dormMealTypes = dormMealTypeNames != null
+        ? enumSetFromNames(dormMealTypeNames, DormMealType.values)
+        : (hadDormitoryBefore
+              ? const <DormMealType>{DormMealType.korean, DormMealType.halal}
+              : const <DormMealType>{});
 
     // 키워드 로드 + 구버전 마이그레이션
     var keywords = p.getStringList(StorageKeys.notificationKeywords);
@@ -285,7 +316,8 @@ class AppSettings extends ChangeNotifier {
       keywords: keywords,
       alertTimes: alertTimes,
       rememberedTimes: remembered,
-      cafeterias: cafeterias.isEmpty ? {Cafeteria.dormitory} : cafeterias,
+      cafeterias: cafeterias,
+      dormMealTypes: dormMealTypes,
       days: days,
     );
   }

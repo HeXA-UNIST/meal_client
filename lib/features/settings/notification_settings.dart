@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_alert_period.dart';
 
+/// 기숙사 식당 알림 대상 메뉴 종류.
+enum DormMealType { korean, halal }
+
 class NotificationSettings {
   final bool enabled;
   final List<String> keywords;
@@ -15,7 +18,14 @@ class NotificationSettings {
   /// 꺼진 상태를 표시할 때 이전 선택값을 복원하는 데 쓴다.
   final Map<MealAlertPeriod, TimeOfDay> rememberedTimes;
 
+  /// 학생·교직원 식당 알림 대상. 기숙사 식당은 여기 포함하지 않는다 —
+  /// 기숙사 식당의 알림 대상 여부는 [dormMealTypes]가 비어있는지로만 판단한다
+  /// (두 값을 동시에 저장하면 서로 어긋날 수 있어, 진실 공급원을 하나로 둔다).
   final Set<Cafeteria> cafeterias;
+
+  /// 기숙사 식당 알림 대상 메뉴 종류(한식/할랄). 기본값은 둘 다.
+  /// 비어있으면 기숙사 식당 자체가 알림 대상에서 빠진 것으로 취급한다.
+  final Set<DormMealType> dormMealTypes;
 
   /// 알림을 받을 요일. 이 집합에 없는 요일에는 알림이 발송되지 않는다.
   /// 기본값은 모든 요일.
@@ -26,12 +36,17 @@ class NotificationSettings {
     List<String> keywords = const [],
     Map<MealAlertPeriod, TimeOfDay?> alertTimes = const {},
     Map<MealAlertPeriod, TimeOfDay> rememberedTimes = const {},
-    Set<Cafeteria> cafeterias = const {Cafeteria.dormitory},
+    Set<Cafeteria> cafeterias = const {},
+    Set<DormMealType> dormMealTypes = const {
+      DormMealType.korean,
+      DormMealType.halal,
+    },
     Set<DayOfWeek>? days,
   })  : keywords = List.unmodifiable(keywords),
         alertTimes = Map.unmodifiable(alertTimes),
         rememberedTimes = Map.unmodifiable(rememberedTimes),
         cafeterias = Set.unmodifiable(cafeterias),
+        dormMealTypes = Set.unmodifiable(dormMealTypes),
         days = Set.unmodifiable(days ?? DayOfWeek.values.toSet());
 
   /// 활성화된 시간대 (알림 시각이 설정된 것).
@@ -48,12 +63,21 @@ class NotificationSettings {
 
   bool isDayEnabled(DayOfWeek d) => days.contains(d);
 
+  bool isDormMealTypeEnabled(DormMealType t) => dormMealTypes.contains(t);
+
+  /// 기숙사 식당(선택된 경우)까지 포함한 실제 알림 대상 식당 집합.
+  Set<Cafeteria> get activeCafeterias => {
+    if (dormMealTypes.isNotEmpty) Cafeteria.dormitory,
+    ...cafeterias,
+  };
+
   NotificationSettings copyWith({
     bool? enabled,
     List<String>? keywords,
     Map<MealAlertPeriod, TimeOfDay?>? alertTimes,
     Map<MealAlertPeriod, TimeOfDay>? rememberedTimes,
     Set<Cafeteria>? cafeterias,
+    Set<DormMealType>? dormMealTypes,
     Set<DayOfWeek>? days,
   }) =>
       NotificationSettings(
@@ -62,6 +86,7 @@ class NotificationSettings {
         alertTimes: alertTimes ?? this.alertTimes,
         rememberedTimes: rememberedTimes ?? this.rememberedTimes,
         cafeterias: cafeterias ?? this.cafeterias,
+        dormMealTypes: dormMealTypes ?? this.dormMealTypes,
         days: days ?? this.days,
       );
 

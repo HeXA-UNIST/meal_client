@@ -12,6 +12,8 @@ import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
+import 'package:meal_client/features/settings/notification_settings.dart'
+    show DormMealType;
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'meal_alert_period.dart';
 import 'notification_scheduler.dart';
@@ -246,10 +248,31 @@ Future<void> _runMealKeywordCheck({
       .toList(growable: false);
   if (keywords.isEmpty) return;
 
-  final cafeteriaNames =
-      prefs.getStringList(StorageKeys.notificationCafeterias) ??
-      [Cafeteria.dormitory.name];
-  final cafeterias = enumSetFromNames(cafeteriaNames, Cafeteria.values);
+  // 기숙사 식당의 알림 대상 여부는 dormMealTypes 하나로만 판단한다.
+  // dormMealTypes 키가 아직 없는(=이 기능 이전) 저장값이라면, 구버전에서
+  // 기숙사가 선택돼 있었는지로 기본값을 정해 기존 사용자의 동작을 유지한다.
+  final cafeteriaNames = prefs.getStringList(StorageKeys.notificationCafeterias);
+  final storedCafeterias = cafeteriaNames == null
+      ? const <Cafeteria>{Cafeteria.dormitory}
+      : enumSetFromNames(cafeteriaNames, Cafeteria.values);
+  final hadDormitoryBefore = storedCafeterias.contains(Cafeteria.dormitory);
+  final otherCafeterias = storedCafeterias
+      .where((c) => c != Cafeteria.dormitory)
+      .toSet();
+
+  final dormMealTypeNames = prefs.getStringList(
+    StorageKeys.notificationDormMealTypes,
+  );
+  final dormMealTypes = dormMealTypeNames != null
+      ? enumSetFromNames(dormMealTypeNames, DormMealType.values)
+      : (hadDormitoryBefore
+            ? const {DormMealType.korean, DormMealType.halal}
+            : const <DormMealType>{});
+
+  final cafeterias = {
+    if (dormMealTypes.isNotEmpty) Cafeteria.dormitory,
+    ...otherCafeterias,
+  };
   if (cafeterias.isEmpty) return;
 
   final WeekMeal weekMeal;
@@ -277,9 +300,17 @@ Future<void> _runMealKeywordCheck({
       );
 
       if (cafeteria == Cafeteria.dormitory) {
-        // 기숙사는 한식·할랄을 각각 구분해 표시
+        // 기숙사는 설정에서 선택한 한식·할랄만 각각 구분해 표시
         final seen = <String>{};
         for (final meal in meals) {
+          if (meal is KoreanMeal &&
+              !dormMealTypes.contains(DormMealType.korean)) {
+            continue;
+          }
+          if (meal is HalalMeal &&
+              !dormMealTypes.contains(DormMealType.halal)) {
+            continue;
+          }
           if (!mealContainsKeyword(meal, keywordLower)) {
             continue;
           }
