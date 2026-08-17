@@ -26,7 +26,7 @@ final class BapUWidgetTests: XCTestCase {
       languageCode: "ko"
     ).snapshot(at: date)
 
-    XCTAssertEqual(snapshot.cafeteria, .dormitory)
+    XCTAssertEqual(snapshot.selection, .dormKorean)
     XCTAssertEqual(snapshot.meal, .lunch)
     XCTAssertEqual(snapshot.menu, ["쌀밥", "된장찌개"])
     XCTAssertEqual(snapshot.status, .open)
@@ -45,6 +45,98 @@ final class BapUWidgetTests: XCTestCase {
 
     XCTAssertEqual(snapshot.meal, .lunch)
     XCTAssertTrue(snapshot.menu.isEmpty)
+  }
+
+  func testReadsEachConfiguredCafeteriaMenu() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 0)
+    try writeInfoCache()
+    try writeMealCache(modifiedAt: date)
+    let reader = WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko")
+
+    XCTAssertEqual(
+      reader.snapshot(at: date, selection: .dormKorean).menu,
+      ["쌀밥", "된장찌개"]
+    )
+    XCTAssertEqual(
+      reader.snapshot(at: date, selection: .dormHalal).menu,
+      ["할랄라이스", "치킨커리"]
+    )
+    XCTAssertEqual(
+      reader.snapshot(at: date, selection: .student).menu,
+      ["학생덮밥"]
+    )
+    XCTAssertEqual(
+      reader.snapshot(at: date, selection: .faculty).menu,
+      ["교직원백반"]
+    )
+  }
+
+  func testEnglishMenuFallsBackToKorean() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 0)
+    try writeInfoCache()
+    try writeMealCache(modifiedAt: date)
+
+    let snapshot = WidgetCacheReader(
+      containerURL: cacheDirectory,
+      languageCode: "en"
+    ).snapshot(at: date, selection: .dormKorean)
+
+    XCTAssertEqual(snapshot.menu, ["Rice", "된장찌개"])
+  }
+
+  func testConfiguredSelectionSurvivesMissingInfoCache() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 0)
+
+    let snapshot = WidgetCacheReader(
+      containerURL: cacheDirectory,
+      languageCode: "ko"
+    ).snapshot(at: date, selection: .faculty)
+
+    XCTAssertEqual(snapshot.selection, .faculty)
+    XCTAssertEqual(snapshot.meal, .lunch)
+    XCTAssertTrue(snapshot.menu.isEmpty)
+    XCTAssertEqual(snapshot.status, .unavailable)
+  }
+
+  func testDormHalalUsesDormitoryOperatingHours() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 0)
+    try writeInfoCache()
+    try writeMealCache(modifiedAt: date)
+
+    let snapshot = WidgetCacheReader(
+      containerURL: cacheDirectory,
+      languageCode: "ko"
+    ).snapshot(at: date, selection: .dormHalal)
+
+    XCTAssertEqual(snapshot.selection, .dormHalal)
+    XCTAssertEqual(snapshot.status, .open)
+  }
+
+  func testFoodTypeLabelExistsOnlyForDormitorySelections() {
+    XCTAssertNotNil(WidgetMenuSelection.dormKorean.localizedFoodTypeName)
+    XCTAssertNotNil(WidgetMenuSelection.dormHalal.localizedFoodTypeName)
+    XCTAssertNil(WidgetMenuSelection.student.localizedFoodTypeName)
+    XCTAssertNil(WidgetMenuSelection.faculty.localizedFoodTypeName)
+  }
+
+  func testIntentRawValueMappingAndFallback() {
+    XCTAssertEqual(WidgetMenuSelection(intentRawValue: 1), .dormKorean)
+    XCTAssertEqual(WidgetMenuSelection(intentRawValue: 2), .dormHalal)
+    XCTAssertEqual(WidgetMenuSelection(intentRawValue: 3), .student)
+    XCTAssertEqual(WidgetMenuSelection(intentRawValue: 4), .faculty)
+    XCTAssertEqual(WidgetMenuSelection(intentRawValue: nil), .dormKorean)
+    XCTAssertEqual(WidgetMenuSelection(intentRawValue: 999), .dormKorean)
+  }
+
+  func testDisplayMenuItemsAddsOverflowMarkerOnlyAfterLimit() {
+    XCTAssertEqual(
+      displayMenuItems(["1", "2", "3", "4", "5"]),
+      ["1", "2", "3", "4", "5"]
+    )
+    XCTAssertEqual(
+      displayMenuItems(["1", "2", "3", "4", "5", "6"]),
+      ["1", "2", "3", "4", "5…"]
+    )
   }
 
   func testTimelineIncludesMealAndOperatingBoundaries() throws {
@@ -73,6 +165,9 @@ final class BapUWidgetTests: XCTestCase {
           },
           "student": {
             "lunch": {"start": "11:00", "end": "13:30"}
+          },
+          "faculty": {
+            "lunch": {"start": "11:30", "end": "13:30"}
           }
         },
         "weekend": {
@@ -95,25 +190,62 @@ final class BapUWidgetTests: XCTestCase {
   private func writeMealCache(modifiedAt: Date) throws {
     let json = #"""
     {
-      "data": [{
-        "cafeteria": "DORMITORY",
-        "meals": [{
-          "dayOfWeek": "MON",
-          "timeType": "LUNCH",
-          "menusByType": [{
-            "menuType": "KOREAN",
-            "sections": [
-              {"sectionType": "REGULAR", "menus": [
-                {"ko": "쌀밥", "en": "Rice"},
-                {"ko": "된장찌개", "en": null}
-              ]},
-              {"sectionType": "SALAD", "menus": [
-                {"ko": "샐러드", "en": "Salad"}
-              ]}
+      "data": [
+        {
+          "cafeteria": "DORMITORY",
+          "meals": [{
+            "dayOfWeek": "MON",
+            "timeType": "LUNCH",
+            "menusByType": [
+              {
+                "menuType": "KOREAN",
+                "sections": [
+                  {"sectionType": "REGULAR", "menus": [
+                    {"ko": "쌀밥", "en": "Rice"},
+                    {"ko": "된장찌개", "en": null}
+                  ]},
+                  {"sectionType": "SALAD", "menus": [
+                    {"ko": "샐러드", "en": "Salad"}
+                  ]}
+                ]
+              },
+              {
+                "menuType": "HALAL",
+                "sections": [{"sectionType": "REGULAR", "menus": [
+                  {"ko": "할랄라이스", "en": "Halal Rice"},
+                  {"ko": "치킨커리", "en": "Chicken Curry"}
+                ]}]
+              }
             ]
           }]
-        }]
-      }]
+        },
+        {
+          "cafeteria": "STUDENT",
+          "meals": [{
+            "dayOfWeek": "MON",
+            "timeType": "LUNCH",
+            "menusByType": [{
+              "menuType": "KOREAN",
+              "sections": [{"sectionType": "REGULAR", "menus": [
+                {"ko": "학생덮밥", "en": "Student Rice Bowl"}
+              ]}]
+            }]
+          }]
+        },
+        {
+          "cafeteria": "FACULTY",
+          "meals": [{
+            "dayOfWeek": "MON",
+            "timeType": "LUNCH",
+            "menusByType": [{
+              "menuType": "KOREAN",
+              "sections": [{"sectionType": "REGULAR", "menus": [
+                {"ko": "교직원백반", "en": "Faculty Set Menu"}
+              ]}]
+            }]
+          }]
+        }
+      ]
     }
     """#
     let url = cacheDirectory.appendingPathComponent("meal.json")

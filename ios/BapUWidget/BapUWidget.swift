@@ -1,6 +1,10 @@
 import SwiftUI
 import WidgetKit
 
+#if !BAPU_WIDGET_TESTS
+import Intents
+#endif
+
 private enum WidgetContract {
   static let kind = "BapUWidget"
   static let mealCacheFile = "meal.json"
@@ -30,11 +34,49 @@ enum WidgetMealOfDay: String, CaseIterable {
   }
 }
 
-enum WidgetCafeteria: String {
-  case dormitory = "DORMITORY"
+enum WidgetMenuSelection: Equatable, CaseIterable {
+  case dormKorean
+  case dormHalal
+  case student
+  case faculty
 
-  var localizedName: String {
-    Locale.current.languageCode == "en" ? "Dormitory" : "기숙사"
+  init(intentRawValue: Int?) {
+    switch intentRawValue {
+    case 2: self = .dormHalal
+    case 3: self = .student
+    case 4: self = .faculty
+    default: self = .dormKorean
+    }
+  }
+
+  var apiCafeteria: String {
+    switch self {
+    case .dormKorean, .dormHalal: return "DORMITORY"
+    case .student: return "STUDENT"
+    case .faculty: return "FACULTY"
+    }
+  }
+
+  var apiMenuType: String {
+    self == .dormHalal ? "HALAL" : "KOREAN"
+  }
+
+  var localizedCafeteriaName: String {
+    let korean = Locale.current.languageCode != "en"
+    switch self {
+    case .dormKorean, .dormHalal: return korean ? "기숙사 식당" : "Dormitory"
+    case .student: return korean ? "학생 식당" : "Student"
+    case .faculty: return korean ? "교직원 식당" : "Faculty"
+    }
+  }
+
+  var localizedFoodTypeName: String? {
+    let korean = Locale.current.languageCode != "en"
+    switch self {
+    case .dormKorean: return korean ? "한식" : "Korean"
+    case .dormHalal: return korean ? "할랄" : "Halal"
+    case .student, .faculty: return nil
+    }
   }
 }
 
@@ -94,6 +136,14 @@ private struct OperatingPeriodResponse: Decodable {
 
   var allCafeterias: [CafeteriaHoursResponse] {
     [dormitory, student, faculty].compactMap { $0 }
+  }
+
+  func hours(for selection: WidgetMenuSelection) -> CafeteriaHoursResponse? {
+    switch selection {
+    case .dormKorean, .dormHalal: return dormitory
+    case .student: return student
+    case .faculty: return faculty
+    }
   }
 }
 
@@ -165,10 +215,18 @@ enum OperatingStatus: Equatable {
 }
 
 struct WidgetSnapshot {
-  let cafeteria: WidgetCafeteria
+  let selection: WidgetMenuSelection
   let meal: WidgetMealOfDay
   let menu: [String]
   let status: OperatingStatus
+}
+
+func displayMenuItems(_ items: [String], limit: Int = 5) -> [String] {
+  guard limit > 0 else { return [] }
+  var displayed = Array(items.prefix(limit))
+  guard items.count > limit, !displayed.isEmpty else { return displayed }
+  displayed[displayed.count - 1] += "…"
+  return displayed
 }
 
 private struct BapUWidgetEntry: TimelineEntry {
@@ -178,7 +236,7 @@ private struct BapUWidgetEntry: TimelineEntry {
   static let placeholder = BapUWidgetEntry(
     date: Date(),
     snapshot: WidgetSnapshot(
-      cafeteria: .dormitory,
+      selection: .dormKorean,
       meal: .lunch,
       menu: ["쌀밥", "된장찌개", "제육볶음", "오늘의 반찬"],
       status: .open
@@ -210,10 +268,13 @@ struct WidgetCacheReader {
     )
   }
 
-  func snapshot(at date: Date) -> WidgetSnapshot {
+  func snapshot(
+    at date: Date,
+    selection: WidgetMenuSelection = .dormKorean
+  ) -> WidgetSnapshot {
     guard let hours: InfoResponse = decode(WidgetContract.infoCacheFile) else {
       return WidgetSnapshot(
-        cafeteria: .dormitory,
+        selection: selection,
         meal: .lunch,
         menu: [],
         status: .unavailable
@@ -223,17 +284,17 @@ struct WidgetCacheReader {
     let period = periodResponse(from: hours, at: date)
     guard let meal = currentMeal(in: period, at: date) else {
       return WidgetSnapshot(
-        cafeteria: .dormitory,
+        selection: selection,
         meal: .lunch,
         menu: [],
         status: .unavailable
       )
     }
 
-    let menu = readMenu(at: date, meal: meal)
-    let range = period.dormitory?.range(for: meal)
+    let menu = readMenu(at: date, meal: meal, selection: selection)
+    let range = period.hours(for: selection)?.range(for: meal)
     return WidgetSnapshot(
-      cafeteria: .dormitory,
+      selection: selection,
       meal: meal,
       menu: menu,
       status: operatingStatus(range: range, at: date)
@@ -280,7 +341,11 @@ struct WidgetCacheReader {
       .sorted()
   }
 
-  private func readMenu(at date: Date, meal: WidgetMealOfDay) -> [String] {
+  private func readMenu(
+    at date: Date,
+    meal: WidgetMealOfDay,
+    selection: WidgetMenuSelection
+  ) -> [String] {
     guard isFreshMealCache(at: date) else { return [] }
     guard let response: MealResponse = decode(WidgetContract.mealCacheFile) else {
       return []
@@ -288,11 +353,11 @@ struct WidgetCacheReader {
 
     let weekday = dayOfWeek(at: date)
     return response.data
-      .first { $0.cafeteria == WidgetCafeteria.dormitory.rawValue }?
+      .first { $0.cafeteria == selection.apiCafeteria }?
       .meals
       .first { $0.dayOfWeek == weekday && $0.timeType == meal.rawValue }?
       .menusByType
-      .first { $0.menuType == "KOREAN" }?
+      .first { $0.menuType == selection.apiMenuType }?
       .sections
       .filter { $0.sectionType == "REGULAR" }
       .flatMap(\.menus)
@@ -380,27 +445,56 @@ struct WidgetCacheReader {
 }
 
 #if !BAPU_WIDGET_TESTS
-private struct BapUWidgetProvider: TimelineProvider {
+private extension WidgetMenuSelection {
+  init(configuration: BapUWidgetConfigurationIntent) {
+    // SiriKit의 생성 enum은 Objective-C 정수 enum으로 브리지된다. 생성된 case
+    // 이름에 비즈니스 로직을 결합하지 않고 intentdefinition의 안정적인 raw value만 읽는다.
+    let rawValue = (configuration.value(forKey: "cafeteria") as? NSNumber)?.intValue
+    self.init(intentRawValue: rawValue)
+  }
+}
+
+private struct BapUWidgetProvider: IntentTimelineProvider {
+  typealias Intent = BapUWidgetConfigurationIntent
   private let cache = WidgetCacheReader()
 
   func placeholder(in context: Context) -> BapUWidgetEntry {
     .placeholder
   }
 
-  func getSnapshot(in context: Context, completion: @escaping (BapUWidgetEntry) -> Void) {
-    completion(context.isPreview ? .placeholder : entry(at: Date()))
+  func getSnapshot(
+    for configuration: BapUWidgetConfigurationIntent,
+    in context: Context,
+    completion: @escaping (BapUWidgetEntry) -> Void
+  ) {
+    completion(
+      context.isPreview
+        ? .placeholder
+        : entry(
+          at: Date(),
+          selection: WidgetMenuSelection(configuration: configuration)
+        )
+    )
   }
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<BapUWidgetEntry>) -> Void) {
+  func getTimeline(
+    for configuration: BapUWidgetConfigurationIntent,
+    in context: Context,
+    completion: @escaping (Timeline<BapUWidgetEntry>) -> Void
+  ) {
     let now = Date()
     let dates = [now] + cache.timelineDates(after: now)
-    let entries = dates.map(entry(at:))
+    let selection = WidgetMenuSelection(configuration: configuration)
+    let entries = dates.map { entry(at: $0, selection: selection) }
     let nextRefresh = dates.dropFirst().first ?? now.addingTimeInterval(30 * 60)
     completion(Timeline(entries: entries, policy: .after(nextRefresh)))
   }
 
-  private func entry(at date: Date) -> BapUWidgetEntry {
-    BapUWidgetEntry(date: date, snapshot: cache.snapshot(at: date))
+  private func entry(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
+    BapUWidgetEntry(
+      date: date,
+      snapshot: cache.snapshot(at: date, selection: selection)
+    )
   }
 }
 
@@ -410,12 +504,14 @@ private struct BapUWidgetView: View {
   var body: some View {
     VStack(spacing: 7) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
-        Text(entry.snapshot.cafeteria.localizedName)
+        Text(entry.snapshot.selection.localizedCafeteriaName)
           .font(.system(size: 12, weight: .bold))
           .lineLimit(1)
-        Text(Locale.current.languageCode == "en" ? "Korean" : "한식")
-          .font(.system(size: 10, weight: .semibold))
-          .foregroundStyle(.secondary)
+        if let foodType = entry.snapshot.selection.localizedFoodTypeName {
+          Text(foodType)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.secondary)
+        }
         Spacer(minLength: 4)
         Text(entry.snapshot.meal.localizedName)
           .font(.system(size: 10, weight: .bold))
@@ -446,7 +542,7 @@ private struct BapUWidgetView: View {
           .frame(maxWidth: .infinity, alignment: .center)
         Spacer(minLength: 0)
       } else {
-        ForEach(Array(entry.snapshot.menu.prefix(5).enumerated()), id: \.offset) { _, item in
+        ForEach(Array(displayMenuItems(entry.snapshot.menu).enumerated()), id: \.offset) { _, item in
           Text(item)
             .font(.system(size: 11, weight: .medium))
             .lineLimit(1)
@@ -487,11 +583,15 @@ struct BapUWidget: Widget {
   let kind = WidgetContract.kind
 
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: BapUWidgetProvider()) { entry in
+    IntentConfiguration(
+      kind: kind,
+      intent: BapUWidgetConfigurationIntent.self,
+      provider: BapUWidgetProvider()
+    ) { entry in
       BapUWidgetView(entry: entry)
     }
-    .configurationDisplayName("밥먹어U")
-    .description("현재 학식 메뉴와 운영 상태를 확인합니다.")
+    .configurationDisplayName(LocalizedStringKey("widgetConfigurationDisplayName"))
+    .description(LocalizedStringKey("widgetConfigurationDescription"))
     .supportedFamilies([.systemSmall])
   }
 }
