@@ -11,6 +11,111 @@ import 'package:meal_client/main.dart' show mainColor;
 const _worstCaseTimeLabel = '06:00 - 08:00';
 // Pretendard w600, w500에서는 '4'가 가장 넓음
 const _worstCaseKcalText = '1444 kcal';
+// cardWidth는 TableCell 전체 폭이므로 Card 바깥 margin과 하단 메타데이터 영역의
+// 좌우 padding을 제외해야 Row가 실제로 사용할 수 있는 폭을 얻을 수 있다.
+const _cardMargin = 8.0;
+const _metadataHorizontalPadding = 16.0;
+// 아래 세 값은 폭 측정과 실제 렌더링에서 반드시 같은 값을 써야 한다. 한쪽만
+// 바꾸면 계산상으로는 들어맞아도 실제 Row가 넘치거나 필요 이상으로 작아진다.
+const _metadataIconSize = 13.0;
+const _metadataIconGap = 3.0;
+const _metadataKcalGap = 3.0;
+
+// 시스템 글자 크기 설정까지 반영한 실제 렌더링 폭을 얻는다. 고정된 글자 수나
+// fontSize만으로 추정하면 접근성 글자 크기에서 계산값과 화면 폭이 달라질 수 있다.
+double _measureTextWidth(BuildContext context, String text, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.width;
+}
+
+TextStyle _operatingTimeTextStyle(ThemeData theme, Color color) {
+  return theme.textTheme.labelMedium!.copyWith(
+    color: color,
+    fontSize: 11,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0,
+    height: 1,
+  );
+}
+
+TextStyle _kcalTextStyle(ThemeData theme) {
+  return theme.textTheme.labelMedium!.copyWith(
+    fontSize: 11,
+    letterSpacing: 0,
+    height: 1,
+  );
+}
+
+double _calculateMetadataScale(
+  BuildContext context, {
+  required double availableWidth,
+}) {
+  final theme = Theme.of(context);
+  final operatingTimeStyle = _operatingTimeTextStyle(
+    theme,
+    theme.colorScheme.outline,
+  );
+  final kcalStyle = _kcalTextStyle(theme);
+  // 실제 카드에 운영시간이나 kcal가 없더라도 둘 다 있는 최악의 경우를 기준으로
+  // 계산한다. 그래야 데이터 유무에 따라 카드마다 글자 크기가 달라지지 않는다.
+  // 색상은 글자 폭에 영향을 주지 않으므로 운영 중이 아닌 기본 색상을 사용한다.
+  final naturalWidth =
+      _metadataIconSize +
+      _metadataIconGap +
+      _measureTextWidth(context, _worstCaseTimeLabel, operatingTimeStyle) +
+      _metadataKcalGap +
+      _measureTextWidth(context, _worstCaseKcalText, kcalStyle);
+  return availableWidth >= naturalWidth ? 1.0 : availableWidth / naturalWidth;
+}
+
+/// 동일한 폭의 식단 카드들이 공유할 운영시간/칼로리 표시 배율을 계산한다.
+///
+/// [cardWidth]에는 카드의 외부 margin까지 포함되어 있다. 따라서 margin과 하단
+/// 영역의 좌우 padding을 뺀 실제 가용 폭으로 worst-case 조합을 측정한다. 결과는
+/// 원래 크기보다 확대되지 않도록 최대 1.0이며, 화면 폭이나 시스템 글자 크기가
+/// 바뀌어 상위 위젯이 다시 빌드되면 함께 다시 계산된다.
+double calculateMealCardMetadataScale(
+  BuildContext context, {
+  required double cardWidth,
+}) {
+  final availableWidth =
+      cardWidth - 2 * _cardMargin - 2 * _metadataHorizontalPadding;
+  return _calculateMetadataScale(
+    context,
+    availableWidth: availableWidth.clamp(0.0, double.infinity),
+  );
+}
+
+/// 같은 레이아웃에 놓인 모든 식단 카드에 공통 메타데이터 배율을 제공한다.
+///
+/// 개별 [MealCard]에 값을 반복 전달하지 않고 Table 전체를 감싸는 이유는 카드가
+/// 생성되는 위치와 실제 레이아웃 위치를 분리하면서도 모든 카드가 정확히 같은
+/// 배율에 의존하게 하기 위해서다. 화면 폭 변경으로 [scale]이 달라질 때만 이를
+/// 구독한 카드의 메타데이터 영역이 새 값으로 다시 빌드된다.
+class MealCardMetadataScaleScope extends InheritedWidget {
+  const MealCardMetadataScaleScope({
+    super.key,
+    required this.scale,
+    required super.child,
+  });
+
+  final double scale;
+
+  static double? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<MealCardMetadataScaleScope>()
+        ?.scale;
+  }
+
+  @override
+  bool updateShouldNotify(MealCardMetadataScaleScope oldWidget) {
+    return scale != oldWidget.scale;
+  }
+}
 
 // 기본 InkWell은 onLongPress만 넘겨도 손을 대는 즉시(터치 다운) 스플래시가 시작된다.
 // 카드 공유는 롱프레스가 실제로 인식된 순간에만 잉크 이펙트가 보이길 원하므로,
@@ -106,18 +211,11 @@ class MealCard extends StatelessWidget {
             mainColor,
           ).withLightness(isLight ? 0.25 : 0.40).toColor()
         : theme.colorScheme.outline;
-    final operatingTimeStyle = theme.textTheme.labelMedium!.copyWith(
-      color: operatingTimeColor,
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0,
-      height: 1,
+    final operatingTimeStyle = _operatingTimeTextStyle(
+      theme,
+      operatingTimeColor,
     );
-    final kcalStyle = theme.textTheme.labelMedium!.copyWith(
-      fontSize: 11,
-      letterSpacing: 0,
-      height: 1,
-    );
+    final kcalStyle = _kcalTextStyle(theme);
     final kcalText = meal.kcal == null ? null : "${meal.kcal} kcal";
 
     final menuWidgets = <Widget>[];
@@ -185,13 +283,13 @@ class MealCard extends StatelessWidget {
 
     return Card.filled(
       color: theme.colorScheme.surfaceContainer,
-      margin: EdgeInsetsGeometry.all(8),
+      margin: EdgeInsetsGeometry.all(_cardMargin),
       shape: defaultTargetPlatform == TargetPlatform.iOS
           ? RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24))
           : RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       elevation: 1,
-      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.125),
+      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.16667),
       surfaceTintColor: Colors.transparent,
       child: _LongPressSplash(
         onLongPress: onLongPress,
@@ -234,50 +332,22 @@ class MealCard extends StatelessWidget {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: _metadataHorizontalPadding,
                     vertical: 4,
                   ),
-                  // 글꼴 크기 설정과 디스플레이 크기(DPI) 설정 모두에서 잘리지 않도록,
-                  // 아이콘·운영시간·칼로리에 필요한 실제 폭을 측정해 하나의 축소
-                  // 배율을 계산하고 셋 모두에 동일하게 적용한다. 각자 독립적으로
-                  // FittedBox를 적용하면 여유 폭이 다른 만큼 서로 다른 배율로
-                  // 줄어들어 글자 크기가 어긋나 보이는 문제가 있었다.
+                  // 일반 식단 화면에서는 상위 Table이 모든 카드에 같은 배율을
+                  // 제공한다. MealCard를 테스트·프리뷰 등에서 단독으로 사용할 때는
+                  // Scope가 없으므로 현재 카드의 실제 가용 폭으로 같은 worst-case
+                  // 계산을 수행한다. 어느 경로든 하나의 배율을 아이콘·운영시간·
+                  // 칼로리에 함께 적용해 요소별 글자 크기가 어긋나지 않게 한다.
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      const iconSize = 13.0;
-                      const iconGap = 3.0;
-                      const kcalGap = 5.0;
-
-                      double measureWidth(String text, TextStyle style) {
-                        final painter = TextPainter(
-                          text: TextSpan(text: text, style: style),
-                          textDirection: TextDirection.ltr,
-                          textScaler: MediaQuery.textScalerOf(context),
-                        )..layout();
-                        return painter.width;
-                      }
-
-                      var naturalWidth = 0.0;
-                      if (operatingTimeLabel != null) {
-                        naturalWidth +=
-                            iconSize +
-                            iconGap +
-                            measureWidth(
-                              _worstCaseTimeLabel,
-                              operatingTimeStyle,
-                            );
-                      }
-                      if (kcalText != null) {
-                        if (operatingTimeLabel != null) naturalWidth += kcalGap;
-                        naturalWidth += measureWidth(
-                          _worstCaseKcalText,
-                          kcalStyle,
-                        );
-                      }
-
-                      final scale = naturalWidth <= constraints.maxWidth
-                          ? 1.0
-                          : constraints.maxWidth / naturalWidth;
+                      final scale =
+                          MealCardMetadataScaleScope.maybeOf(context) ??
+                          _calculateMetadataScale(
+                            context,
+                            availableWidth: constraints.maxWidth,
+                          );
 
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -295,10 +365,10 @@ class MealCard extends StatelessWidget {
                                         isOperating
                                             ? Icons.restaurant
                                             : Icons.access_time,
-                                        size: iconSize * scale,
+                                        size: _metadataIconSize * scale,
                                         color: operatingTimeColor,
                                       ),
-                                      SizedBox(width: iconGap * scale),
+                                      SizedBox(width: _metadataIconGap * scale),
                                       Flexible(
                                         child: Text(
                                           operatingTimeLabel!,
@@ -315,7 +385,7 @@ class MealCard extends StatelessWidget {
                                   ),
                           ),
                           if (kcalText != null)
-                            SizedBox(width: kcalGap * scale),
+                            SizedBox(width: _metadataKcalGap * scale),
                           if (kcalText != null)
                             Text(
                               kcalText,

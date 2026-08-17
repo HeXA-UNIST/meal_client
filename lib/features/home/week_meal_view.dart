@@ -233,16 +233,27 @@ class WeekMealTabBarView extends StatelessWidget {
                         row.add(TableRow(children: remain));
                       }
 
-                      return Table(
-                        border: const TableBorder(),
-                        defaultColumnWidth: FixedColumnWidth(cardWidth),
-                        columnWidths: {
-                          0: FlexColumnWidth(),
-                          columns + 1: FlexColumnWidth(),
-                        },
-                        defaultVerticalAlignment:
-                            TableCellVerticalAlignment.intrinsicHeight,
-                        children: row,
+                      // 이 Table의 모든 식단 카드는 FixedColumnWidth(cardWidth)를
+                      // 사용하므로 메타데이터 배율도 카드마다 다시 측정할 필요가
+                      // 없다. 운영시간과 칼로리가 모두 있는 worst-case 배율을 여기서
+                      // 한 번 계산해 Scope로 전달하면, 값이 하나뿐인 카드나 값이 없는
+                      // 카드도 동일한 글자 크기와 아이콘 크기를 유지한다.
+                      return MealCardMetadataScaleScope(
+                        scale: calculateMealCardMetadataScale(
+                          context,
+                          cardWidth: cardWidth,
+                        ),
+                        child: Table(
+                          border: const TableBorder(),
+                          defaultColumnWidth: FixedColumnWidth(cardWidth),
+                          columnWidths: {
+                            0: FlexColumnWidth(),
+                            columns + 1: FlexColumnWidth(),
+                          },
+                          defaultVerticalAlignment:
+                              TableCellVerticalAlignment.intrinsicHeight,
+                          children: row,
+                        ),
                       );
                     },
                   ),

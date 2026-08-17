@@ -97,4 +97,71 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('운영시간과 칼로리 유무가 달라도 모든 카드에 같은 메타데이터 배율을 적용한다', (tester) async {
+    tester.view.physicalSize = const Size(330, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final weekMeal = WeekMeal.empty();
+    weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
+      ..add(Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935))
+      ..add(Meal.regular(menu: const [MealMenuItem(ko: '죽')]));
+
+    final tabController = TabController(length: 7, vsync: tester);
+    final pageControllerGroup = NestedPageScrollControllerGroup(
+      count: DayOfWeek.values.length,
+      pageCount: MealOfDay.values.length,
+    );
+    addTearDown(tabController.dispose);
+    addTearDown(pageControllerGroup.dispose);
+
+    final appInfo = AppInfo.fromJson({
+      'announcement': null,
+      'operatingHours': {
+        'weekday': {
+          'dormitory': {
+            'breakfast': {'start': '06:00', 'end': '08:00'},
+          },
+        },
+        'weekend': <String, dynamic>{},
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: WeekMealTabBarView(
+            weekMeal: weekMeal,
+            tabController: tabController,
+            pageControllerGroup: pageControllerGroup,
+            pageCount: MealOfDay.values.length,
+            onPageChanged: (_) {},
+            appInfo: Future.value(appInfo),
+            mondayOfWeek: DateTime(2026, 6, 15),
+            currentKstDateTime: DateTime(2026, 6, 15, 7),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final timeTexts = tester.widgetList<RichText>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText().contains('06:00 - 08:00'),
+      ),
+    );
+    final fontSizes = timeTexts
+        .map((text) => (text.text as TextSpan).style!.fontSize)
+        .toList(growable: false);
+
+    expect(fontSizes, hasLength(2));
+    expect(fontSizes[0], fontSizes[1]);
+    expect(fontSizes[0], lessThan(11));
+  });
 }
