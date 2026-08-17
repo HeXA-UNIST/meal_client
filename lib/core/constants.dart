@@ -19,9 +19,24 @@ class StorageKeys {
   // 설정 (settings_* prefix로 통일)
   static const allergenIds = 'settings_allergen_ids';
   static const notificationEnabled = 'settings_notification_enabled';
-  static const notificationKeyword = 'settings_notification_keyword';
-  static const notificationTime = 'settings_notification_time';
+  static const notificationKeywords = 'settings_notification_keywords';
   static const notificationCafeterias = 'settings_notification_cafeterias';
+
+  /// 시간대별 알림 시각 저장 키 prefix.
+  /// 실제 키는 `${notificationPeriodTimePrefix}${period.name}` 형태로,
+  /// 값은 'HH:MM' 문자열. 키가 없으면 그 시간대는 꺼진 상태.
+  static const notificationPeriodTimePrefix =
+      'settings_notification_period_time_';
+
+  /// 시간대별 "마지막으로 선택한 알림 시각" 저장 키 prefix.
+  /// 해당 시간대를 꺼도 지워지지 않아, 다시 켤 때 이전 시각을 복원하는 데 쓴다.
+  /// 실제 키는 `${notificationPeriodRememberedPrefix}${period.name}` 형태.
+  static const notificationPeriodRememberedPrefix =
+      'settings_notification_period_remembered_';
+
+  /// 알림을 받을 요일 저장 키. 값은 켜진 요일의 [DayOfWeek.name] 리스트.
+  /// 키가 없으면 모든 요일 활성(기본값).
+  static const notificationDays = 'settings_notification_days';
   static const widgetCafeteria = 'settings_widget_cafeteria';
   static const widgetMealOfDay = 'settings_widget_meal_of_day';
   static const themeMode = 'settings_theme_mode';
@@ -29,12 +44,18 @@ class StorageKeys {
 
 /// 식사 시간 기준 (KST 기준)
 class MealTimeConfig {
+  /// 한국 표준시(UTC+9) 보정값.
+  static const kstOffset = Duration(hours: 9);
+
+  /// 주어진 시각을 KST로 변환한다.
+  static DateTime toKst(DateTime time) => time.toUtc().add(kstOffset);
+
   /// 주간 메뉴 캐시 판별용 KST 기준 주 ID.
   ///
   /// 1970-01-05는 월요일이므로, KST로 보정한 시각을 이 기준점에서
   /// 7일 단위로 나누면 연도 경계와 ISO week-number 영향을 받지 않는다.
   static int kstWeekId(DateTime time) {
-    final kstTime = time.toUtc().add(const Duration(hours: 9));
+    final kstTime = toKst(time);
     final epoch = DateTime.utc(1970, 1, 5);
     return kstTime.difference(epoch).inDays ~/ 7;
   }

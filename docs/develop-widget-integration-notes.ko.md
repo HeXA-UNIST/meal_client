@@ -1,5 +1,7 @@
 # develop-widget 통합 참고 노트
 
+> **문서 상태**: 이 문서는 iOS WidgetKit extension 추가 전의 통합 메모입니다. 현재 구현 상태는 `docs/ARCHITECTURE.md`를 기준으로 하며, 아래의 “iOS 준비 상태” 및 후속 추가 순서는 역사적 기록으로만 참고합니다.
+
 이 문서는 `develop-widget` 브랜치를 나중에 `develop`에 통합할 때 충돌과 서명 리스크를 줄이기 위한 참고 문서입니다. 현재 `develop-widget`의 목표는 Android 네이티브 위젯을 `/v2/menu`/`/v2/info` 기반 cache-only 구조로 전환하고, 이후 iOS WidgetKit 확장을 붙일 수 있는 공유 캐시 경계를 준비하는 것입니다.
 
 ## 통합 원칙

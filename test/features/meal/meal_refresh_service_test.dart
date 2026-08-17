@@ -89,6 +89,27 @@ void main() {
       expect(_firstDormitoryBreakfastMenu(weekMeal), contains('다운로드 메뉴'));
     });
 
+    test('refreshMealResponse는 식단과 주차 메타데이터를 함께 반환', () async {
+      final cache = _memoryMealCache(
+        rawJson: _rawMealJson('이전 메뉴'),
+        updatedAt: DateTime.utc(2026, 4, 13),
+      );
+      final service = MealRefreshService(
+        cache: cache,
+        fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
+      );
+
+      final result = await service.refreshMealResponse();
+
+      expect(
+        _firstDormitoryBreakfastMenu(result.weekMeal),
+        contains('다운로드 메뉴'),
+      );
+      expect(result.weekMeta.startDate, DateTime(2026, 4, 13));
+      expect(result.weekMeta.isCurrentWeek, isTrue);
+      expect(result.weekMeta.nextWeekStart, isNull);
+    });
+
     test('refreshMealData는 JSON 객체 응답을 캐시에 쓰지 않음', () async {
       String? storedRaw;
       final cache = _memoryMealCache(
@@ -121,6 +142,34 @@ void main() {
       await expectLater(service.refreshMealData(), throwsFormatException);
 
       expect(storedRaw, isNull);
+    });
+    test('refreshMealData는 기본적으로 캐시 쓰기 실패를 무시', () async {
+      final service = MealRefreshService(
+        cache: MealCache(
+          writeFile: (_, _) async => throw Exception('disk full'),
+          readFile: (_) async => _rawMealJson('이전 메뉴'),
+          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
+        ),
+        fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
+      );
+
+      final weekMeal = await service.refreshMealData();
+
+      expect(_firstDormitoryBreakfastMenu(weekMeal), contains('다운로드 메뉴'));
+    });
+
+    test('refreshMealData는 background strict 모드에서 캐시 쓰기 실패를 throw', () async {
+      final service = MealRefreshService(
+        cache: MealCache(
+          writeFile: (_, _) async => throw Exception('disk full'),
+          readFile: (_) async => _rawMealJson('이전 메뉴'),
+          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
+        ),
+        fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
+        throwOnCacheWriteFailure: true,
+      );
+
+      await expectLater(service.refreshMealData(), throwsException);
     });
   });
 }
@@ -181,7 +230,6 @@ String _rawMealJson(String menu) {
 }
 
 List<String> _firstDormitoryBreakfastMenu(WeekMeal weekMeal) {
-  return weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
-      .first
+  return weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].first
       .localizedMenu('ko');
 }

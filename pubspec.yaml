@@ -51,6 +51,8 @@ dependencies:
   workmanager: ^0.9.0+3
   bapu_widget_bridge:
     path: plugins/bapu_widget_bridge
+  app_settings: ^7.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

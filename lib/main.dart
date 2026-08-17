@@ -2,11 +2,14 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/notification/meal_notification_worker.dart';
+import 'package:meal_client/features/notification/notification_service.dart';
 
 const mainColor = Color(0xFF00CD80);
 
@@ -43,11 +46,20 @@ ThemeData _buildTheme(Brightness brightness) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Workmanager().initialize(callbackDispatcher);
   await initializeMealBackgroundRefresh();
   final prefs = await SharedPreferences.getInstance();
+  await initNotifications();
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AppSettings(prefs),
+    ChangeNotifierProvider<AppSettings>(
+      create: (_) {
+        final settings = AppSettings(prefs);
+        // 앱 시작 시 활성화된 시간대 알림을 모두 재스케줄한다.
+        // (백그라운드 워커가 다음 회차 등록에 실패하는 케이스에 대한 방어책)
+        settings.rescheduleKeywordNotifications();
+        return settings;
+      },
       child: const BapUApp(),
     ),
   );

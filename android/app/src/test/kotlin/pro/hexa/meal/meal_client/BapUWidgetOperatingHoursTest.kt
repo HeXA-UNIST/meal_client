@@ -32,22 +32,25 @@ class BapUWidgetOperatingHoursTest {
     }
 
     @Test
-    fun `저녁 종료 30분 후에는 방금 종료 상태를 표시하지 않는다`() {
+    fun `저녁 종료 후에는 자정까지 운영 종료 상태를 유지한다`() {
         val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())
         val now = kstCalendar(Calendar.MONDAY, 19, 31)
 
         val status = BapUWidgetOperatingHours.statusFor(hours, CAFE_DORM_KOREAN, 2, now)
 
-        assertEquals(OperatingStatus.BEFORE_OPEN, status?.status)
+        assertEquals(OperatingStatus.JUST_CLOSED, status?.status)
     }
 
     @Test
-    fun `cache가 없거나 깨졌거나 식당 운영시간이 없으면 상태를 숨기도록 null을 반환한다`() {
+    fun `cache 오류는 상태를 숨기고 식당 운영시간이 없으면 미운영을 반환한다`() {
         assertNull(BapUWidgetOperatingHours.parseRawInfo(""))
         assertNull(BapUWidgetOperatingHours.parseRawInfo("{"))
 
         val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())
-        assertNull(BapUWidgetOperatingHours.statusFor(hours, CAFE_STUDENT, 0, kstCalendar(Calendar.MONDAY, 8, 30)))
+        assertEquals(
+            OperatingStatus.NO_SERVICE,
+            BapUWidgetOperatingHours.statusFor(hours, CAFE_STUDENT, 0, kstCalendar(Calendar.MONDAY, 8, 30))?.status,
+        )
         assertNull(BapUWidgetOperatingHours.statusFor(null, CAFE_DORM_KOREAN, 1, kstCalendar(Calendar.MONDAY, 12, 0)))
     }
 

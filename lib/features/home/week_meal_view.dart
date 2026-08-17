@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
@@ -116,9 +117,7 @@ class WeekMealTabBarView extends StatelessWidget {
                                   );
                               final now =
                                   currentKstDateTime ??
-                                  DateTime.now().toUtc().add(
-                                    const Duration(hours: 9),
-                                  );
+                                  MealTimeConfig.toKst(DateTime.now());
                               final isOperating =
                                   operatingTime != null &&
                                   DateUtils.isSameDay(targetDate, now) &&
