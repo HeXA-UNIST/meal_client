@@ -1,0 +1,19 @@
+name: bapu_widget_bridge
+description: Android widget render bridge for BapU.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.11.5
+  flutter: '>=3.35.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: pro.hexa.meal.bapu_widget_bridge
+        pluginClass: BapUWidgetBridgePlugin

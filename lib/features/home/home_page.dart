@@ -6,6 +6,7 @@ import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
+import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'home_drawer.dart';
@@ -51,6 +52,10 @@ class _HomePageState extends State<HomePage> {
           (_) => fetchAndCacheMealData(),
           onError: (e) => fetchAndCacheMealData(),
         )
+        .then((meal) {
+          updateHomeWidgets();
+          return meal;
+        })
         .catchError((e) {
           assert(() {
             debugPrint('[BapU] meal fetch failed: $e');

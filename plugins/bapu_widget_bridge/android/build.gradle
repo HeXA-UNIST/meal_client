@@ -1,0 +1,31 @@
+group = "pro.hexa.meal.bapu_widget_bridge"
+version = "1.0"
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "pro.hexa.meal.bapu_widget_bridge"
+    // 라이브러리 모듈이라 flutter.compileSdkVersion을 참조할 수 없어 하드코딩한다.
+    // 앱 모듈(app/build.gradle.kts)의 flutter.compileSdkVersion과 같은 값으로 맞춰야 하며,
+    // Flutter 업그레이드로 앱 compileSdk가 오르면 이 값도 함께 올려야 한다(자동 갱신 안 됨).
+    compileSdk = 36
+
+    defaultConfig {
+        // 앱 minSdk(flutter.minSdkVersion, 현재 24) 이하여야 병합 충돌이 없다. 앱과 동일하게 유지.
+        minSdk = 24
+    }
+}

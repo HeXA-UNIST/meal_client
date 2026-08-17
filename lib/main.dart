@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
+import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 
 const mainColor = Color(0xFF00CD80);
@@ -25,22 +26,24 @@ ThemeData _buildTheme(Brightness brightness) {
     fontFamily: 'Pretendard',
     brightness: brightness,
     pageTransitionsTheme: _pageTransitionsTheme,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: mainColor,
-      brightness: brightness,
-      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-    ).copyWith(
-      onPrimaryContainer: Colors.white,
-      surface: isLight ? Colors.white : Colors.black,
-      surfaceContainer: isLight
-          ? const Color(0xFFFAFAFA)
-          : const Color(0xFF0F0F0F),
-    ),
+    colorScheme:
+        ColorScheme.fromSeed(
+          seedColor: mainColor,
+          brightness: brightness,
+          dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+        ).copyWith(
+          onPrimaryContainer: Colors.white,
+          surface: isLight ? Colors.white : Colors.black,
+          surfaceContainer: isLight
+              ? const Color(0xFFFAFAFA)
+              : const Color(0xFF0F0F0F),
+        ),
   );
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeMealBackgroundRefresh();
   final prefs = await SharedPreferences.getInstance();
   runApp(
     ChangeNotifierProvider(

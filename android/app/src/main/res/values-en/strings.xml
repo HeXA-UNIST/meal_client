@@ -1,4 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BapU</string>
+
+    <!-- 위젯 레이블 -->
+    <string name="widget_2x2_label">Today\'s Menu</string>
+
+    <!-- 위젯 설정 -->
+    <string name="widget_config_title">Select Cafeteria</string>
+    <string name="widget_config_confirm">Confirm</string>
+
+    <!-- 위젯 상태 -->
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_no_data">No data</string>
+    <string name="widget_no_menu">-</string>
+    <string name="widget_kcal">%d kcal</string>
+
+    <!-- 식사 시간 -->
+    <string name="meal_breakfast">Breakfast</string>
+    <string name="meal_lunch">Lunch</string>
+    <string name="meal_dinner">Dinner</string>
+
+    <!-- 음식 종류 -->
+    <string name="food_korean">Korean</string>
+    <string name="food_halal">Halal</string>
+
+    <!-- 운영 상태 -->
+    <string name="status_before_open">Opens at %1$02d:%2$02d</string>
+    <string name="status_open">Open</string>
+    <string name="status_closing_soon">Closing in %d min</string>
+    <string name="status_just_closed">Closed</string>
+    <string name="status_no_service">Not in service</string>
+
+    <!-- 식당 이름 -->
+    <string name="cafeteria_dormitory">Dormitory</string>
+    <string name="cafeteria_dorm_korean">Dormitory (Korean)</string>
+    <string name="cafeteria_dorm_halal">Dormitory (Halal)</string>
+    <string name="cafeteria_student">Student</string>
+    <string name="cafeteria_faculty">Faculty</string>
 </resources>
