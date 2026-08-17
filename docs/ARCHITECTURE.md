@@ -245,13 +245,13 @@ void initState() {
 
 ### 공유 캐시와 무효화
 
-`meal.json`과 `info.json`은 앱, background refresh, native 위젯이 공유하는 raw JSON 캐시입니다. 이 두 파일만 `core/widget_shared_storage.dart`를 통해 저장 위치를 고릅니다.
+`meal.json`, `meal-next.json`, `info.json`은 앱, background refresh, native 위젯이 공유하는 raw JSON 캐시입니다. 이 파일들만 `core/widget_shared_storage.dart`를 통해 저장 위치를 고릅니다. `meal-next.json`은 월요일 전 다음 주 식단을 별도로 보관하는 선반입 파일이며, 자정에 rename/promotion하지 않는다.
 
 - Android: `getApplicationSupportDirectory()`와 native `context.filesDir`가 같은 앱 내부 디렉터리를 가리킵니다.
 - iOS: native bridge가 반환하는 App Group 컨테이너를 사용합니다. Dart에는 App Group ID를 하드코딩하지 않습니다.
 - Web: 공유 파일 캐시가 없으므로 stub이 예외/no-op로 동작합니다.
 
-`MealCache.hasFreshMealCache()`와 Android `BapUWidgetMealRepository`는 파일 마지막 수정 시각과 현재 시각을 모두 KST 기준 단조 week id로 변환해 비교합니다. 기준점은 1970-01-05 월요일 00:00 UTC이며, ISO week-number나 연도 경계 영향을 받지 않습니다. 주 ID가 다르면 stale로 보고 Dart foreground/background fetch가 `/v2/menu`를 다시 받아 `meal.json`을 갱신합니다.
+식단 cache의 주차 정체성은 파일 mtime이 아니라 payload `week.startDate`이다. Dart, Android, iOS는 현재 KST 주의 월요일과 일치하는 파일을 선택하며, `meal.json`과 `meal-next.json`이 모두 일치하면 canonical `meal.json`을 우선한다. 일치하는 파일이 없으면 이전 주 메뉴로 폴백하지 않는다. mtime은 matching `meal-next.json`을 KST 일요일에 이미 한 번 갱신했는지 판단하는 용도로만 사용한다.
 
 `info.json`은 별도 freshness 판정 없이 `/v2/info` refresh 성공 시마다 raw 응답으로 갱신됩니다. Android 위젯은 `info.json`이 없거나 깨졌거나 해당 식당/끼니 운영시간이 없으면 운영상태를 표시하지 않습니다.
 
