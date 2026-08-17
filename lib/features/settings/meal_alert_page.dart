@@ -125,36 +125,43 @@ class _MealAlertPageState extends State<MealAlertPage> {
             _SubGroupLabel(l10n.notificationTimeLabel),
             for (final period in MealAlertPeriod.values)
               _PeriodAlertRow(period: period),
-            // 알림 받을 요일 선택 (일월화수목금토)
+            // 알림 받을 요일 선택 (월화수목금토일)
             const Divider(height: 28, indent: 16, endIndent: 16),
             _SubGroupLabel(l10n.notificationDaysLabel),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final day in _notificationDayOrder) ...[
-                      if (day != _notificationDayOrder.first)
-                        const SizedBox(width: 18),
-                      _DayToggle(
-                        label: _dayLabel(l10n, day),
-                        selected: notification.isDayEnabled(day),
-                        onTap: () {
-                          final current = notification.days;
-                          final next = current.contains(day)
-                              ? current.where((d) => d != day).toSet()
-                              : {...current, day};
-                          // 최소 1개 요일은 유지
-                          if (next.isNotEmpty) {
-                            context
-                                .read<AppSettings>()
-                                .setNotificationDays(next);
-                          }
-                        },
-                      ),
-                    ],
-                  ],
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (final day in _notificationDayOrder) ...[
+                          if (day != _notificationDayOrder.first)
+                            const SizedBox(width: 18),
+                          _DayToggle(
+                            label: _dayLabel(l10n, day),
+                            selected: notification.isDayEnabled(day),
+                            onTap: () {
+                              final current = notification.days;
+                              final next = current.contains(day)
+                                  ? current.where((d) => d != day).toSet()
+                                  : {...current, day};
+                              // 최소 1개 요일은 유지
+                              if (next.isNotEmpty) {
+                                context.read<AppSettings>().setNotificationDays(
+                                  next,
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -306,15 +313,15 @@ class _MealAlertPageState extends State<MealAlertPage> {
   }
 }
 
-/// 요일 토글 표시 순서: 일월화수목금토
+/// 요일 토글 표시 순서: 월화수목금토일
 const List<DayOfWeek> _notificationDayOrder = [
-  DayOfWeek.sun,
   DayOfWeek.mon,
   DayOfWeek.tue,
   DayOfWeek.wed,
   DayOfWeek.thu,
   DayOfWeek.fri,
   DayOfWeek.sat,
+  DayOfWeek.sun,
 ];
 
 String _dayLabel(AppLocalizations l10n, DayOfWeek day) => switch (day) {

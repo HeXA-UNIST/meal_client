@@ -36,7 +36,10 @@ class AllergySelectionPage extends StatelessWidget {
     final enabledIds = context.watch<AppSettings>().allergy.enabledIds;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.manageAllergies)),
+      appBar: AppBar(
+        scrolledUnderElevation: 0,
+        title: Text(l10n.manageAllergies),
+      ),
       body: ListView.builder(
         itemCount: _allergenNames.length,
         itemBuilder: (context, index) {
