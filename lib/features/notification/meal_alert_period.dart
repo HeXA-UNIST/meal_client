@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 
@@ -90,15 +91,51 @@ enum MealAlertPeriod {
   }
 }
 
-/// [period]가 검사할 메뉴의 요일을 반환한다.
+/// 실제 시각을 날짜만 가진 KST 달력값으로 정규화한다.
 ///
-/// [kstNow]는 한국 표준시 기준이어야 한다. 밤 알림은 다음 날 아침 메뉴를
-/// 검사하므로, 요일 선택도 실행 시점이 아닌 메뉴 대상 날짜를 기준으로 한다.
-DayOfWeek notificationTargetDayFor(MealAlertPeriod period, DateTime kstNow) {
-  final targetDate = period.tomorrow
-      ? kstNow.add(const Duration(days: 1))
-      : kstNow;
-  return DayOfWeek.values[targetDate.weekday - 1];
+/// 반환값은 UTC 표기를 빌린 날짜값일 뿐 실제 시각이 아니다. 다시 [toKst]에
+/// 전달하면 KST 보정이 중복되므로 날짜 비교와 주 시작일 계산에만 사용한다.
+DateTime kstCalendarDate(DateTime instant) {
+  final kst = MealTimeConfig.toKst(instant);
+  return DateTime.utc(kst.year, kst.month, kst.day);
+}
+
+/// [period]가 검사할 메뉴의 KST 날짜를 반환한다.
+DateTime notificationTargetDateFor(MealAlertPeriod period, DateTime instant) {
+  final date = kstCalendarDate(instant);
+  return period.tomorrow ? date.add(const Duration(days: 1)) : date;
+}
+
+/// 날짜만 가진 KST 달력값의 월요일을 반환한다.
+DateTime kstWeekStartFromDate(DateTime kstDate) {
+  return kstDate.subtract(Duration(days: kstDate.weekday - 1));
+}
+
+/// Workmanager 입력에 저장할 날짜값을 생성한다.
+String notificationTargetDateString(DateTime targetDate) {
+  final year = targetDate.year.toString().padLeft(4, '0');
+  final month = targetDate.month.toString().padLeft(2, '0');
+  final day = targetDate.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
+}
+
+/// Workmanager 입력의 날짜값을 날짜만 가진 KST 달력값으로 파싱한다.
+DateTime? notificationTargetDateFromString(Object? value) {
+  if (value is! String || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+    return null;
+  }
+
+  final parts = value.split('-');
+  final year = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final day = int.tryParse(parts[2]);
+  if (year == null || month == null || day == null) return null;
+
+  final parsed = DateTime.utc(year, month, day);
+  if (parsed.year != year || parsed.month != month || parsed.day != day) {
+    return null;
+  }
+  return parsed;
 }
 
 /// 저장된 요일 이름을 알림 요일 집합으로 변환한다.

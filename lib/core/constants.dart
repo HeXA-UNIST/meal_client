@@ -13,6 +13,7 @@ class ApiConstants {
 /// 로컬 저장소 키
 class StorageKeys {
   static const mealCacheFile = 'meal.json';
+  static const nextMealCacheFile = 'meal-next.json';
   static const infoCacheFile = 'info.json';
   static const announcementKey = 'announceTime';
 

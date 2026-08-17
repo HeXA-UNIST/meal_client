@@ -67,23 +67,109 @@ void main() {
     });
   });
 
-  group('알림 메뉴 대상 요일', () {
-    test('밤 알림은 다음 날 아침 메뉴의 요일을 사용한다', () {
-      final thursdayNight = DateTime(2026, 7, 16, 21, 30);
-
-      expect(
-        notificationTargetDayFor(MealAlertPeriod.night, thursdayNight),
-        DayOfWeek.fri,
+  group('알림 대상 주차 로딩', () {
+    test('다음 주 대상은 현재 주 캐시 대신 날짜 지정 API를 사용한다', () async {
+      var currentWeekLoads = 0;
+      String? requestedWeekStart;
+      final previousWeekMeal = WeekMeal.empty();
+      previousWeekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory]
+          .add(_mealWithMenu('지난주 월요일'));
+      final nextWeekMeal = WeekMeal.empty();
+      nextWeekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
+        _mealWithMenu('다음주 월요일'),
       );
+
+      final result = await loadMealForNotificationTarget(
+        targetDate: DateTime.utc(2026, 7, 20),
+        now: DateTime.utc(2026, 7, 19, 12, 30),
+        loadCurrentWeek: () async {
+          currentWeekLoads++;
+          return previousWeekMeal;
+        },
+        loadDatedWeek: (weekStart) async {
+          requestedWeekStart = weekStart;
+          return nextWeekMeal;
+        },
+      );
+
+      expect(result, same(nextWeekMeal));
+      expect(currentWeekLoads, 0);
+      expect(requestedWeekStart, '2026-07-20');
+      final targetMeals = mealsForNotificationTarget(
+        weekMeal: result,
+        targetDate: DateTime.utc(2026, 7, 20),
+        period: MealAlertPeriod.night,
+        cafeteria: Cafeteria.dormitory,
+      );
+      expect(mealContainsKeyword(targetMeals.single, '다음주'), isTrue);
+      expect(mealContainsKeyword(targetMeals.single, '지난주'), isFalse);
     });
 
-    test('오늘 식사 알림은 실행 당일의 요일을 사용한다', () {
-      final thursdayLunch = DateTime(2026, 7, 16, 11);
+    test('현재 주 대상은 기존 캐시 및 갱신 경로를 사용한다', () async {
+      var datedWeekLoads = 0;
+      final currentWeekMeal = WeekMeal.empty();
 
-      expect(
-        notificationTargetDayFor(MealAlertPeriod.lunch, thursdayLunch),
-        DayOfWeek.thu,
+      final result = await loadMealForNotificationTarget(
+        targetDate: DateTime.utc(2026, 7, 19),
+        now: DateTime.utc(2026, 7, 19, 12, 30),
+        loadCurrentWeek: () async => currentWeekMeal,
+        loadDatedWeek: (_) async {
+          datedWeekLoads++;
+          return WeekMeal.empty();
+        },
       );
+
+      expect(result, same(currentWeekMeal));
+      expect(datedWeekLoads, 0);
+    });
+
+    test('지난 대상 날짜는 알림 검사 전에 건너뛴다', () {
+      expect(
+        isNotificationTargetInPast(
+          DateTime.utc(2026, 7, 19),
+          DateTime.utc(2026, 7, 20),
+        ),
+        isTrue,
+      );
+      expect(
+        isNotificationTargetInPast(
+          DateTime.utc(2026, 7, 20),
+          DateTime.utc(2026, 7, 20, 12, 5),
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('구버전 알림 태스크', () {
+    test('대상 날짜가 없으면 검사하지 않고 다음 작업만 재예약한다', () async {
+      var checkCount = 0;
+      var rescheduleCount = 0;
+
+      await handleKeywordNotificationTask(
+        period: MealAlertPeriod.night,
+        targetDateInput: null,
+        runCheck: (_, _) async => checkCount++,
+        reschedule: (_) async => rescheduleCount++,
+      );
+
+      expect(checkCount, 0);
+      expect(rescheduleCount, 1);
+    });
+
+    test('저장된 날짜가 있으면 그 날짜로 검사한 뒤 재예약한다', () async {
+      DateTime? checkedTargetDate;
+      var rescheduleCount = 0;
+
+      await handleKeywordNotificationTask(
+        period: MealAlertPeriod.night,
+        targetDateInput: '2026-07-20',
+        runCheck: (_, targetDate) async => checkedTargetDate = targetDate,
+        reschedule: (_) async => rescheduleCount++,
+      );
+
+      expect(checkedTargetDate, DateTime.utc(2026, 7, 20));
+      expect(rescheduleCount, 1);
     });
   });
 
@@ -121,4 +207,15 @@ void main() {
       expect(mealContainsKeyword(meal, 'caesar'), isFalse);
     });
   });
+}
+
+Meal _mealWithMenu(String menu) {
+  return Meal(
+    sections: [
+      MealSection(
+        type: MealSectionType.regular,
+        menu: [MealMenuItem(ko: menu)],
+      ),
+    ],
+  );
 }

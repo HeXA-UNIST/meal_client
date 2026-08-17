@@ -11,29 +11,63 @@ typedef RawMealFetcher = Future<String> Function(String url);
 
 typedef MealResponse = ({WeekMeal weekMeal, WeekMeta weekMeta});
 
-Future<MealResponse> fetchAndCacheMealData({RawMealFetcher? fetch}) async {
+Future<MealResponse> fetchAndCacheMealData({
+  RawMealFetcher? fetch,
+  bool prefetchNextWeek = true,
+}) async {
   final service = fetch == null
       ? _mealRefreshService
       : MealRefreshService(cache: _mealCache, fetchRaw: fetch);
-  return service.refreshMealResponse();
+  return service.refreshMealResponse(prefetchNextWeek: prefetchNextWeek);
 }
 
-Future<MealResponse> getCachedMealData() async {
-  if (!await _mealCache.hasFreshMealCache(DateTime.now())) {
-    throw Exception("Outdated cache");
-  }
-
-  final rawMeal = await _mealCache.readRawMealJson();
+Future<MealResponse> getCachedMealData({
+  MealCache? cache,
+  MealCache? nextWeekCache,
+  DateTime? now,
+}) async {
+  final currentWeekStart = kstWeekStartForInstant(now ?? DateTime.now());
+  final rawMeal = await _readCachedMealForWeek(
+    currentWeekStart,
+    cache: cache ?? _mealCache,
+    nextWeekCache:
+        nextWeekCache ?? MealCache(fileName: StorageKeys.nextMealCacheFile),
+  );
   return (weekMeal: parseRawMeal(rawMeal), weekMeta: parseWeekMeta(rawMeal));
 }
 
-/// 다음 주(또는 임의 주)의 식단을 가져온다. 캐시하지 않는다 — 방문 빈도가 낮은
-/// 보조 화면이라 별도 캐시 슬롯을 두지 않기로 했다 (docs/superpowers/specs/
-/// 2026-07-07-next-week-preview-design.md 참고).
-Future<WeekMeal> fetchNextWeekMealData(
-  String date, {
+Future<String> _readCachedMealForWeek(
+  DateTime weekStart, {
+  required MealCache cache,
+  required MealCache nextWeekCache,
+}) async {
+  final canonical = await cache.readValidatedRawMealJsonForWeek(weekStart);
+  if (canonical != null) return canonical;
+  final next = await nextWeekCache.readValidatedRawMealJsonForWeek(weekStart);
+  if (next != null) return next;
+  throw Exception('Outdated cache');
+}
+
+/// 지정한 주의 식단을 가져온다. 현재 주 캐시에는 저장하지 않는다.
+Future<WeekMeal> fetchMealDataForWeek(
+  String weekStart, {
   RawMealFetcher fetch = fetchRawString,
 }) async {
-  final rawMeal = await fetch(ApiConstants.mealEndpointFor(date));
+  final rawMeal = await fetch(ApiConstants.mealEndpointFor(weekStart));
   return parseRawMeal(rawMeal);
+}
+
+/// 지정 주 식단을 가져와 next-week cache에 저장한다.
+/// 미리보기는 이 한 요청의 결과를 화면 표시와 cache 갱신에 함께 사용한다.
+Future<WeekMeal> fetchAndCacheMealDataForWeek(
+  String weekStart, {
+  RawMealFetcher fetch = fetchRawString,
+  MealCache? nextWeekCache,
+  NextWeekCacheWriteLock? lockNextWeekCache,
+}) {
+  return MealRefreshService(
+    fetchRaw: fetch,
+    nextWeekCache: nextWeekCache,
+    lockNextWeekCache: lockNextWeekCache,
+  ).refreshAndCacheNextWeekData(weekStart);
 }

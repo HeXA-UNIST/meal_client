@@ -8,6 +8,7 @@ import Intents
 private enum WidgetContract {
   static let kind = "BapUWidget"
   static let mealCacheFile = "meal.json"
+  static let nextMealCacheFile = "meal-next.json"
   static let infoCacheFile = "info.json"
   static let closingSoonMinutes = 45
   static let justClosedMinutes = 30
@@ -96,7 +97,12 @@ private struct LocalizedMenu: Decodable {
 }
 
 private struct MealResponse: Decodable {
+  let week: WeekResponse
   let data: [CafeteriaResponse]
+}
+
+private struct WeekResponse: Decodable {
+  let startDate: String
 }
 
 private struct CafeteriaResponse: Decodable {
@@ -346,8 +352,7 @@ struct WidgetCacheReader {
     meal: WidgetMealOfDay,
     selection: WidgetMenuSelection
   ) -> [String] {
-    guard isFreshMealCache(at: date) else { return [] }
-    guard let response: MealResponse = decode(WidgetContract.mealCacheFile) else {
+    guard let response = mealResponse(for: date) else {
       return []
     }
 
@@ -362,6 +367,19 @@ struct WidgetCacheReader {
       .filter { $0.sectionType == "REGULAR" }
       .flatMap(\.menus)
       .map { $0.localizedName(for: languageCode) } ?? []
+  }
+
+  private func mealResponse(for date: Date) -> MealResponse? {
+    let targetWeekStart = kstWeekIdentifier(for: date)
+    for fileName in [WidgetContract.mealCacheFile, WidgetContract.nextMealCacheFile] {
+      guard let response: MealResponse = decode(fileName),
+            response.week.startDate == targetWeekStart
+      else {
+        continue
+      }
+      return response
+    }
+    return nil
   }
 
   private func periodResponse(from info: InfoResponse, at date: Date) -> OperatingPeriodResponse {
@@ -417,18 +435,6 @@ struct WidgetCacheReader {
     let url = container.appendingPathComponent(fileName)
     guard let data = try? Data(contentsOf: url) else { return nil }
     return try? decoder.decode(T.self, from: data)
-  }
-
-  private func isFreshMealCache(at date: Date) -> Bool {
-    guard let container = containerURL else { return false }
-
-    let url = container.appendingPathComponent(WidgetContract.mealCacheFile)
-    guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
-          let modifiedAt = values.contentModificationDate
-    else {
-      return false
-    }
-    return kstWeekIdentifier(for: modifiedAt) == kstWeekIdentifier(for: date)
   }
 
   private func kstWeekIdentifier(for date: Date) -> String {

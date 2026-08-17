@@ -1,29 +1,53 @@
 import 'package:flutter/material.dart';
 
-import 'package:meal_client/core/network/http_client.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'week_menu_scaffold.dart';
 
-class NextWeekPreviewPage extends StatelessWidget {
+typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
+
+class NextWeekPreviewPage extends StatefulWidget {
   const NextWeekPreviewPage({
     super.key,
     required this.nextWeekStartFuture,
     required this.appInfo,
-    this.mealFetcher = fetchRawString,
+    this.refreshNextWeekStart,
+    this.loadDatedWeek,
   });
 
   final Future<String?> nextWeekStartFuture;
   final Future<AppInfo> appInfo;
-  final RawMealFetcher mealFetcher;
+  final Future<String?> Function()? refreshNextWeekStart;
+  final DatedWeekMealLoader? loadDatedWeek;
+
+  @override
+  State<NextWeekPreviewPage> createState() => _NextWeekPreviewPageState();
+}
+
+class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
+  late final Future<String?> _nextWeekStartFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _nextWeekStartFuture = widget.nextWeekStartFuture.then((nextWeekStart) {
+      if (nextWeekStart != null) return nextWeekStart;
+      return (widget.refreshNextWeekStart ?? _refreshNextWeekStart)();
+    });
+  }
+
+  Future<String?> _refreshNextWeekStart() async {
+    final response = await fetchAndCacheMealData(prefetchNextWeek: false);
+    return response.weekMeta.nextWeekStart;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return FutureBuilder<String?>(
-      future: nextWeekStartFuture,
+      future: _nextWeekStartFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return _MessageScaffold(
@@ -51,8 +75,8 @@ class NextWeekPreviewPage extends StatelessWidget {
 
         return _NextWeekMenu(
           nextWeekStart: nextWeekStart,
-          appInfo: appInfo,
-          mealFetcher: mealFetcher,
+          appInfo: widget.appInfo,
+          loadDatedWeek: widget.loadDatedWeek ?? fetchAndCacheMealDataForWeek,
         );
       },
     );
@@ -78,12 +102,12 @@ class _NextWeekMenu extends StatefulWidget {
   const _NextWeekMenu({
     required this.nextWeekStart,
     required this.appInfo,
-    required this.mealFetcher,
+    required this.loadDatedWeek,
   });
 
   final String nextWeekStart;
   final Future<AppInfo> appInfo;
-  final RawMealFetcher mealFetcher;
+  final DatedWeekMealLoader loadDatedWeek;
 
   @override
   State<_NextWeekMenu> createState() => _NextWeekMenuState();
@@ -96,11 +120,8 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
   @override
   void initState() {
     super.initState();
-    _mondayOfWeek = DateTime.parse(widget.nextWeekStart);
-    _mealFuture = fetchNextWeekMealData(
-      widget.nextWeekStart,
-      fetch: widget.mealFetcher,
-    );
+    _mondayOfWeek = parseWeekStartDate(widget.nextWeekStart);
+    _mealFuture = widget.loadDatedWeek(widget.nextWeekStart);
   }
 
   @override

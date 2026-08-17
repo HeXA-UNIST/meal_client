@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:workmanager/workmanager.dart';
 
-import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'meal_alert_period.dart';
 
@@ -25,7 +24,7 @@ MealAlertPeriod? periodFromTaskName(String taskName) {
 /// [enabledDays]의 메뉴 요일에 해당하는 가장 가까운 실행 시각을 반환한다.
 ///
 /// Workmanager의 실행 시각은 기기 현지 시간이지만, 메뉴와 워커의 요일 판정은
-/// KST를 사용한다. 따라서 후보 시각을 KST로 환산한 뒤 메뉴 대상 요일을 비교한다.
+/// KST를 사용한다. 따라서 후보 시각에서 메뉴 대상 날짜를 구해 요일을 비교한다.
 /// 선택된 요일이 없으면 알림을 예약하지 않는다.
 DateTime? nextEnabledFireTime({
   required MealAlertPeriod period,
@@ -53,8 +52,8 @@ DateTime? nextEnabledFireTime({
   }
 
   for (var offset = 0; offset < 7; offset++) {
-    final kstCandidate = MealTimeConfig.toKst(candidate);
-    final targetDay = notificationTargetDayFor(period, kstCandidate);
+    final targetDate = notificationTargetDateFor(period, candidate);
+    final targetDay = DayOfWeek.values[targetDate.weekday - 1];
     if (enabledDays.contains(targetDay)) return candidate;
 
     candidate = DateTime(
@@ -76,6 +75,15 @@ typedef KeywordNotificationScheduler =
     );
 
 typedef KeywordNotificationCanceler = Future<void> Function();
+
+typedef KeywordTaskCanceler = Future<void> Function(String uniqueName);
+typedef KeywordTaskRegistrar =
+    Future<void> Function({
+      required String uniqueName,
+      required String taskName,
+      required Duration initialDelay,
+      required Map<String, dynamic> inputData,
+    });
 
 /// 예약 요청의 최종 처리 결과.
 enum NotificationScheduleOutcome { scheduled, superseded, canceled, disposed }
@@ -198,13 +206,16 @@ class NotificationScheduleCoordinator {
 Future<void> scheduleKeywordNotificationFor(
   MealAlertPeriod period,
   TimeOfDay alertTime,
-  Set<DayOfWeek> enabledDays,
-) async {
+  Set<DayOfWeek> enabledDays, {
+  DateTime Function()? nowProvider,
+  KeywordTaskCanceler? cancelTask,
+  KeywordTaskRegistrar? registerTask,
+}) async {
   final taskName = taskNameOf(period);
   try {
-    await Workmanager().cancelByUniqueName(taskName);
+    await (cancelTask ?? Workmanager().cancelByUniqueName)(taskName);
 
-    final now = DateTime.now();
+    final now = (nowProvider ?? DateTime.now)();
     final next = nextEnabledFireTime(
       period: period,
       alertTime: alertTime,
@@ -213,6 +224,7 @@ Future<void> scheduleKeywordNotificationFor(
     );
     if (next == null) return;
     final delay = next.difference(now);
+    final targetDate = notificationTargetDateFor(period, next);
 
     assert(() {
       debugPrint(
@@ -222,12 +234,11 @@ Future<void> scheduleKeywordNotificationFor(
       return true;
     }());
 
-    await Workmanager().registerOneOffTask(
-      taskName,
-      taskName,
+    await (registerTask ?? _registerKeywordTask)(
+      uniqueName: taskName,
+      taskName: taskName,
       initialDelay: delay,
-      constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      inputData: {'targetDate': notificationTargetDateString(targetDate)},
     );
   } catch (e, st) {
     assert(() {
@@ -235,6 +246,22 @@ Future<void> scheduleKeywordNotificationFor(
       return true;
     }());
   }
+}
+
+Future<void> _registerKeywordTask({
+  required String uniqueName,
+  required String taskName,
+  required Duration initialDelay,
+  required Map<String, dynamic> inputData,
+}) {
+  return Workmanager().registerOneOffTask(
+    uniqueName,
+    taskName,
+    initialDelay: initialDelay,
+    constraints: Constraints(networkType: NetworkType.connected),
+    existingWorkPolicy: ExistingWorkPolicy.replace,
+    inputData: inputData,
+  );
 }
 
 Future<void> cancelKeywordNotificationFor(MealAlertPeriod period) async {

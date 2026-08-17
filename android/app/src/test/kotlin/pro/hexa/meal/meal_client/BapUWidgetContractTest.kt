@@ -7,6 +7,7 @@ class BapUWidgetContractTest {
     @Test
     fun `위젯 cache 파일명과 API enum literal은 Dart 및 backend 계약과 일치한다`() {
         assertEquals("meal.json", BapUWidgetContract.MEAL_CACHE_FILE)
+        assertEquals("meal-next.json", BapUWidgetContract.NEXT_MEAL_CACHE_FILE)
         assertEquals("info.json", BapUWidgetContract.INFO_CACHE_FILE)
         assertEquals("Asia/Seoul", BapUWidgetContract.KST_ZONE_ID)
 

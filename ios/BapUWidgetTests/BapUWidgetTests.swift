@@ -153,6 +153,60 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertTrue(minuteValues.contains(13 * 60 + 31))
   }
 
+  func testMondayUsesSundayPrefetchedNextWeekCache() throws {
+    let sunday = try kstDate(year: 2026, month: 8, day: 9, hour: 20, minute: 0)
+    let monday = try kstDate(year: 2026, month: 8, day: 10, hour: 12, minute: 0)
+    try writeInfoCache()
+    try writeMealCache(modifiedAt: sunday)
+    try writeMealCache(
+      fileName: "meal-next.json",
+      weekStart: "2026-08-10",
+      modifiedAt: sunday
+    )
+
+    let snapshot = WidgetCacheReader(containerURL: cacheDirectory).snapshot(at: monday)
+
+    XCTAssertEqual(snapshot.meal, .lunch)
+    XCTAssertEqual(snapshot.menu, ["쌀밥", "된장찌개"])
+  }
+
+  func testCanonicalMealCacheWinsWhenBothFilesMatchMonday() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 10, hour: 12, minute: 0)
+    try writeInfoCache()
+    try writeMealCache(weekStart: "2026-08-10", modifiedAt: date, menuName: "canonical")
+    try writeMealCache(
+      fileName: "meal-next.json",
+      weekStart: "2026-08-10",
+      modifiedAt: date,
+      menuName: "prefetched"
+    )
+
+    XCTAssertEqual(
+      WidgetCacheReader(containerURL: cacheDirectory).snapshot(at: date).menu.first,
+      "canonical"
+    )
+  }
+
+  func testCorruptCanonicalMealCacheFallsBackToMatchingNextCache() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 10, hour: 12, minute: 0)
+    try writeInfoCache()
+    try #"{"week":{"startDate":"2026-08-10"},"data":"broken"}"#.write(
+      to: cacheDirectory.appendingPathComponent("meal.json"),
+      atomically: true,
+      encoding: .utf8
+    )
+    try writeMealCache(
+      fileName: "meal-next.json",
+      weekStart: "2026-08-10",
+      modifiedAt: date
+    )
+
+    XCTAssertEqual(
+      WidgetCacheReader(containerURL: cacheDirectory).snapshot(at: date).menu.first,
+      "쌀밥"
+    )
+  }
+
   private func writeInfoCache() throws {
     let json = #"""
     {
@@ -187,9 +241,15 @@ final class BapUWidgetTests: XCTestCase {
     )
   }
 
-  private func writeMealCache(modifiedAt: Date) throws {
+  private func writeMealCache(
+    fileName: String = "meal.json",
+    weekStart: String = "2026-08-03",
+    modifiedAt: Date,
+    menuName: String = "쌀밥"
+  ) throws {
     let json = #"""
     {
+      "week": {"startDate": "\(weekStart)"},
       "data": [
         {
           "cafeteria": "DORMITORY",
@@ -201,7 +261,7 @@ final class BapUWidgetTests: XCTestCase {
                 "menuType": "KOREAN",
                 "sections": [
                   {"sectionType": "REGULAR", "menus": [
-                    {"ko": "쌀밥", "en": "Rice"},
+                    {"ko": "\(menuName)", "en": "Rice"},
                     {"ko": "된장찌개", "en": null}
                   ]},
                   {"sectionType": "SALAD", "menus": [
@@ -248,7 +308,7 @@ final class BapUWidgetTests: XCTestCase {
       ]
     }
     """#
-    let url = cacheDirectory.appendingPathComponent("meal.json")
+    let url = cacheDirectory.appendingPathComponent(fileName)
     try json.write(to: url, atomically: true, encoding: .utf8)
     try FileManager.default.setAttributes(
       [.modificationDate: modifiedAt],

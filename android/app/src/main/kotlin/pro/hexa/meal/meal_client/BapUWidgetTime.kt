@@ -3,6 +3,8 @@ package pro.hexa.meal.meal_client
 import java.util.Calendar
 import java.util.GregorianCalendar
 import java.util.TimeZone
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 object BapUWidgetTime {
     val kstTimeZone: TimeZone = TimeZone.getTimeZone(BapUWidgetContract.KST_ZONE_ID)
@@ -36,6 +38,19 @@ object BapUWidgetTime {
         Calendar.SATURDAY -> BapUWidgetContract.Api.DAY_SATURDAY
         Calendar.SUNDAY -> BapUWidgetContract.Api.DAY_SUNDAY
         else -> BapUWidgetContract.Api.DAY_MONDAY
+    }
+
+    fun kstWeekStartApiValue(calendar: Calendar): String {
+        val monday = calendar.clone() as Calendar
+        monday.set(Calendar.HOUR_OF_DAY, 0)
+        monday.set(Calendar.MINUTE, 0)
+        monday.set(Calendar.SECOND, 0)
+        monday.set(Calendar.MILLISECOND, 0)
+        val daysSinceMonday = (monday.get(Calendar.DAY_OF_WEEK) + 5) % 7
+        monday.add(Calendar.DAY_OF_MONTH, -daysSinceMonday)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+            timeZone = kstTimeZone
+        }.format(monday.time)
     }
 }
 

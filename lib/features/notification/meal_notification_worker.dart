@@ -10,6 +10,7 @@ import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
+import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'meal_alert_period.dart';
@@ -27,6 +28,7 @@ Future<void> testMealKeywordCheck({
   MealAlertPeriod period = MealAlertPeriod.lunch,
 }) => _runMealKeywordCheck(
   period: period,
+  targetDate: notificationTargetDateFor(period, DateTime.now()),
   keywordsOverride: keywordsOverride,
   checkDay: false, // 테스트는 요일 필터 무시하고 매칭 로직만 확인
 );
@@ -46,9 +48,10 @@ void callbackDispatcher() {
     final period = periodFromTaskName(taskName);
     if (period != null) {
       try {
-        await _runMealKeywordCheck(period: period);
-        // 다음날 같은 시각으로 이 시간대 태스크를 다시 등록
-        await _rescheduleForNextDay(period);
+        await handleKeywordNotificationTask(
+          period: period,
+          targetDateInput: inputData?['targetDate'],
+        );
       } catch (e, stackTrace) {
         debugPrint('[BapU] keyword notification worker failed: $e');
         debugPrintStack(stackTrace: stackTrace);
@@ -57,6 +60,35 @@ void callbackDispatcher() {
     }
     return true;
   });
+}
+
+typedef MealKeywordCheckRunner =
+    Future<void> Function(MealAlertPeriod period, DateTime targetDate);
+typedef KeywordNotificationRescheduler =
+    Future<void> Function(MealAlertPeriod period);
+
+/// Workmanager 태스크의 저장된 메뉴 대상 날짜를 처리하고 다음 작업을 예약한다.
+///
+/// 이전 버전이 만든 태스크에는 대상 날짜가 없으므로 검사하지 않고 다음 작업만
+/// 새 형식으로 예약한다. 지연 실행 시 실제 실행 시각으로 대상을 다시 계산하면
+/// 일요일 밤 알림이 화요일 메뉴를 검사할 수 있기 때문이다.
+Future<void> handleKeywordNotificationTask({
+  required MealAlertPeriod period,
+  required Object? targetDateInput,
+  MealKeywordCheckRunner? runCheck,
+  KeywordNotificationRescheduler? reschedule,
+}) async {
+  final targetDate = notificationTargetDateFromString(targetDateInput);
+  if (targetDate == null) {
+    debugPrint('[BapU] legacy keyword notification task skipped');
+  } else {
+    await (runCheck ??
+        (period, targetDate) => _runMealKeywordCheck(
+          period: period,
+          targetDate: targetDate,
+        ))(period, targetDate);
+  }
+  await (reschedule ?? _rescheduleForNextDay)(period);
 }
 
 Future<bool> refreshBackgroundMealAndInfoCaches({
@@ -187,6 +219,7 @@ Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
 
 Future<void> _runMealKeywordCheck({
   required MealAlertPeriod period,
+  required DateTime targetDate,
   List<String>? keywordsOverride,
   bool checkDay = true,
 }) async {
@@ -195,8 +228,9 @@ Future<void> _runMealKeywordCheck({
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
 
-  final kstNow = MealTimeConfig.toKst(DateTime.now());
-  final targetDay = notificationTargetDayFor(period, kstNow);
+  final now = DateTime.now();
+  if (isNotificationTargetInPast(targetDate, now)) return;
+  final targetDay = DayOfWeek.values[targetDate.weekday - 1];
 
   // 요일 (키가 없으면 모든 요일이 기본값)
   if (checkDay && !_loadNotificationDays(prefs).contains(targetDay)) return;
@@ -220,12 +254,13 @@ Future<void> _runMealKeywordCheck({
 
   final WeekMeal weekMeal;
   try {
-    weekMeal = await MealRefreshService().getFreshOrRefreshMealData();
+    weekMeal = await loadMealForNotificationTarget(
+      targetDate: targetDate,
+      now: now,
+    );
   } catch (_) {
     return;
   }
-
-  final mealOfDay = period.mealOfDay;
 
   // 키워드별 매칭 결과: { "떡갈비" -> ["기숙사 한식"], "국" -> [...] }
   final matchesByKeyword = <String, List<String>>{};
@@ -234,7 +269,12 @@ Future<void> _runMealKeywordCheck({
     final matches = <String>[];
 
     for (final cafeteria in cafeterias) {
-      final meals = weekMeal[targetDay][mealOfDay][cafeteria];
+      final meals = mealsForNotificationTarget(
+        weekMeal: weekMeal,
+        targetDate: targetDate,
+        period: period,
+        cafeteria: cafeteria,
+      );
 
       if (cafeteria == Cafeteria.dormitory) {
         // 기숙사는 한식·할랄을 각각 구분해 표시
@@ -286,6 +326,47 @@ Future<void> _runMealKeywordCheck({
 
   await initNotifications();
   await showMealKeywordNotification(title: title, body: body);
+}
+
+/// [targetDate]가 현재 KST 날짜보다 이전인지 반환한다.
+bool isNotificationTargetInPast(DateTime targetDate, DateTime now) {
+  return targetDate.isBefore(kstCalendarDate(now));
+}
+
+typedef CurrentWeekMealLoader = Future<WeekMeal> Function();
+typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
+
+/// 대상 날짜가 현재 주면 기존 캐시 경로를, 아니면 날짜 지정 API를 사용한다.
+///
+/// 날짜 지정 API 결과는 현재 주 캐시에 쓰지 않아 일요일의 다음 주 조회가
+/// `meal.json`을 덮어쓰지 않는다.
+Future<WeekMeal> loadMealForNotificationTarget({
+  required DateTime targetDate,
+  required DateTime now,
+  CurrentWeekMealLoader? loadCurrentWeek,
+  DatedWeekMealLoader? loadDatedWeek,
+}) {
+  final targetWeekStart = kstWeekStartFromDate(targetDate);
+  final currentWeekStart = kstWeekStartFromDate(kstCalendarDate(now));
+  if (targetWeekStart == currentWeekStart) {
+    return (loadCurrentWeek ??
+        () => MealRefreshService().getFreshOrRefreshMealData())();
+  }
+
+  return (loadDatedWeek ?? fetchMealDataForWeek)(
+    notificationTargetDateString(targetWeekStart),
+  );
+}
+
+/// 주차 조회 결과에서 저장된 메뉴 대상 날짜의 식단만 꺼낸다.
+List<Meal> mealsForNotificationTarget({
+  required WeekMeal weekMeal,
+  required DateTime targetDate,
+  required MealAlertPeriod period,
+  required Cafeteria cafeteria,
+}) {
+  final targetDay = DayOfWeek.values[targetDate.weekday - 1];
+  return weekMeal[targetDay][period.mealOfDay][cafeteria];
 }
 
 /// 알림 대상 섹션의 한글/영문 메뉴에서 소문자 키워드를 찾는다.

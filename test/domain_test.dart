@@ -627,5 +627,11 @@ void main() {
 
       expect(weekMeta.nextWeekStart, isNull);
     });
+
+    test('week startDate는 월요일 YYYY-MM-DD 형식만 허용한다', () {
+      expect(() => parseWeekStartDate('2026-6-22'), throwsFormatException);
+      expect(() => parseWeekStartDate('2026-06-23'), throwsFormatException);
+      expect(parseWeekStartDate('2026-06-22'), DateTime(2026, 6, 22));
+    });
   });
 }

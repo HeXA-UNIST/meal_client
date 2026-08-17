@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async {
           fetchCount++;
           return _rawMealJson('새 메뉴');
@@ -38,6 +40,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async => _rawMealJson('새 메뉴'),
       );
 
@@ -57,6 +60,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async {
           fetchCount++;
           return _rawMealJson('복구 메뉴');
@@ -80,6 +84,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
       );
 
@@ -96,6 +101,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
       );
 
@@ -110,6 +116,424 @@ void main() {
       expect(result.weekMeta.nextWeekStart, isNull);
     });
 
+    test('nextWeekStart가 새로 공개되면 dated 응답을 next cache에 저장', () async {
+      final files = <String, String>{};
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) {
+            return _rawMealJson('다음 주', weekStart: '2026-04-20');
+          }
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+
+      await service.refreshMealResponse(now: DateTime.utc(2026, 4, 14));
+
+      expect(
+        parseWeekMeta(files['meal-next.json']!).startDate,
+        DateTime(2026, 4, 20),
+      );
+    });
+
+    test('다른 주 응답은 next cache에 저장하지 않는다', () async {
+      final files = <String, String>{};
+      final service = MealRefreshService(
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (_) async => _rawMealJson('다른 주', weekStart: '2026-04-13'),
+      );
+
+      await expectLater(
+        service.refreshAndCacheNextWeekData('2026-04-20'),
+        throwsFormatException,
+      );
+
+      expect(files, isEmpty);
+    });
+
+    test('자동 선반입 lock timeout은 cache 저장만 건너뛴다', () async {
+      final files = <String, String>{};
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        lockNextWeekCache: _lockTimeout,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) {
+            return _rawMealJson('다음 주', weekStart: '2026-04-20');
+          }
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+
+      await service.refreshMealResponse(now: DateTime.utc(2026, 4, 14));
+
+      expect(files.containsKey('meal-next.json'), isFalse);
+    });
+
+    test('미리보기 lock timeout은 검증한 식단 표시를 막지 않는다', () async {
+      final files = <String, String>{};
+      final service = MealRefreshService(
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        lockNextWeekCache: _lockTimeout,
+        fetchRaw: (_) async => _rawMealJson('다음 주', weekStart: '2026-04-20'),
+      );
+
+      final weekMeal = await service.refreshAndCacheNextWeekData('2026-04-20');
+
+      expect(_firstDormitoryBreakfastMenu(weekMeal), contains('다음 주'));
+      expect(files.containsKey('meal-next.json'), isFalse);
+    });
+
+    test('일요일 요청이 월요일에 끝나면 지난 주 응답을 canonical cache에 쓰지 않는다', () async {
+      var now = DateTime.utc(2026, 4, 19, 14, 59);
+      final files = <String, String>{};
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        clock: () => now,
+        fetchRaw: (_) async {
+          now = DateTime.utc(2026, 4, 19, 15);
+          return _rawMealJson('일요일 응답');
+        },
+      );
+
+      await service.refreshMealResponse(prefetchNextWeek: false);
+
+      expect(files, isEmpty);
+    });
+
+    test('평일에는 일치하는 next cache를 다시 선반입하지 않는다', () async {
+      final files = <String, String>{
+        'meal-next.json': _rawMealJson('기존', weekStart: '2026-04-20'),
+      };
+      var datedFetches = 0;
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) datedFetches++;
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+
+      await service.refreshMealResponse(now: DateTime.utc(2026, 4, 14));
+
+      expect(datedFetches, 0);
+    });
+
+    test('공유 위젯 cache를 지원하지 않는 플랫폼은 자동 선반입을 하지 않는다', () async {
+      var datedFetches = 0;
+      final service = MealRefreshService(
+        cache: _memoryMealCache(
+          rawJson: _rawMealJson('이전'),
+          updatedAt: DateTime.utc(2026, 4, 13),
+        ),
+        supportsSharedCache: false,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) datedFetches++;
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+
+      await service.refreshMealResponse(now: DateTime.utc(2026, 4, 14));
+
+      expect(datedFetches, 0);
+    });
+
+    test('일요일에는 이전 기록을 한 번만 갱신하고 같은 날 재시도하지 않는다', () async {
+      final files = <String, String>{
+        'meal-next.json': _rawMealJson('이전', weekStart: '2026-04-20'),
+      };
+      var updatedAt = DateTime.utc(2026, 4, 18, 3);
+      var datedFetches = 0;
+      final nextCache = MealCache(
+        fileName: 'meal-next.json',
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = DateTime.utc(2026, 4, 19, 3);
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) {
+            datedFetches++;
+            return _rawMealJson('일요일 갱신', weekStart: '2026-04-20');
+          }
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+      final sunday = DateTime.utc(2026, 4, 19, 3);
+
+      await service.refreshMealResponse(now: sunday);
+      await service.refreshMealResponse(now: sunday);
+
+      expect(datedFetches, 1);
+    });
+
+    test('일요일 미리보기가 저장한 next cache는 자동 선반입을 충족한다', () async {
+      final files = <String, String>{};
+      var updatedAt = DateTime.utc(2026, 4, 18);
+      final nextCache = MealCache(
+        fileName: 'meal-next.json',
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = DateTime.utc(2026, 4, 19, 3);
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      await MealRefreshService(
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (_) async => _rawMealJson('미리보기', weekStart: '2026-04-20'),
+      ).refreshAndCacheNextWeekData('2026-04-20');
+
+      var datedFetches = 0;
+      await MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) datedFetches++;
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      ).refreshMealResponse(now: DateTime.utc(2026, 4, 19, 3));
+
+      expect(datedFetches, 0);
+      expect(files['meal-next.json'], contains('미리보기'));
+    });
+
+    test('nextWeekStart가 바뀌면 평일에도 새 주를 즉시 선반입한다', () async {
+      final files = <String, String>{
+        'meal-next.json': _rawMealJson('이전', weekStart: '2026-04-20'),
+      };
+      var requestedUrl = '';
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (url) async {
+          requestedUrl = url;
+          return url.endsWith('/2026-04-27')
+              ? _rawMealJson('새 다음 주', weekStart: '2026-04-27')
+              : _rawMealJson('이번 주', nextWeekStart: '2026-04-27');
+        },
+      );
+
+      await service.refreshMealResponse(now: DateTime.utc(2026, 4, 14));
+
+      expect(requestedUrl, endsWith('/2026-04-27'));
+      expect(
+        parseWeekMeta(files['meal-next.json']!).startDate,
+        DateTime(2026, 4, 27),
+      );
+    });
+
+    test('월요일 preview가 쓴 next cache는 일요일 자동 선반입이 덮어쓰지 않는다', () async {
+      final files = <String, String>{};
+      var updatedAt = DateTime.utc(2026, 4, 18);
+      var previewWriteAt = DateTime.utc(2026, 4, 19, 15);
+      final nextCache = MealCache(
+        fileName: 'meal-next.json',
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = previewWriteAt;
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      final autoDatedResponse = Completer<String>();
+      final datedFetchStarted = Completer<void>();
+      final automatic = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) {
+            datedFetchStarted.complete();
+            return autoDatedResponse.future;
+          }
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+
+      final automaticFuture = automatic.refreshMealResponse(
+        now: DateTime.utc(2026, 4, 19, 3),
+      );
+      await datedFetchStarted.future;
+      await MealRefreshService(
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (_) async => _rawMealJson('preview', weekStart: '2026-04-20'),
+      ).refreshAndCacheNextWeekData('2026-04-20');
+      autoDatedResponse.complete(
+        _rawMealJson('automatic', weekStart: '2026-04-20'),
+      );
+      await automaticFuture;
+
+      expect(files['meal-next.json'], contains('preview'));
+    });
+
+    test('월요일에 nextWeekStart가 바뀌면 늦은 일요일 자동 응답을 버린다', () async {
+      final files = <String, String>{};
+      var updatedAt = DateTime.utc(2026, 4, 18);
+      final nextCache = MealCache(
+        fileName: 'meal-next.json',
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = DateTime.utc(2026, 4, 19, 15);
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      final autoResponse = Completer<String>();
+      final autoStarted = Completer<void>();
+      final automatic = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (url) async {
+          if (url.endsWith('/2026-04-20')) {
+            autoStarted.complete();
+            return autoResponse.future;
+          }
+          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+        },
+      );
+
+      final automaticFuture = automatic.refreshMealResponse(
+        now: DateTime.utc(2026, 4, 19, 3),
+      );
+      await autoStarted.future;
+      await MealRefreshService(
+        nextWeekCache: nextCache,
+        lockNextWeekCache: _withoutLock,
+        fetchRaw: (_) async => _rawMealJson('new', weekStart: '2026-04-27'),
+      ).refreshAndCacheNextWeekData('2026-04-27');
+      autoResponse.complete(_rawMealJson('old', weekStart: '2026-04-20'));
+      await automaticFuture;
+
+      expect(
+        parseWeekMeta(files['meal-next.json']!).startDate,
+        DateTime(2026, 4, 27),
+      );
+    });
+
+    test('동시에 시작한 자동 선반입은 같은 주에 먼저 저장한 응답을 유지한다', () async {
+      final files = <String, String>{};
+      var updatedAt = DateTime.utc(2026, 4, 18);
+      final nextCache = MealCache(
+        fileName: 'meal-next.json',
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = DateTime.utc(2026, 4, 19, 3);
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      final firstResponse = Completer<String>();
+      final secondResponse = Completer<String>();
+      final firstStarted = Completer<void>();
+      final secondStarted = Completer<void>();
+      MealRefreshService automatic(
+        Completer<String> response,
+        Completer<void> started,
+      ) {
+        return MealRefreshService(
+          cache: _mapMealCache(files, 'meal.json'),
+          nextWeekCache: nextCache,
+          lockNextWeekCache: _withoutLock,
+          fetchRaw: (url) async {
+            if (url.endsWith('/2026-04-20')) {
+              started.complete();
+              return response.future;
+            }
+            return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+          },
+        );
+      }
+
+      final first = automatic(
+        firstResponse,
+        firstStarted,
+      ).refreshMealResponse(now: DateTime.utc(2026, 4, 19, 3));
+      final second = automatic(
+        secondResponse,
+        secondStarted,
+      ).refreshMealResponse(now: DateTime.utc(2026, 4, 19, 3));
+      await Future.wait([firstStarted.future, secondStarted.future]);
+      secondResponse.complete(_rawMealJson('두 번째', weekStart: '2026-04-20'));
+      await second;
+      firstResponse.complete(_rawMealJson('첫 번째', weekStart: '2026-04-20'));
+      await first;
+
+      expect(files['meal-next.json'], contains('두 번째'));
+    });
+
+    test('동시에 시작한 자동 선반입은 더 새로운 주를 이전 주 응답으로 되돌리지 않는다', () async {
+      final files = <String, String>{};
+      var updatedAt = DateTime.utc(2026, 4, 18);
+      final nextCache = MealCache(
+        fileName: 'meal-next.json',
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = DateTime.utc(2026, 4, 19, 3);
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      final olderResponse = Completer<String>();
+      final newerResponse = Completer<String>();
+      final olderStarted = Completer<void>();
+      final newerStarted = Completer<void>();
+      MealRefreshService automatic(
+        String nextWeekStart,
+        Completer<String> response,
+        Completer<void> started,
+      ) {
+        return MealRefreshService(
+          cache: _mapMealCache(files, 'meal.json'),
+          nextWeekCache: nextCache,
+          lockNextWeekCache: _withoutLock,
+          fetchRaw: (url) async {
+            if (url.endsWith('/$nextWeekStart')) {
+              started.complete();
+              return response.future;
+            }
+            return _rawMealJson('이번 주', nextWeekStart: nextWeekStart);
+          },
+        );
+      }
+
+      final older = automatic(
+        '2026-04-20',
+        olderResponse,
+        olderStarted,
+      ).refreshMealResponse(now: DateTime.utc(2026, 4, 19, 3));
+      final newer = automatic(
+        '2026-04-27',
+        newerResponse,
+        newerStarted,
+      ).refreshMealResponse(now: DateTime.utc(2026, 4, 19, 3));
+      await Future.wait([olderStarted.future, newerStarted.future]);
+      newerResponse.complete(_rawMealJson('새 주', weekStart: '2026-04-27'));
+      await newer;
+      olderResponse.complete(_rawMealJson('이전 주', weekStart: '2026-04-20'));
+      await older;
+
+      expect(
+        parseWeekMeta(files['meal-next.json']!).startDate,
+        DateTime(2026, 4, 27),
+      );
+    });
+
     test('refreshMealData는 JSON 객체 응답을 캐시에 쓰지 않음', () async {
       String? storedRaw;
       final cache = _memoryMealCache(
@@ -119,6 +543,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async => '{"error":"temporary"}',
       );
 
@@ -136,6 +561,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: cache,
+        clock: _testClock,
         fetchRaw: (_) async => '[]',
       );
 
@@ -150,6 +576,7 @@ void main() {
           readFile: (_) async => _rawMealJson('이전 메뉴'),
           readLastModified: (_) async => DateTime.utc(2026, 4, 13),
         ),
+        clock: _testClock,
         fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
       );
 
@@ -165,6 +592,7 @@ void main() {
           readFile: (_) async => _rawMealJson('이전 메뉴'),
           readLastModified: (_) async => DateTime.utc(2026, 4, 13),
         ),
+        clock: _testClock,
         fetchRaw: (_) async => _rawMealJson('다운로드 메뉴'),
         throwOnCacheWriteFailure: true,
       );
@@ -190,12 +618,16 @@ MealCache _memoryMealCache({
   );
 }
 
-String _rawMealJson(String menu) {
+String _rawMealJson(
+  String menu, {
+  String weekStart = '2026-04-13',
+  String? nextWeekStart,
+}) {
   return jsonEncode({
     'week': {
-      'startDate': '2026-04-13',
+      'startDate': weekStart,
       'isCurrentWeek': true,
-      'nextWeekStart': null,
+      'nextWeekStart': nextWeekStart,
     },
     'lastUpdated': '2026-04-13T09:00:00+09:00',
     'data': [
@@ -228,6 +660,23 @@ String _rawMealJson(String menu) {
     ],
   });
 }
+
+MealCache _mapMealCache(Map<String, String> files, String fileName) =>
+    MealCache(
+      fileName: fileName,
+      writeFile: (name, data) async => files[name] = data,
+      readFile: (name) async => files[name]!,
+      readLastModified: (_) async => DateTime.utc(2026, 4, 14),
+    );
+
+/// 정책 판정만 검증하므로 실제 파일 marker lock은 의도적으로 우회한다.
+Future<void> _withoutLock(Future<void> Function() action) => action();
+
+Future<void> _lockTimeout(Future<void> Function() _) async {
+  throw TimeoutException('locked');
+}
+
+DateTime _testClock() => DateTime.utc(2026, 4, 14);
 
 List<String> _firstDormitoryBreakfastMenu(WeekMeal weekMeal) {
   return weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].first

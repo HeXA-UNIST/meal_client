@@ -129,7 +129,7 @@ WeekMeta parseWeekMeta(String jsonStr) {
   final root = _requiredMap(jsonDecode(jsonStr), 'root');
   final weekJson = _requiredMap(root['week'], 'week');
   return WeekMeta(
-    startDate: DateTime.parse(
+    startDate: parseWeekStartDate(
       _requiredString(weekJson['startDate'], 'week.startDate'),
     ),
     isCurrentWeek: _requiredBool(
@@ -141,6 +141,23 @@ WeekMeta parseWeekMeta(String jsonStr) {
       'week.nextWeekStart',
     ),
   );
+}
+
+/// API의 주 시작일은 KST 달력 기준 월요일을 YYYY-MM-DD로 표현한다.
+/// 느슨한 DateTime.parse 허용값이 cache identity에 섞이지 않게 한다.
+DateTime parseWeekStartDate(String value) {
+  if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
+    throw FormatException('week startDate must be YYYY-MM-DD.');
+  }
+  final date = DateTime.tryParse(value);
+  if (date == null ||
+      date.year.toString().padLeft(4, '0') != value.substring(0, 4) ||
+      date.month.toString().padLeft(2, '0') != value.substring(5, 7) ||
+      date.day.toString().padLeft(2, '0') != value.substring(8, 10) ||
+      date.weekday != DateTime.monday) {
+    throw FormatException('week startDate must be a Monday.');
+  }
+  return date;
 }
 
 Map<String, dynamic> _requiredMap(Object? value, String fieldName) {

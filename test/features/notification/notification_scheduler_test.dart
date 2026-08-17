@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_alert_period.dart';
@@ -10,22 +9,29 @@ import 'package:meal_client/features/notification/notification_scheduler.dart';
 
 void main() {
   group('nextEnabledFireTime', () {
-    test('밤 알림은 KST 메뉴 대상 요일이 선택된 경우 오늘 밤으로 예약한다', () {
-      final now = DateTime(2026, 7, 16, 20);
-      final expected = DateTime(2026, 7, 16, 21, 30);
-      final targetDay = notificationTargetDayFor(
-        MealAlertPeriod.night,
-        MealTimeConfig.toKst(expected),
-      );
+    test('밤 알림은 월요일 아침이 활성화됐을 때 일요일 밤으로 예약한다', () {
+      final now = DateTime(2026, 7, 19, 20);
+      final expected = DateTime(2026, 7, 19, 21, 30);
 
       final result = nextEnabledFireTime(
         period: MealAlertPeriod.night,
         alertTime: const TimeOfDay(hour: 21, minute: 30),
-        enabledDays: {targetDay},
+        enabledDays: {DayOfWeek.mon},
         now: now,
       );
 
       expect(result, expected);
+    });
+
+    test('월요일 아침이 비활성화되면 일요일 밤에는 예약하지 않는다', () {
+      final result = nextEnabledFireTime(
+        period: MealAlertPeriod.night,
+        alertTime: const TimeOfDay(hour: 21, minute: 30),
+        enabledDays: {DayOfWeek.fri},
+        now: DateTime(2026, 7, 19, 20),
+      );
+
+      expect(result, DateTime(2026, 7, 23, 21, 30));
     });
 
     test('선택되지 않은 메뉴 요일은 건너뛰고 다음 활성 요일로 예약한다', () {
@@ -63,6 +69,63 @@ void main() {
       );
 
       expect(result, isNull);
+    });
+  });
+
+  group('알림 대상 날짜', () {
+    test('일요일 밤은 다음 주 월요일 아침을 대상으로 한다', () {
+      final sundayNight = DateTime.utc(2026, 7, 19, 12, 30);
+
+      expect(
+        notificationTargetDateFor(MealAlertPeriod.night, sundayNight),
+        DateTime.utc(2026, 7, 20),
+      );
+      expect(
+        kstWeekStartFromDate(
+          notificationTargetDateFor(MealAlertPeriod.night, sundayNight),
+        ),
+        DateTime.utc(2026, 7, 20),
+      );
+    });
+
+    test('KST가 아닌 기기 시간대에서도 KST 달력 날짜를 사용한다', () {
+      final deviceTime = DateTime.parse('2026-07-19T17:30:00-07:00');
+
+      expect(kstCalendarDate(deviceTime), DateTime.utc(2026, 7, 20));
+    });
+
+    test('저장한 대상 날짜는 UTC 날짜값으로만 파싱한다', () {
+      expect(
+        notificationTargetDateFromString('2026-07-20'),
+        DateTime.utc(2026, 7, 20),
+      );
+      expect(notificationTargetDateFromString('2026-02-30'), isNull);
+      expect(notificationTargetDateFromString('2026/07/20'), isNull);
+    });
+  });
+
+  group('Workmanager 예약 등록', () {
+    test('일요일 밤 예약은 다음 월요일 대상 날짜를 입력값으로 저장한다', () async {
+      Map<String, dynamic>? capturedInputData;
+
+      await scheduleKeywordNotificationFor(
+        MealAlertPeriod.night,
+        const TimeOfDay(hour: 21, minute: 30),
+        {DayOfWeek.mon},
+        nowProvider: () => DateTime(2026, 7, 19, 20),
+        cancelTask: (_) async {},
+        registerTask:
+            ({
+              required uniqueName,
+              required taskName,
+              required initialDelay,
+              required inputData,
+            }) async {
+              capturedInputData = inputData;
+            },
+      );
+
+      expect(capturedInputData, {'targetDate': '2026-07-20'});
     });
   });
 
