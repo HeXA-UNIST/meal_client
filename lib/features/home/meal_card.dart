@@ -154,9 +154,10 @@ class MealCard extends StatelessWidget {
               child: Text(
                 sectionTitle,
                 style: theme.textTheme.labelSmall!.copyWith(
+                  fontSize: 10.5,
                   color: theme.colorScheme.outline,
                   fontWeight: FontWeight.w600,
-                  height: 1,
+                  height: 1.1,
                 ),
               ),
             ),
