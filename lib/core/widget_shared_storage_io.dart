@@ -60,6 +60,9 @@ Future<DateTime> getLastModifiedOfSharedWidgetFile(String fileName) async {
   return file.lastModified();
 }
 
+bool isMissingSharedWidgetFileError(Object error) =>
+    error is FileSystemException && error.osError?.errorCode == 2;
+
 /// 동일 PID의 foreground/Workmanager isolate가 같은 위젯 cache를 갱신할 때
 /// compare-and-write 구간만 짧게 직렬화한다.
 Future<T> withSharedWidgetFileLock<T>(

@@ -27,24 +27,27 @@ Future<MealResponse> getCachedMealData({
   DateTime? now,
 }) async {
   final currentWeekStart = kstWeekStartForInstant(now ?? DateTime.now());
-  final rawMeal = await _readCachedMealForWeek(
+  return _readCachedMealForWeek(
     currentWeekStart,
     cache: cache ?? _mealCache,
     nextWeekCache:
         nextWeekCache ?? MealCache(fileName: StorageKeys.nextMealCacheFile),
   );
-  return (weekMeal: parseRawMeal(rawMeal), weekMeta: parseWeekMeta(rawMeal));
 }
 
-Future<String> _readCachedMealForWeek(
+Future<MealResponse> _readCachedMealForWeek(
   DateTime weekStart, {
   required MealCache cache,
   required MealCache nextWeekCache,
 }) async {
-  final canonical = await cache.readValidatedRawMealJsonForWeek(weekStart);
-  if (canonical != null) return canonical;
-  final next = await nextWeekCache.readValidatedRawMealJsonForWeek(weekStart);
-  if (next != null) return next;
+  final canonical = await cache.readValidatedMealForWeek(weekStart);
+  if (canonical != null) {
+    return (weekMeal: canonical.weekMeal, weekMeta: canonical.weekMeta);
+  }
+  final next = await nextWeekCache.readValidatedMealForWeek(weekStart);
+  if (next != null) {
+    return (weekMeal: next.weekMeal, weekMeta: next.weekMeta);
+  }
   throw Exception('Outdated cache');
 }
 

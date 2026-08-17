@@ -9,6 +9,11 @@ typedef MealCacheLastModifiedReader =
     Future<DateTime> Function(String fileName);
 
 typedef MealCacheRevision = ({String rawMeal, DateTime updatedAt});
+typedef ValidatedMealCache = ({
+  String rawMeal,
+  WeekMeal weekMeal,
+  WeekMeta weekMeta,
+});
 
 class MealCache {
   MealCache({
@@ -41,18 +46,25 @@ class MealCache {
 
   /// [weekStart]에 해당하는 raw 응답인지 payload의 시작일로 판별한다.
   Future<bool> hasCachedWeek(DateTime weekStart) async {
-    return (await readValidatedRawMealJsonForWeek(weekStart)) != null;
+    return (await readValidatedMealForWeek(weekStart)) != null;
   }
 
   /// 파일을 한 번만 읽어 week identity와 전체 payload를 함께 검증한다.
-  /// 검증 성공한 동일 스냅샷을 호출자에게 돌려 TOCTOU 재읽기를 피한다.
-  Future<String?> readValidatedRawMealJsonForWeek(DateTime weekStart) async {
+  /// 검증 성공한 동일 스냅샷과 파싱 결과를 호출자에게 돌려 재파싱을 피한다.
+  Future<ValidatedMealCache?> readValidatedMealForWeek(
+    DateTime weekStart,
+  ) async {
     try {
       final rawMeal = await readRawMealJson();
-      final cacheWeekStart = parseWeekMeta(rawMeal).startDate;
-      parseRawMeal(rawMeal);
-      return _sameCalendarDate(cacheWeekStart, weekStart) ? rawMeal : null;
+      final weekMeta = parseWeekMeta(rawMeal);
+      final weekMeal = parseRawMeal(rawMeal);
+      return _sameCalendarDate(weekMeta.startDate, weekStart)
+          ? (rawMeal: rawMeal, weekMeal: weekMeal, weekMeta: weekMeta)
+          : null;
     } catch (e, stackTrace) {
+      if (isMissingSharedWidgetFileError(e)) {
+        return null;
+      }
       debugPrint('[BapU] meal cache week check failed: $e');
       debugPrintStack(stackTrace: stackTrace);
       return null;

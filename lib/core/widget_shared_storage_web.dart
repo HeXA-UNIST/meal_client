@@ -11,6 +11,8 @@ Future<String> readSharedWidgetFileAsString(String fileName) async =>
 Future<DateTime> getLastModifiedOfSharedWidgetFile(String fileName) async =>
     _unsupportedOnWeb();
 
+bool isMissingSharedWidgetFileError(Object error) => error is UnsupportedError;
+
 Future<T> withSharedWidgetFileLock<T>(
   String fileName,
   Future<T> Function() action, {

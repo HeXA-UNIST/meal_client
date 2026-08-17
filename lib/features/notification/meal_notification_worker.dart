@@ -101,7 +101,7 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
       () async {
         await MealRefreshService(
           throwOnCacheWriteFailure: true,
-        ).refreshMealData();
+        ).refreshMealData(waitForNextWeekPrefetch: true);
       };
   final infoRefresh =
       refreshInfoCache ??

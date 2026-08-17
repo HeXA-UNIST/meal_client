@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -42,12 +43,19 @@ class MealRefreshService {
 
   static Future<void> _nextWeekCacheWriteQueue = Future.value();
 
-  Future<WeekMeal> refreshMealData({DateTime? now}) async {
-    return (await refreshMealResponse(now: now)).weekMeal;
+  Future<WeekMeal> refreshMealData({
+    DateTime? now,
+    bool waitForNextWeekPrefetch = false,
+  }) async {
+    return (await refreshMealResponse(
+      now: now,
+      waitForNextWeekPrefetch: waitForNextWeekPrefetch,
+    )).weekMeal;
   }
 
   Future<({WeekMeal weekMeal, WeekMeta weekMeta})> refreshMealResponse({
     bool prefetchNextWeek = true,
+    bool waitForNextWeekPrefetch = false,
     DateTime? now,
   }) async {
     final rawMeal = await _fetchRaw(ApiConstants.mealEndpoint);
@@ -58,13 +66,19 @@ class MealRefreshService {
       weekMeta.startDate,
       kstWeekStartForInstant(refreshNow),
     );
+    var canonicalWriteSucceeded = false;
     if (!responseIsPast) {
-      await _writeRawMealJson(rawMeal);
+      canonicalWriteSucceeded = await _writeRawMealJson(rawMeal);
     } else {
       debugPrint('[BapU] discarded meal response from a past KST week');
     }
-    if (prefetchNextWeek && !responseIsPast) {
-      await _prefetchNextWeekIfEligible(weekMeta, refreshNow);
+    if (prefetchNextWeek && !responseIsPast && canonicalWriteSucceeded) {
+      final prefetch = _prefetchNextWeekIfEligible(weekMeta, refreshNow);
+      if (waitForNextWeekPrefetch) {
+        await prefetch;
+      } else {
+        unawaited(prefetch);
+      }
     }
     return (weekMeal: weekMeal, weekMeta: weekMeta);
   }
@@ -72,10 +86,20 @@ class MealRefreshService {
   /// 지정 주 응답을 검증한 뒤 next-week cache에 저장한다.
   Future<WeekMeal> refreshAndCacheNextWeekData(String weekStart) async {
     final response = await _fetchValidatedWeekResponse(weekStart);
+    if (!_supportsSharedCache) {
+      return response.weekMeal;
+    }
     try {
-      await _enqueueNextWeekCacheWrite(
-        () => _writeNextWeekRawMealJson(response.rawMeal),
-      );
+      await _enqueueNextWeekCacheWrite(() async {
+        final currentWeekStart = _weekStartOfRevision(
+          await _nextWeekCache.readRevision(),
+        );
+        if (currentWeekStart != null &&
+            currentWeekStart.isAfter(response.weekStart)) {
+          return;
+        }
+        await _writeNextWeekRawMealJson(response.rawMeal);
+      });
     } catch (e, stackTrace) {
       // 미리보기는 이미 검증한 응답으로 표시할 수 있으므로 cache 저장 실패가
       // 화면 실패로 이어지지 않게 한다.
@@ -126,9 +150,8 @@ class MealRefreshService {
     }
   }
 
-  Future<({String rawMeal, WeekMeal weekMeal})> _fetchValidatedWeekResponse(
-    String weekStart,
-  ) async {
+  Future<({String rawMeal, WeekMeal weekMeal, DateTime weekStart})>
+  _fetchValidatedWeekResponse(String weekStart) async {
     final requestedWeekStart = parseWeekStartDate(weekStart);
     final rawMeal = await _fetchRaw(ApiConstants.mealEndpointFor(weekStart));
     final weekMeal = _parseValidRawMeal(rawMeal);
@@ -136,7 +159,7 @@ class MealRefreshService {
     if (!_sameCalendarDate(responseWeekStart, requestedWeekStart)) {
       throw FormatException('Dated meal response belongs to another week');
     }
-    return (rawMeal: rawMeal, weekMeal: weekMeal);
+    return (rawMeal: rawMeal, weekMeal: weekMeal, weekStart: responseWeekStart);
   }
 
   Future<void> _enqueueNextWeekCacheWrite(Future<void> Function() write) {
@@ -148,13 +171,12 @@ class MealRefreshService {
   }
 
   Future<WeekMeal> getFreshOrRefreshMealData({DateTime? now}) async {
-    if (await _cache.hasFreshMealCache(now ?? DateTime.now())) {
-      try {
-        final rawMeal = await _cache.readRawMealJson();
-        return parseRawMeal(rawMeal);
-      } catch (_) {
-        return refreshMealData(now: now);
-      }
+    final instant = now ?? DateTime.now();
+    final cached = await _cache.readValidatedMealForWeek(
+      kstWeekStartForInstant(instant),
+    );
+    if (cached != null) {
+      return cached.weekMeal;
     }
 
     return refreshMealData(now: now);
@@ -171,15 +193,17 @@ class MealRefreshService {
     return parseRawMeal(rawMeal);
   }
 
-  Future<void> _writeRawMealJson(String rawMeal) async {
+  Future<bool> _writeRawMealJson(String rawMeal) async {
     try {
       await _cache.writeRawMealJson(rawMeal);
+      return true;
     } catch (e, stackTrace) {
       if (_throwOnCacheWriteFailure) {
         Error.throwWithStackTrace(e, stackTrace);
       }
       debugPrint('[BapU] meal cache write failed: $e');
       debugPrintStack(stackTrace: stackTrace);
+      return false;
     }
   }
 

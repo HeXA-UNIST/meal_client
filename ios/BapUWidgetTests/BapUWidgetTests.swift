@@ -249,7 +249,7 @@ final class BapUWidgetTests: XCTestCase {
   ) throws {
     let json = #"""
     {
-      "week": {"startDate": "\(weekStart)"},
+      "week": {"startDate": "\#(weekStart)"},
       "data": [
         {
           "cafeteria": "DORMITORY",
@@ -261,7 +261,7 @@ final class BapUWidgetTests: XCTestCase {
                 "menuType": "KOREAN",
                 "sections": [
                   {"sectionType": "REGULAR", "menus": [
-                    {"ko": "\(menuName)", "en": "Rice"},
+                    {"ko": "\#(menuName)", "en": "Rice"},
                     {"ko": "된장찌개", "en": null}
                   ]},
                   {"sectionType": "SALAD", "menus": [

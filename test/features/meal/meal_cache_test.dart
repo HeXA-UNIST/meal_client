@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 
@@ -50,6 +52,29 @@ void main() {
         await cache.wasWrittenOnKstSunday(DateTime.utc(2026, 8, 24, 1)),
         isFalse,
       );
+    });
+
+    test('아직 생성되지 않은 cache 파일은 오류 로그 없이 miss로 처리한다', () async {
+      final previousDebugPrint = debugPrint;
+      final logs = <String>[];
+      debugPrint = (message, {wrapWidth}) {
+        if (message != null) logs.add(message);
+      };
+      addTearDown(() => debugPrint = previousDebugPrint);
+      final cache = MealCache(
+        readFile: (_) async => throw FileSystemException(
+          '파일 없음',
+          'meal-next.json',
+          const OSError('No such file', 2),
+        ),
+      );
+
+      final result = await cache.readValidatedMealForWeek(
+        DateTime.utc(2026, 8, 17),
+      );
+
+      expect(result, isNull);
+      expect(logs, isEmpty);
     });
   });
 }
