@@ -88,6 +88,42 @@
             android:letterSpacing="-0.01"
             android:lineSpacingExtra="4sp"
             android:gravity="top" />
+
+        <LinearLayout
+            android:id="@+id/menu_columns"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_menu_left"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:maxLines="20"
+                android:textColor="@color/widget_text_menu"
+                android:textSize="10sp"
+                android:fontFamily="@font/pretendard"
+                android:letterSpacing="-0.01"
+                android:lineSpacingExtra="4sp"
+                android:gravity="top" />
+
+            <TextView
+                android:id="@+id/tv_menu_right"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="20"
+                android:textColor="@color/widget_text_menu"
+                android:textSize="10sp"
+                android:fontFamily="@font/pretendard"
+                android:letterSpacing="-0.01"
+                android:lineSpacingExtra="4sp"
+                android:gravity="top" />
+        </LinearLayout>
     </FrameLayout>
 
     <!-- 운영 상태 -->

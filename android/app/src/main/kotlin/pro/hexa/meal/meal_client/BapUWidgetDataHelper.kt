@@ -14,22 +14,8 @@ import android.widget.TextView
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
 const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
 
-/**
- * AppWidgetManager의 MIN/MAX WIDTH·HEIGHT 옵션(dp)으로 계산한 픽셀 크기가 실제 위젯
- * 호스트(런처)가 그리는 크기보다 클 수 있다. 실기기(Samsung One UI)에서 확인한 결과,
- * 계산값이 실제 AppWidgetHostView 크기보다 가로·세로 모두 정확히 0.833배 크게 나옴
- * (예: 계산 528×636px, 실제 440×530px — uiautomator dump로 확인). 기기별 이런 차이를
- * 정확히 알 방법이 없으므로, 실측 판정에 쓰는 크기는 보수적으로 줄여서 실제보다 크다고
- * 착각해 겹침을 놓치는 일이 없게 한다.
- *
- * 실측값(0.833)에 딱 맞추면 항목이 너무 적게 보인다는 피드백에 따라 0.9로 완화함 — 실측값보다
- * 커서 이론상 항목이 폭 넓게 잘리는(=겹치는) 경계 상황에서 다시 겹칠 여지가 아주 약간 있지만,
- * 그 정도는 감수하고 더 많은 항목을 보여주는 쪽을 선택함.
- */
-private const val WIDGET_HOST_SIZE_SAFETY_FACTOR = 0.9f
-
-/** 실측(fit 판정)에 쓸 안전한 픽셀 크기로 보정한다. */
-fun safeMeasureSizePx(px: Int): Int = (px * WIDGET_HOST_SIZE_SAFETY_FACTOR).toInt()
+/** AOSP Launcher3 셀 공식상 4칸 너비에 해당하는 최소 크기. */
+const val WIDGET_TWO_COLUMN_MIN_WIDTH_DP = 250
 
 // 위젯 인스턴스별 설정 저장용
 private const val WIDGET_CONFIG_PREFS = "bapu_widget_config"
@@ -106,21 +92,110 @@ fun truncateMenuByRealLayout(
         return neededHeight <= assignedHeight
     }
 
-    val accepted = mutableListOf<String>()
-    for (item in filtered) {
-        val candidate = accepted + item
-        if (fits(candidate.joinToString("\n"))) {
-            accepted.add(item)
-            continue
-        }
-        val withEllipsis = accepted + "..."
-        return when {
-            fits(withEllipsis.joinToString("\n")) -> withEllipsis.joinToString("\n")
-            accepted.isNotEmpty() -> (accepted.dropLast(1) + "...").joinToString("\n")
-            else -> "..."
+    val fullMenu = filtered.joinToString("\n")
+    if (fits(fullMenu)) return fullMenu
+
+    // 말줄임표에 한 줄 전체를 예약하지 않고 마지막으로 표시 가능한 메뉴 뒤에 붙인다.
+    // 따라서 5줄 공간에는 메뉴 5개와 이후 항목이 있음을 함께 표시할 수 있다.
+    for (visibleCount in filtered.lastIndex downTo 1) {
+        val candidate = appendInlineMenuEllipsis(filtered.take(visibleCount)).joinToString("\n")
+        if (fits(candidate)) return candidate
+    }
+
+    for (visibleCount in filtered.lastIndex downTo 0) {
+        val candidate = (filtered.take(visibleCount) + "...").joinToString("\n")
+        if (fits(candidate)) return candidate
+    }
+    return "..."
+}
+
+/** 4칸 이상으로 넓힌 위젯에서 메뉴를 2열로 표시할지 결정한다. */
+fun usesTwoColumnMenu(widthDp: Number): Boolean = widthDp.toFloat() >= WIDGET_TWO_COLUMN_MIN_WIDTH_DP
+
+/** 마지막 표시 메뉴와 말줄임표를 같은 줄에 배치한다. */
+fun appendInlineMenuEllipsis(items: List<String>): List<String> = when {
+    items.isEmpty() -> listOf("...")
+    else -> items.dropLast(1) + "${items.last()}…"
+}
+
+/** 읽는 순서를 유지하면서 앞 절반은 왼쪽, 나머지는 오른쪽 열에 배치한다. */
+fun splitMenuItemsIntoColumns(items: List<String>): Pair<List<String>, List<String>> {
+    val splitIndex = (items.size + 1) / 2
+    return items.take(splitIndex) to items.drop(splitIndex)
+}
+
+/**
+ * 2열 메뉴 레이아웃을 실제 크기로 측정해 두 열에 들어가는 가장 긴 앞부분을 찾는다.
+ * 모든 항목이 들어가지 않으면 마지막 표시 메뉴 뒤에 말줄임표를 붙인다.
+ */
+fun truncateMenuTwoColumnsByRealLayout(
+    context: Context,
+    layoutResId: Int,
+    leftMenuViewId: Int,
+    rightMenuViewId: Int,
+    widthPx: Int,
+    heightPx: Int,
+    items: List<String>,
+    setup: (root: View) -> Unit
+): Pair<String, String> {
+    val filtered = items.filter { it.isNotEmpty() }
+    if (filtered.isEmpty()) return "-" to ""
+
+    fun fits(left: String, right: String): Boolean {
+        val root = LayoutInflater.from(context).inflate(layoutResId, null)
+        setup(root)
+        val menuViews = listOf(
+            root.findViewById<TextView>(leftMenuViewId),
+            root.findViewById<TextView>(rightMenuViewId)
+        )
+        menuViews[0].text = left
+        menuViews[1].text = right
+        menuViews.forEach { it.maxLines = WIDGET_MENU_MAX_LINES_SAFETY_CAP }
+
+        root.measure(
+            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+        )
+
+        return menuViews.all { menuView ->
+            val assignedHeight = menuView.measuredHeight
+            val widthSpec = View.MeasureSpec.makeMeasureSpec(menuView.measuredWidth, View.MeasureSpec.EXACTLY)
+            menuView.measure(widthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+            menuView.measuredHeight <= assignedHeight
         }
     }
-    return accepted.joinToString("\n")
+
+    fun fittingColumns(displayItems: List<String>): Pair<String, String>? {
+        if (displayItems.size == 1) {
+            val text = displayItems.single()
+            return if (fits(text, "")) text to "" else null
+        }
+
+        val (balancedLeftItems, balancedRightItems) = splitMenuItemsIntoColumns(displayItems)
+        val balancedLeft = balancedLeftItems.joinToString("\n")
+        val balancedRight = balancedRightItems.joinToString("\n")
+        if (fits(balancedLeft, balancedRight)) return balancedLeft to balancedRight
+
+        val balancedSplit = (displayItems.size + 1) / 2
+        val splitCandidates = (1 until displayItems.size)
+            .filter { it != balancedSplit }
+            .sortedBy { splitIndex -> kotlin.math.abs(splitIndex - balancedSplit) }
+        for (splitIndex in splitCandidates) {
+            val left = displayItems.take(splitIndex).joinToString("\n")
+            val right = displayItems.drop(splitIndex).joinToString("\n")
+            if (fits(left, right)) return left to right
+        }
+        return null
+    }
+
+    fittingColumns(filtered)?.let { return it }
+    for (visibleCount in filtered.lastIndex downTo 1) {
+        fittingColumns(appendInlineMenuEllipsis(filtered.take(visibleCount)))?.let { return it }
+    }
+    for (visibleCount in filtered.lastIndex downTo 0) {
+        fittingColumns(filtered.take(visibleCount) + "...")?.let { return it }
+    }
+    return "..." to ""
 }
 
 data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val endM: Int)
