@@ -22,6 +22,7 @@ class WeekMenuScaffold extends StatefulWidget {
     required this.appInfo,
     this.bannerText,
     this.drawer,
+    this.titleFontWeight = FontWeight.w700,
   });
 
   final DateTime mondayOfWeek;
@@ -32,6 +33,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final Future<AppInfo> appInfo;
   final String? bannerText;
   final Widget? drawer;
+  final FontWeight titleFontWeight;
 
   @override
   State<WeekMenuScaffold> createState() => _WeekMenuScaffoldState();
@@ -121,6 +123,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
         title: AnimatedDateTitle(
           tabController: _tabController,
           mondayOfWeek: widget.mondayOfWeek,
+          fontWeight: widget.titleFontWeight,
         ),
         actions: [
           ValueListenableBuilder<MealOfDay>(

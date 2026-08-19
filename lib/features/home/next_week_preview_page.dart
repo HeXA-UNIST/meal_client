@@ -92,7 +92,9 @@ class _MessageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
       body: Center(child: child),
     );
   }
@@ -155,6 +157,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
           mealFuture: _mealFuture,
           appInfo: widget.appInfo,
           bannerText: l10n.previewingNextWeek,
+          titleFontWeight: FontWeight.w600,
         );
       },
     );

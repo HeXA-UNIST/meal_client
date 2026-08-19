@@ -78,7 +78,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text("Next week's menu isn't ready yet."), findsOneWidget);
+    expect(find.text("Next week's menu is not ready yet."), findsOneWidget);
   });
 
   testWidgets('nextWeekStart가 있으면 다음 주 데이터를 불러와 배너와 함께 보여준다', (tester) async {

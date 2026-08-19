@@ -124,10 +124,12 @@ class AnimatedDateTitle extends StatelessWidget {
     super.key,
     required this.tabController,
     required this.mondayOfWeek,
+    this.fontWeight = FontWeight.w700,
   });
 
   final TabController tabController;
   final DateTime mondayOfWeek;
+  final FontWeight fontWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +147,7 @@ class AnimatedDateTitle extends StatelessWidget {
     if (animation == null) {
       return Text(
         dateLabels[tabController.index],
-        style: const TextStyle(fontWeight: FontWeight.w700),
+        style: TextStyle(fontWeight: fontWeight),
       );
     }
 
@@ -168,7 +170,7 @@ class AnimatedDateTitle extends StatelessWidget {
         // DateTime 연산·문자열 포맷 없이 미리 계산된 레이블만 조회한다.
         return Text(
           dateLabels[displayIndex],
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(fontWeight: fontWeight),
         );
       },
     );
