@@ -44,7 +44,10 @@ TextStyle _operatingTimeTextStyle(ThemeData theme, Color color) {
 }
 
 TextStyle _kcalTextStyle(ThemeData theme) {
+  // 칼로리는 메뉴 본문보다 낮은 위계의 보조 정보이므로, 운영시간 라벨의 기본
+  // 색상과 동일하게 outline을 사용해 항상 낮은 강조로 표시한다.
   return theme.textTheme.labelMedium!.copyWith(
+    color: theme.colorScheme.outline,
     fontSize: 11,
     letterSpacing: 0,
     height: 1,
@@ -235,7 +238,8 @@ class MealCard extends StatelessWidget {
       operatingTimeColor,
     );
     final kcalStyle = _kcalTextStyle(theme);
-    final kcalText = meal.kcal == null ? null : "${meal.kcal} kcal";
+    final lastSectionKcal = meal.sections.last.kcal;
+    final kcalText = lastSectionKcal == null ? null : "$lastSectionKcal kcal";
 
     final menuWidgets = <Widget>[];
     for (
@@ -276,6 +280,12 @@ class MealCard extends StatelessWidget {
         menuWidgets.add(const SizedBox(height: 8));
       }
 
+      // 마지막 섹션의 칼로리는 카드 하단에 표시하므로 인라인 대상에서 제외한다.
+      final isLastSection = sectionIndex == meal.sections.length - 1;
+      final inlineKcalText = isLastSection || section.kcal == null
+          ? null
+          : "${section.kcal} kcal";
+
       for (var menuIndex = 0; menuIndex < section.menu.length; menuIndex++) {
         // Flutter Text는 자동 줄 바꿈과 강제 줄 바꿈의 줄 간격(height)을
         // 구분하지 않아서, 메뉴 항목 간 여백은 SizedBox로 분리해 넣는다.
@@ -283,10 +293,32 @@ class MealCard extends StatelessWidget {
           menuWidgets.add(SizedBox(height: menuLineGap));
         }
         final menuItem = section.menu[menuIndex];
+        final menuText = Text(
+          menuItem.textFor(languageCode),
+          style: menuTextStyle,
+        );
+        final isLastMenuItem = menuIndex == section.menu.length - 1;
         menuWidgets.add(
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(menuItem.textFor(languageCode), style: menuTextStyle),
+            child: isLastMenuItem && inlineKcalText != null
+                // Expanded가 칼로리 라벨 폭만큼을 먼저 확보해두므로, 메뉴 텍스트가
+                // 길어 칼로리 라벨과 겹칠 경우 자동으로 줄바꿈되어 서로 침범하지
+                // 않는다.
+                ? Row(
+                    // 메뉴 텍스트와 칼로리 텍스트는 폰트 크기·height가 서로
+                    // 달라 bounding box 하단(end)을 맞추면 실제 글자 baseline이
+                    // 어긋나 보인다. baseline 정렬로 두 텍스트가 같은 줄에 있는
+                    // 것처럼 자연스럽게 맞춘다.
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Expanded(child: menuText),
+                      const SizedBox(width: 8),
+                      Text(inlineKcalText, style: kcalStyle),
+                    ],
+                  )
+                : menuText,
           ),
         );
       }

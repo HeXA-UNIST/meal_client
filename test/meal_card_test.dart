@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -191,5 +192,103 @@ void main() {
     expect(find.text('간편식'), findsOneWidget);
     expect(find.text('쌀밥'), findsOneWidget);
     expect(find.text('삼각김밥'), findsOneWidget);
+  });
+
+  testWidgets('섹션이 2개 이상이면 마지막 섹션 이전 칼로리는 구분선 위 마지막 메뉴 줄에, 마지막 섹션 칼로리는 운영시간 옆에 표시한다', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: MealCard(
+            title: '기숙사 식당',
+            operatingTimeLabel: '08:00 - 09:20',
+            meal: const Meal(
+              sections: [
+                MealSection(
+                  type: MealSectionType.regular,
+                  menu: [MealMenuItem(ko: '쌀밥')],
+                  kcal: 700,
+                ),
+                MealSection(
+                  type: MealSectionType.convenience,
+                  menu: [MealMenuItem(ko: '삼각김밥')],
+                  kcal: 300,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 첫 섹션(마지막 섹션이 아님)의 칼로리는 해당 섹션 마지막 메뉴 줄과 같은 Row에서
+    // Expanded 옆에 인라인으로 렌더링된다.
+    final inlineKcal = find.text('700 kcal');
+    expect(inlineKcal, findsOneWidget);
+    expect(
+      find.ancestor(of: inlineKcal, matching: find.byType(Expanded)),
+      findsNothing,
+    );
+    final inlineRow = find.ancestor(of: inlineKcal, matching: find.byType(Row));
+    expect(inlineRow, findsOneWidget);
+    expect(
+      find.descendant(of: inlineRow, matching: find.text('쌀밥')),
+      findsOneWidget,
+    );
+
+    // 마지막 섹션의 칼로리는 기존처럼 카드 하단 운영시간 옆에 표시된다.
+    expect(find.text('300 kcal'), findsOneWidget);
+  });
+
+  testWidgets('인라인 칼로리가 있는 마지막 메뉴는 겹치지 않도록 Expanded로 줄바꿈 가능해진다', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: SizedBox(
+            width: 200,
+            child: MealCard(
+              title: '기숙사 식당',
+              meal: const Meal(
+                sections: [
+                  MealSection(
+                    type: MealSectionType.regular,
+                    menu: [
+                      MealMenuItem(ko: '아주 아주 아주 긴 메뉴 이름이 여기 들어갑니다 정말로 깁니다'),
+                    ],
+                    kcal: 700,
+                  ),
+                  MealSection(
+                    type: MealSectionType.convenience,
+                    menu: [MealMenuItem(ko: '삼각김밥')],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final longMenuFinder = find.textContaining('아주 아주 아주 긴 메뉴');
+    final menuText = tester.widget<Text>(longMenuFinder);
+    expect(
+      find.ancestor(of: longMenuFinder, matching: find.byType(Expanded)),
+      findsOneWidget,
+    );
+    // Expanded가 칼로리 라벨 폭을 먼저 확보하므로 긴 메뉴 텍스트는 줄바꿈된다.
+    final renderParagraph = tester.renderObject<RenderParagraph>(
+      longMenuFinder,
+    );
+    expect(renderParagraph.text.toPlainText(), menuText.data);
+    expect(renderParagraph.size.height, greaterThan(20));
   });
 }
