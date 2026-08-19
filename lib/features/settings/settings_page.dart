@@ -21,17 +21,19 @@ class SettingsPage extends StatelessWidget {
         scrolledUnderElevation: 0,
         title: Text(
           l10n.settings,
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       body: ListView(
         children: [
           if (!kIsWeb) ...[
-            _SectionHeader(l10n.allergyWarning),
-            _AllergyTile(),
-            const Divider(indent: 16, endIndent: 16),
-            _SectionHeader(l10n.notificationSettings),
-            _MealAlertTile(),
+            if (kDebugMode) ...[
+              _SectionHeader(l10n.allergyWarning),
+              _AllergyTile(),
+              const Divider(indent: 16, endIndent: 16),
+            ],
+            _SectionHeader(l10n.mealNotifications),
+            _MealNotificationTile(),
             const Divider(indent: 16, endIndent: 16),
           ],
           _SectionHeader(l10n.themeMode),
@@ -86,18 +88,13 @@ class _AllergyTile extends StatelessWidget {
   }
 }
 
-class _MealAlertTile extends StatelessWidget {
+class _MealNotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final notification = context.watch<AppSettings>().notification;
     return ListTile(
       title: Text(l10n.notificationSettings),
-      subtitle: Text(
-        notification.keywords.isNotEmpty
-            ? notification.keywords.map((k) => '"$k"').join(', ')
-            : l10n.notificationKeywordHint,
-      ),
+
       trailing: const Icon(Icons.chevron_right),
       onTap: () => Navigator.push(
         context,

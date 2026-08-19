@@ -97,7 +97,10 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
-        title: Text(l10n.notificationSettings),
+        title: Text(
+          l10n.notificationSettings,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
       body: ListView(
         children: [
@@ -107,12 +110,8 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
           // 가지고 있어 그대로는 정렬이 맞지 않는다.
           ListTile(
             contentPadding: const EdgeInsets.fromLTRB(16, 4, 24, 4),
-            title: Text(l10n.notificationSettings),
-            subtitle: Text(
-              notification.keywords.isNotEmpty
-                  ? notification.keywords.map((k) => '"$k"').join(', ')
-                  : l10n.notificationKeywordHint,
-            ),
+            title: Text(l10n.mealNotifications),
+            subtitle: Text(l10n.notificationDescription),
             trailing: Switch(
               value: notification.enabled,
               onChanged: _handleNotificationToggle,
@@ -122,7 +121,17 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
           if (notification.enabled) ...[
             // 시간대별 알림 설정 (아침·점심·저녁·밤)
             const Divider(height: 28, indent: 16, endIndent: 16),
-            _SubGroupLabel(l10n.notificationTimeLabel),
+            _SubGroupLabel(l10n.notificationTimesLabel),
+            if (notification.activePeriods.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Text(
+                  l10n.notificationTimeSelectionRequired,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
             for (final period in MealNotificationPeriod.values)
               _PeriodAlertRow(period: period),
             // 알림 받을 요일 선택 (월화수목금토일)
@@ -131,38 +140,61 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final day in _notificationDayOrder) ...[
-                          if (day != _notificationDayOrder.first)
-                            const SizedBox(width: 18),
-                          _DayToggle(
-                            label: _dayLabel(l10n, day),
-                            selected: notification.isDayEnabled(day),
-                            onTap: () {
-                              final current = notification.days;
-                              final next = current.contains(day)
-                                  ? current.where((d) => d != day).toSet()
-                                  : {...current, day};
-                              // 최소 1개 요일은 유지
-                              if (next.isNotEmpty) {
-                                context.read<AppSettings>().setNotificationDays(
-                                  next,
-                                );
-                              }
-                            },
-                          ),
+                builder: (context, constraints) {
+                  const minDayRowWidth = 42.0 * 7 + 18.0 * 6;
+                  const maxDayRowWidth = 560.0;
+                  final dayToggles = [
+                    for (final day in _notificationDayOrder)
+                      _DayToggle(
+                        label: _dayLabel(l10n, day),
+                        selected: notification.isDayEnabled(day),
+                        onTap: () {
+                          final current = notification.days;
+                          final next = current.contains(day)
+                              ? current.where((d) => d != day).toSet()
+                              : {...current, day};
+                          // 최소 1개 요일은 유지
+                          if (next.isNotEmpty) {
+                            context.read<AppSettings>().setNotificationDays(
+                              next,
+                            );
+                          }
+                        },
+                      ),
+                  ];
+
+                  if (constraints.maxWidth < minDayRowWidth) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < dayToggles.length;
+                            index++
+                          ) ...[
+                            if (index > 0) const SizedBox(width: 18),
+                            dayToggles[index],
+                          ],
                         ],
-                      ],
+                      ),
+                    );
+                  }
+
+                  final rowWidth = constraints.maxWidth > maxDayRowWidth
+                      ? maxDayRowWidth
+                      : constraints.maxWidth;
+                  return Center(
+                    child: SizedBox(
+                      width: rowWidth,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: dayToggles,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
             // 알림 대상 식당 선택 (기숙사는 한식/할랄을 구분해서 선택)
@@ -213,9 +245,9 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                         // 최소 1개는 선택 유지
                         if (next.isNotEmpty ||
                             notification.dormMealTypes.isNotEmpty) {
-                          context
-                              .read<AppSettings>()
-                              .setNotificationCafeterias(next);
+                          context.read<AppSettings>().setNotificationCafeterias(
+                            next,
+                          );
                         }
                       },
                     ),
@@ -247,7 +279,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                   const SizedBox(width: 8),
                   IconButton.filledTonal(
                     icon: const Icon(Icons.add),
-                    tooltip: l10n.notificationKeywordLabel,
+                    tooltip: l10n.addNotificationKeyword,
                     onPressed: _submitKeyword,
                   ),
                 ],
@@ -277,10 +309,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: OutlinedButton.icon(
-                icon: const Icon(
-                  Icons.notifications_active_outlined,
-                  size: 18,
-                ),
+                icon: const Icon(Icons.notifications_active_outlined, size: 18),
                 label: const Text('[DEV] 알림 지금 테스트'),
                 onPressed: () async {
                   // 저장된 키워드 + 현재 입력 중인 미저장 키워드까지 합쳐서 테스트
@@ -428,34 +457,42 @@ class _PeriodAlertRow extends StatelessWidget {
     // 오른쪽 끝이 항상 같은 위치에 정렬되도록 한다. 시간 선택 드롭다운은
     // title 영역 안에 배치한다.
     return ListTile(
-      contentPadding: const EdgeInsets.fromLTRB(16, 4, 24, 4),
+      contentPadding: const EdgeInsets.fromLTRB(16, 0, 24, 0),
       title: Row(
         children: [
           Text(_label(l10n), style: theme.textTheme.bodyLarge),
           const Spacer(),
-          DropdownButton<TimeOfDay>(
-            value: enabled ? displayTime : null,
-            underline: const SizedBox(),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface,
+          Theme(
+            data: theme.copyWith(
+              focusColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
             ),
-            disabledHint: Text(
-              _formatTime(displayTime),
-              style: TextStyle(color: theme.disabledColor),
+            child: DropdownButton<TimeOfDay>(
+              value: enabled ? displayTime : null,
+              borderRadius: BorderRadius.circular(8),
+              elevation: 2,
+              dropdownColor: theme.colorScheme.surfaceContainer,
+              underline: const SizedBox(),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+              disabledHint: Text(
+                _formatTime(displayTime),
+                style: TextStyle(color: theme.disabledColor),
+              ),
+              onChanged: enabled
+                  ? (slot) {
+                      if (slot == null) return;
+                      context.read<AppSettings>().setPeriodAlertTime(
+                        period,
+                        slot,
+                      );
+                    }
+                  : null,
+              items: [
+                for (final slot in period.allSlots)
+                  DropdownMenuItem(value: slot, child: Text(_formatTime(slot))),
+              ],
             ),
-            onChanged: enabled
-                ? (slot) {
-                    if (slot == null) return;
-                    context.read<AppSettings>().setPeriodAlertTime(
-                      period,
-                      slot,
-                    );
-                  }
-                : null,
-            items: [
-              for (final slot in period.allSlots)
-                DropdownMenuItem(value: slot, child: Text(_formatTime(slot))),
-            ],
           ),
         ],
       ),

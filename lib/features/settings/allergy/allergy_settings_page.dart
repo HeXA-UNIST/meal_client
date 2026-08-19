@@ -38,7 +38,10 @@ class AllergySettingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
-        title: Text(l10n.manageAllergies),
+        title: Text(
+          l10n.manageAllergies,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
       ),
       body: ListView.builder(
         itemCount: _allergenNames.length,

@@ -145,20 +145,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeModeDark => 'Dark';
 
   @override
-  String get notificationSettings => 'Meal Notifications';
+  String get mealNotifications => 'Meal Notifications';
+
+  @override
+  String get notificationSettings => 'Notification Settings';
+
+  @override
+  String get notificationDescription =>
+      'Get meal notifications for your selected cafeterias and times.';
 
   @override
   String get notificationKeywordLabel => 'Keyword';
 
   @override
-  String get notificationKeywordHint =>
-      'Get meal notifications for your selected restaurants and times.';
+  String get notificationKeywordHint => 'Enter a menu keyword.';
 
   @override
-  String get notificationTimeLabel => 'Notification Time';
+  String get addNotificationKeyword => 'Add keyword';
 
   @override
-  String get notificationPeriodNight => 'Night (Tomorrow morning)';
+  String get notificationTimesLabel => 'Notification Times';
+
+  @override
+  String get notificationTimeSelectionRequired =>
+      'Turn on at least one notification time.';
+
+  @override
+  String get notificationPeriodNight => 'Night (for Tomorrow Morning)';
 
   @override
   String get notificationCafeteriasLabel => 'Target Cafeterias';

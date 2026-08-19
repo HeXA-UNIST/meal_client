@@ -362,11 +362,23 @@ abstract class AppLocalizations {
   /// **'다크'**
   String get themeModeDark;
 
-  /// No description provided for @notificationSettings.
+  /// No description provided for @mealNotifications.
   ///
   /// In ko, this message translates to:
   /// **'식단 알림'**
+  String get mealNotifications;
+
+  /// No description provided for @notificationSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 설정'**
   String get notificationSettings;
+
+  /// No description provided for @notificationDescription.
+  ///
+  /// In ko, this message translates to:
+  /// **'선택한 식당과 시간대에 맞춰 푸시 알림을 보내드립니다.'**
+  String get notificationDescription;
 
   /// No description provided for @notificationKeywordLabel.
   ///
@@ -377,14 +389,26 @@ abstract class AppLocalizations {
   /// No description provided for @notificationKeywordHint.
   ///
   /// In ko, this message translates to:
-  /// **'선택한 식당과 시간대에 맞춰 식단 알림을 보내드려요'**
+  /// **'메뉴 키워드를 입력하세요.'**
   String get notificationKeywordHint;
 
-  /// No description provided for @notificationTimeLabel.
+  /// No description provided for @addNotificationKeyword.
+  ///
+  /// In ko, this message translates to:
+  /// **'키워드 추가'**
+  String get addNotificationKeyword;
+
+  /// No description provided for @notificationTimesLabel.
   ///
   /// In ko, this message translates to:
   /// **'알림 시간'**
-  String get notificationTimeLabel;
+  String get notificationTimesLabel;
+
+  /// No description provided for @notificationTimeSelectionRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 받을 시간대를 하나 이상 켜주세요.'**
+  String get notificationTimeSelectionRequired;
 
   /// No description provided for @notificationPeriodNight.
   ///

@@ -145,16 +145,28 @@ class AppLocalizationsKo extends AppLocalizations {
   String get themeModeDark => '다크';
 
   @override
-  String get notificationSettings => '식단 알림';
+  String get mealNotifications => '식단 알림';
+
+  @override
+  String get notificationSettings => '알림 설정';
+
+  @override
+  String get notificationDescription => '선택한 식당과 시간대에 맞춰 푸시 알림을 보내드립니다.';
 
   @override
   String get notificationKeywordLabel => '키워드';
 
   @override
-  String get notificationKeywordHint => '선택한 식당과 시간대에 맞춰 식단 알림을 보내드려요';
+  String get notificationKeywordHint => '메뉴 키워드를 입력하세요.';
 
   @override
-  String get notificationTimeLabel => '알림 시간';
+  String get addNotificationKeyword => '키워드 추가';
+
+  @override
+  String get notificationTimesLabel => '알림 시간';
+
+  @override
+  String get notificationTimeSelectionRequired => '알림 받을 시간대를 하나 이상 켜주세요.';
 
   @override
   String get notificationPeriodNight => '밤 (내일 아침)';
