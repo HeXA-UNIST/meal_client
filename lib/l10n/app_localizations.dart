@@ -338,16 +338,10 @@ abstract class AppLocalizations {
   /// **'{count}개 선택됨'**
   String allergenSelectedCount(int count);
 
-  /// No description provided for @appearance.
-  ///
-  /// In ko, this message translates to:
-  /// **'화면'**
-  String get appearance;
-
   /// No description provided for @themeMode.
   ///
   /// In ko, this message translates to:
-  /// **'테마'**
+  /// **'화면 모드'**
   String get themeMode;
 
   /// No description provided for @themeModeSystem.
@@ -383,7 +377,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationKeywordHint.
   ///
   /// In ko, this message translates to:
-  /// **'예: 돈까스'**
+  /// **'선택한 식당과 시간대에 맞춰 식단 알림을 보내드려요'**
   String get notificationKeywordHint;
 
   /// No description provided for @notificationTimeLabel.
@@ -410,18 +404,6 @@ abstract class AppLocalizations {
   /// **'알림 받을 요일'**
   String get notificationDaysLabel;
 
-  /// No description provided for @widgetSettings.
-  ///
-  /// In ko, this message translates to:
-  /// **'홈 화면 위젯'**
-  String get widgetSettings;
-
-  /// No description provided for @widgetCafeteriaLabel.
-  ///
-  /// In ko, this message translates to:
-  /// **'표시할 식당'**
-  String get widgetCafeteriaLabel;
-
   /// No description provided for @about.
   ///
   /// In ko, this message translates to:
@@ -437,7 +419,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationPermissionDenied.
   ///
   /// In ko, this message translates to:
-  /// **'알림 권한이 없습니다. 설정에서 허용해주세요.'**
+  /// **'알림 권한이 차단되었습니다. 설정에서 허용해주세요.'**
   String get notificationPermissionDenied;
 
   /// No description provided for @openSystemAppSettings.

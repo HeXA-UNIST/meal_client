@@ -133,10 +133,7 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get appearance => '화면';
-
-  @override
-  String get themeMode => '테마';
+  String get themeMode => '화면 모드';
 
   @override
   String get themeModeSystem => '시스템';
@@ -154,7 +151,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationKeywordLabel => '키워드';
 
   @override
-  String get notificationKeywordHint => '예: 돈까스';
+  String get notificationKeywordHint => '선택한 식당과 시간대에 맞춰 식단 알림을 보내드려요';
 
   @override
   String get notificationTimeLabel => '알림 시간';
@@ -169,19 +166,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationDaysLabel => '알림 받을 요일';
 
   @override
-  String get widgetSettings => '홈 화면 위젯';
-
-  @override
-  String get widgetCafeteriaLabel => '표시할 식당';
-
-  @override
   String get about => '앱 정보';
 
   @override
   String get openSourceLicenses => '오픈소스 라이선스';
 
   @override
-  String get notificationPermissionDenied => '알림 권한이 없습니다. 설정에서 허용해주세요.';
+  String get notificationPermissionDenied => '알림 권한이 차단되었습니다. 설정에서 허용해주세요.';
 
   @override
   String get openSystemAppSettings => '설정 열기';

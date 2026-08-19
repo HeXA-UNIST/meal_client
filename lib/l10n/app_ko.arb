@@ -51,22 +51,19 @@
       "count": { "type": "int" }
     }
   },
-  "appearance": "화면",
-  "themeMode": "테마",
+  "themeMode": "화면 모드",
   "themeModeSystem": "시스템",
   "themeModeLight": "라이트",
   "themeModeDark": "다크",
   "notificationSettings": "식단 알림",
   "notificationKeywordLabel": "키워드",
-  "notificationKeywordHint": "예: 돈까스",
+  "notificationKeywordHint": "선택한 식당과 시간대에 맞춰 식단 알림을 보내드려요",
   "notificationTimeLabel": "알림 시간",
   "notificationPeriodNight": "밤 (내일 아침)",
   "notificationCafeteriasLabel": "알림 대상 식당",
   "notificationDaysLabel": "알림 받을 요일",
-  "widgetSettings": "홈 화면 위젯",
-  "widgetCafeteriaLabel": "표시할 식당",
   "about": "앱 정보",
   "openSourceLicenses": "오픈소스 라이선스",
-  "notificationPermissionDenied": "알림 권한이 없습니다. 설정에서 허용해주세요.",
+  "notificationPermissionDenied": "알림 권한이 차단되었습니다. 설정에서 허용해주세요.",
   "openSystemAppSettings": "설정 열기"
 }

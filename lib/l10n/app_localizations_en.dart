@@ -75,7 +75,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cannotLoadMeal => 'Cannot load meal information.';
 
   @override
-  String get noMeal => 'There\'s no meal information.';
+  String get noMeal => 'There is no meal information.';
 
   @override
   String get nextWeekPreview => 'Next Week\'s Menu Preview';
@@ -84,7 +84,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get previewingNextWeek => 'Previewing Next Week';
 
   @override
-  String get nextWeekNotReady => 'Next week\'s menu isn\'t ready yet.';
+  String get nextWeekNotReady => 'Next week\'s menu is not ready yet.';
 
   @override
   String get language => 'Language / 언어';
@@ -133,10 +133,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get appearance => 'Appearance';
-
-  @override
-  String get themeMode => 'Theme';
+  String get themeMode => 'Theme Mode';
 
   @override
   String get themeModeSystem => 'System';
@@ -154,7 +151,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationKeywordLabel => 'Keyword';
 
   @override
-  String get notificationKeywordHint => 'e.g. Chicken Cutlet';
+  String get notificationKeywordHint =>
+      'Get meal notifications for your selected restaurants and times.';
 
   @override
   String get notificationTimeLabel => 'Notification Time';
@@ -167,12 +165,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationDaysLabel => 'Notification Days';
-
-  @override
-  String get widgetSettings => 'Home Screen Widget';
-
-  @override
-  String get widgetCafeteriaLabel => 'Display Cafeteria';
 
   @override
   String get about => 'About';
