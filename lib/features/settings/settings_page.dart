@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'app_settings.dart';
-import 'allergy_selection_page.dart';
-import 'meal_alert_page.dart';
+import 'allergy/allergy_settings_page.dart';
+import 'notification/notification_settings_page.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
 
@@ -34,7 +34,7 @@ class SettingsPage extends StatelessWidget {
             _MealAlertTile(),
             const Divider(indent: 16, endIndent: 16),
           ],
-          _SectionHeader(l10n.appearance),
+          _SectionHeader(l10n.themeMode),
           _ThemeTile(),
           const Divider(indent: 16, endIndent: 16),
           _SectionHeader(l10n.about),
@@ -80,7 +80,7 @@ class _AllergyTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right),
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const AllergySelectionPage()),
+        MaterialPageRoute(builder: (_) => const AllergySettingsPage()),
       ),
     );
   }
@@ -101,7 +101,7 @@ class _MealAlertTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right),
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const MealAlertPage()),
+        MaterialPageRoute(builder: (_) => const MealNotificationPage()),
       ),
     );
   }

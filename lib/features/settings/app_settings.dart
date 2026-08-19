@@ -6,10 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/notification/meal_alert_period.dart';
+import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
-import 'allergy_settings.dart';
-import 'notification_settings.dart';
+import 'allergy/allergy_settings.dart';
+import 'notification/notification_settings.dart';
 
 class AppSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -83,11 +83,11 @@ class AppSettings extends ChangeNotifier {
 
   /// [time]이 null이면 해당 시간대 알림을 끈다(마지막 선택 시각은 기억해 둔다).
   /// 그렇지 않으면 해당 시간대에 지정 시각으로 알림을 등록한다.
-  void setPeriodAlertTime(MealAlertPeriod period, TimeOfDay? time) {
-    final next = Map<MealAlertPeriod, TimeOfDay?>.from(
+  void setPeriodAlertTime(MealNotificationPeriod period, TimeOfDay? time) {
+    final next = Map<MealNotificationPeriod, TimeOfDay?>.from(
       _notification.alertTimes,
     );
-    final remembered = Map<MealAlertPeriod, TimeOfDay>.from(
+    final remembered = Map<MealNotificationPeriod, TimeOfDay>.from(
       _notification.rememberedTimes,
     );
     if (time == null) {
@@ -185,7 +185,7 @@ class AppSettings extends ChangeNotifier {
     _prefs.setStringList(StorageKeys.allergenIds, []);
     _prefs.setBool(StorageKeys.notificationEnabled, false);
     _prefs.setStringList(StorageKeys.notificationKeywords, []);
-    for (final period in MealAlertPeriod.values) {
+    for (final period in MealNotificationPeriod.values) {
       _prefs.remove(
         '${StorageKeys.notificationPeriodTimePrefix}${period.name}',
       );
@@ -260,8 +260,8 @@ class AppSettings extends ChangeNotifier {
 
     // 시간대별 알림 시각 로드.
     // 저장된 문자열이 해당 시간대의 유효 슬롯 중 하나가 아니면 무시(=꺼진 상태).
-    final alertTimes = <MealAlertPeriod, TimeOfDay?>{};
-    for (final period in MealAlertPeriod.values) {
+    final alertTimes = <MealNotificationPeriod, TimeOfDay?>{};
+    for (final period in MealNotificationPeriod.values) {
       final key = '${StorageKeys.notificationPeriodTimePrefix}${period.name}';
       final stored = p.getString(key);
       if (stored == null) continue;
@@ -293,8 +293,8 @@ class AppSettings extends ChangeNotifier {
 
     // 시간대별 "마지막 선택 시각" 로드. 꺼진 시간대라도 이전 선택을 복원하기 위함.
     // 저장된 값이 없으면 현재 켜져 있는 시각으로 시드한다.
-    final remembered = <MealAlertPeriod, TimeOfDay>{};
-    for (final period in MealAlertPeriod.values) {
+    final remembered = <MealNotificationPeriod, TimeOfDay>{};
+    for (final period in MealNotificationPeriod.values) {
       final key =
           '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}';
       final stored = p.getString(key);
@@ -339,13 +339,13 @@ class AppSettings extends ChangeNotifier {
     return TimeOfDay(hour: h, minute: m);
   }
 
-  static bool _isWithinPeriodSlots(MealAlertPeriod period, TimeOfDay t) =>
+  static bool _isWithinPeriodSlots(MealNotificationPeriod period, TimeOfDay t) =>
       period.allSlots.any((s) => s.hour == t.hour && s.minute == t.minute);
 
   /// 구버전 시각이 어느 시간대 범위(그리고 15분 슬롯)에 매칭되는지 찾는다.
   /// 매칭되는 것이 없으면 null.
-  static (MealAlertPeriod, TimeOfDay)? _snapLegacyTime(TimeOfDay t) {
-    for (final period in MealAlertPeriod.values) {
+  static (MealNotificationPeriod, TimeOfDay)? _snapLegacyTime(TimeOfDay t) {
+    for (final period in MealNotificationPeriod.values) {
       if (_isWithinPeriodSlots(period, t)) return (period, t);
     }
     return null;

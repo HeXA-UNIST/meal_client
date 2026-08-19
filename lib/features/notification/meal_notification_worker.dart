@@ -12,10 +12,10 @@ import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
-import 'package:meal_client/features/settings/notification_settings.dart'
+import 'package:meal_client/features/settings/notification/notification_settings.dart'
     show DormMealType;
 import 'package:meal_client/features/widget/widget_service.dart';
-import 'meal_alert_period.dart';
+import 'meal_notification_period.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
 
@@ -27,7 +27,7 @@ typedef BackgroundCacheRefresh = Future<void> Function();
 /// 검사한다. (UI에서 막 입력한 값이 prefs에 아직 안 들어간 경우 활용)
 Future<void> testMealKeywordCheck({
   List<String>? keywordsOverride,
-  MealAlertPeriod period = MealAlertPeriod.lunch,
+  MealNotificationPeriod period = MealNotificationPeriod.lunch,
 }) => _runMealKeywordCheck(
   period: period,
   targetDate: notificationTargetDateFor(period, DateTime.now()),
@@ -65,9 +65,9 @@ void callbackDispatcher() {
 }
 
 typedef MealKeywordCheckRunner =
-    Future<void> Function(MealAlertPeriod period, DateTime targetDate);
+    Future<void> Function(MealNotificationPeriod period, DateTime targetDate);
 typedef KeywordNotificationRescheduler =
-    Future<void> Function(MealAlertPeriod period);
+    Future<void> Function(MealNotificationPeriod period);
 
 /// Workmanager 태스크의 저장된 메뉴 대상 날짜를 처리하고 다음 작업을 예약한다.
 ///
@@ -75,7 +75,7 @@ typedef KeywordNotificationRescheduler =
 /// 새 형식으로 예약한다. 지연 실행 시 실제 실행 시각으로 대상을 다시 계산하면
 /// 일요일 밤 알림이 화요일 메뉴를 검사할 수 있기 때문이다.
 Future<void> handleKeywordNotificationTask({
-  required MealAlertPeriod period,
+  required MealNotificationPeriod period,
   required Object? targetDateInput,
   MealKeywordCheckRunner? runCheck,
   KeywordNotificationRescheduler? reschedule,
@@ -184,7 +184,7 @@ class _BackgroundRefreshFailure {
   final StackTrace stackTrace;
 }
 
-Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
+Future<void> _rescheduleForNextDay(MealNotificationPeriod period) async {
   final prefs = await SharedPreferences.getInstance();
   final enabled = prefs.getBool(StorageKeys.notificationEnabled) ?? false;
   if (!enabled) return;
@@ -220,7 +220,7 @@ Future<void> _rescheduleForNextDay(MealAlertPeriod period) async {
 }
 
 Future<void> _runMealKeywordCheck({
-  required MealAlertPeriod period,
+  required MealNotificationPeriod period,
   required DateTime targetDate,
   List<String>? keywordsOverride,
   bool checkDay = true,
@@ -393,7 +393,7 @@ Future<WeekMeal> loadMealForNotificationTarget({
 List<Meal> mealsForNotificationTarget({
   required WeekMeal weekMeal,
   required DateTime targetDate,
-  required MealAlertPeriod period,
+  required MealNotificationPeriod period,
   required Cafeteria cafeteria,
 }) {
   final targetDay = DayOfWeek.values[targetDate.weekday - 1];
@@ -418,9 +418,9 @@ Set<DayOfWeek> _loadNotificationDays(SharedPreferences prefs) {
   );
 }
 
-String _periodLabel(MealAlertPeriod period) => switch (period) {
-  MealAlertPeriod.morning => '오늘 아침',
-  MealAlertPeriod.lunch => '오늘 점심',
-  MealAlertPeriod.dinner => '오늘 저녁',
-  MealAlertPeriod.night => '내일 아침',
+String _periodLabel(MealNotificationPeriod period) => switch (period) {
+  MealNotificationPeriod.morning => '오늘 아침',
+  MealNotificationPeriod.lunch => '오늘 점심',
+  MealNotificationPeriod.dinner => '오늘 저녁',
+  MealNotificationPeriod.night => '내일 아침',
 };

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
-import 'app_settings.dart';
+import '../app_settings.dart';
 
-class AllergySelectionPage extends StatelessWidget {
-  const AllergySelectionPage({super.key});
+class AllergySettingsPage extends StatelessWidget {
+  const AllergySettingsPage({super.key});
 
   // 식품의약품안전처 알레르겐 1~19번 목록
   static const _allergenNames = {

@@ -5,18 +5,18 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/domain/meal.dart';
-import 'meal_alert_period.dart';
+import 'meal_notification_period.dart';
 
 const kMealKeywordTaskPrefix = 'meal_keyword_check_';
 
 /// (예: `meal_keyword_check_morning`).
-String taskNameOf(MealAlertPeriod period) =>
+String taskNameOf(MealNotificationPeriod period) =>
     '$kMealKeywordTaskPrefix${period.name}';
 
 /// 태스크 이름에서 시간대를 파싱한다. 접두사 매칭 실패 시 null.
-MealAlertPeriod? periodFromTaskName(String taskName) {
+MealNotificationPeriod? periodFromTaskName(String taskName) {
   if (!taskName.startsWith(kMealKeywordTaskPrefix)) return null;
-  return MealAlertPeriod.tryFromName(
+  return MealNotificationPeriod.tryFromName(
     taskName.substring(kMealKeywordTaskPrefix.length),
   );
 }
@@ -27,7 +27,7 @@ MealAlertPeriod? periodFromTaskName(String taskName) {
 /// KST를 사용한다. 따라서 후보 시각에서 메뉴 대상 날짜를 구해 요일을 비교한다.
 /// 선택된 요일이 없으면 알림을 예약하지 않는다.
 DateTime? nextEnabledFireTime({
-  required MealAlertPeriod period,
+  required MealNotificationPeriod period,
   required TimeOfDay alertTime,
   required Set<DayOfWeek> enabledDays,
   required DateTime now,
@@ -70,7 +70,7 @@ DateTime? nextEnabledFireTime({
 
 typedef KeywordNotificationScheduler =
     Future<void> Function(
-      Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+      Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
       Set<DayOfWeek> enabledDays,
     );
 
@@ -113,12 +113,12 @@ class NotificationScheduleCoordinator {
 
   /// 최신 [alertTimes], [enabledDays]로 예약을 요청한다.
   Future<NotificationScheduleOutcome> schedule(
-    Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+    Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
     Set<DayOfWeek> enabledDays,
   ) {
     if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
 
-    final snapshotTimes = Map<MealAlertPeriod, TimeOfDay?>.unmodifiable(
+    final snapshotTimes = Map<MealNotificationPeriod, TimeOfDay?>.unmodifiable(
       alertTimes,
     );
     final snapshotDays = Set<DayOfWeek>.unmodifiable(enabledDays);
@@ -142,12 +142,12 @@ class NotificationScheduleCoordinator {
 
   /// 디바운스를 거치지 않고 즉시 예약 작업을 큐에 추가한다.
   Future<NotificationScheduleOutcome> scheduleNow(
-    Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+    Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
     Set<DayOfWeek> enabledDays,
   ) {
     if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
 
-    final snapshotTimes = Map<MealAlertPeriod, TimeOfDay?>.unmodifiable(
+    final snapshotTimes = Map<MealNotificationPeriod, TimeOfDay?>.unmodifiable(
       alertTimes,
     );
     final snapshotDays = Set<DayOfWeek>.unmodifiable(enabledDays);
@@ -182,7 +182,7 @@ class NotificationScheduleCoordinator {
 
   Future<NotificationScheduleOutcome> _enqueueSchedule(
     int revision,
-    Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+    Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
     Set<DayOfWeek> enabledDays,
   ) => _enqueue(() async {
     if (_disposed) return NotificationScheduleOutcome.disposed;
@@ -204,7 +204,7 @@ class NotificationScheduleCoordinator {
 /// 지정한 [period]의 다음 알림을 [alertTime]에 실행되도록 등록한다.
 /// 워커가 실행을 마치면 워커 자신이 다음 활성 메뉴 요일로 태스크를 재등록한다.
 Future<void> scheduleKeywordNotificationFor(
-  MealAlertPeriod period,
+  MealNotificationPeriod period,
   TimeOfDay alertTime,
   Set<DayOfWeek> enabledDays, {
   DateTime Function()? nowProvider,
@@ -264,7 +264,7 @@ Future<void> _registerKeywordTask({
   );
 }
 
-Future<void> cancelKeywordNotificationFor(MealAlertPeriod period) async {
+Future<void> cancelKeywordNotificationFor(MealNotificationPeriod period) async {
   try {
     await Workmanager().cancelByUniqueName(taskNameOf(period));
   } catch (e, st) {
@@ -277,10 +277,10 @@ Future<void> cancelKeywordNotificationFor(MealAlertPeriod period) async {
 
 /// [alertTimes]에 시각이 설정된 시간대는 등록하고, 없는 시간대는 취소한다.
 Future<void> scheduleAllKeywordNotifications(
-  Map<MealAlertPeriod, TimeOfDay?> alertTimes,
+  Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
   Set<DayOfWeek> enabledDays,
 ) async {
-  for (final period in MealAlertPeriod.values) {
+  for (final period in MealNotificationPeriod.values) {
     final time = alertTimes[period];
     if (time == null) {
       await cancelKeywordNotificationFor(period);
@@ -292,7 +292,7 @@ Future<void> scheduleAllKeywordNotifications(
 
 /// 모든 시간대 태스크를 취소한다.
 Future<void> cancelAllKeywordNotifications() async {
-  for (final period in MealAlertPeriod.values) {
+  for (final period in MealNotificationPeriod.values) {
     await cancelKeywordNotificationFor(period);
   }
 }

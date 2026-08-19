@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
-import 'package:meal_client/features/notification/meal_alert_period.dart';
+import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
 
 void main() {
@@ -98,7 +98,7 @@ void main() {
       final targetMeals = mealsForNotificationTarget(
         weekMeal: result,
         targetDate: DateTime.utc(2026, 7, 20),
-        period: MealAlertPeriod.night,
+        period: MealNotificationPeriod.night,
         cafeteria: Cafeteria.dormitory,
       );
       expect(mealContainsKeyword(targetMeals.single, '다음주'), isTrue);
@@ -147,7 +147,7 @@ void main() {
       var rescheduleCount = 0;
 
       await handleKeywordNotificationTask(
-        period: MealAlertPeriod.night,
+        period: MealNotificationPeriod.night,
         targetDateInput: null,
         runCheck: (_, _) async => checkCount++,
         reschedule: (_) async => rescheduleCount++,
@@ -162,7 +162,7 @@ void main() {
       var rescheduleCount = 0;
 
       await handleKeywordNotificationTask(
-        period: MealAlertPeriod.night,
+        period: MealNotificationPeriod.night,
         targetDateInput: '2026-07-20',
         runCheck: (_, targetDate) async => checkedTargetDate = targetDate,
         reschedule: (_) async => rescheduleCount++,

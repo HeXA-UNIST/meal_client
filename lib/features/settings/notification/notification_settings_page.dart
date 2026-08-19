@@ -5,23 +5,23 @@ import 'package:provider/provider.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:app_settings/app_settings.dart' as device_settings;
-import 'package:meal_client/features/notification/meal_alert_period.dart';
+import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
-import 'app_settings.dart';
+import '../app_settings.dart';
 import 'notification_settings.dart' show DormMealType;
 
 /// 식단 알림(키워드·시간대·요일·대상 식당) 전용 설정 페이지.
-class MealAlertPage extends StatefulWidget {
-  const MealAlertPage({super.key});
+class MealNotificationPage extends StatefulWidget {
+  const MealNotificationPage({super.key});
 
   @override
-  State<MealAlertPage> createState() => _MealAlertPageState();
+  State<MealNotificationPage> createState() => _MealNotificationPageState();
 }
 
 // StatefulWidget: TextEditingController를 build() 밖에서 관리해
 // 리빌드 시 입력 중인 텍스트가 초기화되지 않게 한다.
-class _MealAlertPageState extends State<MealAlertPage> {
+class _MealNotificationPageState extends State<MealNotificationPage> {
   late final TextEditingController _keywordController;
   late final FocusNode _keywordFocusNode;
 
@@ -123,7 +123,7 @@ class _MealAlertPageState extends State<MealAlertPage> {
             // 시간대별 알림 설정 (아침·점심·저녁·밤)
             const Divider(height: 28, indent: 16, endIndent: 16),
             _SubGroupLabel(l10n.notificationTimeLabel),
-            for (final period in MealAlertPeriod.values)
+            for (final period in MealNotificationPeriod.values)
               _PeriodAlertRow(period: period),
             // 알림 받을 요일 선택 (월화수목금토일)
             const Divider(height: 28, indent: 16, endIndent: 16),
@@ -404,13 +404,13 @@ class _DayToggle extends StatelessWidget {
 class _PeriodAlertRow extends StatelessWidget {
   const _PeriodAlertRow({required this.period});
 
-  final MealAlertPeriod period;
+  final MealNotificationPeriod period;
 
   String _label(AppLocalizations l10n) => switch (period) {
-    MealAlertPeriod.morning => l10n.breakfast,
-    MealAlertPeriod.lunch => l10n.lunch,
-    MealAlertPeriod.dinner => l10n.dinner,
-    MealAlertPeriod.night => l10n.notificationPeriodNight,
+    MealNotificationPeriod.morning => l10n.breakfast,
+    MealNotificationPeriod.lunch => l10n.lunch,
+    MealNotificationPeriod.dinner => l10n.dinner,
+    MealNotificationPeriod.night => l10n.notificationPeriodNight,
   };
 
   String _formatTime(TimeOfDay t) =>

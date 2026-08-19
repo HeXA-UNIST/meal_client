@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/notification/meal_alert_period.dart';
+import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
-import 'package:meal_client/features/settings/allergy_settings.dart';
+import 'package:meal_client/features/settings/allergy/allergy_settings.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
-import 'package:meal_client/features/settings/notification_settings.dart';
+import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -59,13 +59,13 @@ void main() {
     test('activePeriods — 시각 설정된 시간대만 포함', () {
       final s = NotificationSettings(
         alertTimes: {
-          MealAlertPeriod.morning: const TimeOfDay(hour: 8, minute: 0),
-          MealAlertPeriod.dinner: null,
+          MealNotificationPeriod.morning: const TimeOfDay(hour: 8, minute: 0),
+          MealNotificationPeriod.dinner: null,
         },
       );
-      expect(s.activePeriods, equals([MealAlertPeriod.morning]));
-      expect(s.isPeriodEnabled(MealAlertPeriod.morning), isTrue);
-      expect(s.isPeriodEnabled(MealAlertPeriod.dinner), isFalse);
+      expect(s.activePeriods, equals([MealNotificationPeriod.morning]));
+      expect(s.isPeriodEnabled(MealNotificationPeriod.morning), isTrue);
+      expect(s.isPeriodEnabled(MealNotificationPeriod.dinner), isFalse);
     });
 
     test('copyWith — enabled만 변경', () {
@@ -80,7 +80,7 @@ void main() {
         enabled: true,
         keywords: ['돈까스', '국'],
         alertTimes: {
-          MealAlertPeriod.lunch: const TimeOfDay(hour: 11, minute: 0),
+          MealNotificationPeriod.lunch: const TimeOfDay(hour: 11, minute: 0),
         },
       );
       final r = s.reset();
@@ -97,11 +97,11 @@ void main() {
     test('alertTimes — 불변 Map 반환', () {
       final s = NotificationSettings(
         alertTimes: {
-          MealAlertPeriod.morning: const TimeOfDay(hour: 8, minute: 0),
+          MealNotificationPeriod.morning: const TimeOfDay(hour: 8, minute: 0),
         },
       );
       expect(
-        () => (s.alertTimes as dynamic)[MealAlertPeriod.lunch] = null,
+        () => (s.alertTimes as dynamic)[MealNotificationPeriod.lunch] = null,
         throwsUnsupportedError,
       );
     });
@@ -117,42 +117,42 @@ void main() {
 
   group('MealAlertPeriod', () {
     test('아침 슬롯: 07:30~08:30 15분 간격 5개', () {
-      final slots = MealAlertPeriod.morning.allSlots;
+      final slots = MealNotificationPeriod.morning.allSlots;
       expect(slots.length, 5);
       expect(slots.first, const TimeOfDay(hour: 7, minute: 30));
       expect(slots.last, const TimeOfDay(hour: 8, minute: 30));
     });
 
     test('점심 슬롯: 10:30~11:30 15분 간격 5개', () {
-      final slots = MealAlertPeriod.lunch.allSlots;
+      final slots = MealNotificationPeriod.lunch.allSlots;
       expect(slots.length, 5);
       expect(slots.first, const TimeOfDay(hour: 10, minute: 30));
       expect(slots.last, const TimeOfDay(hour: 11, minute: 30));
     });
 
     test('저녁 슬롯: 16:30~17:30 15분 간격 5개', () {
-      final slots = MealAlertPeriod.dinner.allSlots;
+      final slots = MealNotificationPeriod.dinner.allSlots;
       expect(slots.length, 5);
       expect(slots.first, const TimeOfDay(hour: 16, minute: 30));
       expect(slots.last, const TimeOfDay(hour: 17, minute: 30));
     });
 
     test('밤 슬롯: 21:00~22:00 15분 간격 5개', () {
-      final slots = MealAlertPeriod.night.allSlots;
+      final slots = MealNotificationPeriod.night.allSlots;
       expect(slots.length, 5);
       expect(slots.first, const TimeOfDay(hour: 21, minute: 0));
       expect(slots.last, const TimeOfDay(hour: 22, minute: 0));
     });
 
     test('night 시간대는 내일 아침 breakfast 검사', () {
-      expect(MealAlertPeriod.night.tomorrow, isTrue);
-      expect(MealAlertPeriod.night.mealOfDay, MealOfDay.breakfast);
+      expect(MealNotificationPeriod.night.tomorrow, isTrue);
+      expect(MealNotificationPeriod.night.mealOfDay, MealOfDay.breakfast);
     });
 
     test('오늘 시간대는 tomorrow=false', () {
-      expect(MealAlertPeriod.morning.tomorrow, isFalse);
-      expect(MealAlertPeriod.lunch.tomorrow, isFalse);
-      expect(MealAlertPeriod.dinner.tomorrow, isFalse);
+      expect(MealNotificationPeriod.morning.tomorrow, isFalse);
+      expect(MealNotificationPeriod.lunch.tomorrow, isFalse);
+      expect(MealNotificationPeriod.dinner.tomorrow, isFalse);
     });
   });
   group('AppSettings', () {
@@ -287,16 +287,16 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
       settings.setPeriodAlertTime(
-        MealAlertPeriod.lunch,
+        MealNotificationPeriod.lunch,
         const TimeOfDay(hour: 11, minute: 0),
       );
       expect(
-        settings.notification.alertTimeOf(MealAlertPeriod.lunch),
+        settings.notification.alertTimeOf(MealNotificationPeriod.lunch),
         const TimeOfDay(hour: 11, minute: 0),
       );
       final settings2 = createSettings(prefs);
       expect(
-        settings2.notification.alertTimeOf(MealAlertPeriod.lunch),
+        settings2.notification.alertTimeOf(MealNotificationPeriod.lunch),
         const TimeOfDay(hour: 11, minute: 0),
       );
     });
@@ -305,11 +305,11 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
       settings.setPeriodAlertTime(
-        MealAlertPeriod.lunch,
+        MealNotificationPeriod.lunch,
         const TimeOfDay(hour: 11, minute: 0),
       );
-      settings.setPeriodAlertTime(MealAlertPeriod.lunch, null);
-      expect(settings.notification.alertTimeOf(MealAlertPeriod.lunch), isNull);
+      settings.setPeriodAlertTime(MealNotificationPeriod.lunch, null);
+      expect(settings.notification.alertTimeOf(MealNotificationPeriod.lunch), isNull);
       expect(settings.notification.activePeriods, isEmpty);
     });
 
@@ -317,26 +317,26 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
       const picked = TimeOfDay(hour: 11, minute: 15);
-      settings.setPeriodAlertTime(MealAlertPeriod.lunch, picked);
+      settings.setPeriodAlertTime(MealNotificationPeriod.lunch, picked);
       // 끄면 alertTime은 사라지지만 displayTime은 이전 선택값 유지
-      settings.setPeriodAlertTime(MealAlertPeriod.lunch, null);
+      settings.setPeriodAlertTime(MealNotificationPeriod.lunch, null);
       expect(
-        settings.notification.isPeriodEnabled(MealAlertPeriod.lunch),
+        settings.notification.isPeriodEnabled(MealNotificationPeriod.lunch),
         isFalse,
       );
       expect(
-        settings.notification.displayTimeOf(MealAlertPeriod.lunch),
+        settings.notification.displayTimeOf(MealNotificationPeriod.lunch),
         picked,
       );
 
       // 재로드해도 기억값이 유지된다
       final settings2 = createSettings(prefs);
       expect(
-        settings2.notification.isPeriodEnabled(MealAlertPeriod.lunch),
+        settings2.notification.isPeriodEnabled(MealNotificationPeriod.lunch),
         isFalse,
       );
       expect(
-        settings2.notification.displayTimeOf(MealAlertPeriod.lunch),
+        settings2.notification.displayTimeOf(MealNotificationPeriod.lunch),
         picked,
       );
     });
@@ -345,8 +345,8 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
       expect(
-        settings.notification.displayTimeOf(MealAlertPeriod.lunch),
-        MealAlertPeriod.lunch.defaultSlot,
+        settings.notification.displayTimeOf(MealNotificationPeriod.lunch),
+        MealNotificationPeriod.lunch.defaultSlot,
       );
     });
 
@@ -393,7 +393,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
       expect(
-        settings.notification.alertTimeOf(MealAlertPeriod.morning),
+        settings.notification.alertTimeOf(MealNotificationPeriod.morning),
         const TimeOfDay(hour: 8, minute: 0),
       );
       // 구 키는 삭제

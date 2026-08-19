@@ -4,7 +4,7 @@ import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 
-enum MealAlertPeriod {
+enum MealNotificationPeriod {
   morning(
     startHour: 7,
     startMinute: 30,
@@ -38,7 +38,7 @@ enum MealAlertPeriod {
     tomorrow: true,
   );
 
-  const MealAlertPeriod({
+  const MealNotificationPeriod({
     required this.startHour,
     required this.startMinute,
     required this.endHour,
@@ -83,7 +83,7 @@ enum MealAlertPeriod {
     return result;
   }
 
-  static MealAlertPeriod? tryFromName(String name) {
+  static MealNotificationPeriod? tryFromName(String name) {
     for (final p in values) {
       if (p.name == name) return p;
     }
@@ -101,7 +101,7 @@ DateTime kstCalendarDate(DateTime instant) {
 }
 
 /// [period]가 검사할 메뉴의 KST 날짜를 반환한다.
-DateTime notificationTargetDateFor(MealAlertPeriod period, DateTime instant) {
+DateTime notificationTargetDateFor(MealNotificationPeriod period, DateTime instant) {
   final date = kstCalendarDate(instant);
   return period.tomorrow ? date.add(const Duration(days: 1)) : date;
 }

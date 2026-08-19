@@ -4,7 +4,7 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/notification/meal_alert_period.dart';
+import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 
 void main() {
@@ -14,7 +14,7 @@ void main() {
       final expected = DateTime(2026, 7, 19, 21, 30);
 
       final result = nextEnabledFireTime(
-        period: MealAlertPeriod.night,
+        period: MealNotificationPeriod.night,
         alertTime: const TimeOfDay(hour: 21, minute: 30),
         enabledDays: {DayOfWeek.mon},
         now: now,
@@ -25,7 +25,7 @@ void main() {
 
     test('월요일 아침이 비활성화되면 일요일 밤에는 예약하지 않는다', () {
       final result = nextEnabledFireTime(
-        period: MealAlertPeriod.night,
+        period: MealNotificationPeriod.night,
         alertTime: const TimeOfDay(hour: 21, minute: 30),
         enabledDays: {DayOfWeek.fri},
         now: DateTime(2026, 7, 19, 20),
@@ -38,7 +38,7 @@ void main() {
       final now = DateTime(2026, 7, 16, 10); // 목요일
 
       final result = nextEnabledFireTime(
-        period: MealAlertPeriod.lunch,
+        period: MealNotificationPeriod.lunch,
         alertTime: const TimeOfDay(hour: 11, minute: 0),
         enabledDays: {DayOfWeek.mon},
         now: now,
@@ -51,7 +51,7 @@ void main() {
       final now = DateTime(2026, 7, 16, 11);
 
       final result = nextEnabledFireTime(
-        period: MealAlertPeriod.lunch,
+        period: MealNotificationPeriod.lunch,
         alertTime: const TimeOfDay(hour: 11, minute: 0),
         enabledDays: {DayOfWeek.thu},
         now: now,
@@ -62,7 +62,7 @@ void main() {
 
     test('선택된 요일이 없으면 예약할 시각이 없다', () {
       final result = nextEnabledFireTime(
-        period: MealAlertPeriod.lunch,
+        period: MealNotificationPeriod.lunch,
         alertTime: const TimeOfDay(hour: 11, minute: 0),
         enabledDays: {},
         now: DateTime(2026, 7, 16, 10),
@@ -77,12 +77,12 @@ void main() {
       final sundayNight = DateTime.utc(2026, 7, 19, 12, 30);
 
       expect(
-        notificationTargetDateFor(MealAlertPeriod.night, sundayNight),
+        notificationTargetDateFor(MealNotificationPeriod.night, sundayNight),
         DateTime.utc(2026, 7, 20),
       );
       expect(
         kstWeekStartFromDate(
-          notificationTargetDateFor(MealAlertPeriod.night, sundayNight),
+          notificationTargetDateFor(MealNotificationPeriod.night, sundayNight),
         ),
         DateTime.utc(2026, 7, 20),
       );
@@ -109,7 +109,7 @@ void main() {
       Map<String, dynamic>? capturedInputData;
 
       await scheduleKeywordNotificationFor(
-        MealAlertPeriod.night,
+        MealNotificationPeriod.night,
         const TimeOfDay(hour: 21, minute: 30),
         {DayOfWeek.mon},
         nowProvider: () => DateTime(2026, 7, 19, 20),
