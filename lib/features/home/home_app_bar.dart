@@ -45,11 +45,11 @@ class MealOfDaySwitchButton extends StatelessWidget {
 }
 
 class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
-  DayOfWeekTabBar({super.key, required this.tabController});
+  const DayOfWeekTabBar({super.key, required this.tabController});
 
   final TabController tabController;
 
-  final _preferredSize = Size.fromHeight(46.0);
+  static const _preferredSize = Size.fromHeight(46.0);
 
   static const _overlayColor = WidgetStatePropertyAll<Color>(
     Colors.transparent,
@@ -144,11 +144,9 @@ class AnimatedDateTitle extends StatelessWidget {
     });
 
     final animation = tabController.animation;
+    final titleStyle = TextStyle(fontWeight: fontWeight);
     if (animation == null) {
-      return Text(
-        dateLabels[tabController.index],
-        style: TextStyle(fontWeight: fontWeight),
-      );
+      return Text(dateLabels[tabController.index], style: titleStyle);
     }
 
     return AnimatedBuilder(
@@ -168,10 +166,7 @@ class AnimatedDateTitle extends StatelessWidget {
         }
 
         // DateTime 연산·문자열 포맷 없이 미리 계산된 레이블만 조회한다.
-        return Text(
-          dateLabels[displayIndex],
-          style: TextStyle(fontWeight: fontWeight),
-        );
+        return Text(dateLabels[displayIndex], style: titleStyle);
       },
     );
   }

@@ -214,6 +214,13 @@ class MealCard extends StatelessWidget {
     final isLight = theme.brightness == Brightness.light;
     final menuTextStyle = theme.textTheme.bodyMedium!.copyWith(height: 1.15);
     final menuLineGap = (menuTextStyle.fontSize ?? 14.0) * 0.72;
+    // 제목이 실제로 있는 첫 섹션에서만 만들고 이후 섹션은 같은 스타일을 재사용한다.
+    late final sectionTitleStyle = theme.textTheme.labelSmall!.copyWith(
+      fontSize: 10.5,
+      color: theme.colorScheme.outline,
+      fontWeight: FontWeight.w600,
+      height: 1.1,
+    );
     // colorScheme.primary는 명암비 확보를 위해 라이트 모드에서 브랜드 그린을
     // 크게 어둡게 눌러버려 (#00CD80 → #006D41) 쨍한 느낌이 사라진다. 브랜드
     // 색상(hue·saturation)은 그대로 유지한 채 밝기만 배경 대비 최소 4.5:1을
@@ -261,15 +268,7 @@ class MealCard extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(16, sectionIndex == 0 ? 8 : 0, 16, 8),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                sectionTitle,
-                style: theme.textTheme.labelSmall!.copyWith(
-                  fontSize: 10.5,
-                  color: theme.colorScheme.outline,
-                  fontWeight: FontWeight.w600,
-                  height: 1.1,
-                ),
-              ),
+              child: Text(sectionTitle, style: sectionTitleStyle),
             ),
           ),
         );
