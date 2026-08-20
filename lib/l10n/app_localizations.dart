@@ -380,6 +380,48 @@ abstract class AppLocalizations {
   /// **'선택한 식당과 시간대에 맞춰 푸시 알림을 보내드립니다.'**
   String get notificationDescription;
 
+  /// No description provided for @mealNotificationTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'{cafeteria} {mealPeriod} 메뉴를 알려드려요.'**
+  String mealNotificationTitle(String cafeteria, String mealPeriod);
+
+  /// No description provided for @notificationTodayBreakfast.
+  ///
+  /// In ko, this message translates to:
+  /// **'오늘 아침'**
+  String get notificationTodayBreakfast;
+
+  /// No description provided for @notificationTodayLunch.
+  ///
+  /// In ko, this message translates to:
+  /// **'오늘 점심'**
+  String get notificationTodayLunch;
+
+  /// No description provided for @notificationTodayDinner.
+  ///
+  /// In ko, this message translates to:
+  /// **'오늘 저녁'**
+  String get notificationTodayDinner;
+
+  /// No description provided for @notificationTomorrowBreakfast.
+  ///
+  /// In ko, this message translates to:
+  /// **'내일 아침'**
+  String get notificationTomorrowBreakfast;
+
+  /// No description provided for @keywordMealNotificationTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'{period} \"{keyword}\" 메뉴가 있어요!'**
+  String keywordMealNotificationTitle(String period, String keyword);
+
+  /// No description provided for @multipleKeywordMealNotificationTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'{period} 매칭된 메뉴가 있어요!'**
+  String multipleKeywordMealNotificationTitle(String period);
+
   /// No description provided for @notificationKeywordLabel.
   ///
   /// In ko, this message translates to:

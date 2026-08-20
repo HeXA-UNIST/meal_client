@@ -16,6 +16,7 @@ import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart'
     show DormMealType;
 import 'package:meal_client/features/widget/widget_service.dart';
+import 'package:meal_client/l10n/app_localizations.dart';
 import 'meal_notification_period.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
@@ -296,6 +297,7 @@ Future<void> _runMealKeywordCheck({
     cafeterias: cafeterias,
     dormMealTypes: dormMealTypes,
     keywords: keywords,
+    l10n: notificationLocalizations(),
   );
   if (contents.isEmpty) return;
 
@@ -320,6 +322,7 @@ List<_MealNotificationContent> _buildMealNotificationContents({
   required Set<Cafeteria> cafeterias,
   required Set<DormMealType> dormMealTypes,
   required List<String> keywords,
+  required AppLocalizations l10n,
 }) {
   final mealsByLabel = <String, _NotificationMealGroup>{};
   for (final cafeteria in Cafeteria.values.where(cafeterias.contains)) {
@@ -335,21 +338,27 @@ List<_MealNotificationContent> _buildMealNotificationContents({
       if (cafeteria == Cafeteria.dormitory) {
         if (meal is KoreanMeal) {
           if (!dormMealTypes.contains(DormMealType.korean)) continue;
-          label = '기숙사 식당(한식)';
+          label = l10n.cafeteriaWithMealType(
+            l10n.dormitoryCafeteria,
+            l10n.menuKorean,
+          );
           notificationId = 1;
         } else if (meal is HalalMeal) {
           if (!dormMealTypes.contains(DormMealType.halal)) continue;
-          label = '기숙사 식당(할랄)';
+          label = l10n.cafeteriaWithMealType(
+            l10n.dormitoryCafeteria,
+            l10n.menuHalal,
+          );
           notificationId = 2;
         } else {
-          label = '기숙사 식당';
+          label = l10n.dormitoryCafeteria;
           notificationId = 3;
         }
       } else {
         label = switch (cafeteria) {
-          Cafeteria.dormitory => '기숙사 식당', // unreachable
-          Cafeteria.student => '학생 식당',
-          Cafeteria.faculty => '교직원 식당',
+          Cafeteria.dormitory => l10n.dormitoryCafeteria, // unreachable
+          Cafeteria.student => l10n.studentCafeteria,
+          Cafeteria.faculty => l10n.facultyCafeteria,
         };
         notificationId = switch (cafeteria) {
           Cafeteria.dormitory => 3, // unreachable
@@ -364,17 +373,21 @@ List<_MealNotificationContent> _buildMealNotificationContents({
     }
   }
 
-  final periodLabel = _periodLabel(period);
+  final periodLabel = _periodLabel(period, l10n);
   if (keywords.isEmpty) {
     final contents = <_MealNotificationContent>[];
     for (final entry in mealsByLabel.entries) {
       final items = <String>{
-        for (final meal in entry.value.meals) ..._notificationMenuItems(meal),
+        for (final meal in entry.value.meals)
+          ..._notificationMenuItems(meal, l10n.localeName),
       }.toList(growable: false);
       if (items.isEmpty) continue;
       contents.add((
         id: entry.value.id,
-        title: '${entry.key} ${_mealOfDayLabel(period)} 메뉴를 알려드려요.',
+        title: l10n.mealNotificationTitle(
+          entry.key,
+          _mealOfDayLabel(period, l10n),
+        ),
         body: items.join(' / '),
       ));
     }
@@ -405,10 +418,10 @@ List<_MealNotificationContent> _buildMealNotificationContents({
   final String body;
   if (matchesByKeyword.length == 1) {
     final entry = matchesByKeyword.entries.first;
-    title = '$periodLabel "${entry.key}" 메뉴가 있어요!';
+    title = l10n.keywordMealNotificationTitle(periodLabel, entry.key);
     body = entry.value.join(', ');
   } else {
-    title = '$periodLabel 매칭된 메뉴가 있어요!';
+    title = l10n.multipleKeywordMealNotificationTitle(periodLabel);
     body = matchesByKeyword.entries
         .map((e) => '"${e.key}": ${e.value.join(', ')}')
         .join('\n');
@@ -417,10 +430,11 @@ List<_MealNotificationContent> _buildMealNotificationContents({
   return [(id: 9, title: title, body: body)];
 }
 
-Iterable<String> _notificationMenuItems(Meal meal) => meal.sections
+Iterable<String> _notificationMenuItems(Meal meal, String languageCode) => meal
+    .sections
     .where((section) => section.type != MealSectionType.salad)
     .expand((section) => section.menu)
-    .map((item) => item.ko.trim())
+    .map((item) => item.textFor(languageCode).trim())
     .where((item) => item.isNotEmpty);
 
 /// [targetDate]가 현재 KST 날짜보다 이전인지 반환한다.
@@ -482,15 +496,18 @@ Set<DayOfWeek> _loadNotificationDays(SharedPreferences prefs) {
   );
 }
 
-String _periodLabel(MealNotificationPeriod period) => switch (period) {
-  MealNotificationPeriod.morning => '오늘 아침',
-  MealNotificationPeriod.lunch => '오늘 점심',
-  MealNotificationPeriod.dinner => '오늘 저녁',
-  MealNotificationPeriod.night => '내일 아침',
-};
+String _periodLabel(MealNotificationPeriod period, AppLocalizations l10n) =>
+    switch (period) {
+      MealNotificationPeriod.morning => l10n.notificationTodayBreakfast,
+      MealNotificationPeriod.lunch => l10n.notificationTodayLunch,
+      MealNotificationPeriod.dinner => l10n.notificationTodayDinner,
+      MealNotificationPeriod.night => l10n.notificationTomorrowBreakfast,
+    };
 
-String _mealOfDayLabel(MealNotificationPeriod period) => switch (period) {
-  MealNotificationPeriod.morning || MealNotificationPeriod.night => '아침',
-  MealNotificationPeriod.lunch => '점심',
-  MealNotificationPeriod.dinner => '저녁',
-};
+String _mealOfDayLabel(MealNotificationPeriod period, AppLocalizations l10n) =>
+    switch (period) {
+      MealNotificationPeriod.morning ||
+      MealNotificationPeriod.night => l10n.breakfast,
+      MealNotificationPeriod.lunch => l10n.lunch,
+      MealNotificationPeriod.dinner => l10n.dinner,
+    };

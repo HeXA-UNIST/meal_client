@@ -154,6 +154,33 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationDescription => '선택한 식당과 시간대에 맞춰 푸시 알림을 보내드립니다.';
 
   @override
+  String mealNotificationTitle(String cafeteria, String mealPeriod) {
+    return '$cafeteria $mealPeriod 메뉴를 알려드려요.';
+  }
+
+  @override
+  String get notificationTodayBreakfast => '오늘 아침';
+
+  @override
+  String get notificationTodayLunch => '오늘 점심';
+
+  @override
+  String get notificationTodayDinner => '오늘 저녁';
+
+  @override
+  String get notificationTomorrowBreakfast => '내일 아침';
+
+  @override
+  String keywordMealNotificationTitle(String period, String keyword) {
+    return '$period \"$keyword\" 메뉴가 있어요!';
+  }
+
+  @override
+  String multipleKeywordMealNotificationTitle(String period) {
+    return '$period 매칭된 메뉴가 있어요!';
+  }
+
+  @override
   String get notificationKeywordLabel => '키워드';
 
   @override

@@ -52,6 +52,30 @@
   "mealNotifications": "Meal Notifications",
   "notificationSettings": "Notification Settings",
   "notificationDescription": "Get meal notifications for your selected cafeterias and times.",
+  "mealNotificationTitle": "{cafeteria} {mealPeriod} Menu",
+  "@mealNotificationTitle": {
+    "placeholders": {
+      "cafeteria": { "type": "String" },
+      "mealPeriod": { "type": "String" }
+    }
+  },
+  "notificationTodayBreakfast": "Today's breakfast",
+  "notificationTodayLunch": "Today's lunch",
+  "notificationTodayDinner": "Today's dinner",
+  "notificationTomorrowBreakfast": "Tomorrow's breakfast",
+  "keywordMealNotificationTitle": "{period}: \"{keyword}\" is on the menu!",
+  "@keywordMealNotificationTitle": {
+    "placeholders": {
+      "period": { "type": "String" },
+      "keyword": { "type": "String" }
+    }
+  },
+  "multipleKeywordMealNotificationTitle": "{period}: Matching menu items found!",
+  "@multipleKeywordMealNotificationTitle": {
+    "placeholders": {
+      "period": { "type": "String" }
+    }
+  },
   "notificationKeywordLabel": "Keyword",
   "notificationKeywordHint": "Enter a menu keyword.",
   "addNotificationKeyword": "Add keyword",

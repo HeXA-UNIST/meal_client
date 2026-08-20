@@ -155,6 +155,33 @@ class AppLocalizationsEn extends AppLocalizations {
       'Get meal notifications for your selected cafeterias and times.';
 
   @override
+  String mealNotificationTitle(String cafeteria, String mealPeriod) {
+    return '$cafeteria $mealPeriod Menu';
+  }
+
+  @override
+  String get notificationTodayBreakfast => 'Today\'s breakfast';
+
+  @override
+  String get notificationTodayLunch => 'Today\'s lunch';
+
+  @override
+  String get notificationTodayDinner => 'Today\'s dinner';
+
+  @override
+  String get notificationTomorrowBreakfast => 'Tomorrow\'s breakfast';
+
+  @override
+  String keywordMealNotificationTitle(String period, String keyword) {
+    return '$period: \"$keyword\" is on the menu!';
+  }
+
+  @override
+  String multipleKeywordMealNotificationTitle(String period) {
+    return '$period: Matching menu items found!';
+  }
+
+  @override
   String get notificationKeywordLabel => 'Keyword';
 
   @override
