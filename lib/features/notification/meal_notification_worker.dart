@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -238,20 +239,23 @@ Future<void> _runMealKeywordCheck({
   if (checkDay && !_loadNotificationDays(prefs).contains(targetDay)) return;
 
   // 키워드 로드 (override 또는 prefs). 공백 제거 + 빈 항목 제외.
-  final rawKeywords =
-      keywordsOverride ??
-      prefs.getStringList(StorageKeys.notificationKeywords) ??
-      const <String>[];
+  // 키워드 필터는 배포 전까지 디버그 빌드에서만 사용한다. 릴리스에서는
+  // 이전 디버그 설치의 저장값이 남아 있어도 전체 메뉴 알림으로 동작한다.
+  final rawKeywords = kDebugMode
+      ? keywordsOverride ??
+            prefs.getStringList(StorageKeys.notificationKeywords) ??
+            const <String>[]
+      : const <String>[];
   final keywords = rawKeywords
       .map((k) => k.trim())
       .where((k) => k.isNotEmpty)
       .toList(growable: false);
-  if (keywords.isEmpty) return;
-
   // 기숙사 식당의 알림 대상 여부는 dormMealTypes 하나로만 판단한다.
   // dormMealTypes 키가 아직 없는(=이 기능 이전) 저장값이라면, 구버전에서
   // 기숙사가 선택돼 있었는지로 기본값을 정해 기존 사용자의 동작을 유지한다.
-  final cafeteriaNames = prefs.getStringList(StorageKeys.notificationCafeterias);
+  final cafeteriaNames = prefs.getStringList(
+    StorageKeys.notificationCafeterias,
+  );
   final storedCafeterias = cafeteriaNames == null
       ? const <Cafeteria>{Cafeteria.dormitory}
       : enumSetFromNames(cafeteriaNames, Cafeteria.values);
@@ -285,52 +289,108 @@ Future<void> _runMealKeywordCheck({
     return;
   }
 
+  final contents = _buildMealNotificationContents(
+    weekMeal: weekMeal,
+    targetDate: targetDate,
+    period: period,
+    cafeterias: cafeterias,
+    dormMealTypes: dormMealTypes,
+    keywords: keywords,
+  );
+  if (contents.isEmpty) return;
+
+  await initNotifications();
+  for (final content in contents) {
+    await showMealNotification(
+      id: content.id,
+      title: content.title,
+      body: content.body,
+    );
+  }
+}
+
+typedef _MealNotificationContent = ({int id, String title, String body});
+typedef _NotificationMealGroup = ({int id, List<Meal> meals});
+
+/// 키워드가 없으면 선택한 식당의 전체 메뉴를, 있으면 매칭 결과를 만든다.
+List<_MealNotificationContent> _buildMealNotificationContents({
+  required WeekMeal weekMeal,
+  required DateTime targetDate,
+  required MealNotificationPeriod period,
+  required Set<Cafeteria> cafeterias,
+  required Set<DormMealType> dormMealTypes,
+  required List<String> keywords,
+}) {
+  final mealsByLabel = <String, _NotificationMealGroup>{};
+  for (final cafeteria in Cafeteria.values.where(cafeterias.contains)) {
+    final meals = mealsForNotificationTarget(
+      weekMeal: weekMeal,
+      targetDate: targetDate,
+      period: period,
+      cafeteria: cafeteria,
+    );
+    for (final meal in meals) {
+      final String label;
+      final int notificationId;
+      if (cafeteria == Cafeteria.dormitory) {
+        if (meal is KoreanMeal) {
+          if (!dormMealTypes.contains(DormMealType.korean)) continue;
+          label = '기숙사 식당(한식)';
+          notificationId = 1;
+        } else if (meal is HalalMeal) {
+          if (!dormMealTypes.contains(DormMealType.halal)) continue;
+          label = '기숙사 식당(할랄)';
+          notificationId = 2;
+        } else {
+          label = '기숙사 식당';
+          notificationId = 3;
+        }
+      } else {
+        label = switch (cafeteria) {
+          Cafeteria.dormitory => '기숙사 식당', // unreachable
+          Cafeteria.student => '학생 식당',
+          Cafeteria.faculty => '교직원 식당',
+        };
+        notificationId = switch (cafeteria) {
+          Cafeteria.dormitory => 3, // unreachable
+          Cafeteria.student => 4,
+          Cafeteria.faculty => 5,
+        };
+      }
+      mealsByLabel
+          .putIfAbsent(label, () => (id: notificationId, meals: <Meal>[]))
+          .meals
+          .add(meal);
+    }
+  }
+
+  final periodLabel = _periodLabel(period);
+  if (keywords.isEmpty) {
+    final contents = <_MealNotificationContent>[];
+    for (final entry in mealsByLabel.entries) {
+      final items = <String>{
+        for (final meal in entry.value.meals) ..._notificationMenuItems(meal),
+      }.toList(growable: false);
+      if (items.isEmpty) continue;
+      contents.add((
+        id: entry.value.id,
+        title: '${entry.key} ${_mealOfDayLabel(period)} 메뉴를 알려드려요.',
+        body: items.join(' / '),
+      ));
+    }
+    return contents;
+  }
+
   // 키워드별 매칭 결과: { "떡갈비" -> ["기숙사 한식"], "국" -> [...] }
   final matchesByKeyword = <String, List<String>>{};
   for (final keyword in keywords) {
     final keywordLower = keyword.toLowerCase();
     final matches = <String>[];
-
-    for (final cafeteria in cafeterias) {
-      final meals = mealsForNotificationTarget(
-        weekMeal: weekMeal,
-        targetDate: targetDate,
-        period: period,
-        cafeteria: cafeteria,
-      );
-
-      if (cafeteria == Cafeteria.dormitory) {
-        // 기숙사는 설정에서 선택한 한식·할랄만 각각 구분해 표시
-        final seen = <String>{};
-        for (final meal in meals) {
-          if (meal is KoreanMeal &&
-              !dormMealTypes.contains(DormMealType.korean)) {
-            continue;
-          }
-          if (meal is HalalMeal &&
-              !dormMealTypes.contains(DormMealType.halal)) {
-            continue;
-          }
-          if (!mealContainsKeyword(meal, keywordLower)) {
-            continue;
-          }
-          final typeLabel = switch (meal) {
-            KoreanMeal _ => ' 한식',
-            HalalMeal _ => ' 할랄',
-            _ => '',
-          };
-          final label = '기숙사$typeLabel';
-          if (seen.add(label)) matches.add(label);
-        }
-      } else {
-        final cafeteriaLabel = switch (cafeteria) {
-          Cafeteria.dormitory => '기숙사', // unreachable
-          Cafeteria.student => '학생',
-          Cafeteria.faculty => '교직원',
-        };
-        if (meals.any((meal) => mealContainsKeyword(meal, keywordLower))) {
-          matches.add(cafeteriaLabel);
-        }
+    for (final entry in mealsByLabel.entries) {
+      if (entry.value.meals.any(
+        (meal) => mealContainsKeyword(meal, keywordLower),
+      )) {
+        matches.add(entry.key);
       }
     }
 
@@ -339,9 +399,8 @@ Future<void> _runMealKeywordCheck({
     }
   }
 
-  if (matchesByKeyword.isEmpty) return;
+  if (matchesByKeyword.isEmpty) return const [];
 
-  final periodLabel = _periodLabel(period);
   final String title;
   final String body;
   if (matchesByKeyword.length == 1) {
@@ -355,9 +414,14 @@ Future<void> _runMealKeywordCheck({
         .join('\n');
   }
 
-  await initNotifications();
-  await showMealKeywordNotification(title: title, body: body);
+  return [(id: 9, title: title, body: body)];
 }
+
+Iterable<String> _notificationMenuItems(Meal meal) => meal.sections
+    .where((section) => section.type != MealSectionType.salad)
+    .expand((section) => section.menu)
+    .map((item) => item.ko.trim())
+    .where((item) => item.isNotEmpty);
 
 /// [targetDate]가 현재 KST 날짜보다 이전인지 반환한다.
 bool isNotificationTargetInPast(DateTime targetDate, DateTime now) {
@@ -423,4 +487,10 @@ String _periodLabel(MealNotificationPeriod period) => switch (period) {
   MealNotificationPeriod.lunch => '오늘 점심',
   MealNotificationPeriod.dinner => '오늘 저녁',
   MealNotificationPeriod.night => '내일 아침',
+};
+
+String _mealOfDayLabel(MealNotificationPeriod period) => switch (period) {
+  MealNotificationPeriod.morning || MealNotificationPeriod.night => '아침',
+  MealNotificationPeriod.lunch => '점심',
+  MealNotificationPeriod.dinner => '저녁',
 };

@@ -254,55 +254,58 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                 ],
               ),
             ),
-            // 키워드 입력 + 추가 버튼
-            const Divider(height: 28, indent: 16, endIndent: 16),
-            _SubGroupLabel(l10n.notificationKeywordLabel),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _keywordController,
-                      focusNode: _keywordFocusNode,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: l10n.notificationKeywordLabel,
-                        hintText: l10n.notificationKeywordHint,
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onSubmitted: (_) => _submitKeyword(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    icon: const Icon(Icons.add),
-                    tooltip: l10n.addNotificationKeyword,
-                    onPressed: _submitKeyword,
-                  ),
-                ],
-              ),
-            ),
-            // 등록된 키워드 칩 목록
-            if (notification.keywords.isNotEmpty)
+            // 키워드 기능은 알림 기능 최초 배포 이후 잘 작동하면 도입
+            if (kDebugMode) ...[
+              // 키워드 입력 + 추가 버튼
+              const Divider(height: 28, indent: 16, endIndent: 16),
+              _SubGroupLabel(l10n.notificationKeywordLabel),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    for (final kw in notification.keywords)
-                      Chip(
-                        label: Text(kw),
-                        onDeleted: () => context
-                            .read<AppSettings>()
-                            .removeNotificationKeyword(kw),
+                    Expanded(
+                      child: TextField(
+                        controller: _keywordController,
+                        focusNode: _keywordFocusNode,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: l10n.notificationKeywordLabel,
+                          hintText: l10n.notificationKeywordHint,
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onSubmitted: (_) => _submitKeyword(),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      icon: const Icon(Icons.add),
+                      tooltip: l10n.addNotificationKeyword,
+                      onPressed: _submitKeyword,
+                    ),
                   ],
                 ),
               ),
+              // 등록된 키워드 칩 목록
+              if (notification.keywords.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final kw in notification.keywords)
+                        Chip(
+                          label: Text(kw),
+                          onDeleted: () => context
+                              .read<AppSettings>()
+                              .removeNotificationKeyword(kw),
+                        ),
+                    ],
+                  ),
+                ),
+            ],
           ],
           // 디버그 빌드에서만 표시되는 알림 즉시 테스트 버튼
           if (kDebugMode && notification.enabled)
@@ -326,7 +329,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                       SnackBar(
                         content: Text(
                           keywords.isEmpty
-                              ? '키워드를 먼저 입력해주세요'
+                              ? '전체 메뉴 알림 체크 완료'
                               : '키워드 ${keywords.length}개로 체크 완료 (매칭 시 알림 발송됨)',
                         ),
                       ),

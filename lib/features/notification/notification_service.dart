@@ -1,9 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-const _channelId = 'meal_keyword';
-const _channelName = '식단 키워드 알림';
-const _notificationId = 1;
-
+const _channelId = 'meal';
+const _channelName = '식단 알림';
 final _plugin = FlutterLocalNotificationsPlugin();
 
 Future<void> initNotifications() async {
@@ -16,11 +14,12 @@ Future<void> initNotifications() async {
   );
 
   await _plugin.initialize(
-    settings: const InitializationSettings(android: androidInit, iOS: iosInit,),
+    settings: const InitializationSettings(android: androidInit, iOS: iosInit),
   );
   await _plugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(
         const AndroidNotificationChannel(
           _channelId,
@@ -33,26 +32,25 @@ Future<void> initNotifications() async {
 Future<bool> requestNotificationPermission() async {
   final androidGranted = await _plugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.requestNotificationsPermission();
 
   final iosGranted = await _plugin
       .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>()
-      ?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+        IOSFlutterLocalNotificationsPlugin
+      >()
+      ?.requestPermissions(alert: true, badge: true, sound: true);
 
   return androidGranted ?? iosGranted ?? false;
 }
 
-Future<void> showMealKeywordNotification({
+Future<void> showMealNotification({
+  required int id,
   required String title,
   required String body,
 }) async {
-  // 여러 키워드 매칭 시 본문이 여러 줄이 되므로 BigTextStyle로 펼쳐 보이게 한다.
+  // 식당별 메뉴 또는 여러 키워드 결과를 펼쳐 볼 수 있게 한다.
   final details = NotificationDetails(
     android: AndroidNotificationDetails(
       _channelId,
@@ -68,7 +66,7 @@ Future<void> showMealKeywordNotification({
     ),
   );
   await _plugin.show(
-    id: _notificationId,
+    id: id,
     title: title,
     body: body,
     notificationDetails: details,
