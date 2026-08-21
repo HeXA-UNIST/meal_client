@@ -160,7 +160,6 @@ Future<void> _scheduleIosMealNotifications(
   await _scheduleNativeMealNotifications(
     settings,
     platform: MealNotificationPlatform.ios,
-    maxNotifications: kMaxScheduledMealNotifications,
     isCurrent: isCurrent,
   );
 }
@@ -171,20 +170,17 @@ Future<void> _scheduleAndroidMealNotifications(
 }) => _scheduleNativeMealNotifications(
   settings,
   platform: MealNotificationPlatform.android,
-  maxNotifications: null,
   isCurrent: isCurrent,
 );
 
 Future<void> _scheduleNativeMealNotifications(
   NotificationSettings settings, {
   required MealNotificationPlatform platform,
-  required int? maxNotifications,
   required bool Function() isCurrent,
 }) => withMealNotificationMutationLock(
   () => reconcileScheduledMealNotifications(
     settings: settings,
     isCurrent: isCurrent,
-    maxNotifications: maxNotifications,
     readAuthorizationStatus: () =>
         mealNotificationAuthorizationStatus(platform: platform),
     readPendingIds: () => pendingMealNotificationIds(platform: platform),

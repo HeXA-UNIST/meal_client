@@ -64,20 +64,15 @@
             </intent-filter>
         </receiver>
 
-        <!-- 예약 식단 알림 전달 및 재부팅·앱 업데이트 뒤 pending 복구 -->
+        <!-- 예약 식단 알림 전달.
+             ScheduledNotificationBootReceiver는 의도적으로 등록하지 않는다.
+             flutter_local_notifications 22.3.0은 재부팅 시 저장된 one-shot의 과거 epoch도
+             그대로 재예약하므로 AlarmManager가 오래된 식단 알림을 즉시 몰아서 보낼 수 있다.
+             재부팅 뒤 복구는 앱 launch/resume의 미래 알림 재조정에 맡기며,
+             사용자가 앱을 다시 열기 전에는 식단 알림을 보내지 않는다. -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />
-        <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-            </intent-filter>
-        </receiver>
 
         <!-- 식당 선택 설정 Activity -->
         <activity

@@ -195,6 +195,8 @@ class AppSettings extends ChangeNotifier {
     await _performForegroundMealRefresh();
   }
 
+  /// 앱 launch/resume 공통 재조정 진입점이다. Android 재부팅 복구 정책은
+  /// `AndroidManifest.xml`의 `ScheduledNotificationReceiver` 주석을 따른다.
   Future<void> _reconcileFromCache({bool refreshAuthorization = true}) async {
     if (_disposed || !_notification.enabled) return;
     if (refreshAuthorization) {
@@ -413,7 +415,10 @@ class AppSettings extends ChangeNotifier {
       }
     } catch (error, stackTrace) {
       _notification = previous;
-      _setNotificationSyncFailed(true);
+      if (!_disposed) {
+        _notificationSyncFailed = true;
+        notifyListeners();
+      }
       debugPrint('[BapU] notification persistence failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       return false;

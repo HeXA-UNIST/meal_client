@@ -81,7 +81,7 @@ void main() {
     expect(second.map((item) => item.id), first.map((item) => item.id));
   });
 
-  test('iOS 한도와 Android의 제한 없는 2주 horizon을 구분한다', () {
+  test('두 플랫폼이 공유하는 64개 한도에서 전체 슬롯만 유지한다', () {
     final week = _fullWeekWithMenus();
     final settings = NotificationSettings(
       enabled: true,
@@ -96,25 +96,24 @@ void main() {
     final current = (startDate: DateTime.utc(2026, 7, 20), weekMeal: week);
     final next = (startDate: DateTime.utc(2026, 7, 27), weekMeal: week);
 
-    final ios = buildMealNotificationBatch(
+    final batch = buildMealNotificationBatch(
       settings: settings,
       l10n: AppLocalizationsKo(),
       now: DateTime(2026, 7, 19, 10),
       currentWeek: current,
       nextWeek: next,
-      maxNotifications: kMaxScheduledMealNotifications,
-    );
-    final android = buildMealNotificationBatch(
-      settings: settings,
-      l10n: AppLocalizationsKo(),
-      now: DateTime(2026, 7, 19, 10),
-      currentWeek: current,
-      nextWeek: next,
-      maxNotifications: null,
     );
 
-    expect(ios, hasLength(64));
-    expect(android, hasLength(112));
+    expect(batch, hasLength(kMaxScheduledMealNotifications));
+    final requestsPerSlot = <DateTime, int>{};
+    for (final notification in batch) {
+      requestsPerSlot.update(
+        notification.fireInstant,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    expect(requestsPerSlot.values, everyElement(4));
   });
 
   group('예약 알림 pending reconciliation', () {

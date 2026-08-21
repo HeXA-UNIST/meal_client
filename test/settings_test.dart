@@ -247,6 +247,24 @@ void main() {
       expect(settings.notificationAuthorizationStatus, isNull);
       expect(settings.notificationSyncFailed, isTrue);
       expect(prefs.getBool(StorageKeys.notificationEnabled), isNull);
+
+      final observedDays = <Set<DayOfWeek>>[];
+      final rollbackPublished = Completer<void>();
+      settings.addListener(() {
+        observedDays.add({...settings.notification.days});
+        if (observedDays.length == 2 && !rollbackPublished.isCompleted) {
+          rollbackPublished.complete();
+        }
+      });
+
+      settings.setNotificationDays({DayOfWeek.fri});
+      await rollbackPublished.future.timeout(const Duration(seconds: 1));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(observedDays, [
+        {DayOfWeek.fri},
+        DayOfWeek.values.toSet(),
+      ]);
     });
 
     test('첫 활성화 예약이 일부 실패하면 pending을 정리하고 꺼진 상태로 돌린다', () async {

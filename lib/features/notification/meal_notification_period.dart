@@ -82,13 +82,6 @@ enum MealNotificationPeriod {
     }
     return result;
   }
-
-  static MealNotificationPeriod? tryFromName(String name) {
-    for (final p in values) {
-      if (p.name == name) return p;
-    }
-    return null;
-  }
 }
 
 /// 실제 시각을 날짜만 가진 KST 달력값으로 정규화한다.
@@ -107,11 +100,6 @@ DateTime notificationTargetDateFor(
 ) {
   final date = kstCalendarDate(instant);
   return period.tomorrow ? date.add(const Duration(days: 1)) : date;
-}
-
-/// 날짜만 가진 KST 달력값의 월요일을 반환한다.
-DateTime kstWeekStartFromDate(DateTime kstDate) {
-  return kstDate.subtract(Duration(days: kstDate.weekday - 1));
 }
 
 /// 저장된 요일 이름을 알림 요일 집합으로 변환한다.

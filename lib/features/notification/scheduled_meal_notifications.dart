@@ -65,10 +65,9 @@ List<ScheduledMealNotification> buildMealNotificationBatch({
   required ScheduledMealWeek currentWeek,
   ScheduledMealWeek? nextWeek,
   Duration leadTime = kMealNotificationScheduleLeadTime,
-  int? maxNotifications = kMaxScheduledMealNotifications,
+  int maxNotifications = kMaxScheduledMealNotifications,
 }) {
-  if (!settings.enabled ||
-      (maxNotifications != null && maxNotifications <= 0)) {
+  if (!settings.enabled || maxNotifications <= 0) {
     return const [];
   }
 
@@ -129,8 +128,7 @@ List<ScheduledMealNotification> buildMealNotificationBatch({
   });
   final batch = <ScheduledMealNotification>[];
   for (final slot in slots) {
-    if (maxNotifications != null &&
-        batch.length + slot.notifications.length > maxNotifications) {
+    if (batch.length + slot.notifications.length > maxNotifications) {
       break;
     }
     batch.addAll(slot.notifications);
@@ -160,7 +158,7 @@ Future<void> reconcileScheduledMealNotifications({
   ScheduledMealPendingIdReader? readPendingIds,
   ScheduledMealPendingCanceler? cancelPending,
   ScheduledMealNotificationUpserter? upsertNotification,
-  int? maxNotifications = kMaxScheduledMealNotifications,
+  int maxNotifications = kMaxScheduledMealNotifications,
   AppLocalizations? l10n,
 }) async {
   final currentGeneration = isCurrent ?? () => true;
@@ -209,9 +207,7 @@ Future<void> reconcileScheduledMealNotifications({
     now: instant,
     currentWeek: current,
     nextWeek: next,
-    maxNotifications: maxNotifications == null
-        ? null
-        : maxNotifications - retainedIds.length,
+    maxNotifications: maxNotifications - retainedIds.length,
   );
   final desiredIds = batch.map((notification) => notification.id).toSet();
 
