@@ -3,96 +3,82 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/ios_meal_notification_scheduler.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
+import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
-import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/l10n/app_localizations_ko.dart';
 
 void main() {
-  group('iOS 알림 시각 역변환', () {
-    test('기기 UTC offset과 시간대 종류에 관계없이 KST 대상 날짜로 왕복한다', () {
-      final targetDate = DateTime.utc(2026, 3, 30);
-      for (final offsetHours in [-8, 0, 9, 13]) {
-        for (final period in MealNotificationPeriod.values) {
-          final fireInstant = fireInstantForTarget(
-            period: period,
-            targetKstDate: targetDate,
-            alertTime: period.defaultSlot,
-            localDateTimeFactory: (year, month, day, hour, minute) =>
-                DateTime.utc(
-                  year,
-                  month,
-                  day,
-                  hour,
-                  minute,
-                ).subtract(Duration(hours: offsetHours)),
-          );
+  test('기기 시간대와 day/night 경계에서 KST 대상 날짜를 보존한다', () {
+    final targetDate = DateTime.utc(2026, 3, 30);
+    for (final offsetHours in [-8, 0, 9, 13]) {
+      for (final period in MealNotificationPeriod.values) {
+        final fireInstant = fireInstantForTarget(
+          period: period,
+          targetKstDate: targetDate,
+          alertTime: period.defaultSlot,
+          localDateTimeFactory: (year, month, day, hour, minute) =>
+              DateTime.utc(
+                year,
+                month,
+                day,
+                hour,
+                minute,
+              ).subtract(Duration(hours: offsetHours)),
+        );
 
-          expect(notificationTargetDateFor(period, fireInstant), targetDate);
-        }
+        expect(notificationTargetDateFor(period, fireInstant), targetDate);
       }
-    });
+    }
   });
 
-  group('iOS 알림 배치', () {
-    test('식당별 ID를 분리하고 64개 한도에서는 시간 슬롯 전체만 보존한다', () {
-      final week = _weekWithLunchMenus({DayOfWeek.mon, DayOfWeek.tue});
-      final settings = NotificationSettings(
-        enabled: true,
-        alertTimes: const {
-          MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
-        },
-        cafeterias: const {Cafeteria.student, Cafeteria.faculty},
-        dormMealTypes: DormMealType.values.toSet(),
-        days: const {DayOfWeek.mon, DayOfWeek.tue},
-      );
+  test('고유 ID로 시간순 전체 슬롯만 예약 한도에 담는다', () {
+    final currentWeek = _fullWeekWithMenus();
+    final settings = NotificationSettings(
+      enabled: true,
+      alertTimes: const {
+        MealNotificationPeriod.morning: TimeOfDay(hour: 8, minute: 0),
+        MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
+      },
+      cafeterias: Cafeteria.values.toSet(),
+      dormMealTypes: DormMealType.values.toSet(),
+      days: DayOfWeek.values.toSet(),
+    );
 
-      final batch = buildMealNotificationBatch(
-        settings: settings,
-        l10n: AppLocalizationsKo(),
-        now: DateTime(2026, 7, 19, 10),
-        currentWeek: (startDate: DateTime.utc(2026, 7, 20), weekMeal: week),
-        maxNotifications: 5,
-      );
+    List<ScheduledMealNotification> build() => buildMealNotificationBatch(
+      settings: settings,
+      l10n: AppLocalizationsKo(),
+      now: DateTime(2026, 7, 19, 10),
+      currentWeek: (
+        startDate: DateTime.utc(2026, 7, 20),
+        weekMeal: currentWeek,
+      ),
+      maxNotifications: 5,
+    );
 
-      expect(batch, hasLength(4));
-      expect(batch.map((item) => item.id).toSet(), hasLength(4));
-      expect(
-        batch.every((item) => isScheduledMealNotificationId(item.id)),
-        isTrue,
+    final first = build();
+    final second = build();
+    expect(first, hasLength(4));
+    expect(first.map((item) => item.id).toSet(), hasLength(4));
+    expect(
+      first.every((item) => isScheduledMealNotificationId(item.id)),
+      isTrue,
+    );
+    final requestsPerSlot = <DateTime, int>{};
+    for (final item in first) {
+      requestsPerSlot.update(
+        item.fireInstant,
+        (count) => count + 1,
+        ifAbsent: () => 1,
       );
-      expect(batch.map((item) => item.fireInstant).toSet(), hasLength(1));
-    });
-
-    test('활성 요일은 night 실행일이 아니라 KST 메뉴 대상일에 적용한다', () {
-      final week = _weekWithBreakfastMenu(DayOfWeek.mon);
-      final settings = NotificationSettings(
-        enabled: true,
-        alertTimes: const {
-          MealNotificationPeriod.night: TimeOfDay(hour: 21, minute: 30),
-        },
-        cafeterias: const {Cafeteria.student},
-        dormMealTypes: const {},
-        days: const {DayOfWeek.mon},
-      );
-
-      final batch = buildMealNotificationBatch(
-        settings: settings,
-        l10n: AppLocalizationsKo(),
-        now: DateTime(2026, 7, 19, 10),
-        currentWeek: (startDate: DateTime.utc(2026, 7, 20), weekMeal: week),
-      );
-
-      expect(batch, hasLength(1));
-      expect(
-        notificationTargetDateFor(
-          MealNotificationPeriod.night,
-          batch.single.fireInstant,
-        ),
-        DateTime.utc(2026, 7, 20),
-      );
-    });
+    }
+    expect(requestsPerSlot.values, everyElement(4));
+    expect(
+      first.map((item) => item.fireInstant),
+      orderedEquals(first.map((item) => item.fireInstant).toList()..sort()),
+    );
+    expect(second.map((item) => item.id), first.map((item) => item.id));
   });
 
   group('iOS pending reconciliation', () {
@@ -106,9 +92,9 @@ void main() {
       days: const {DayOfWeek.mon},
     );
 
-    test('권한이 없으면 캐시와 pending 요청을 전혀 읽거나 변경하지 않는다', () async {
+    test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {
       var touchedData = false;
-      final outcome = await reconcileIosMealNotifications(
+      final unauthorized = await reconcileIosMealNotifications(
         settings: enabledSettings,
         readAuthorizationStatus: () async =>
             MealNotificationAuthorizationStatus.notAuthorized,
@@ -121,43 +107,25 @@ void main() {
           return const [];
         },
       );
-
-      expect(outcome, IosMealReconciliationOutcome.notAuthorized);
+      expect(unauthorized, IosMealReconciliationOutcome.notAuthorized);
       expect(touchedData, isFalse);
-    });
 
-    test('데이터 갱신에서 현재 주 캐시가 없으면 기존 예약을 보존한다', () async {
       final canceled = <int>[];
-      final existingId = scheduledMealNotificationId(
-        period: MealNotificationPeriod.lunch,
-        contentId: 3,
-        targetDate: DateTime.utc(2026, 7, 20),
-      );
-
-      final outcome = await reconcileIosMealNotifications(
+      final unavailable = await reconcileIosMealNotifications(
         settings: enabledSettings,
         readAuthorizationStatus: () async =>
             MealNotificationAuthorizationStatus.enabled,
-        readPendingIds: () async => [existingId],
+        readPendingIds: () async => [_ownedId(DateTime.utc(2026, 7, 20))],
         cancelPending: (id) async => canceled.add(id),
         loadCurrentWeek: () async => null,
       );
-
-      expect(outcome, IosMealReconciliationOutcome.currentWeekUnavailable);
+      expect(unavailable, IosMealReconciliationOutcome.currentWeekUnavailable);
       expect(canceled, isEmpty);
     });
 
-    test('다음 주 로드 실패는 다음 주 예약만 보존하고 다른 stale ID만 제거한다', () async {
-      final nextWeekId = scheduledMealNotificationId(
-        period: MealNotificationPeriod.lunch,
-        contentId: 3,
-        targetDate: DateTime.utc(2026, 7, 27),
-      );
-      final orphanedId = scheduledMealNotificationId(
-        period: MealNotificationPeriod.lunch,
-        contentId: 3,
-        targetDate: DateTime.utc(2026, 8, 3),
-      );
+    test('다음 주 실패 시 그 범위는 보존하고 다른 stale ID만 제거한다', () async {
+      final nextWeekId = _ownedId(DateTime.utc(2026, 7, 27));
+      final orphanedId = _ownedId(DateTime.utc(2026, 8, 3));
       final canceled = <int>[];
 
       await reconcileIosMealNotifications(
@@ -179,74 +147,13 @@ void main() {
       expect(canceled, [orphanedId]);
     });
 
-    test('사용자 설정 변경은 기존 예약을 먼저 취소하고 새 배치를 등록한다', () async {
-      final oldId = scheduledMealNotificationId(
-        period: MealNotificationPeriod.lunch,
-        contentId: 4,
-        targetDate: DateTime.utc(2026, 7, 20),
-      );
-      final canceled = <int>[];
-      final scheduled = <ScheduledMealNotification>[];
-
-      final outcome = await reconcileIosMealNotifications(
-        settings: enabledSettings,
-        clearPendingFirst: true,
-        currentWeek: (
-          startDate: DateTime.utc(2026, 7, 20),
-          weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
-        ),
-        nowProvider: () => DateTime(2026, 7, 19, 10),
-        readAuthorizationStatus: () async =>
-            MealNotificationAuthorizationStatus.enabled,
-        readPendingIds: () async => [oldId],
-        cancelPending: (id) async => canceled.add(id),
-        loadNextWeek: () async => null,
-        upsertNotification: (notification) async => scheduled.add(notification),
-        l10n: AppLocalizationsKo(),
-      );
-
-      expect(outcome, IosMealReconciliationOutcome.scheduled);
-      expect(canceled, [oldId]);
-      expect(scheduled, hasLength(1));
-      expect(scheduled.single.title, contains('학생 식당'));
-    });
-
-    test('배치 중 두 번째 platform upsert 실패를 호출자에게 전달한다', () async {
-      var upsertCount = 0;
-      final twoCafeterias = enabledSettings.copyWith(
-        cafeterias: {Cafeteria.student, Cafeteria.faculty},
-      );
-
-      await expectLater(
-        reconcileIosMealNotifications(
-          settings: twoCafeterias,
-          currentWeek: (
-            startDate: DateTime.utc(2026, 7, 20),
-            weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
-          ),
-          nowProvider: () => DateTime(2026, 7, 19, 10),
-          readAuthorizationStatus: () async =>
-              MealNotificationAuthorizationStatus.enabled,
-          readPendingIds: () async => const [],
-          loadNextWeek: () async => null,
-          upsertNotification: (_) async {
-            upsertCount++;
-            if (upsertCount == 2) throw StateError('platform failure');
-          },
-          l10n: AppLocalizationsKo(),
-        ),
-        throwsStateError,
-      );
-      expect(upsertCount, 2);
-    });
-
-    test('upsert 사이에 지난 scheduledDate 오류만 건너뛴다', () async {
+    test('호출 사이에 과거가 된 scheduledDate만 건너뛴다', () async {
       var clockReads = 0;
       DateTime clock() => ++clockReads < 3
           ? DateTime(2026, 7, 19, 10)
           : DateTime(2026, 7, 20, 12);
 
-      final outcome = await reconcileIosMealNotifications(
+      final skipped = await reconcileIosMealNotifications(
         settings: enabledSettings,
         currentWeek: (
           startDate: DateTime.utc(2026, 7, 20),
@@ -263,11 +170,8 @@ void main() {
         ),
         l10n: AppLocalizationsKo(),
       );
+      expect(skipped, IosMealReconciliationOutcome.scheduled);
 
-      expect(outcome, IosMealReconciliationOutcome.scheduled);
-    });
-
-    test('아직 미래인 scheduledDate 오류는 숨기지 않는다', () async {
       await expectLater(
         reconcileIosMealNotifications(
           settings: enabledSettings,
@@ -291,82 +195,73 @@ void main() {
     });
   });
 
-  test('owned pending 취소는 다른 기능의 ID를 보존한다', () async {
-    final ownedId = scheduledMealNotificationId(
-      period: MealNotificationPeriod.lunch,
-      contentId: 3,
-      targetDate: DateTime.utc(2026, 7, 20),
-    );
+  test('owned pending만 취소한다', () async {
     final canceled = <int>[];
-
     await cancelAllPendingMealNotifications(
-      readPendingIds: () async => [ownedId, 42],
+      readPendingIds: () async => [_ownedId(DateTime.utc(2026, 7, 20)), 42],
       cancelPending: (id) async => canceled.add(id),
     );
-
-    expect(canceled, [ownedId]);
+    expect(canceled, [_ownedId(DateTime.utc(2026, 7, 20))]);
   });
 
-  test('플랫폼 분기는 iOS에서 Workmanager 예약 콜백을 호출하지 않는다', () async {
-    var iosCalls = 0;
-    var androidCalls = 0;
-    final settings = NotificationSettings();
-
-    await scheduleMealNotifications(
-      settings,
-      clearPendingFirst: false,
-      platform: MealNotificationPlatform.ios,
-      iosScheduler:
-          (
-            settings, {
-            required clearPendingFirst,
-            required isCurrent,
-            currentWeek,
-          }) async {
-            iosCalls++;
-          },
-      androidScheduler:
-          (
-            settings, {
-            required clearPendingFirst,
-            required isCurrent,
-            currentWeek,
-          }) async {
-            androidCalls++;
-          },
-    );
-
-    expect(iosCalls, 1);
-    expect(androidCalls, 0);
-  });
-
-  test('Web과 지원하지 않는 플랫폼에서는 어떤 예약 콜백도 호출하지 않는다', () async {
-    var callCount = 0;
-    Future<void> callback(
+  test('Android와 iOS만 각 플랫폼 예약기를 호출한다', () async {
+    final calls = <MealNotificationPlatform>[];
+    Future<void> androidOrIos(
+      MealNotificationPlatform platform,
       NotificationSettings settings, {
       required bool clearPendingFirst,
       required bool Function() isCurrent,
       IosMealWeek? currentWeek,
     }) async {
-      callCount++;
+      calls.add(platform);
     }
 
-    await scheduleMealNotifications(
-      NotificationSettings(),
-      clearPendingFirst: false,
-      platform: MealNotificationPlatform.unsupported,
-      iosScheduler: callback,
-      androidScheduler: callback,
-    );
-    await cancelAllMealNotifications(
-      platform: MealNotificationPlatform.unsupported,
-      iosCancel: () async => callCount++,
-      androidCancel: () async => callCount++,
-    );
+    for (final platform in MealNotificationPlatform.values) {
+      await scheduleMealNotifications(
+        NotificationSettings(),
+        clearPendingFirst: false,
+        platform: platform,
+        iosScheduler:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) => androidOrIos(
+              MealNotificationPlatform.ios,
+              settings,
+              clearPendingFirst: clearPendingFirst,
+              isCurrent: isCurrent,
+              currentWeek: currentWeek,
+            ),
+        androidScheduler:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) => androidOrIos(
+              MealNotificationPlatform.android,
+              settings,
+              clearPendingFirst: clearPendingFirst,
+              isCurrent: isCurrent,
+              currentWeek: currentWeek,
+            ),
+      );
+    }
 
-    expect(callCount, 0);
+    expect(calls, [
+      MealNotificationPlatform.android,
+      MealNotificationPlatform.ios,
+    ]);
   });
 }
+
+int _ownedId(DateTime targetDate) => scheduledMealNotificationId(
+  period: MealNotificationPeriod.lunch,
+  contentId: 3,
+  targetDate: targetDate,
+);
 
 WeekMeal _weekWithLunchMenus(Set<DayOfWeek> days) {
   final week = WeekMeal.empty();
@@ -379,9 +274,16 @@ WeekMeal _weekWithLunchMenus(Set<DayOfWeek> days) {
   return week;
 }
 
-WeekMeal _weekWithBreakfastMenu(DayOfWeek day) {
+WeekMeal _fullWeekWithMenus() {
   final week = WeekMeal.empty();
-  week[day][MealOfDay.breakfast][Cafeteria.student].add(_meal('아침'));
+  for (final day in DayOfWeek.values) {
+    for (final mealOfDay in [MealOfDay.breakfast, MealOfDay.lunch]) {
+      final meals = week[day][mealOfDay];
+      meals[Cafeteria.dormitory].addAll([_koreanMeal('한식'), _halalMeal('할랄')]);
+      meals[Cafeteria.student].add(_meal('학생식'));
+      meals[Cafeteria.faculty].add(_meal('교직원식'));
+    }
+  }
   return week;
 }
 

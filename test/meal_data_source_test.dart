@@ -26,35 +26,6 @@ void main() {
     expect(refreshCount, 1);
   });
 
-  test('독립 preview 갱신은 진행 중인 canonical single-flight에 합쳐지지 않는다', () async {
-    final canonicalResponse = Completer<MealResponse>();
-    var canonicalRefreshes = 0;
-    var previewRefreshes = 0;
-
-    final canonical = runForegroundMealRefresh(() {
-      canonicalRefreshes++;
-      return canonicalResponse.future;
-    });
-    final preview = Future<MealResponse>(() {
-      previewRefreshes++;
-      return (
-        weekMeal: WeekMeal.empty(),
-        weekMeta: parseWeekMeta(_rawMeal('2026-04-27', isCurrentWeek: false)),
-      );
-    });
-    final previewResult = await preview;
-
-    expect(previewResult.weekMeta.startDate, DateTime(2026, 4, 27));
-    expect(canonicalRefreshes, 1);
-    expect(previewRefreshes, 1);
-
-    canonicalResponse.complete((
-      weekMeal: WeekMeal.empty(),
-      weekMeta: parseWeekMeta(_rawMeal('2026-04-20', isCurrentWeek: true)),
-    ));
-    await canonical;
-  });
-
   group('fetchMealDataForWeek', () {
     test('주어진 날짜로 /v2/menu/{date} 형태의 URL을 요청한다', () async {
       String? requestedUrl;

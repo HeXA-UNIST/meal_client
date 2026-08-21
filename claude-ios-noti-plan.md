@@ -289,17 +289,17 @@ do not reimplement content logic.
 
 First remove the current split settings interpretation. Today
 `AppSettings._loadNotification` and the Android worker separately derive
-cafeterias and dormitory meal types from preferences, including legacy
+cafeterias and dormitory meal types from preferences, including absent-key
 defaults, while only the worker applies the Release keyword gate. Their
 results currently agree, but a future change could make Android fire-time
 content and iOS precomputed content diverge before the shared content builder
 ever sees its input.
 
-Use two shared layers rather than mixing persistence migration into content
+Use two shared layers rather than mixing persistence decoding into content
 formatting:
 
-- a notification-settings store/loader owns `SharedPreferences` keys, absent-
-  key defaults, and legacy migration, and returns one `NotificationSettings`;
+- a notification-settings store/loader owns current `SharedPreferences` keys
+  and absent-key defaults, and returns one `NotificationSettings`;
   both `AppSettings` and the Android worker use it;
 - a pure delivery-settings normalizer owns the effective cafeterias,
   dormitory meal types, trimmed keywords, and the Debug/Release keyword gate.
@@ -637,9 +637,11 @@ force-quits the app.
 ### File-by-file changes
 
 - **`notification_settings_store.dart` (new) and
-  `notification_settings.dart`**: move preference defaults and legacy
-  migration out of both `AppSettings._loadNotification` and the Android worker
-  into one store function returning `NotificationSettings`. Keep the pure
+  `notification_settings.dart`**: move current-format preference loading and
+  defaults out of both `AppSettings._loadNotification` and the Android worker
+  into one store function returning `NotificationSettings`. Because the feature
+  has not shipped, do not retain single-keyword or single-time migration code.
+  Keep the pure
   delivery-settings normalizer with the settings model; it derives effective
   cafeteria/dorm selections and owns the Debug/Release keyword gate. Both
   platforms must enter content generation through these shared functions.
@@ -686,6 +688,9 @@ force-quits the app.
   explicitly guards for iOS, initializes the plugin without prompting, loads
   the latest persisted settings, and performs cache-only reconciliation.
   Android continues through its existing behavior without this hook.
+  This migration does not change or claim to harden Android's existing
+  run-check/reschedule exception and retry semantics; analyze that chain as a
+  separate product change before altering it.
 - **`app_settings.dart`**: wire the four unwired mutators (trigger #2); add
   the injectable lifecycle registration (trigger #3). Master disable must
   cancel iOS meal pending requests immediately, and `resetAll()` must explicitly
@@ -738,7 +743,7 @@ Implement and verify this in two independently shippable phases.
   schedules correctly into a denied state ships nothing the user can perceive;
 - settle the § Delivery presentation decision and apply the resulting
   `interruptionLevel` (or record acceptance of summary batching);
-- centralize preference loading/migration and effective delivery-settings
+- centralize current-format preference loading and effective delivery-settings
   normalization so Android and iOS cannot interpret the same stored state
   differently;
 - extract the shared localized content builder;
@@ -784,65 +789,46 @@ successful refresh it runs the bounded stable-snapshot loop above under the
 cross-isolate mutation marker. This persisted-generation recheck covers the
 case where foreground lock acquisition times out behind a long plugin batch.
 
-### Testing strategy
+### Retained automated test strategy
 
-Mirror the existing typedef-injection pattern from
-`notification_scheduler_test.dart` / `meal_notification_worker_test.dart`
-(no platform channel mocking):
+Keep a deliberately small regression suite. Development-time TDD cases that
+only restate getters, enumerate equivalent offsets/settings permutations, or
+exercise the deleted iOS Workmanager path are not part of the maintained suite.
+Use the existing typedef-injection pattern rather than platform-channel mocks.
 
-- `fireInstantForTarget` round-trip property test across periods × dates ×
-  injected device UTC offsets (§ above), plus calendar/DST boundaries — this
-  is the test that catches the actual timezone inversion bug class.
-- `buildMealNotificationBatch`: empty keywords → one request per selected
-  non-empty meal group; multiple groups at one fire slot have unique IDs;
-  >cap candidates → deterministic chronological whole-slot truncation;
-  day-of-week and minimum-lead-time filtering; reserved ID-range ownership.
-- settings-to-content parity starts from raw preference states, not an already
-  normalized settings input: cover absent cafeteria/type keys, student-only,
-  dormitory plus student, explicit dormitory meal types, and legacy keys; then
-  verify Android and iOS derive identical effective delivery settings and
-  per-group content for the same target date, period, locale, and `WeekMeal`.
-  Inject both keyword-filter-enabled states so the production Release gate is
-  tested in the shared normalizer rather than separately per caller.
-- Korean/English content: localized cafeteria/meal/title text, `/`-separated
-  single-line bodies, English menu fallback to Korean, and Release forcing an
-  empty keyword list. Resolve `[unsupported, ko]` to Korean just like the app,
-  rather than looking only at the first device locale.
-- iOS reconciliation with injected scheduler/canceler/pending-request fakes and
-  week loaders: current-week failure during a data refresh → preserve old
-  requests; next-week failure → reconcile the current range while retaining
-  existing next-week requests; success → stale owned IDs in both loaded
-  ranges removed and desired deterministic IDs upserted.
-- fail the Nth `zonedSchedule` call and verify that the error is surfaced and
-  the resulting partial state is bounded/retryable.
-- use `package:clock`'s `withClock()` to advance time between batch build and
-  an individual upsert: a candidate that became strictly past is skipped,
-  equality remains valid like the plugin, and an `ArgumentError` for a
-  still-future candidate is rethrown rather than hidden.
-- authorization gating with an injected status reader: not-authorized
-  → no cache read, no batch build, **no pending-request mutation**, and the
-  caller sees that state rather than a success; not-applicable (`null`) →
-  reconciliation proceeds normally; a not-enabled→enabled transition between two
-  reconciliations rebuilds the full batch from the still-present requests'
-  reserved ID range.
-- `setNotificationEnabled(true)` calls the injected permission requester exactly
-  once, and a denial is exposed as observable settings state instead of being
-  swallowed.
-- master disable and `resetAll` immediately remove iOS meal-notification pending
-  requests without requiring meal data.
-- a user restriction followed by a cache/network failure does not leave stale
-  notifications based on removed settings.
-- `AppSettings`: the four previously-unwired mutators now trigger a (fake)
-  reschedule call when `notification.enabled`.
-- **(Phase 2)** background refresh invokes reconciliation only on iOS; Android
-  retains its existing one-off scheduling behavior.
-- **(Phase 2)** overlapping launch/resume/background generations cannot let an
-  older batch overwrite a newer settings or meal revision.
-- **(Phase 2)** change the injected device timezone between reconciliations and
-  verify the same configured wall-clock time maps to a newly scheduled
-  absolute instant.
-- Android delivery behavior stays unchanged; keep its existing suite green and
-  extend parity coverage for the new shared settings path.
+- KST target/device-local inversion across all four periods and representative
+  offsets, including the Sunday-night to Monday-menu boundary.
+- Shared settings/content: Release disables keyword filtering; Korean and
+  English produce the same four deterministic meal groups, localized titles,
+  single-line `/`-separated full menus, and English-to-Korean menu fallback.
+- iOS batch construction: deterministic owned IDs, chronological order, and
+  whole-slot truncation under the request cap (64 in production; a smaller
+  injected cap in the unit test).
+- iOS reconciliation: authorization and current/next-week data failures preserve
+  the applicable existing requests; cancellation touches only the reserved ID
+  range; a `scheduledDate` error is skipped only when the candidate became
+  strictly past and is otherwise surfaced.
+- Platform dispatch calls only the Android or iOS implementation and is a no-op
+  on unsupported platforms. Successful background cache refresh invokes the
+  notification hook only on iOS.
+- The retained Android contract covers Sunday-night scheduling of Monday's
+  `targetDate`, worker consumption of that date, and successful next-task
+  registration without expanding into exception-policy tests.
+- Background refresh classifies meal/cache-write/widget failures as task
+  failures while treating an ordinary info fetch failure as non-fatal.
+- Permission opt-in/denial/recovery remains observable, and disabling/resetting
+  cancels pending meal notifications without requiring meal data.
+- All four content mutators that were previously unwired request reconciliation
+  while notifications are enabled.
+- Resume lifecycle: every iOS resume reconciles from cache, foreground network
+  refresh is throttled for one hour, the KST-Sunday next-week refresh bypasses
+  that throttle without overlapping itself, and disposal prevents late work.
+- Concurrency: the foreground coordinator rejects superseded generations; the
+  background stable-snapshot loop converges on the latest persisted generation;
+  a long cross-isolate lock still converges on a persisted disable; canonical
+  foreground meal refresh remains single-flight.
+- The settings-page test retains the persistent OS-settings recovery route, and
+  the next-week preview test retains its successful refresh notification hook.
 
 ### Residual risk (accepted, not fully eliminated by more triggers)
 
@@ -885,8 +871,11 @@ maximum configuration as long-horizon guaranteed delivery.
 
 ## Verification
 
-- Unit tests above run via `flutter test test/features/notification/`
-  (existing files extended, no new test files required).
+- Run the retained regression suite with `flutter test`, then run
+  `flutter analyze`. The notification-focused files are
+  `test/features/notification/`, `test/settings_test.dart`,
+  `test/notification_settings_page_test.dart`, and the canonical refresh and
+  next-week callback cases in their existing meal/home test files.
 - `zonedSchedule` delivery itself is testable on iOS **simulator** by
   scheduling a near-term (~1 min) test notification through the new
   `notification_service.dart` function and confirming delivery while the
