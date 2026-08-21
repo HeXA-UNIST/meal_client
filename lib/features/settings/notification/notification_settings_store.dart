@@ -9,16 +9,12 @@ import 'notification_settings.dart';
 
 /// 현재 형식으로 저장된 알림 설정을 읽는다.
 NotificationSettings loadNotificationSettings(SharedPreferences prefs) {
-  // 기숙사 식당 선택 여부는 dormMealTypes 하나로만 판단한다. 이 키가 도입되기
-  // 전 저장값은 cafeterias의 기숙사 선택 여부를 한식/할랄 기본값으로 옮긴다.
   final cafeteriaNames = prefs.getStringList(
     StorageKeys.notificationCafeterias,
   );
   final storedCafeterias = cafeteriaNames == null
       ? const <Cafeteria>{}
       : enumSetFromNames(cafeteriaNames, Cafeteria.values);
-  final hadDormitoryBefore =
-      cafeteriaNames == null || storedCafeterias.contains(Cafeteria.dormitory);
   final cafeterias = storedCafeterias
       .where((cafeteria) => cafeteria != Cafeteria.dormitory)
       .toSet();
@@ -28,9 +24,7 @@ NotificationSettings loadNotificationSettings(SharedPreferences prefs) {
   );
   final dormMealTypes = dormMealTypeNames != null
       ? enumSetFromNames(dormMealTypeNames, DormMealType.values)
-      : (hadDormitoryBefore
-            ? const <DormMealType>{DormMealType.korean, DormMealType.halal}
-            : const <DormMealType>{});
+      : const <DormMealType>{DormMealType.korean, DormMealType.halal};
 
   final keywords = prefs.getStringList(StorageKeys.notificationKeywords) ?? [];
 

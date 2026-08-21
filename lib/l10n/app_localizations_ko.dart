@@ -219,4 +219,14 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get openSystemAppSettings => '설정 열기';
+
+  @override
+  String get androidNotificationTimingNotice =>
+      'Android에서는 기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.';
+
+  @override
+  String get notificationSyncFailed => '알림 설정을 적용하지 못했습니다.';
+
+  @override
+  String get retry => '다시 시도';
 }

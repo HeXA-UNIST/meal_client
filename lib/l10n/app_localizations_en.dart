@@ -222,4 +222,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openSystemAppSettings => 'Open Settings';
+
+  @override
+  String get androidNotificationTimingNotice =>
+      'On Android, device power restrictions may delay notifications beyond the selected time.';
+
+  @override
+  String get notificationSyncFailed =>
+      'Notification settings could not be applied.';
+
+  @override
+  String get retry => 'Retry';
 }

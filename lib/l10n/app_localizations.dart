@@ -499,6 +499,24 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'설정 열기'**
   String get openSystemAppSettings;
+
+  /// No description provided for @androidNotificationTimingNotice.
+  ///
+  /// In ko, this message translates to:
+  /// **'Android에서는 기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.'**
+  String get androidNotificationTimingNotice;
+
+  /// No description provided for @notificationSyncFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 설정을 적용하지 못했습니다.'**
+  String get notificationSyncFailed;
+
+  /// No description provided for @retry.
+  ///
+  /// In ko, this message translates to:
+  /// **'다시 시도'**
+  String get retry;
 }
 
 class _AppLocalizationsDelegate

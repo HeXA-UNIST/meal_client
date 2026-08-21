@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +31,20 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
     super.initState();
     _keywordController = TextEditingController();
     _keywordFocusNode = FocusNode();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        context
+            .read<AppSettings>()
+            .refreshNotificationAuthorizationStatus()
+            .catchError((Object error, StackTrace stackTrace) {
+              debugPrint(
+                '[BapU] notification settings authorization refresh failed: $error',
+              );
+              debugPrintStack(stackTrace: stackTrace);
+            }),
+      );
+    });
   }
 
   @override
@@ -67,19 +83,28 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       );
 
   Future<void> _handleNotificationToggle(bool enable) async {
-    final granted = await context.read<AppSettings>().setNotificationEnabled(
+    final result = await context.read<AppSettings>().setNotificationEnabled(
       enable,
     );
     if (!mounted) return;
-    if (enable && !granted) {
+    if (enable && result != NotificationEnableResult.enabled) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.notificationPermissionDenied),
-          action: SnackBarAction(
-            label: l10n.openSystemAppSettings,
-            onPressed: _openNotificationSettings,
+          content: Text(
+            result == NotificationEnableResult.permissionDenied
+                ? l10n.notificationPermissionDenied
+                : l10n.notificationSyncFailed,
           ),
+          action: result == NotificationEnableResult.permissionDenied
+              ? SnackBarAction(
+                  label: l10n.openSystemAppSettings,
+                  onPressed: _openNotificationSettings,
+                )
+              : SnackBarAction(
+                  label: l10n.retry,
+                  onPressed: () => unawaited(_handleNotificationToggle(true)),
+                ),
         ),
       );
     }
@@ -88,10 +113,9 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final notification = context.watch<AppSettings>().notification;
-    final authorizationStatus = context
-        .watch<AppSettings>()
-        .notificationAuthorizationStatus;
+    final appSettings = context.watch<AppSettings>();
+    final notification = appSettings.notification;
+    final authorizationStatus = appSettings.notificationAuthorizationStatus;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
@@ -127,7 +151,29 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                 child: Text(l10n.openSystemAppSettings),
               ),
             ),
+          if (appSettings.notificationSyncFailed)
+            ListTile(
+              contentPadding: const EdgeInsets.fromLTRB(16, 0, 24, 4),
+              leading: const Icon(Icons.sync_problem_outlined),
+              title: Text(l10n.notificationSyncFailed),
+              trailing: TextButton(
+                onPressed: () => unawaited(
+                  context.read<AppSettings>().retryNotificationSync(),
+                ),
+                child: Text(l10n.retry),
+              ),
+            ),
           if (notification.enabled) ...[
+            if (appSettings.usesInexactNotificationTiming)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 24, 4),
+                child: Text(
+                  l10n.androidNotificationTimingNotice,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             // 시간대별 알림 설정 (아침·점심·저녁·밤)
             const Divider(height: 28, indent: 16, endIndent: 16),
             _SubGroupLabel(l10n.notificationTimesLabel),
@@ -385,25 +431,33 @@ class _DayToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return InkWell(
+    return Semantics(
+      label: label,
+      button: true,
+      selected: selected,
       onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: selected ? scheme.primary : Colors.transparent,
-          border: Border.all(
-            color: selected ? scheme.primary : scheme.outlineVariant,
-          ),
-        ),
-        child: Text(
-          label,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+      child: ExcludeSemantics(
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? scheme.primary : Colors.transparent,
+              border: Border.all(
+                color: selected ? scheme.primary : scheme.outlineVariant,
+              ),
+            ),
+            child: Text(
+              label,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
           ),
         ),
       ),

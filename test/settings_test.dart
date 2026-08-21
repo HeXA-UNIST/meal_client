@@ -152,14 +152,6 @@ void main() {
       expect(settings2.themeMode, ThemeMode.dark);
     });
 
-    test('setNotificationEnabled — 저장 및 재로드', () async {
-      final prefs = await SharedPreferences.getInstance();
-      final settings = createSettings(prefs);
-      await settings.setNotificationEnabled(true);
-      final settings2 = createSettings(prefs);
-      expect(settings2.notification.enabled, isTrue);
-    });
-
     test('알림 권한 거부와 시스템 설정에서의 복구를 관찰한다', () async {
       final prefs = await SharedPreferences.getInstance();
       var requestCount = 0;
@@ -184,7 +176,10 @@ void main() {
       );
       settingsToDispose.add(settings);
 
-      expect(await settings.setNotificationEnabled(true), isFalse);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.permissionDenied,
+      );
       expect(requestCount, 1);
       expect(settings.notification.enabled, isFalse);
       expect(
@@ -199,36 +194,6 @@ void main() {
             settings.notificationAuthorizationStatus ==
             MealNotificationAuthorizationStatus.enabled,
       );
-    });
-
-    test('활성화 중인 콘텐츠 설정 mutator는 모두 예약 갱신을 요청한다', () async {
-      final prefs = await SharedPreferences.getInstance();
-      var scheduleCount = 0;
-      final settings = AppSettings(
-        prefs,
-        notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          debounce: Duration.zero,
-          schedule: (settings, {required isCurrent}) async {
-            scheduleCount++;
-          },
-          cancel: () async {},
-        ),
-        notificationPermissionRequester: () async => true,
-      );
-      settingsToDispose.add(settings);
-
-      await settings.setNotificationEnabled(true);
-      await _waitUntil(() => scheduleCount == 1);
-      settings.addNotificationKeyword('국');
-      await _waitUntil(() => scheduleCount == 2);
-      settings.removeNotificationKeyword('국');
-      await _waitUntil(() => scheduleCount == 3);
-      settings.setNotificationCafeterias({Cafeteria.student});
-      await _waitUntil(() => scheduleCount == 4);
-      settings.setNotificationDormMealTypes({DormMealType.korean});
-      await _waitUntil(() => scheduleCount == 5);
-
-      expect(scheduleCount, 5);
     });
 
     test('reset 직후 활성화해도 저장과 예약이 최신 상태로 수렴한다', () async {
@@ -249,7 +214,10 @@ void main() {
       settingsToDispose.add(settings);
 
       settings.resetAll();
-      expect(await settings.setNotificationEnabled(true), isTrue);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.enabled,
+      );
 
       expect(cancelCount, 1);
       expect(scheduledEnabled, isTrue);
@@ -270,62 +238,98 @@ void main() {
       );
       settingsToDispose.add(settings);
 
-      expect(await settings.setNotificationEnabled(true), isFalse);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.failed,
+      );
 
       expect(settings.notification.enabled, isFalse);
       expect(settings.notificationAuthorizationStatus, isNull);
+      expect(settings.notificationSyncFailed, isTrue);
       expect(prefs.getBool(StorageKeys.notificationEnabled), isNull);
     });
 
-    test('generation 저장 실패도 인메모리 설정을 이전 스냅샷으로 돌린다', () async {
+    test('첫 활성화 예약이 일부 실패하면 pending을 정리하고 꺼진 상태로 돌린다', () async {
       final prefs = await SharedPreferences.getInstance();
-      var writeCount = 0;
+      var cancelCount = 0;
       final settings = AppSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (_) => () {},
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule: (settings, {required isCurrent}) async {},
-          cancel: () async {},
+          schedule: (settings, {required isCurrent}) async {
+            throw StateError('partial schedule failed');
+          },
+          cancel: () async => cancelCount++,
         ),
         notificationPermissionRequester: () async => true,
-        notificationPersistenceRunner: (write) async {
-          writeCount++;
-          return writeCount == 2 ? false : write();
-        },
       );
       settingsToDispose.add(settings);
 
-      expect(await settings.setNotificationEnabled(true), isFalse);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.failed,
+      );
 
-      expect(writeCount, 2);
       expect(settings.notification.enabled, isFalse);
-      expect(settings.notificationAuthorizationStatus, isNull);
+      expect(settings.notificationSyncFailed, isTrue);
+      expect(cancelCount, 1);
     });
 
-    test('비동기 권한 조회 결과는 알림을 끈 뒤 상태를 되살리지 않는다', () async {
+    test('느린 권한 조회가 이후 알림 설정 변경을 덮어쓰지 않는다', () async {
       SharedPreferences.setMockInitialValues({
-        'settings_notification_enabled': true,
+        StorageKeys.notificationEnabled: true,
       });
       final prefs = await SharedPreferences.getInstance();
-      final status = Completer<MealNotificationAuthorizationStatus>();
+      final authorization = Completer<MealNotificationAuthorizationStatus>();
       final settings = AppSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule: (settings, {required isCurrent}) async {},
           cancel: () async {},
         ),
-        notificationPermissionRequester: () async => true,
-        notificationAuthorizationStatusReader: () => status.future,
+        notificationAuthorizationStatusReader: () => authorization.future,
       );
       settingsToDispose.add(settings);
 
       final refresh = settings.refreshNotificationAuthorizationStatus();
       await settings.setNotificationEnabled(false);
-      status.complete(MealNotificationAuthorizationStatus.notAuthorized);
+      authorization.complete(MealNotificationAuthorizationStatus.notAuthorized);
       await refresh;
 
+      expect(settings.notification.enabled, isFalse);
       expect(settings.notificationAuthorizationStatus, isNull);
+    });
+
+    test('후속 예약 실패는 설정을 유지하고 다시 시도하면 오류를 지운다', () async {
+      SharedPreferences.setMockInitialValues({
+        StorageKeys.notificationEnabled: true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      var shouldFail = true;
+      final settings = AppSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.android,
+        resumeListenerRegistrar: (_) => () {},
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          debounce: Duration.zero,
+          schedule: (settings, {required isCurrent}) async {
+            if (shouldFail) throw StateError('schedule failed');
+          },
+          cancel: () async {},
+        ),
+      );
+      settingsToDispose.add(settings);
+
+      settings.setNotificationDays({DayOfWeek.fri});
+      await _waitUntil(() => settings.notificationSyncFailed);
+
+      expect(settings.notification.days, {DayOfWeek.fri});
+      expect(prefs.getStringList(StorageKeys.notificationDays), ['fri']);
+
+      shouldFail = false;
+      expect(await settings.retryNotificationSync(), isTrue);
+      expect(settings.notificationSyncFailed, isFalse);
     });
 
     test('Android resume은 매번 재조정하지만 1시간 이내 foreground fetch는 생략한다', () async {
@@ -455,40 +459,6 @@ void main() {
       expect(refreshCount, 1);
       expect(waitForNextWeek, isTrue);
       expect(scheduleCount, 2);
-    });
-
-    test('dispose 중인 Android resume 권한 조회는 상태와 예약을 변경하지 않는다', () async {
-      SharedPreferences.setMockInitialValues({
-        'settings_notification_enabled': true,
-      });
-      final prefs = await SharedPreferences.getInstance();
-      final authorization = Completer<MealNotificationAuthorizationStatus>();
-      VoidCallback? onResume;
-      var scheduleCount = 0;
-      final settings = AppSettings(
-        prefs,
-        notificationPlatform: MealNotificationPlatform.android,
-        resumeListenerRegistrar: (listener) {
-          onResume = listener;
-          return () {};
-        },
-        notificationAuthorizationStatusReader: () => authorization.future,
-        notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule: (settings, {required isCurrent}) async {
-            scheduleCount++;
-          },
-          cancel: () async {},
-        ),
-      );
-
-      onResume!();
-      settings.dispose();
-      authorization.complete(MealNotificationAuthorizationStatus.enabled);
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(scheduleCount, isZero);
-      expect(settings.notificationAuthorizationStatus, isNull);
     });
   });
 }

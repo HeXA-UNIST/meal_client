@@ -32,6 +32,8 @@ typedef NotificationPersistenceRunner =
 
 const foregroundMealRefreshInterval = Duration(hours: 1);
 
+enum NotificationEnableResult { enabled, permissionDenied, failed }
+
 class AppSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
 
@@ -51,12 +53,17 @@ class AppSettings extends ChangeNotifier {
   Future<void> _notificationMutationQueue = Future.value();
   bool _disposed = false;
   MealNotificationAuthorizationStatus? _notificationAuthorizationStatus;
+  bool _notificationSyncFailed = false;
+  int _authorizationRefreshRevision = 0;
 
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
   ThemeMode get themeMode => _themeMode;
   MealNotificationAuthorizationStatus? get notificationAuthorizationStatus =>
       _notificationAuthorizationStatus;
+  bool get notificationSyncFailed => _notificationSyncFailed;
+  bool get usesInexactNotificationTiming =>
+      _notificationPlatform == MealNotificationPlatform.android;
 
   AppSettings(
     this._prefs, {
@@ -93,6 +100,7 @@ class AppSettings extends ChangeNotifier {
           (resumeListenerRegistrar ?? _registerResumeListener)(
             () => unawaited(
               _handleAppResume().catchError((Object error, StackTrace stack) {
+                _setNotificationSyncFailed(true);
                 debugPrint(
                   '[BapU] app resume notification refresh failed: $error',
                 );
@@ -116,19 +124,20 @@ class AppSettings extends ChangeNotifier {
 
   // --- 알림 ---
 
-  Future<bool> setNotificationEnabled(bool v) async {
+  Future<NotificationEnableResult> setNotificationEnabled(bool v) async {
     return _enqueueNotificationMutation(() async {
-      if (_disposed) return false;
+      if (_disposed) return NotificationEnableResult.failed;
+      _authorizationRefreshRevision++;
       final previousAuthorizationStatus = _notificationAuthorizationStatus;
       if (v) {
         final granted = await _requestNotificationPermission();
-        if (_disposed) return false;
+        if (_disposed) return NotificationEnableResult.failed;
         _notificationAuthorizationStatus = granted
             ? MealNotificationAuthorizationStatus.enabled
             : MealNotificationAuthorizationStatus.notAuthorized;
         if (!granted) {
           notifyListeners();
-          return false;
+          return NotificationEnableResult.permissionDenied;
         }
       } else {
         _notificationAuthorizationStatus = null;
@@ -138,12 +147,18 @@ class AppSettings extends ChangeNotifier {
         next: _notification.copyWith(enabled: v),
         persist: () => _prefs.setBool(StorageKeys.notificationEnabled, v),
         immediately: true,
+        rollbackOnSyncFailure: v,
+        rollbackPersist: () => _prefs.setBool(
+          StorageKeys.notificationEnabled,
+          _notification.enabled,
+        ),
       );
       if (!applied) {
         _notificationAuthorizationStatus = previousAuthorizationStatus;
         notifyListeners();
+        return NotificationEnableResult.failed;
       }
-      return applied;
+      return NotificationEnableResult.enabled;
     });
   }
 
@@ -171,11 +186,7 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> _handleAppResume() async {
     if (_disposed) return;
-    if (_notification.enabled ||
-        _notificationAuthorizationStatus ==
-            MealNotificationAuthorizationStatus.notAuthorized) {
-      await refreshNotificationAuthorizationStatus();
-    }
+    await refreshNotificationAuthorizationStatus();
     if (_disposed || !_notification.enabled) return;
     await _enqueueNotificationMutation(
       () => _reconcileFromCache(refreshAuthorization: false),
@@ -223,9 +234,17 @@ class AppSettings extends ChangeNotifier {
       final after = await _readMealCacheRevisions();
       if (_disposed) return;
       if (_rememberCacheContent(after)) {
-        await _enqueueNotificationMutation(
-          () => _runNotificationReschedule(immediately: true),
-        );
+        try {
+          await _enqueueNotificationMutation(
+            () => _runNotificationReschedule(immediately: true),
+          );
+        } catch (error, stackTrace) {
+          _setNotificationSyncFailed(true);
+          debugPrint(
+            '[BapU] foreground cache notification reconciliation failed: $error',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+        }
       }
     } catch (error, stackTrace) {
       debugPrint('[BapU] foreground meal refresh on resume failed: $error');
@@ -246,11 +265,10 @@ class AppSettings extends ChangeNotifier {
 
   /// 외부 설정에서 바뀐 네이티브 권한 상태를 설정 화면에 반영한다.
   Future<void> refreshNotificationAuthorizationStatus() async {
+    final revision = ++_authorizationRefreshRevision;
     final status = await _readAuthorizationStatus();
     if (_disposed ||
-        (!_notification.enabled &&
-            _notificationAuthorizationStatus !=
-                MealNotificationAuthorizationStatus.notAuthorized) ||
+        revision != _authorizationRefreshRevision ||
         status == MealNotificationAuthorizationStatus.notApplicable ||
         status == _notificationAuthorizationStatus) {
       return;
@@ -382,6 +400,8 @@ class AppSettings extends ChangeNotifier {
     required NotificationSettings next,
     required Future<bool> Function() persist,
     bool immediately = false,
+    bool rollbackOnSyncFailure = false,
+    Future<bool> Function()? rollbackPersist,
   }) async {
     final previous = _notification;
     _notification = next;
@@ -391,17 +411,50 @@ class AppSettings extends ChangeNotifier {
       if (!persisted) {
         throw StateError('Notification preferences write failed');
       }
+    } catch (error, stackTrace) {
+      _notification = previous;
+      _setNotificationSyncFailed(true);
+      debugPrint('[BapU] notification persistence failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+
+    try {
       if (_disposed) return false;
       if (next.enabled) {
         await _runNotificationReschedule(immediately: immediately);
       } else {
         await _runCancelAllMealNotifications();
       }
+      _setNotificationSyncFailed(false);
       return true;
     } catch (error, stackTrace) {
-      _notification = previous;
-      notifyListeners();
-      debugPrint('[BapU] notification mutation failed: $error');
+      if (rollbackOnSyncFailure) {
+        _notification = previous;
+        if (rollbackPersist != null) {
+          try {
+            final restored = await _runNotificationPersistence(rollbackPersist);
+            if (!restored) {
+              throw StateError('Notification preference rollback failed');
+            }
+          } catch (rollbackError, rollbackStackTrace) {
+            debugPrint(
+              '[BapU] notification persistence rollback failed: $rollbackError',
+            );
+            debugPrintStack(stackTrace: rollbackStackTrace);
+          }
+        }
+        try {
+          await _runCancelAllMealNotifications();
+        } catch (cleanupError, cleanupStackTrace) {
+          debugPrint(
+            '[BapU] failed enable notification cleanup failed: $cleanupError',
+          );
+          debugPrintStack(stackTrace: cleanupStackTrace);
+        }
+      }
+      _setNotificationSyncFailed(true);
+      debugPrint('[BapU] notification synchronization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
       return false;
     }
@@ -421,26 +474,98 @@ class AppSettings extends ChangeNotifier {
   }) async {
     await _advanceNotificationMutationGeneration();
     if (_disposed) return NotificationScheduleOutcome.disposed;
-    return (immediately
-            ? _notificationScheduleCoordinator.scheduleNow(_notification)
-            : _notificationScheduleCoordinator.schedule(_notification))
-        .catchError((Object error, StackTrace stackTrace) {
-          debugPrint('[BapU] meal notification reconciliation failed: $error');
-          debugPrintStack(stackTrace: stackTrace);
-          return NotificationScheduleOutcome.canceled;
-        });
+    final outcome = immediately
+        ? await _notificationScheduleCoordinator.scheduleNow(_notification)
+        : await _notificationScheduleCoordinator.schedule(_notification);
+    if (outcome == NotificationScheduleOutcome.scheduled) {
+      _setNotificationSyncFailed(false);
+    }
+    return outcome;
   }
 
   Future<void> _runCancelAllMealNotifications() async {
     await _advanceNotificationMutationGeneration();
     if (_disposed) return;
-    await _notificationScheduleCoordinator.cancelAll().catchError((
-      Object error,
-      StackTrace stackTrace,
-    ) {
-      debugPrint('[BapU] meal notification cancellation failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    });
+    await _notificationScheduleCoordinator.cancelAll();
+    _setNotificationSyncFailed(false);
+  }
+
+  /// 실패한 저장·예약을 현재 화면의 설정 스냅샷으로 한 번 다시 적용한다.
+  Future<bool> retryNotificationSync() =>
+      _enqueueNotificationMutation(() async {
+        if (_disposed) return false;
+        try {
+          final persisted = await _runNotificationPersistence(
+            () => _persistNotificationSnapshot(_notification),
+          );
+          if (!persisted) {
+            throw StateError('Notification preferences write failed');
+          }
+          if (_notification.enabled) {
+            await _runNotificationReschedule(immediately: true);
+          } else {
+            await _runCancelAllMealNotifications();
+          }
+          _setNotificationSyncFailed(false);
+          return true;
+        } catch (error, stackTrace) {
+          _setNotificationSyncFailed(true);
+          debugPrint('[BapU] notification retry failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
+          return false;
+        }
+      });
+
+  Future<bool> _persistNotificationSnapshot(
+    NotificationSettings settings,
+  ) async {
+    final writes = <Future<bool>>[
+      _prefs.setBool(StorageKeys.notificationEnabled, settings.enabled),
+      _prefs.setStringList(StorageKeys.notificationKeywords, settings.keywords),
+      _prefs.setStringList(
+        StorageKeys.notificationCafeterias,
+        settings.cafeterias.map((cafeteria) => cafeteria.name).toList(),
+      ),
+      _prefs.setStringList(
+        StorageKeys.notificationDormMealTypes,
+        settings.dormMealTypes.map((type) => type.name).toList(),
+      ),
+      _prefs.setStringList(
+        StorageKeys.notificationDays,
+        settings.days.map((day) => day.name).toList(),
+      ),
+    ];
+    for (final period in MealNotificationPeriod.values) {
+      final alertTime = settings.alertTimeOf(period);
+      writes.add(
+        alertTime == null
+            ? _prefs.remove(
+                '${StorageKeys.notificationPeriodTimePrefix}${period.name}',
+              )
+            : _prefs.setString(
+                '${StorageKeys.notificationPeriodTimePrefix}${period.name}',
+                _formatTime(alertTime),
+              ),
+      );
+      final rememberedTime = settings.rememberedTimes[period];
+      writes.add(
+        rememberedTime == null
+            ? _prefs.remove(
+                '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
+              )
+            : _prefs.setString(
+                '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
+                _formatTime(rememberedTime),
+              ),
+      );
+    }
+    return (await Future.wait(writes)).every((result) => result);
+  }
+
+  void _setNotificationSyncFailed(bool failed) {
+    if (_disposed || _notificationSyncFailed == failed) return;
+    _notificationSyncFailed = failed;
+    notifyListeners();
   }
 
   Future<void> _advanceNotificationMutationGeneration() async {
@@ -463,6 +588,7 @@ class AppSettings extends ChangeNotifier {
   ) {
     unawaited(
       operation.catchError((Object error, StackTrace stackTrace) {
+        _setNotificationSyncFailed(true);
         debugPrint('[BapU] $label failed: $error');
         debugPrintStack(stackTrace: stackTrace);
       }),
