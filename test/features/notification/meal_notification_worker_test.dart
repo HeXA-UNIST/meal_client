@@ -1,8 +1,15 @@
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
+import 'package:meal_client/features/notification/meal_notification_content_builder.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
+import 'package:meal_client/features/settings/notification/notification_settings.dart';
+import 'package:meal_client/features/settings/notification/notification_settings_store.dart';
+import 'package:meal_client/l10n/app_localizations_en.dart';
+import 'package:meal_client/l10n/app_localizations_ko.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('notification background cache refresh', () {
@@ -207,7 +214,138 @@ void main() {
       expect(mealContainsKeyword(meal, 'caesar'), isFalse);
     });
   });
+
+  group('공유 알림 설정 해석', () {
+    test('저장 상태별 식당과 기숙사 메뉴 기본값을 한 경로에서 정규화한다', () async {
+      final cases = <_NotificationSettingsCase>[
+        (
+          values: const {},
+          cafeterias: const {Cafeteria.dormitory},
+          dormMealTypes: const {DormMealType.korean, DormMealType.halal},
+        ),
+        (
+          values: const {
+            'settings_notification_cafeterias': ['student'],
+          },
+          cafeterias: const {Cafeteria.student},
+          dormMealTypes: const {},
+        ),
+        (
+          values: const {
+            'settings_notification_cafeterias': ['dormitory', 'student'],
+          },
+          cafeterias: const {Cafeteria.dormitory, Cafeteria.student},
+          dormMealTypes: const {DormMealType.korean, DormMealType.halal},
+        ),
+        (
+          values: const {
+            'settings_notification_cafeterias': ['faculty'],
+            'settings_notification_dorm_meal_types': ['halal'],
+          },
+          cafeterias: const {Cafeteria.dormitory, Cafeteria.faculty},
+          dormMealTypes: const {DormMealType.halal},
+        ),
+      ];
+
+      for (final scenario in cases) {
+        SharedPreferences.setMockInitialValues(scenario.values);
+        final prefs = await SharedPreferences.getInstance();
+        final delivery = normalizeNotificationDeliverySettings(
+          loadNotificationSettings(prefs),
+          keywordFilterEnabled: false,
+        );
+
+        expect(delivery.cafeterias, scenario.cafeterias);
+        expect(delivery.dormMealTypes, scenario.dormMealTypes);
+      }
+    });
+
+    test('레거시 값을 마이그레이션하고 Release 키워드 게이트를 공통 적용한다', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_keyword': '  돈까스  ',
+        'settings_notification_time': '8:0',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final settings = loadNotificationSettings(prefs);
+
+      expect(
+        settings.alertTimeOf(MealNotificationPeriod.morning),
+        const TimeOfDay(hour: 8, minute: 0),
+      );
+      expect(prefs.getString('settings_notification_time'), isNull);
+      expect(
+        normalizeNotificationDeliverySettings(
+          settings,
+          keywordFilterEnabled: true,
+        ).keywords,
+        ['돈까스'],
+      );
+      expect(
+        normalizeNotificationDeliverySettings(
+          settings,
+          keywordFilterEnabled: false,
+        ).keywords,
+        isEmpty,
+      );
+    });
+  });
+
+  group('공유 알림 콘텐츠 생성', () {
+    test('식당별 한국어 전체 메뉴를 고유 ID와 한 줄 본문으로 만든다', () {
+      final weekMeal = _notificationWeekMeal();
+      final contents = buildMealNotificationContents(
+        weekMeal: weekMeal,
+        targetDate: DateTime.utc(2026, 7, 20),
+        period: MealNotificationPeriod.lunch,
+        settings: NotificationDeliverySettings(
+          cafeterias: Cafeteria.values.toSet(),
+          dormMealTypes: DormMealType.values.toSet(),
+          keywords: const [],
+        ),
+        l10n: AppLocalizationsKo(),
+      );
+
+      expect(contents.map((content) => content.id), [1, 2, 3, 4]);
+      expect(contents.map((content) => content.title), [
+        '기숙사 식당(한식) 점심 메뉴를 알려드려요.',
+        '기숙사 식당(할랄) 점심 메뉴를 알려드려요.',
+        '학생 식당 점심 메뉴를 알려드려요.',
+        '교직원 식당 점심 메뉴를 알려드려요.',
+      ]);
+      expect(contents.map((content) => content.body), [
+        '김치찌개 / 공기밥',
+        '할랄 치킨',
+        '학생 메뉴',
+        '교직원 메뉴',
+      ]);
+    });
+
+    test('영문 메뉴와 한국어 fallback을 사용하고 일반 기숙사 Meal은 제외한다', () {
+      final contents = buildMealNotificationContents(
+        weekMeal: _notificationWeekMeal(),
+        targetDate: DateTime.utc(2026, 7, 20),
+        period: MealNotificationPeriod.lunch,
+        settings: NotificationDeliverySettings(
+          cafeterias: const {Cafeteria.dormitory},
+          dormMealTypes: const {DormMealType.korean},
+          keywords: const [],
+        ),
+        l10n: AppLocalizationsEn(),
+      );
+
+      expect(contents, hasLength(1));
+      expect(contents.single.id, 1);
+      expect(contents.single.title, 'Dormitory (Korean) Lunch Menu');
+      expect(contents.single.body, 'Kimchi Stew / 공기밥');
+    });
+  });
 }
+
+typedef _NotificationSettingsCase = ({
+  Map<String, Object> values,
+  Set<Cafeteria> cafeterias,
+  Set<DormMealType> dormMealTypes,
+});
 
 Meal _mealWithMenu(String menu) {
   return Meal(
@@ -218,4 +356,45 @@ Meal _mealWithMenu(String menu) {
       ),
     ],
   );
+}
+
+WeekMeal _notificationWeekMeal() {
+  final weekMeal = WeekMeal.empty();
+  final lunch = weekMeal[DayOfWeek.mon][MealOfDay.lunch];
+  lunch[Cafeteria.dormitory].addAll([
+    const KoreanMeal(
+      sections: [
+        MealSection(
+          type: MealSectionType.regular,
+          menu: [
+            MealMenuItem(ko: '김치찌개', en: 'Kimchi Stew'),
+            MealMenuItem(ko: '공기밥'),
+          ],
+        ),
+        MealSection(
+          type: MealSectionType.salad,
+          menu: [MealMenuItem(ko: '샐러드', en: 'Salad')],
+        ),
+      ],
+    ),
+    const HalalMeal(
+      sections: [
+        MealSection(
+          type: MealSectionType.regular,
+          menu: [MealMenuItem(ko: '할랄 치킨', en: 'Halal Chicken')],
+        ),
+      ],
+    ),
+    const Meal(
+      sections: [
+        MealSection(
+          type: MealSectionType.regular,
+          menu: [MealMenuItem(ko: '기타 메뉴', en: 'Other Menu')],
+        ),
+      ],
+    ),
+  ]);
+  lunch[Cafeteria.student].add(_mealWithMenu('학생 메뉴'));
+  lunch[Cafeteria.faculty].add(_mealWithMenu('교직원 메뉴'));
+  return weekMeal;
 }

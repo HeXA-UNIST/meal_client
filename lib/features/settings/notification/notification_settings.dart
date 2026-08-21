@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 import 'package:meal_client/domain/meal.dart';
@@ -5,6 +6,42 @@ import 'package:meal_client/features/notification/meal_notification_period.dart'
 
 /// 기숙사 식당 알림 대상 메뉴 종류.
 enum DormMealType { korean, halal }
+
+/// 실제 알림 콘텐츠 생성에 사용하는 정규화된 설정 스냅샷.
+class NotificationDeliverySettings {
+  NotificationDeliverySettings({
+    required Set<Cafeteria> cafeterias,
+    required Set<DormMealType> dormMealTypes,
+    required List<String> keywords,
+  }) : cafeterias = Set.unmodifiable(cafeterias),
+       dormMealTypes = Set.unmodifiable(dormMealTypes),
+       keywords = List.unmodifiable(keywords);
+
+  final Set<Cafeteria> cafeterias;
+  final Set<DormMealType> dormMealTypes;
+  final List<String> keywords;
+}
+
+/// 저장/UI 설정에서 플랫폼 공통 발송 대상을 만든다.
+///
+/// 키워드 기능이 배포되기 전까지 Release 빌드는 저장된 Debug 키워드를 무시한다.
+NotificationDeliverySettings normalizeNotificationDeliverySettings(
+  NotificationSettings settings, {
+  bool keywordFilterEnabled = kDebugMode,
+  List<String>? keywordsOverride,
+}) {
+  final rawKeywords = keywordFilterEnabled
+      ? keywordsOverride ?? settings.keywords
+      : const <String>[];
+  return NotificationDeliverySettings(
+    cafeterias: settings.activeCafeterias,
+    dormMealTypes: settings.dormMealTypes,
+    keywords: rawKeywords
+        .map((keyword) => keyword.trim())
+        .where((keyword) => keyword.isNotEmpty)
+        .toList(growable: false),
+  );
+}
 
 class NotificationSettings {
   final bool enabled;
@@ -42,12 +79,12 @@ class NotificationSettings {
       DormMealType.halal,
     },
     Set<DayOfWeek>? days,
-  })  : keywords = List.unmodifiable(keywords),
-        alertTimes = Map.unmodifiable(alertTimes),
-        rememberedTimes = Map.unmodifiable(rememberedTimes),
-        cafeterias = Set.unmodifiable(cafeterias),
-        dormMealTypes = Set.unmodifiable(dormMealTypes),
-        days = Set.unmodifiable(days ?? DayOfWeek.values.toSet());
+  }) : keywords = List.unmodifiable(keywords),
+       alertTimes = Map.unmodifiable(alertTimes),
+       rememberedTimes = Map.unmodifiable(rememberedTimes),
+       cafeterias = Set.unmodifiable(cafeterias),
+       dormMealTypes = Set.unmodifiable(dormMealTypes),
+       days = Set.unmodifiable(days ?? DayOfWeek.values.toSet());
 
   /// 활성화된 시간대 (알림 시각이 설정된 것).
   Iterable<MealNotificationPeriod> get activePeriods =>
@@ -79,16 +116,15 @@ class NotificationSettings {
     Set<Cafeteria>? cafeterias,
     Set<DormMealType>? dormMealTypes,
     Set<DayOfWeek>? days,
-  }) =>
-      NotificationSettings(
-        enabled: enabled ?? this.enabled,
-        keywords: keywords ?? this.keywords,
-        alertTimes: alertTimes ?? this.alertTimes,
-        rememberedTimes: rememberedTimes ?? this.rememberedTimes,
-        cafeterias: cafeterias ?? this.cafeterias,
-        dormMealTypes: dormMealTypes ?? this.dormMealTypes,
-        days: days ?? this.days,
-      );
+  }) => NotificationSettings(
+    enabled: enabled ?? this.enabled,
+    keywords: keywords ?? this.keywords,
+    alertTimes: alertTimes ?? this.alertTimes,
+    rememberedTimes: rememberedTimes ?? this.rememberedTimes,
+    cafeterias: cafeterias ?? this.cafeterias,
+    dormMealTypes: dormMealTypes ?? this.dormMealTypes,
+    days: days ?? this.days,
+  );
 
   NotificationSettings reset() => NotificationSettings();
 }

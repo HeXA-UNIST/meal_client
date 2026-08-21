@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
-import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'allergy/allergy_settings.dart';
 import 'notification/notification_settings.dart';
+import 'notification/notification_settings_store.dart';
 
 class AppSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -29,7 +29,7 @@ class AppSettings extends ChangeNotifier {
   }) : _notificationScheduleCoordinator =
            notificationScheduleCoordinator ?? NotificationScheduleCoordinator(),
        _allergy = _loadAllergy(_prefs),
-       _notification = _loadNotification(_prefs),
+       _notification = loadNotificationSettings(_prefs),
        _themeMode = _loadThemeMode(_prefs);
 
   // --- 알레르기 ---
@@ -217,111 +217,6 @@ class AppSettings extends ChangeNotifier {
     return AllergySettings(enabledIds: ids);
   }
 
-  // 구버전(단일 키워드) SharedPreferences 키. 마이그레이션 용도로만 참조.
-  static const _legacyKeywordKey = 'settings_notification_keyword';
-
-  // 구버전(단일 알림 시각) SharedPreferences 키. 마이그레이션 용도로만 참조.
-  static const _legacyAlertTimeKey = 'settings_notification_time';
-
-  static NotificationSettings _loadNotification(SharedPreferences p) {
-    // 기숙사 식당의 알림 대상 여부는 dormMealTypes 하나로만 판단하므로
-    // cafeterias에서는 항상 걸러낸다. dormMealTypes 키가 아직 없는(=이 기능 이전)
-    // 저장값이라면, 구버전에서 기숙사가 선택돼 있었는지로 기본값(둘 다 켜짐/모두 꺼짐)을
-    // 정해 기존 사용자의 알림 동작이 바뀌지 않게 한다.
-    final cafeteriaNames = p.getStringList(StorageKeys.notificationCafeterias);
-    final storedCafeterias = cafeteriaNames == null
-        ? const <Cafeteria>{}
-        : enumSetFromNames(cafeteriaNames, Cafeteria.values);
-    final hadDormitoryBefore =
-        cafeteriaNames == null || storedCafeterias.contains(Cafeteria.dormitory);
-    final cafeterias = storedCafeterias
-        .where((c) => c != Cafeteria.dormitory)
-        .toSet();
-
-    final dormMealTypeNames = p.getStringList(
-      StorageKeys.notificationDormMealTypes,
-    );
-    final dormMealTypes = dormMealTypeNames != null
-        ? enumSetFromNames(dormMealTypeNames, DormMealType.values)
-        : (hadDormitoryBefore
-              ? const <DormMealType>{DormMealType.korean, DormMealType.halal}
-              : const <DormMealType>{});
-
-    // 키워드 로드 + 구버전 마이그레이션
-    var keywords = p.getStringList(StorageKeys.notificationKeywords);
-    if (keywords == null) {
-      final legacy = p.getString(_legacyKeywordKey)?.trim();
-      keywords = (legacy != null && legacy.isNotEmpty) ? [legacy] : <String>[];
-      if (keywords.isNotEmpty) {
-        p.setStringList(StorageKeys.notificationKeywords, keywords);
-        p.remove(_legacyKeywordKey);
-      }
-    }
-
-    // 시간대별 알림 시각 로드.
-    // 저장된 문자열이 해당 시간대의 유효 슬롯 중 하나가 아니면 무시(=꺼진 상태).
-    final alertTimes = <MealNotificationPeriod, TimeOfDay?>{};
-    for (final period in MealNotificationPeriod.values) {
-      final key = '${StorageKeys.notificationPeriodTimePrefix}${period.name}';
-      final stored = p.getString(key);
-      if (stored == null) continue;
-      final parsed = _parseTime(stored);
-      if (parsed != null && _isWithinPeriodSlots(period, parsed)) {
-        alertTimes[period] = parsed;
-      }
-    }
-
-    // 구버전(단일 알림 시각) 마이그레이션: 저장된 시각이 어느 시간대 범위 안에
-    // 들어가면 그 시간대에 배치하고, 아니면 아침 기본 슬롯으로 보내고 구 키는 삭제.
-    if (alertTimes.isEmpty) {
-      final legacyTimeStr = p.getString(_legacyAlertTimeKey);
-      if (legacyTimeStr != null) {
-        final legacyTime = _parseTime(legacyTimeStr);
-        if (legacyTime != null) {
-          final matched = _snapLegacyTime(legacyTime);
-          if (matched != null) {
-            alertTimes[matched.$1] = matched.$2;
-            p.setString(
-              '${StorageKeys.notificationPeriodTimePrefix}${matched.$1.name}',
-              _formatTime(matched.$2),
-            );
-          }
-        }
-        p.remove(_legacyAlertTimeKey);
-      }
-    }
-
-    // 시간대별 "마지막 선택 시각" 로드. 꺼진 시간대라도 이전 선택을 복원하기 위함.
-    // 저장된 값이 없으면 현재 켜져 있는 시각으로 시드한다.
-    final remembered = <MealNotificationPeriod, TimeOfDay>{};
-    for (final period in MealNotificationPeriod.values) {
-      final key =
-          '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}';
-      final stored = p.getString(key);
-      final parsed = stored != null ? _parseTime(stored) : null;
-      if (parsed != null && _isWithinPeriodSlots(period, parsed)) {
-        remembered[period] = parsed;
-      } else if (alertTimes[period] != null) {
-        remembered[period] = alertTimes[period]!;
-      }
-    }
-
-    // 알림 요일 로드. 키가 없으면 모든 요일 활성(기본값).
-    final days = notificationDaysFromNames(
-      p.getStringList(StorageKeys.notificationDays),
-    );
-
-    return NotificationSettings(
-      enabled: p.getBool(StorageKeys.notificationEnabled) ?? false,
-      keywords: keywords,
-      alertTimes: alertTimes,
-      rememberedTimes: remembered,
-      cafeterias: cafeterias,
-      dormMealTypes: dormMealTypes,
-      days: days,
-    );
-  }
-
   static ThemeMode _loadThemeMode(SharedPreferences p) =>
       ThemeMode.values.asNameMap()[p.getString(StorageKeys.themeMode)] ??
       ThemeMode.system;
@@ -329,25 +224,4 @@ class AppSettings extends ChangeNotifier {
   // --- 시간 문자열 파싱/포매팅 헬퍼 ---
 
   static String _formatTime(TimeOfDay t) => '${t.hour}:${t.minute}';
-
-  static TimeOfDay? _parseTime(String s) {
-    final parts = s.split(':');
-    if (parts.length < 2) return null;
-    final h = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (h == null || m == null) return null;
-    return TimeOfDay(hour: h, minute: m);
-  }
-
-  static bool _isWithinPeriodSlots(MealNotificationPeriod period, TimeOfDay t) =>
-      period.allSlots.any((s) => s.hour == t.hour && s.minute == t.minute);
-
-  /// 구버전 시각이 어느 시간대 범위(그리고 15분 슬롯)에 매칭되는지 찾는다.
-  /// 매칭되는 것이 없으면 null.
-  static (MealNotificationPeriod, TimeOfDay)? _snapLegacyTime(TimeOfDay t) {
-    for (final period in MealNotificationPeriod.values) {
-      if (_isWithinPeriodSlots(period, t)) return (period, t);
-    }
-    return null;
-  }
 }
