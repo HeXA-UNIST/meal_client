@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
@@ -230,27 +231,74 @@ void main() {
       expect(scheduleCount, 5);
     });
 
-    test('master disable과 reset은 예약과 관찰 중인 권한 상태를 함께 지운다', () async {
+    test('reset 직후 활성화해도 저장과 예약이 최신 상태로 수렴한다', () async {
       final prefs = await SharedPreferences.getInstance();
       var cancelCount = 0;
+      var scheduledEnabled = false;
       final settings = AppSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           debounce: Duration.zero,
-          schedule: (settings, {required isCurrent}) async {},
+          schedule: (settings, {required isCurrent}) async {
+            scheduledEnabled = settings.enabled;
+          },
           cancel: () async => cancelCount++,
         ),
         notificationPermissionRequester: () async => true,
       );
       settingsToDispose.add(settings);
 
-      await settings.setNotificationEnabled(true);
-      await settings.setNotificationEnabled(false);
-      await settings.setNotificationEnabled(true);
       settings.resetAll();
-      await Future<void>.delayed(Duration.zero);
+      expect(await settings.setNotificationEnabled(true), isTrue);
 
-      expect(cancelCount, 2);
+      expect(cancelCount, 1);
+      expect(scheduledEnabled, isTrue);
+      expect(settings.notification.enabled, isTrue);
+      expect(prefs.getBool(StorageKeys.notificationEnabled), isTrue);
+    });
+
+    test('알림 저장 실패는 인메모리 설정을 이전 스냅샷으로 돌린다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(
+        prefs,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule: (settings, {required isCurrent}) async {},
+          cancel: () async {},
+        ),
+        notificationPermissionRequester: () async => true,
+        notificationPersistenceRunner: (_) async => false,
+      );
+      settingsToDispose.add(settings);
+
+      expect(await settings.setNotificationEnabled(true), isFalse);
+
+      expect(settings.notification.enabled, isFalse);
+      expect(settings.notificationAuthorizationStatus, isNull);
+      expect(prefs.getBool(StorageKeys.notificationEnabled), isNull);
+    });
+
+    test('generation 저장 실패도 인메모리 설정을 이전 스냅샷으로 돌린다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var writeCount = 0;
+      final settings = AppSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.android,
+        resumeListenerRegistrar: (_) => () {},
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule: (settings, {required isCurrent}) async {},
+          cancel: () async {},
+        ),
+        notificationPermissionRequester: () async => true,
+        notificationPersistenceRunner: (write) async {
+          writeCount++;
+          return writeCount == 2 ? false : write();
+        },
+      );
+      settingsToDispose.add(settings);
+
+      expect(await settings.setNotificationEnabled(true), isFalse);
+
+      expect(writeCount, 2);
       expect(settings.notification.enabled, isFalse);
       expect(settings.notificationAuthorizationStatus, isNull);
     });
@@ -280,7 +328,7 @@ void main() {
       expect(settings.notificationAuthorizationStatus, isNull);
     });
 
-    test('iOS resume은 매번 재조정하지만 1시간 이내 foreground fetch는 생략한다', () async {
+    test('Android resume은 매번 재조정하지만 1시간 이내 foreground fetch는 생략한다', () async {
       SharedPreferences.setMockInitialValues({
         'settings_notification_enabled': true,
       });
@@ -296,7 +344,7 @@ void main() {
       );
       final settings = AppSettings(
         prefs,
-        notificationPlatform: MealNotificationPlatform.ios,
+        notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (listener) {
           onResume = listener;
           return () {};
@@ -372,7 +420,7 @@ void main() {
       final refreshCompleted = Completer<void>();
       final settings = AppSettings(
         prefs,
-        notificationPlatform: MealNotificationPlatform.ios,
+        notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (listener) {
           onResume = listener;
           return () {};
@@ -409,7 +457,7 @@ void main() {
       expect(scheduleCount, 2);
     });
 
-    test('dispose 중인 iOS resume 권한 조회는 상태와 예약을 변경하지 않는다', () async {
+    test('dispose 중인 Android resume 권한 조회는 상태와 예약을 변경하지 않는다', () async {
       SharedPreferences.setMockInitialValues({
         'settings_notification_enabled': true,
       });
@@ -419,7 +467,7 @@ void main() {
       var scheduleCount = 0;
       final settings = AppSettings(
         prefs,
-        notificationPlatform: MealNotificationPlatform.ios,
+        notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (listener) {
           onResume = listener;
           return () {};

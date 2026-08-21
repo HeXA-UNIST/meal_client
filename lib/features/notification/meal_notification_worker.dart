@@ -48,7 +48,7 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   BackgroundCacheRefresh? refreshMealCache,
   BackgroundCacheRefresh? refreshInfoCache,
   BackgroundCacheRefresh? refreshWidget,
-  BackgroundNotificationReconcile? reconcileIosNotifications,
+  BackgroundNotificationReconcile? reconcileNotifications,
   MealNotificationPlatform? platform,
 }) async {
   final mealRefresh =
@@ -74,14 +74,6 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
     _logBackgroundRefreshFailure('background meal refresh failed', mealFailure);
     return false;
   }
-
-  final notificationFailure =
-      (platform ?? mealNotificationPlatform) == MealNotificationPlatform.ios
-      ? await _captureBackgroundRefreshFailure(
-          'notification',
-          reconcileIosNotifications ?? _reconcileIosNotificationsFromCache,
-        )
-      : null;
 
   final infoFailure = failures[1];
   if (infoFailure != null) {
@@ -114,6 +106,15 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
     return false;
   }
 
+  final currentPlatform = platform ?? mealNotificationPlatform;
+  final notificationFailure =
+      currentPlatform != MealNotificationPlatform.unsupported
+      ? await _captureBackgroundRefreshFailure(
+          'notification',
+          reconcileNotifications ?? _reconcileNotificationsFromCache,
+        )
+      : null;
+
   if (notificationFailure != null) {
     _logBackgroundRefreshFailure(
       'background meal notification reconciliation failed',
@@ -125,12 +126,12 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   return true;
 }
 
-Future<void> _reconcileIosNotificationsFromCache() async {
+Future<void> _reconcileNotificationsFromCache() async {
   await initNotifications();
-  await reconcileBackgroundIosMealNotifications();
+  await reconcileBackgroundMealNotifications();
 }
 
-Future<void> reconcileBackgroundIosMealNotifications({
+Future<void> reconcileBackgroundMealNotifications({
   BackgroundNotificationSnapshotLoader? loadSnapshot,
   Future<void> Function(NotificationSettings settings)? reconcile,
   Future<void> Function()? cancelPending,
@@ -152,7 +153,7 @@ Future<void> reconcileBackgroundIosMealNotifications({
     if (_sameBackgroundSnapshot(snapshot, after)) return;
     snapshot = after;
   }
-  throw StateError('iOS notification inputs did not stabilize');
+  throw StateError('Native notification inputs did not stabilize');
 });
 
 Future<BackgroundNotificationSnapshot> _loadFreshNotificationSnapshot() async {

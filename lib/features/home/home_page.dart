@@ -135,7 +135,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           return fetchAndCacheCanonicalMealData(
             now: now,
             waitForNextWeekPrefetch:
-                mealNotificationPlatform == MealNotificationPlatform.ios &&
+                mealNotificationPlatform !=
+                    MealNotificationPlatform.unsupported &&
                 MealTimeConfig.toKst(now).weekday == DateTime.sunday,
           );
         };
@@ -151,7 +152,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Provider.of<AppSettings?>(
           context,
           listen: false,
-        )?.reconcileIosMealNotificationsAfterForegroundRefresh();
+        )?.reconcileMealNotificationsAfterForegroundRefresh();
       }
       return meal;
     });

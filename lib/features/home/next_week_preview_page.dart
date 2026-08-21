@@ -138,7 +138,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
         Provider.of<AppSettings?>(
           context,
           listen: false,
-        )?.reconcileIosMealNotificationsAfterForegroundRefresh();
+        )?.reconcileMealNotificationsAfterForegroundRefresh();
       }
       return meal;
     });

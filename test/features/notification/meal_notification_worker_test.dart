@@ -17,7 +17,7 @@ import 'package:meal_client/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('성공한 background refresh는 iOS에서만 pending을 재조정한다', () async {
+  test('성공한 background refresh는 네이티브 플랫폼에서 pending을 재조정한다', () async {
     var reconciliations = 0;
     for (final platform in MealNotificationPlatform.values) {
       final result = await refreshBackgroundMealAndInfoCaches(
@@ -25,26 +25,29 @@ void main() {
         refreshMealCache: () async {},
         refreshInfoCache: () async {},
         refreshWidget: () async {},
-        reconcileIosNotifications: () async => reconciliations++,
+        reconcileNotifications: () async => reconciliations++,
       );
       expect(result, isTrue);
     }
-    expect(reconciliations, 1);
+    expect(reconciliations, 2);
   });
 
-  test('iOS 알림 재조정 실패와 무관하게 위젯 갱신을 시도한다', () async {
-    var widgetRefreshes = 0;
+  test('알림 재조정 실패와 무관하게 위젯 갱신을 먼저 시도한다', () async {
+    final operations = <String>[];
 
     final result = await refreshBackgroundMealAndInfoCaches(
       platform: MealNotificationPlatform.ios,
       refreshMealCache: () async {},
       refreshInfoCache: () async {},
-      reconcileIosNotifications: () async => throw Exception('notification'),
-      refreshWidget: () async => widgetRefreshes++,
+      reconcileNotifications: () async {
+        operations.add('notification');
+        throw Exception('notification');
+      },
+      refreshWidget: () async => operations.add('widget'),
     );
 
     expect(result, isFalse);
-    expect(widgetRefreshes, 1);
+    expect(operations, ['widget', 'notification']);
   });
 
   test('background refresh는 필수 단계 실패만 task 실패로 반환한다', () async {
@@ -101,7 +104,7 @@ void main() {
     var cafeterias = {Cafeteria.student};
     final reconciled = <Set<Cafeteria>>[];
 
-    await reconcileBackgroundIosMealNotifications(
+    await reconcileBackgroundMealNotifications(
       mutationSection: (action) => action(),
       loadSnapshot: () async => (
         settings: NotificationSettings(enabled: true, cafeterias: cafeterias),
@@ -142,7 +145,7 @@ void main() {
         );
 
     try {
-      final background = reconcileBackgroundIosMealNotifications(
+      final background = reconcileBackgroundMealNotifications(
         mutationSection: mutationSection,
         loadSnapshot: () async => (
           settings: NotificationSettings(enabled: enabled),
