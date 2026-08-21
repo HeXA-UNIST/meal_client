@@ -60,6 +60,10 @@ void main() {
     });
   });
 
+  test('플랫폼 locale 목록이 비어 있으면 알림은 한국어를 사용한다', () {
+    expect(resolveNotificationLocalizations(const []).localeName, 'ko');
+  });
+
   group('MealNotificationPeriod', () {
     test('각 시간대는 15분 간격 선택지와 올바른 대상 식사를 갖는다', () {
       for (final period in MealNotificationPeriod.values) {
@@ -84,13 +88,7 @@ void main() {
       final settings = AppSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {},
+          schedule: (settings, {required isCurrent}) async {},
           cancel: () async {},
         ),
         notificationPermissionRequester: () async => true,
@@ -161,25 +159,27 @@ void main() {
       expect(settings2.notification.enabled, isTrue);
     });
 
-    test('알림 권한 거부는 활성화하지 않고 관찰 가능한 상태로 남긴다', () async {
+    test('알림 권한 거부와 시스템 설정에서의 복구를 관찰한다', () async {
       final prefs = await SharedPreferences.getInstance();
       var requestCount = 0;
+      var authorization = MealNotificationAuthorizationStatus.notAuthorized;
+      VoidCallback? onResume;
       final settings = AppSettings(
         prefs,
+        notificationPlatform: MealNotificationPlatform.ios,
+        resumeListenerRegistrar: (listener) {
+          onResume = listener;
+          return () {};
+        },
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {},
+          schedule: (settings, {required isCurrent}) async {},
           cancel: () async {},
         ),
         notificationPermissionRequester: () async {
           requestCount++;
           return false;
         },
+        notificationAuthorizationStatusReader: () async => authorization,
       );
       settingsToDispose.add(settings);
 
@@ -190,6 +190,14 @@ void main() {
         settings.notificationAuthorizationStatus,
         MealNotificationAuthorizationStatus.notAuthorized,
       );
+
+      authorization = MealNotificationAuthorizationStatus.enabled;
+      onResume!();
+      await _waitUntil(
+        () =>
+            settings.notificationAuthorizationStatus ==
+            MealNotificationAuthorizationStatus.enabled,
+      );
     });
 
     test('활성화 중인 콘텐츠 설정 mutator는 모두 예약 갱신을 요청한다', () async {
@@ -199,15 +207,9 @@ void main() {
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           debounce: Duration.zero,
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {
-                scheduleCount++;
-              },
+          schedule: (settings, {required isCurrent}) async {
+            scheduleCount++;
+          },
           cancel: () async {},
         ),
         notificationPermissionRequester: () async => true,
@@ -235,13 +237,7 @@ void main() {
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           debounce: Duration.zero,
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {},
+          schedule: (settings, {required isCurrent}) async {},
           cancel: () async => cancelCount++,
         ),
         notificationPermissionRequester: () async => true,
@@ -268,13 +264,7 @@ void main() {
       final settings = AppSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {},
+          schedule: (settings, {required isCurrent}) async {},
           cancel: () async {},
         ),
         notificationPermissionRequester: () async => true,
@@ -323,15 +313,9 @@ void main() {
         },
         notificationAuthorizationStatusReader: () async => authorization,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {
-                scheduleCount++;
-              },
+          schedule: (settings, {required isCurrent}) async {
+            scheduleCount++;
+          },
           cancel: () async {},
         ),
       );
@@ -403,15 +387,9 @@ void main() {
         notificationAuthorizationStatusReader: () async =>
             MealNotificationAuthorizationStatus.enabled,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {
-                scheduleCount++;
-              },
+          schedule: (settings, {required isCurrent}) async {
+            scheduleCount++;
+          },
           cancel: () async {},
         ),
       );
@@ -448,15 +426,9 @@ void main() {
         },
         notificationAuthorizationStatusReader: () => authorization.future,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule:
-              (
-                settings, {
-                required clearPendingFirst,
-                required isCurrent,
-                currentWeek,
-              }) async {
-                scheduleCount++;
-              },
+          schedule: (settings, {required isCurrent}) async {
+            scheduleCount++;
+          },
           cancel: () async {},
         ),
       );

@@ -94,7 +94,7 @@ void main() {
 
     test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {
       var touchedData = false;
-      final unauthorized = await reconcileIosMealNotifications(
+      await reconcileIosMealNotifications(
         settings: enabledSettings,
         readAuthorizationStatus: () async =>
             MealNotificationAuthorizationStatus.notAuthorized,
@@ -107,11 +107,10 @@ void main() {
           return const [];
         },
       );
-      expect(unauthorized, IosMealReconciliationOutcome.notAuthorized);
       expect(touchedData, isFalse);
 
       final canceled = <int>[];
-      final unavailable = await reconcileIosMealNotifications(
+      await reconcileIosMealNotifications(
         settings: enabledSettings,
         readAuthorizationStatus: () async =>
             MealNotificationAuthorizationStatus.enabled,
@@ -119,7 +118,6 @@ void main() {
         cancelPending: (id) async => canceled.add(id),
         loadCurrentWeek: () async => null,
       );
-      expect(unavailable, IosMealReconciliationOutcome.currentWeekUnavailable);
       expect(canceled, isEmpty);
     });
 
@@ -153,7 +151,7 @@ void main() {
           ? DateTime(2026, 7, 19, 10)
           : DateTime(2026, 7, 20, 12);
 
-      final skipped = await reconcileIosMealNotifications(
+      await reconcileIosMealNotifications(
         settings: enabledSettings,
         currentWeek: (
           startDate: DateTime.utc(2026, 7, 20),
@@ -170,8 +168,6 @@ void main() {
         ),
         l10n: AppLocalizationsKo(),
       );
-      expect(skipped, IosMealReconciliationOutcome.scheduled);
-
       await expectLater(
         reconcileIosMealNotifications(
           settings: enabledSettings,
@@ -195,13 +191,22 @@ void main() {
     });
   });
 
-  test('owned pending만 취소한다', () async {
+  test('owned pending 취소는 개별 실패 뒤에도 나머지를 시도한다', () async {
     final canceled = <int>[];
-    await cancelAllPendingMealNotifications(
-      readPendingIds: () async => [_ownedId(DateTime.utc(2026, 7, 20)), 42],
-      cancelPending: (id) async => canceled.add(id),
+    final first = _ownedId(DateTime.utc(2026, 7, 20));
+    final second = _ownedId(DateTime.utc(2026, 7, 21));
+
+    await expectLater(
+      cancelAllPendingMealNotifications(
+        readPendingIds: () async => [first, 42, second],
+        cancelPending: (id) async {
+          canceled.add(id);
+          if (id == first) throw StateError('cancel failed');
+        },
+      ),
+      throwsStateError,
     );
-    expect(canceled, [_ownedId(DateTime.utc(2026, 7, 20))]);
+    expect(canceled, [first, second]);
   });
 
   test('Android와 iOS만 각 플랫폼 예약기를 호출한다', () async {
@@ -209,9 +214,7 @@ void main() {
     Future<void> androidOrIos(
       MealNotificationPlatform platform,
       NotificationSettings settings, {
-      required bool clearPendingFirst,
       required bool Function() isCurrent,
-      IosMealWeek? currentWeek,
     }) async {
       calls.add(platform);
     }
@@ -219,34 +222,17 @@ void main() {
     for (final platform in MealNotificationPlatform.values) {
       await scheduleMealNotifications(
         NotificationSettings(),
-        clearPendingFirst: false,
         platform: platform,
-        iosScheduler:
-            (
-              settings, {
-              required clearPendingFirst,
-              required isCurrent,
-              currentWeek,
-            }) => androidOrIos(
-              MealNotificationPlatform.ios,
-              settings,
-              clearPendingFirst: clearPendingFirst,
-              isCurrent: isCurrent,
-              currentWeek: currentWeek,
-            ),
-        androidScheduler:
-            (
-              settings, {
-              required clearPendingFirst,
-              required isCurrent,
-              currentWeek,
-            }) => androidOrIos(
-              MealNotificationPlatform.android,
-              settings,
-              clearPendingFirst: clearPendingFirst,
-              isCurrent: isCurrent,
-              currentWeek: currentWeek,
-            ),
+        iosScheduler: (settings, {required isCurrent}) => androidOrIos(
+          MealNotificationPlatform.ios,
+          settings,
+          isCurrent: isCurrent,
+        ),
+        androidScheduler: (settings, {required isCurrent}) => androidOrIos(
+          MealNotificationPlatform.android,
+          settings,
+          isCurrent: isCurrent,
+        ),
       );
     }
 

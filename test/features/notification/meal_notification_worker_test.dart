@@ -32,6 +32,21 @@ void main() {
     expect(reconciliations, 1);
   });
 
+  test('iOS 알림 재조정 실패와 무관하게 위젯 갱신을 시도한다', () async {
+    var widgetRefreshes = 0;
+
+    final result = await refreshBackgroundMealAndInfoCaches(
+      platform: MealNotificationPlatform.ios,
+      refreshMealCache: () async {},
+      refreshInfoCache: () async {},
+      reconcileIosNotifications: () async => throw Exception('notification'),
+      refreshWidget: () async => widgetRefreshes++,
+    );
+
+    expect(result, isFalse);
+    expect(widgetRefreshes, 1);
+  });
+
   test('background refresh는 필수 단계 실패만 task 실패로 반환한다', () async {
     final cases =
         <

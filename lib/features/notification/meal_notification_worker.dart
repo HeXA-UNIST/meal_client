@@ -136,19 +136,13 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
     return false;
   }
 
-  if ((platform ?? mealNotificationPlatform) == MealNotificationPlatform.ios) {
-    final notificationFailure = await _captureBackgroundRefreshFailure(
-      'notification',
-      reconcileIosNotifications ?? _reconcileIosNotificationsFromCache,
-    );
-    if (notificationFailure != null) {
-      _logBackgroundRefreshFailure(
-        'background meal notification reconciliation failed',
-        notificationFailure,
-      );
-      return false;
-    }
-  }
+  final notificationFailure =
+      (platform ?? mealNotificationPlatform) == MealNotificationPlatform.ios
+      ? await _captureBackgroundRefreshFailure(
+          'notification',
+          reconcileIosNotifications ?? _reconcileIosNotificationsFromCache,
+        )
+      : null;
 
   final infoFailure = failures[1];
   if (infoFailure != null) {
@@ -177,6 +171,14 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
     _logBackgroundRefreshFailure(
       'background widget refresh failed',
       widgetFailure,
+    );
+    return false;
+  }
+
+  if (notificationFailure != null) {
+    _logBackgroundRefreshFailure(
+      'background meal notification reconciliation failed',
+      notificationFailure,
     );
     return false;
   }

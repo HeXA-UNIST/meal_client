@@ -103,19 +103,13 @@ void main() {
     final appliedDays = <Set<DayOfWeek>>[];
     final coordinator = NotificationScheduleCoordinator(
       debounce: Duration.zero,
-      schedule:
-          (
-            settings, {
-            required clearPendingFirst,
-            required isCurrent,
-            currentWeek,
-          }) async {
-            if (settings.days.contains(DayOfWeek.mon)) {
-              firstStarted.complete();
-              await releaseFirst.future;
-            }
-            if (isCurrent()) appliedDays.add(settings.days);
-          },
+      schedule: (settings, {required isCurrent}) async {
+        if (settings.days.contains(DayOfWeek.mon)) {
+          firstStarted.complete();
+          await releaseFirst.future;
+        }
+        if (isCurrent()) appliedDays.add(settings.days);
+      },
     );
     addTearDown(coordinator.dispose);
 

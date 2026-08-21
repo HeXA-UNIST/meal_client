@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
-import 'package:meal_client/features/notification/ios_meal_notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
@@ -154,9 +153,13 @@ class AppSettings extends ChangeNotifier {
   }
 
   Future<void> _handleAppResume() async {
-    if (_disposed || !_notification.enabled) return;
-    await refreshNotificationAuthorizationStatus();
     if (_disposed) return;
+    if (_notification.enabled ||
+        _notificationAuthorizationStatus ==
+            MealNotificationAuthorizationStatus.notAuthorized) {
+      await refreshNotificationAuthorizationStatus();
+    }
+    if (_disposed || !_notification.enabled) return;
     await _reconcileFromCache(refreshAuthorization: false);
     if (_disposed) return;
     await _performForegroundMealRefresh();
@@ -220,11 +223,13 @@ class AppSettings extends ChangeNotifier {
     return changed;
   }
 
-  /// 앱 시작 시 외부 설정에서 바뀐 iOS 권한 상태를 설정 화면에 반영한다.
+  /// 외부 설정에서 바뀐 iOS 권한 상태를 설정 화면에 반영한다.
   Future<void> refreshNotificationAuthorizationStatus() async {
     final status = await _readAuthorizationStatus();
     if (_disposed ||
-        !_notification.enabled ||
+        (!_notification.enabled &&
+            _notificationAuthorizationStatus !=
+                MealNotificationAuthorizationStatus.notAuthorized) ||
         status == MealNotificationAuthorizationStatus.notApplicable ||
         status == _notificationAuthorizationStatus) {
       return;
@@ -245,7 +250,7 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence);
     } else {
       unawaited(persistence);
     }
@@ -261,7 +266,7 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence);
     } else {
       unawaited(persistence);
     }
@@ -303,7 +308,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
 
     if (_notification.enabled) {
-      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence);
     } else {
       unawaited(persistence);
     }
@@ -320,7 +325,7 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence);
     } else {
       unawaited(persistence);
     }
@@ -336,7 +341,7 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence);
     } else {
       unawaited(persistence);
     }
@@ -351,43 +356,30 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence);
     } else {
       unawaited(persistence);
     }
   }
 
-  void _rescheduleAfterPersistence(
-    Future<bool> persistence, {
-    required bool clearPendingFirst,
-  }) {
+  void _rescheduleAfterPersistence(Future<bool> persistence) {
     unawaited(
       (() async {
         await persistence;
         if (_disposed || !_notification.enabled) return;
-        await _runNotificationReschedule(clearPendingFirst: clearPendingFirst);
+        await _runNotificationReschedule();
       })(),
     );
   }
 
   Future<NotificationScheduleOutcome> _runNotificationReschedule({
     bool immediately = false,
-    bool clearPendingFirst = false,
-    IosMealWeek? currentWeek,
   }) async {
     await _advanceNotificationMutationGeneration();
     if (_disposed) return NotificationScheduleOutcome.disposed;
     return (immediately
-            ? _notificationScheduleCoordinator.scheduleNow(
-                _notification,
-                clearPendingFirst: clearPendingFirst,
-                currentWeek: currentWeek,
-              )
-            : _notificationScheduleCoordinator.schedule(
-                _notification,
-                clearPendingFirst: clearPendingFirst,
-                currentWeek: currentWeek,
-              ))
+            ? _notificationScheduleCoordinator.scheduleNow(_notification)
+            : _notificationScheduleCoordinator.schedule(_notification))
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('[BapU] meal notification reconciliation failed: $error');
           debugPrintStack(stackTrace: stackTrace);

@@ -23,13 +23,7 @@ void main() {
     final settings = AppSettings(
       prefs,
       notificationScheduleCoordinator: NotificationScheduleCoordinator(
-        schedule:
-            (
-              settings, {
-              required clearPendingFirst,
-              required isCurrent,
-              currentWeek,
-            }) async {},
+        schedule: (settings, {required isCurrent}) async {},
         cancel: () async {},
       ),
       notificationPermissionRequester: () async => true,
@@ -130,13 +124,7 @@ void main() {
     final settings = AppSettings(
       prefs,
       notificationScheduleCoordinator: NotificationScheduleCoordinator(
-        schedule:
-            (
-              settings, {
-              required clearPendingFirst,
-              required isCurrent,
-              currentWeek,
-            }) async {},
+        schedule: (settings, {required isCurrent}) async {},
         cancel: () async {},
       ),
       notificationPermissionRequester: () async => true,

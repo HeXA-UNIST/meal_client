@@ -31,13 +31,6 @@ typedef IosPendingCanceler = Future<void> Function(int id);
 typedef IosNotificationUpserter =
     Future<void> Function(ScheduledMealNotification notification);
 
-enum IosMealReconciliationOutcome {
-  scheduled,
-  superseded,
-  notAuthorized,
-  currentWeekUnavailable,
-}
-
 bool isScheduledMealNotificationId(int id) =>
     id >= kScheduledMealNotificationIdStart &&
     id < kScheduledMealNotificationIdEnd;
@@ -149,9 +142,8 @@ class _NotificationSlot {
   final List<ScheduledMealNotification> notifications;
 }
 
-Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
+Future<void> reconcileIosMealNotifications({
   required NotificationSettings settings,
-  bool clearPendingFirst = false,
   bool Function()? isCurrent,
   IosMealWeek? currentWeek,
   IosMealWeek? nextWeek,
@@ -168,10 +160,10 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   final authorization =
       await (readAuthorizationStatus ?? mealNotificationAuthorizationStatus)();
   if (!currentGeneration()) {
-    return IosMealReconciliationOutcome.superseded;
+    return;
   }
   if (authorization == MealNotificationAuthorizationStatus.notAuthorized) {
-    return IosMealReconciliationOutcome.notAuthorized;
+    return;
   }
 
   final pendingReader = readPendingIds ?? pendingNotificationIds;
@@ -180,35 +172,26 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
       .where(isScheduledMealNotificationId)
       .toList(growable: false);
   if (!currentGeneration()) {
-    return IosMealReconciliationOutcome.superseded;
+    return;
   }
-  if (clearPendingFirst) {
-    for (final id in pending) {
-      if (!currentGeneration()) {
-        return IosMealReconciliationOutcome.superseded;
-      }
-      await canceler(id);
-    }
-  }
-
   final instant = (nowProvider ?? DateTime.now)();
   final current =
       currentWeek ??
       await (loadCurrentWeek ?? () => _loadCachedWeek(instant))();
   if (!currentGeneration()) {
-    return IosMealReconciliationOutcome.superseded;
+    return;
   }
   if (current == null) {
-    return IosMealReconciliationOutcome.currentWeekUnavailable;
+    return;
   }
   final next =
       nextWeek ?? await (loadNextWeek ?? () => _loadCachedNextWeek(instant))();
   if (!currentGeneration()) {
-    return IosMealReconciliationOutcome.superseded;
+    return;
   }
 
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
-  final retainedIds = clearPendingFirst || next != null
+  final retainedIds = next != null
       ? const <int>[]
       : pending
             .where((id) => _idTargetsWeek(id, expectedNextWeekStart))
@@ -223,14 +206,12 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   );
   final desiredIds = batch.map((notification) => notification.id).toSet();
 
-  if (!clearPendingFirst) {
-    for (final id in pending) {
-      if (!retainedIds.contains(id) && !desiredIds.contains(id)) {
-        if (!currentGeneration()) {
-          return IosMealReconciliationOutcome.superseded;
-        }
-        await canceler(id);
+  for (final id in pending) {
+    if (!retainedIds.contains(id) && !desiredIds.contains(id)) {
+      if (!currentGeneration()) {
+        return;
       }
+      await canceler(id);
     }
   }
 
@@ -244,7 +225,7 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
       );
   for (final notification in batch) {
     if (!currentGeneration()) {
-      return IosMealReconciliationOutcome.superseded;
+      return;
     }
     if (notification.fireInstant.isBefore((nowProvider ?? DateTime.now)())) {
       continue;
@@ -263,7 +244,6 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
       Error.throwWithStackTrace(error, stackTrace);
     }
   }
-  return IosMealReconciliationOutcome.scheduled;
 }
 
 Future<void> cancelAllPendingMealNotifications({
@@ -272,14 +252,20 @@ Future<void> cancelAllPendingMealNotifications({
 }) async {
   final ids = await (readPendingIds ?? pendingNotificationIds)();
   final canceler = cancelPending ?? cancelPendingNotification;
+  Object? firstError;
+  StackTrace? firstStackTrace;
   for (final id in ids.where(isScheduledMealNotificationId)) {
     try {
       await canceler(id);
     } catch (error, stackTrace) {
       debugPrint('[BapU] failed to cancel iOS meal notification $id: $error');
       debugPrintStack(stackTrace: stackTrace);
-      rethrow;
+      firstError ??= error;
+      firstStackTrace ??= stackTrace;
     }
+  }
+  if (firstError != null) {
+    Error.throwWithStackTrace(firstError, firstStackTrace!);
   }
 }
 

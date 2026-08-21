@@ -1,6 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
-import 'package:flutter/widgets.dart' show basicLocaleListResolution;
+import 'package:flutter/widgets.dart' show Locale, basicLocaleListResolution;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -9,8 +9,14 @@ const _channelId = 'meal';
 final _plugin = FlutterLocalNotificationsPlugin();
 
 AppLocalizations notificationLocalizations() {
+  return resolveNotificationLocalizations(PlatformDispatcher.instance.locales);
+}
+
+AppLocalizations resolveNotificationLocalizations(
+  List<Locale> preferredLocales,
+) {
   final locale = basicLocaleListResolution(
-    PlatformDispatcher.instance.locales,
+    preferredLocales.isEmpty ? const [Locale('ko')] : preferredLocales,
     AppLocalizations.supportedLocales,
   );
   return lookupAppLocalizations(locale);

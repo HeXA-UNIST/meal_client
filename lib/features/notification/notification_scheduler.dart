@@ -78,9 +78,7 @@ DateTime? nextEnabledFireTime({
 typedef MealNotificationScheduler =
     Future<void> Function(
       NotificationSettings settings, {
-      required bool clearPendingFirst,
       required bool Function() isCurrent,
-      IosMealWeek? currentWeek,
     });
 
 typedef KeywordNotificationCanceler = Future<void> Function();
@@ -121,11 +119,7 @@ class NotificationScheduleCoordinator {
   bool _disposed = false;
 
   /// 최신 [settings] 스냅샷으로 예약을 요청한다.
-  Future<NotificationScheduleOutcome> schedule(
-    NotificationSettings settings, {
-    bool clearPendingFirst = false,
-    IosMealWeek? currentWeek,
-  }) {
+  Future<NotificationScheduleOutcome> schedule(NotificationSettings settings) {
     if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
 
     final snapshot = settings;
@@ -137,12 +131,7 @@ class NotificationScheduleCoordinator {
     _pendingTimer = Timer(debounce, () {
       _pendingTimer = null;
       _pendingCompleter = null;
-      _enqueueSchedule(
-        revision,
-        snapshot,
-        clearPendingFirst: clearPendingFirst,
-        currentWeek: currentWeek,
-      ).then(
+      _enqueueSchedule(revision, snapshot).then(
         completer.complete,
         onError: (Object error, StackTrace stackTrace) {
           completer.completeError(error, stackTrace);
@@ -154,20 +143,13 @@ class NotificationScheduleCoordinator {
 
   /// 디바운스를 거치지 않고 즉시 예약 작업을 큐에 추가한다.
   Future<NotificationScheduleOutcome> scheduleNow(
-    NotificationSettings settings, {
-    bool clearPendingFirst = false,
-    IosMealWeek? currentWeek,
-  }) {
+    NotificationSettings settings,
+  ) {
     if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
 
     final snapshot = settings;
     _invalidatePending(NotificationScheduleOutcome.superseded);
-    return _enqueueSchedule(
-      _revision,
-      snapshot,
-      clearPendingFirst: clearPendingFirst,
-      currentWeek: currentWeek,
-    );
+    return _enqueueSchedule(_revision, snapshot);
   }
 
   /// 보류 중인 예약 요청을 무효화하고, 모든 알림 작업을 취소한다.
@@ -197,19 +179,15 @@ class NotificationScheduleCoordinator {
 
   Future<NotificationScheduleOutcome> _enqueueSchedule(
     int revision,
-    NotificationSettings settings, {
-    required bool clearPendingFirst,
-    IosMealWeek? currentWeek,
-  }) => _enqueue(() async {
+    NotificationSettings settings,
+  ) => _enqueue(() async {
     if (_disposed) return NotificationScheduleOutcome.disposed;
     if (revision != _revision) {
       return NotificationScheduleOutcome.superseded;
     }
     await _schedule(
       settings,
-      clearPendingFirst: clearPendingFirst,
       isCurrent: () => !_disposed && revision == _revision,
-      currentWeek: currentWeek,
     );
     return revision == _revision
         ? NotificationScheduleOutcome.scheduled
@@ -227,8 +205,6 @@ class NotificationScheduleCoordinator {
 /// Android는 기존 Workmanager 경로를, iOS는 OS 예약 알림 경로를 사용한다.
 Future<void> scheduleMealNotifications(
   NotificationSettings settings, {
-  required bool clearPendingFirst,
-  IosMealWeek? currentWeek,
   bool Function()? isCurrent,
   MealNotificationPlatform? platform,
   MealNotificationScheduler? iosScheduler,
@@ -238,17 +214,13 @@ Future<void> scheduleMealNotifications(
     case MealNotificationPlatform.ios:
       await (iosScheduler ?? _scheduleIosMealNotifications)(
         settings,
-        clearPendingFirst: clearPendingFirst,
         isCurrent: isCurrent ?? () => true,
-        currentWeek: currentWeek,
       );
       return;
     case MealNotificationPlatform.android:
       await (androidScheduler ?? _scheduleAndroidMealNotifications)(
         settings,
-        clearPendingFirst: clearPendingFirst,
         isCurrent: isCurrent ?? () => true,
-        currentWeek: currentWeek,
       );
       return;
     case MealNotificationPlatform.unsupported:
@@ -258,25 +230,17 @@ Future<void> scheduleMealNotifications(
 
 Future<void> _scheduleIosMealNotifications(
   NotificationSettings settings, {
-  required bool clearPendingFirst,
   required bool Function() isCurrent,
-  IosMealWeek? currentWeek,
 }) async {
   await withMealNotificationMutationLock(
-    () => reconcileIosMealNotifications(
-      settings: settings,
-      clearPendingFirst: clearPendingFirst,
-      isCurrent: isCurrent,
-      currentWeek: currentWeek,
-    ),
+    () =>
+        reconcileIosMealNotifications(settings: settings, isCurrent: isCurrent),
   );
 }
 
 Future<void> _scheduleAndroidMealNotifications(
   NotificationSettings settings, {
-  required bool clearPendingFirst,
   required bool Function() isCurrent,
-  IosMealWeek? currentWeek,
 }) => scheduleAllKeywordNotifications(settings.alertTimes, settings.days);
 
 Future<void> cancelAllMealNotifications({
