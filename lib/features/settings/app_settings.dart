@@ -427,7 +427,12 @@ class AppSettings extends ChangeNotifier {
     try {
       if (_disposed) return false;
       if (next.enabled) {
-        await _runNotificationReschedule(immediately: immediately);
+        if (immediately) {
+          await _runNotificationReschedule(immediately: true);
+        } else {
+          await _startDebouncedNotificationReschedule();
+          return true;
+        }
       } else {
         await _runCancelAllMealNotifications();
       }
@@ -486,6 +491,22 @@ class AppSettings extends ChangeNotifier {
       _setNotificationSyncFailed(false);
     }
     return outcome;
+  }
+
+  /// 설정 저장 순서는 mutation queue에서 보장하되, debounce 완료까지 queue를
+  /// 붙잡지 않는다. 그래야 뒤따르는 설정도 coordinator에 도달해 최신 상태로 합쳐진다.
+  Future<void> _startDebouncedNotificationReschedule() async {
+    await _advanceNotificationMutationGeneration();
+    if (_disposed) return;
+    final scheduling = _notificationScheduleCoordinator.schedule(_notification);
+    _runUnawaitedNotificationOperation(
+      scheduling.then<void>((outcome) {
+        if (outcome == NotificationScheduleOutcome.scheduled) {
+          _setNotificationSyncFailed(false);
+        }
+      }),
+      'notification synchronization',
+    );
   }
 
   Future<void> _runCancelAllMealNotifications() async {

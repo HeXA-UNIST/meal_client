@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
@@ -348,6 +349,46 @@ void main() {
       shouldFail = false;
       expect(await settings.retryNotificationSync(), isTrue);
       expect(settings.notificationSyncFailed, isFalse);
+    });
+
+    test('빠른 설정 변경은 UI에 바로 반영되고 최신 예약 하나로 합쳐진다', () async {
+      SharedPreferences.setMockInitialValues({
+        StorageKeys.notificationEnabled: true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final scheduledDays = <Set<DayOfWeek>>[];
+      final scheduled = Completer<void>();
+      final settings = AppSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.android,
+        resumeListenerRegistrar: (_) => () {},
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule: (settings, {required isCurrent}) async {
+            if (isCurrent()) {
+              scheduledDays.add({...settings.days});
+              if (!scheduled.isCompleted) scheduled.complete();
+            }
+          },
+          cancel: () async {},
+        ),
+      );
+      settingsToDispose.add(settings);
+
+      settings.setNotificationDays({DayOfWeek.mon});
+      await _waitUntil(
+        () => setEquals(settings.notification.days, {DayOfWeek.mon}),
+      );
+      settings.setNotificationDays({DayOfWeek.fri});
+      await _waitUntil(
+        () => setEquals(settings.notification.days, {DayOfWeek.fri}),
+      );
+
+      await scheduled.future.timeout(const Duration(seconds: 1));
+      expect(scheduledDays, [
+        {DayOfWeek.fri},
+      ]);
+      expect(prefs.getStringList(StorageKeys.notificationDays), ['fri']);
+      expect(prefs.getInt(StorageKeys.notificationMutationGeneration), 2);
     });
 
     test('Android resume은 매번 재조정하지만 1시간 이내 foreground fetch는 생략한다', () async {
