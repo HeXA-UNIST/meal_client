@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
+import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/settings/allergy/allergy_settings.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
@@ -162,9 +165,11 @@ void main() {
       final settings = AppSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule: (_, _) async {},
+          schedule:
+              (settings, {required clearPendingFirst, currentWeek}) async {},
           cancel: () async {},
         ),
+        notificationPermissionRequester: () async => true,
       );
       settingsToDispose.add(settings);
       return settings;
@@ -227,9 +232,120 @@ void main() {
     test('setNotificationEnabled — 저장 및 재로드', () async {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
-      settings.setNotificationEnabled(true);
+      await settings.setNotificationEnabled(true);
       final settings2 = createSettings(prefs);
       expect(settings2.notification.enabled, isTrue);
+    });
+
+    test('알림 권한 거부는 활성화하지 않고 관찰 가능한 상태로 남긴다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var requestCount = 0;
+      final settings = AppSettings(
+        prefs,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule:
+              (settings, {required clearPendingFirst, currentWeek}) async {},
+          cancel: () async {},
+        ),
+        notificationPermissionRequester: () async {
+          requestCount++;
+          return false;
+        },
+      );
+      settingsToDispose.add(settings);
+
+      expect(await settings.setNotificationEnabled(true), isFalse);
+      expect(requestCount, 1);
+      expect(settings.notification.enabled, isFalse);
+      expect(
+        settings.notificationAuthorizationStatus,
+        MealNotificationAuthorizationStatus.notAuthorized,
+      );
+    });
+
+    test('알림 콘텐츠에 영향을 주는 모든 설정 변경은 예약 갱신을 요청한다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var scheduleCount = 0;
+      final settings = AppSettings(
+        prefs,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          debounce: Duration.zero,
+          schedule:
+              (settings, {required clearPendingFirst, currentWeek}) async {
+                scheduleCount++;
+              },
+          cancel: () async {},
+        ),
+        notificationPermissionRequester: () async => true,
+      );
+      settingsToDispose.add(settings);
+
+      await settings.setNotificationEnabled(true);
+      await Future<void>.delayed(Duration.zero);
+      final countAfterEnable = scheduleCount;
+
+      settings.addNotificationKeyword('국');
+      await Future<void>.delayed(Duration.zero);
+      settings.removeNotificationKeyword('국');
+      await Future<void>.delayed(Duration.zero);
+      settings.setNotificationCafeterias({Cafeteria.student});
+      await Future<void>.delayed(Duration.zero);
+      settings.setNotificationDormMealTypes({DormMealType.korean});
+      await Future<void>.delayed(Duration.zero);
+
+      expect(scheduleCount, countAfterEnable + 4);
+    });
+
+    test('master disable과 reset은 예약과 관찰 중인 권한 상태를 함께 지운다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var cancelCount = 0;
+      final settings = AppSettings(
+        prefs,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          debounce: Duration.zero,
+          schedule:
+              (settings, {required clearPendingFirst, currentWeek}) async {},
+          cancel: () async => cancelCount++,
+        ),
+        notificationPermissionRequester: () async => true,
+      );
+      settingsToDispose.add(settings);
+
+      await settings.setNotificationEnabled(true);
+      await settings.setNotificationEnabled(false);
+      await settings.setNotificationEnabled(true);
+      settings.resetAll();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cancelCount, 2);
+      expect(settings.notification.enabled, isFalse);
+      expect(settings.notificationAuthorizationStatus, isNull);
+    });
+
+    test('비동기 권한 조회 결과는 알림을 끈 뒤 상태를 되살리지 않는다', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_enabled': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final status = Completer<MealNotificationAuthorizationStatus>();
+      final settings = AppSettings(
+        prefs,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule:
+              (settings, {required clearPendingFirst, currentWeek}) async {},
+          cancel: () async {},
+        ),
+        notificationPermissionRequester: () async => true,
+        notificationAuthorizationStatusReader: () => status.future,
+      );
+      settingsToDispose.add(settings);
+
+      final refresh = settings.refreshNotificationAuthorizationStatus();
+      await settings.setNotificationEnabled(false);
+      status.complete(MealNotificationAuthorizationStatus.notAuthorized);
+      await refresh;
+
+      expect(settings.notificationAuthorizationStatus, isNull);
     });
 
     test('addNotificationKeyword — 추가 및 중복 방지', () async {
@@ -309,7 +425,10 @@ void main() {
         const TimeOfDay(hour: 11, minute: 0),
       );
       settings.setPeriodAlertTime(MealNotificationPeriod.lunch, null);
-      expect(settings.notification.alertTimeOf(MealNotificationPeriod.lunch), isNull);
+      expect(
+        settings.notification.alertTimeOf(MealNotificationPeriod.lunch),
+        isNull,
+      );
       expect(settings.notification.activePeriods, isEmpty);
     });
 
@@ -405,7 +524,7 @@ void main() {
       final settings = createSettings(prefs);
       settings.toggleAllergen(1);
       settings.setThemeMode(ThemeMode.dark);
-      settings.setNotificationEnabled(true);
+      await settings.setNotificationEnabled(true);
       settings.resetAll();
       expect(settings.allergy.enabledIds, isEmpty);
       expect(settings.themeMode, ThemeMode.system);

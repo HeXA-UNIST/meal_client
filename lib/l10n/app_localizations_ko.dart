@@ -214,5 +214,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationPermissionDenied => '알림 권한이 차단되었습니다. 설정에서 허용해주세요.';
 
   @override
+  String get notificationPermissionUnavailable =>
+      '알림이 현재 표시되지 않을 수 있습니다. 시스템 설정에서 권한을 확인해주세요.';
+
+  @override
   String get openSystemAppSettings => '설정 열기';
 }

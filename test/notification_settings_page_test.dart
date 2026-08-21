@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
+import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings_page.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -22,9 +23,11 @@ void main() {
     final settings = AppSettings(
       prefs,
       notificationScheduleCoordinator: NotificationScheduleCoordinator(
-        schedule: (_, _) async {},
+        schedule:
+            (settings, {required clearPendingFirst, currentWeek}) async {},
         cancel: () async {},
       ),
+      notificationPermissionRequester: () async => true,
     );
     addTearDown(settings.dispose);
 
@@ -112,5 +115,43 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text(guidance), findsNothing);
+  });
+
+  testWidgets('권한 상태를 구분할 수 없으면 중립 안내와 지속 설정 경로를 표시한다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      StorageKeys.notificationEnabled: true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final settings = AppSettings(
+      prefs,
+      notificationScheduleCoordinator: NotificationScheduleCoordinator(
+        schedule:
+            (settings, {required clearPendingFirst, currentWeek}) async {},
+        cancel: () async {},
+      ),
+      notificationPermissionRequester: () async => true,
+      notificationAuthorizationStatusReader: () async =>
+          MealNotificationAuthorizationStatus.notAuthorized,
+    );
+    addTearDown(settings.dispose);
+    await settings.refreshNotificationAuthorizationStatus();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: settings,
+        child: const MaterialApp(
+          locale: Locale('ko'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: MealNotificationPage(),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('알림이 현재 표시되지 않을 수 있습니다. 시스템 설정에서 권한을 확인해주세요.'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(TextButton, '설정 열기'), findsOneWidget);
   });
 }

@@ -62,38 +62,37 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
 
   // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
   // 권한 거부 시 SnackBar로 안내하고 시스템 설정으로 이동 버튼을 제공한다.
+  void _openNotificationSettings() =>
+      device_settings.AppSettings.openAppSettings(
+        type: device_settings.AppSettingsType.notification,
+      );
+
   Future<void> _handleNotificationToggle(bool enable) async {
-    if (!enable) {
-      context.read<AppSettings>().setNotificationEnabled(false);
-      return;
-    }
-
-    final granted = await requestNotificationPermission();
+    final granted = await context.read<AppSettings>().setNotificationEnabled(
+      enable,
+    );
     if (!mounted) return;
-
-    if (!granted) {
+    if (enable && !granted) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(l10n.notificationPermissionDenied),
           action: SnackBarAction(
             label: l10n.openSystemAppSettings,
-            onPressed: () => device_settings.AppSettings.openAppSettings(
-              type: device_settings.AppSettingsType.notification,
-            ),
+            onPressed: _openNotificationSettings,
           ),
         ),
       );
-      return;
     }
-
-    context.read<AppSettings>().setNotificationEnabled(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final notification = context.watch<AppSettings>().notification;
+    final authorizationStatus = context
+        .watch<AppSettings>()
+        .notificationAuthorizationStatus;
     return Scaffold(
       appBar: AppBar(
         scrolledUnderElevation: 0,
@@ -118,6 +117,17 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
             ),
             onTap: () => _handleNotificationToggle(!notification.enabled),
           ),
+          if (authorizationStatus ==
+              MealNotificationAuthorizationStatus.notAuthorized)
+            ListTile(
+              contentPadding: const EdgeInsets.fromLTRB(16, 0, 24, 4),
+              leading: const Icon(Icons.notifications_off_outlined),
+              title: Text(l10n.notificationPermissionUnavailable),
+              trailing: TextButton(
+                onPressed: _openNotificationSettings,
+                child: Text(l10n.openSystemAppSettings),
+              ),
+            ),
           if (notification.enabled) ...[
             // 시간대별 알림 설정 (아침·점심·저녁·밤)
             const Divider(height: 28, indent: 16, endIndent: 16),

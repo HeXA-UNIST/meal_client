@@ -87,5 +87,6 @@
   "about": "About",
   "openSourceLicenses": "Open Source Licenses",
   "notificationPermissionDenied": "Notification permission denied. Please allow it in settings.",
+  "notificationPermissionUnavailable": "Notifications may not appear. Check the permission in system settings.",
   "openSystemAppSettings": "Open Settings"
 }

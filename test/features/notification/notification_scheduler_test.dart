@@ -6,6 +6,7 @@ import 'package:meal_client/core/enum_utils.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
+import 'package:meal_client/features/settings/notification/notification_settings.dart';
 
 void main() {
   group('nextEnabledFireTime', () {
@@ -134,11 +135,16 @@ void main() {
       final scheduledDays = <Set<DayOfWeek>>[];
       final coordinator = NotificationScheduleCoordinator(
         debounce: Duration.zero,
-        schedule: (_, days) async => scheduledDays.add(days),
+        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
+            scheduledDays.add(settings.days),
       );
 
-      final first = coordinator.schedule({}, {DayOfWeek.mon});
-      final latest = coordinator.schedule({}, {DayOfWeek.fri});
+      final first = coordinator.schedule(
+        NotificationSettings(days: {DayOfWeek.mon}),
+      );
+      final latest = coordinator.schedule(
+        NotificationSettings(days: {DayOfWeek.fri}),
+      );
 
       expect(await first, NotificationScheduleOutcome.superseded);
       expect(await latest, NotificationScheduleOutcome.scheduled);
@@ -153,7 +159,7 @@ void main() {
       final releaseSchedule = Completer<void>();
       final coordinator = NotificationScheduleCoordinator(
         debounce: Duration.zero,
-        schedule: (_, _) async {
+        schedule: (settings, {required clearPendingFirst, currentWeek}) async {
           events.add('schedule');
           scheduleStarted.complete();
           await releaseSchedule.future;
@@ -161,7 +167,9 @@ void main() {
         cancel: () async => events.add('cancel'),
       );
 
-      final scheduled = coordinator.schedule({}, {DayOfWeek.mon});
+      final scheduled = coordinator.schedule(
+        NotificationSettings(days: {DayOfWeek.mon}),
+      );
       await scheduleStarted.future;
       final canceled = coordinator.cancelAll();
       releaseSchedule.complete();
@@ -176,10 +184,11 @@ void main() {
       var scheduleCount = 0;
       final coordinator = NotificationScheduleCoordinator(
         debounce: const Duration(milliseconds: 10),
-        schedule: (_, _) async => scheduleCount++,
+        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
+            scheduleCount++,
       );
 
-      final scheduled = coordinator.schedule({}, {DayOfWeek.mon});
+      final scheduled = coordinator.schedule(NotificationSettings());
       coordinator.dispose();
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
@@ -190,11 +199,12 @@ void main() {
     test('예약 콜백 실패를 반환 Future에 전달한다', () async {
       final coordinator = NotificationScheduleCoordinator(
         debounce: Duration.zero,
-        schedule: (_, _) async => throw StateError('schedule failed'),
+        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
+            throw StateError('schedule failed'),
       );
 
       await expectLater(
-        coordinator.schedule({}, {DayOfWeek.mon}),
+        coordinator.schedule(NotificationSettings()),
         throwsStateError,
       );
     });
@@ -203,10 +213,11 @@ void main() {
       var scheduleCount = 0;
       final coordinator = NotificationScheduleCoordinator(
         debounce: const Duration(days: 1),
-        schedule: (_, _) async => scheduleCount++,
+        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
+            scheduleCount++,
       );
 
-      final outcome = await coordinator.scheduleNow({}, {DayOfWeek.mon});
+      final outcome = await coordinator.scheduleNow(NotificationSettings());
 
       expect(outcome, NotificationScheduleOutcome.scheduled);
       expect(scheduleCount, 1);

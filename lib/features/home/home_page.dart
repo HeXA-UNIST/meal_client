@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:provider/provider.dart';
 
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/info/announcement_state.dart';
@@ -9,6 +10,7 @@ import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:meal_client/features/settings/app_settings.dart';
 import 'home_drawer.dart';
 import 'week_menu_scaffold.dart';
 
@@ -52,6 +54,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late Future<String?> nextWeekStart;
   late final Future<AppInfo> appInfo;
   Future<void> _mealRefreshQueue = Future.value();
+  bool _didReconcileInitialMealRefresh = false;
 
   @override
   void initState() {
@@ -134,6 +137,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       final meal = await refreshMeal();
       await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
+      if (mounted && !_didReconcileInitialMealRefresh) {
+        _didReconcileInitialMealRefresh = true;
+        Provider.of<AppSettings?>(
+          context,
+          listen: false,
+        )?.reconcileIosMealNotificationsAfterInitialRefresh(meal.weekMeal);
+      }
       return meal;
     });
     _mealRefreshQueue = queuedRefresh.then<void>((_) {}, onError: (_, _) {});

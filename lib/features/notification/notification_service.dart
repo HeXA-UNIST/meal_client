@@ -3,6 +3,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/widgets.dart' show basicLocaleListResolution;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 const _channelId = 'meal';
 final _plugin = FlutterLocalNotificationsPlugin();
@@ -20,9 +21,9 @@ Future<void> initNotifications() async {
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
 
   const iosInit = DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
+    requestAlertPermission: false,
+    requestBadgePermission: false,
+    requestSoundPermission: false,
   );
 
   await _plugin.initialize(
@@ -39,6 +40,76 @@ Future<void> initNotifications() async {
           importance: Importance.defaultImportance,
         ),
       );
+}
+
+/// iOS 플러그인은 권한을 아직 묻지 않은 상태와 거부 상태를 구분해 주지 않는다.
+enum MealNotificationAuthorizationStatus {
+  enabled,
+  notAuthorized,
+  notApplicable,
+}
+
+Future<MealNotificationAuthorizationStatus>
+mealNotificationAuthorizationStatus() async {
+  final permissions = await _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >()
+      ?.checkPermissions();
+  if (permissions == null) {
+    return MealNotificationAuthorizationStatus.notApplicable;
+  }
+  return permissions.isAlertEnabled
+      ? MealNotificationAuthorizationStatus.enabled
+      : MealNotificationAuthorizationStatus.notAuthorized;
+}
+
+const _scheduledMealNotificationDetails = DarwinNotificationDetails(
+  presentAlert: true,
+  presentBadge: true,
+  presentSound: true,
+  interruptionLevel: InterruptionLevel.active,
+);
+
+Future<void> scheduleMealNotification({
+  required int id,
+  required DateTime fireInstant,
+  required String title,
+  required String body,
+  DarwinNotificationDetails? notificationDetails,
+}) async {
+  final ios = _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >();
+  if (ios == null) return;
+  await ios.zonedSchedule(
+    id: id,
+    title: title,
+    body: body,
+    scheduledDate: tz.TZDateTime.from(fireInstant, tz.UTC),
+    notificationDetails:
+        notificationDetails ?? _scheduledMealNotificationDetails,
+  );
+}
+
+Future<List<int>> pendingNotificationIds() async {
+  final ios = _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >();
+  if (ios == null) return const [];
+  return (await ios.pendingNotificationRequests())
+      .map((request) => request.id)
+      .toList(growable: false);
+}
+
+Future<void> cancelPendingNotification(int id) async {
+  await _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >()
+      ?.cancel(id: id);
 }
 
 Future<bool> requestNotificationPermission() async {
@@ -76,6 +147,7 @@ Future<void> showMealNotification({
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      interruptionLevel: InterruptionLevel.active,
     ),
   );
   await _plugin.show(

@@ -55,9 +55,8 @@ void main() async {
     ChangeNotifierProvider<AppSettings>(
       create: (_) {
         final settings = AppSettings(prefs);
-        // 앱 시작 시 활성화된 시간대 알림을 모두 재스케줄한다.
-        // (백그라운드 워커가 다음 회차 등록에 실패하는 케이스에 대한 방어책)
-        settings.rescheduleKeywordNotifications();
+        // 앱 시작 시 Android Workmanager와 iOS pending 요청을 현재 설정에 맞춘다.
+        settings.rescheduleMealNotifications();
         return settings;
       },
       child: const BapUApp(),

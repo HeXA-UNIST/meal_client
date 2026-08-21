@@ -6,10 +6,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
+import 'package:meal_client/features/notification/ios_meal_notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
+import 'package:meal_client/features/notification/notification_service.dart';
+import 'package:meal_client/features/notification/notification_platform.dart';
+import 'package:meal_client/features/meal/meal_cache.dart';
 import 'allergy/allergy_settings.dart';
 import 'notification/notification_settings.dart';
 import 'notification/notification_settings_store.dart';
+
+typedef NotificationAuthorizationStatusReader =
+    Future<MealNotificationAuthorizationStatus> Function();
 
 class AppSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -18,16 +25,29 @@ class AppSettings extends ChangeNotifier {
   NotificationSettings _notification;
   ThemeMode _themeMode;
   final NotificationScheduleCoordinator _notificationScheduleCoordinator;
+  final Future<bool> Function() _requestNotificationPermission;
+  final NotificationAuthorizationStatusReader _readAuthorizationStatus;
+  MealNotificationAuthorizationStatus? _notificationAuthorizationStatus;
 
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
   ThemeMode get themeMode => _themeMode;
+  MealNotificationAuthorizationStatus? get notificationAuthorizationStatus =>
+      _notificationAuthorizationStatus;
 
   AppSettings(
     this._prefs, {
     NotificationScheduleCoordinator? notificationScheduleCoordinator,
+    Future<bool> Function()? notificationPermissionRequester,
+    NotificationAuthorizationStatusReader?
+    notificationAuthorizationStatusReader,
   }) : _notificationScheduleCoordinator =
            notificationScheduleCoordinator ?? NotificationScheduleCoordinator(),
+       _requestNotificationPermission =
+           notificationPermissionRequester ?? requestNotificationPermission,
+       _readAuthorizationStatus =
+           notificationAuthorizationStatusReader ??
+           mealNotificationAuthorizationStatus,
        _allergy = _loadAllergy(_prefs),
        _notification = loadNotificationSettings(_prefs),
        _themeMode = _loadThemeMode(_prefs);
@@ -45,22 +65,67 @@ class AppSettings extends ChangeNotifier {
 
   // --- 알림 ---
 
-  void setNotificationEnabled(bool v) {
+  Future<bool> setNotificationEnabled(bool v) async {
+    if (v) {
+      final granted = await _requestNotificationPermission();
+      _notificationAuthorizationStatus = granted
+          ? MealNotificationAuthorizationStatus.enabled
+          : MealNotificationAuthorizationStatus.notAuthorized;
+      if (!granted) {
+        notifyListeners();
+        return false;
+      }
+    } else {
+      _notificationAuthorizationStatus = null;
+    }
     _notification = _notification.copyWith(enabled: v);
     _prefs.setBool(StorageKeys.notificationEnabled, v);
     notifyListeners();
     if (v) {
       _requestNotificationReschedule(immediately: true);
     } else {
-      unawaited(_notificationScheduleCoordinator.cancelAll());
+      _cancelAllMealNotifications();
+    }
+    return true;
+  }
+
+  /// 앱 시작 시 현재 알림 설정을 플랫폼 예약 방식에 반영한다.
+  void rescheduleMealNotifications() {
+    if (_notification.enabled) {
+      unawaited(refreshNotificationAuthorizationStatus());
+      _requestNotificationReschedule(immediately: true);
     }
   }
 
-  /// 앱 시작 등에서 현재 알림 설정을 다시 Workmanager에 반영한다.
-  void rescheduleKeywordNotifications() {
-    if (_notification.enabled) {
-      _requestNotificationReschedule(immediately: true);
+  /// 최초 foreground 식단 갱신 결과로 iOS 사전 예약 내용을 즉시 갱신한다.
+  void reconcileIosMealNotificationsAfterInitialRefresh(
+    WeekMeal currentWeekMeal, {
+    DateTime? now,
+  }) {
+    if (mealNotificationPlatform != MealNotificationPlatform.ios ||
+        !_notification.enabled) {
+      return;
     }
+    final instant = now ?? DateTime.now();
+    _requestNotificationReschedule(
+      immediately: true,
+      currentWeek: (
+        startDate: kstWeekStartForInstant(instant),
+        weekMeal: currentWeekMeal,
+      ),
+    );
+  }
+
+  /// 앱 시작 시 외부 설정에서 바뀐 iOS 권한 상태를 설정 화면에 반영한다.
+  Future<void> refreshNotificationAuthorizationStatus() async {
+    final status = await _readAuthorizationStatus();
+    if (!_notification.enabled ||
+        status == MealNotificationAuthorizationStatus.notApplicable ||
+        status == _notificationAuthorizationStatus) {
+      return;
+    }
+    _notificationAuthorizationStatus = status;
+    notifyListeners();
   }
 
   void addNotificationKeyword(String kw) {
@@ -71,6 +136,9 @@ class AppSettings extends ChangeNotifier {
     _notification = _notification.copyWith(keywords: next);
     _prefs.setStringList(StorageKeys.notificationKeywords, next);
     notifyListeners();
+    if (_notification.enabled) {
+      _requestNotificationReschedule(clearPendingFirst: true);
+    }
   }
 
   void removeNotificationKeyword(String kw) {
@@ -79,6 +147,9 @@ class AppSettings extends ChangeNotifier {
     _notification = _notification.copyWith(keywords: next);
     _prefs.setStringList(StorageKeys.notificationKeywords, next);
     notifyListeners();
+    if (_notification.enabled) {
+      _requestNotificationReschedule(clearPendingFirst: true);
+    }
   }
 
   /// [time]이 null이면 해당 시간대 알림을 끈다(마지막 선택 시각은 기억해 둔다).
@@ -114,7 +185,7 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
 
     if (_notification.enabled) {
-      _requestNotificationReschedule();
+      _requestNotificationReschedule(clearPendingFirst: true);
     }
   }
 
@@ -128,6 +199,9 @@ class AppSettings extends ChangeNotifier {
       filtered.map((e) => e.name).toList(),
     );
     notifyListeners();
+    if (_notification.enabled) {
+      _requestNotificationReschedule(clearPendingFirst: true);
+    }
   }
 
   /// 기숙사 식당 알림 대상 메뉴 종류(한식/할랄)를 설정한다.
@@ -139,6 +213,9 @@ class AppSettings extends ChangeNotifier {
       types.map((e) => e.name).toList(),
     );
     notifyListeners();
+    if (_notification.enabled) {
+      _requestNotificationReschedule(clearPendingFirst: true);
+    }
   }
 
   /// 알림을 받을 요일 집합을 설정하고, 다음 활성 메뉴 요일로 다시 예약한다.
@@ -150,21 +227,46 @@ class AppSettings extends ChangeNotifier {
     );
     notifyListeners();
     if (_notification.enabled) {
-      _requestNotificationReschedule();
+      _requestNotificationReschedule(clearPendingFirst: true);
     }
   }
 
-  void _requestNotificationReschedule({bool immediately = false}) {
+  void _requestNotificationReschedule({
+    bool immediately = false,
+    bool clearPendingFirst = false,
+    IosMealWeek? currentWeek,
+  }) {
     unawaited(
-      immediately
-          ? _notificationScheduleCoordinator.scheduleNow(
-              _notification.alertTimes,
-              _notification.days,
-            )
-          : _notificationScheduleCoordinator.schedule(
-              _notification.alertTimes,
-              _notification.days,
-            ),
+      (immediately
+              ? _notificationScheduleCoordinator.scheduleNow(
+                  _notification,
+                  clearPendingFirst: clearPendingFirst,
+                  currentWeek: currentWeek,
+                )
+              : _notificationScheduleCoordinator.schedule(
+                  _notification,
+                  clearPendingFirst: clearPendingFirst,
+                  currentWeek: currentWeek,
+                ))
+          .catchError((Object error, StackTrace stackTrace) {
+            debugPrint(
+              '[BapU] meal notification reconciliation failed: $error',
+            );
+            debugPrintStack(stackTrace: stackTrace);
+            return NotificationScheduleOutcome.canceled;
+          }),
+    );
+  }
+
+  void _cancelAllMealNotifications() {
+    unawaited(
+      _notificationScheduleCoordinator.cancelAll().catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
+        debugPrint('[BapU] meal notification cancellation failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }),
     );
   }
   // --- 테마 ---
@@ -180,8 +282,9 @@ class AppSettings extends ChangeNotifier {
   void resetAll() {
     _allergy = _allergy.reset();
     _notification = _notification.reset();
+    _notificationAuthorizationStatus = null;
     _themeMode = ThemeMode.system;
-    unawaited(_notificationScheduleCoordinator.cancelAll());
+    _cancelAllMealNotifications();
     _prefs.setStringList(StorageKeys.allergenIds, []);
     _prefs.setBool(StorageKeys.notificationEnabled, false);
     _prefs.setStringList(StorageKeys.notificationKeywords, []);

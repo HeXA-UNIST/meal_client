@@ -217,5 +217,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notification permission denied. Please allow it in settings.';
 
   @override
+  String get notificationPermissionUnavailable =>
+      'Notifications may not appear. Check the permission in system settings.';
+
+  @override
   String get openSystemAppSettings => 'Open Settings';
 }

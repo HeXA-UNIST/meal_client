@@ -488,6 +488,12 @@ abstract class AppLocalizations {
   /// **'알림 권한이 차단되었습니다. 설정에서 허용해주세요.'**
   String get notificationPermissionDenied;
 
+  /// No description provided for @notificationPermissionUnavailable.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림이 현재 표시되지 않을 수 있습니다. 시스템 설정에서 권한을 확인해주세요.'**
+  String get notificationPermissionUnavailable;
+
   /// No description provided for @openSystemAppSettings.
   ///
   /// In ko, this message translates to:

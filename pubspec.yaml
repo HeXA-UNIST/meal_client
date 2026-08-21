@@ -53,6 +53,7 @@ dependencies:
   bapu_widget_bridge:
     path: plugins/bapu_widget_bridge
   app_settings: ^9.0.0
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:

@@ -5,7 +5,13 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/settings/notification/notification_settings.dart';
+import 'ios_meal_notification_scheduler.dart';
 import 'meal_notification_period.dart';
+import 'notification_platform.dart';
+
+export 'meal_notification_time.dart'
+    show fireInstantForTarget, LocalDateTimeFactory;
 
 const kMealKeywordTaskPrefix = 'meal_keyword_check_';
 
@@ -68,11 +74,12 @@ DateTime? nextEnabledFireTime({
   throw StateError('활성화된 알림 요일의 다음 실행 시각을 찾지 못했습니다.');
 }
 
-typedef KeywordNotificationScheduler =
+typedef MealNotificationScheduler =
     Future<void> Function(
-      Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
-      Set<DayOfWeek> enabledDays,
-    );
+      NotificationSettings settings, {
+      required bool clearPendingFirst,
+      IosMealWeek? currentWeek,
+    });
 
 typedef KeywordNotificationCanceler = Future<void> Function();
 
@@ -88,20 +95,20 @@ typedef KeywordTaskRegistrar =
 /// 예약 요청의 최종 처리 결과.
 enum NotificationScheduleOutcome { scheduled, superseded, canceled, disposed }
 
-/// 연속된 알림 설정 변경을 합치고, Workmanager 갱신을 순서대로 실행한다.
+/// 연속된 알림 설정 변경을 합치고, 플랫폼 예약 갱신을 순서대로 실행한다.
 ///
 /// 설정 UI는 즉시 반영하되, 짧은 시간에 여러 번 누른 경우에는 마지막 상태만
 /// 예약한다. 진행 중인 예약 뒤에 다음 작업을 연결하므로 이전 상태가 최종
-/// Workmanager 등록을 덮어쓰지 않는다.
+/// 플랫폼 등록을 덮어쓰지 않는다.
 class NotificationScheduleCoordinator {
   NotificationScheduleCoordinator({
-    KeywordNotificationScheduler? schedule,
+    MealNotificationScheduler? schedule,
     KeywordNotificationCanceler? cancel,
     this.debounce = const Duration(milliseconds: 300),
-  }) : _schedule = schedule ?? scheduleAllKeywordNotifications,
-       _cancel = cancel ?? cancelAllKeywordNotifications;
+  }) : _schedule = schedule ?? scheduleMealNotifications,
+       _cancel = cancel ?? cancelAllMealNotifications;
 
-  final KeywordNotificationScheduler _schedule;
+  final MealNotificationScheduler _schedule;
   final KeywordNotificationCanceler _cancel;
   final Duration debounce;
 
@@ -111,17 +118,15 @@ class NotificationScheduleCoordinator {
   int _revision = 0;
   bool _disposed = false;
 
-  /// 최신 [alertTimes], [enabledDays]로 예약을 요청한다.
+  /// 최신 [settings] 스냅샷으로 예약을 요청한다.
   Future<NotificationScheduleOutcome> schedule(
-    Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
-    Set<DayOfWeek> enabledDays,
-  ) {
+    NotificationSettings settings, {
+    bool clearPendingFirst = false,
+    IosMealWeek? currentWeek,
+  }) {
     if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
 
-    final snapshotTimes = Map<MealNotificationPeriod, TimeOfDay?>.unmodifiable(
-      alertTimes,
-    );
-    final snapshotDays = Set<DayOfWeek>.unmodifiable(enabledDays);
+    final snapshot = settings;
     _invalidatePending(NotificationScheduleOutcome.superseded);
     final revision = _revision;
 
@@ -130,7 +135,12 @@ class NotificationScheduleCoordinator {
     _pendingTimer = Timer(debounce, () {
       _pendingTimer = null;
       _pendingCompleter = null;
-      _enqueueSchedule(revision, snapshotTimes, snapshotDays).then(
+      _enqueueSchedule(
+        revision,
+        snapshot,
+        clearPendingFirst: clearPendingFirst,
+        currentWeek: currentWeek,
+      ).then(
         completer.complete,
         onError: (Object error, StackTrace stackTrace) {
           completer.completeError(error, stackTrace);
@@ -142,17 +152,20 @@ class NotificationScheduleCoordinator {
 
   /// 디바운스를 거치지 않고 즉시 예약 작업을 큐에 추가한다.
   Future<NotificationScheduleOutcome> scheduleNow(
-    Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
-    Set<DayOfWeek> enabledDays,
-  ) {
+    NotificationSettings settings, {
+    bool clearPendingFirst = false,
+    IosMealWeek? currentWeek,
+  }) {
     if (_disposed) return Future.value(NotificationScheduleOutcome.disposed);
 
-    final snapshotTimes = Map<MealNotificationPeriod, TimeOfDay?>.unmodifiable(
-      alertTimes,
-    );
-    final snapshotDays = Set<DayOfWeek>.unmodifiable(enabledDays);
+    final snapshot = settings;
     _invalidatePending(NotificationScheduleOutcome.superseded);
-    return _enqueueSchedule(_revision, snapshotTimes, snapshotDays);
+    return _enqueueSchedule(
+      _revision,
+      snapshot,
+      clearPendingFirst: clearPendingFirst,
+      currentWeek: currentWeek,
+    );
   }
 
   /// 보류 중인 예약 요청을 무효화하고, 모든 알림 작업을 취소한다.
@@ -164,7 +177,7 @@ class NotificationScheduleCoordinator {
   }
 
   /// 보류 중인 예약을 취소하고, 아직 시작하지 않은 예약 요청을 무효화한다.
-  /// 이미 시작된 Workmanager 플러그인 호출은 중단할 수 없어 완료될 수 있다.
+  /// 이미 시작된 플러그인 호출은 중단할 수 없어 완료될 수 있다.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
@@ -182,14 +195,19 @@ class NotificationScheduleCoordinator {
 
   Future<NotificationScheduleOutcome> _enqueueSchedule(
     int revision,
-    Map<MealNotificationPeriod, TimeOfDay?> alertTimes,
-    Set<DayOfWeek> enabledDays,
-  ) => _enqueue(() async {
+    NotificationSettings settings, {
+    required bool clearPendingFirst,
+    IosMealWeek? currentWeek,
+  }) => _enqueue(() async {
     if (_disposed) return NotificationScheduleOutcome.disposed;
     if (revision != _revision) {
       return NotificationScheduleOutcome.superseded;
     }
-    await _schedule(alertTimes, enabledDays);
+    await _schedule(
+      settings,
+      clearPendingFirst: clearPendingFirst,
+      currentWeek: currentWeek,
+    );
     return NotificationScheduleOutcome.scheduled;
   });
 
@@ -200,6 +218,65 @@ class NotificationScheduleCoordinator {
     return queued;
   }
 }
+
+/// Android는 기존 Workmanager 경로를, iOS는 OS 예약 알림 경로를 사용한다.
+Future<void> scheduleMealNotifications(
+  NotificationSettings settings, {
+  required bool clearPendingFirst,
+  IosMealWeek? currentWeek,
+  MealNotificationPlatform? platform,
+  MealNotificationScheduler? iosScheduler,
+  MealNotificationScheduler? androidScheduler,
+}) async {
+  switch (platform ?? mealNotificationPlatform) {
+    case MealNotificationPlatform.ios:
+      await (iosScheduler ?? _scheduleIosMealNotifications)(
+        settings,
+        clearPendingFirst: clearPendingFirst,
+        currentWeek: currentWeek,
+      );
+      return;
+    case MealNotificationPlatform.android:
+      await (androidScheduler ?? _scheduleAndroidMealNotifications)(
+        settings,
+        clearPendingFirst: clearPendingFirst,
+        currentWeek: currentWeek,
+      );
+      return;
+    case MealNotificationPlatform.unsupported:
+      return;
+  }
+}
+
+Future<void> _scheduleIosMealNotifications(
+  NotificationSettings settings, {
+  required bool clearPendingFirst,
+  IosMealWeek? currentWeek,
+}) async {
+  await reconcileIosMealNotifications(
+    settings: settings,
+    clearPendingFirst: clearPendingFirst,
+    currentWeek: currentWeek,
+  );
+}
+
+Future<void> _scheduleAndroidMealNotifications(
+  NotificationSettings settings, {
+  required bool clearPendingFirst,
+  IosMealWeek? currentWeek,
+}) => scheduleAllKeywordNotifications(settings.alertTimes, settings.days);
+
+Future<void> cancelAllMealNotifications({
+  MealNotificationPlatform? platform,
+  KeywordNotificationCanceler? iosCancel,
+  KeywordNotificationCanceler? androidCancel,
+}) => switch (platform ?? mealNotificationPlatform) {
+  MealNotificationPlatform.ios =>
+    (iosCancel ?? cancelAllPendingMealNotifications)(),
+  MealNotificationPlatform.android =>
+    (androidCancel ?? cancelAllKeywordNotifications)(),
+  MealNotificationPlatform.unsupported => Future.value(),
+};
 
 /// 지정한 [period]의 다음 알림을 [alertTime]에 실행되도록 등록한다.
 /// 워커가 실행을 마치면 워커 자신이 다음 활성 메뉴 요일로 태스크를 재등록한다.
@@ -241,10 +318,9 @@ Future<void> scheduleKeywordNotificationFor(
       inputData: {'targetDate': notificationTargetDateString(targetDate)},
     );
   } catch (e, st) {
-    assert(() {
-      debugPrint('[BapU] schedule failed for ${period.name}: $e\n$st');
-      return true;
-    }());
+    debugPrint('[BapU] schedule failed for ${period.name}: $e');
+    debugPrintStack(stackTrace: st);
+    rethrow;
   }
 }
 
@@ -268,10 +344,9 @@ Future<void> cancelKeywordNotificationFor(MealNotificationPeriod period) async {
   try {
     await Workmanager().cancelByUniqueName(taskNameOf(period));
   } catch (e, st) {
-    assert(() {
-      debugPrint('[BapU] cancel failed for ${period.name}: $e\n$st');
-      return true;
-    }());
+    debugPrint('[BapU] cancel failed for ${period.name}: $e');
+    debugPrintStack(stackTrace: st);
+    rethrow;
   }
 }
 
