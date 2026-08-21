@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/notification/ios_meal_notification_scheduler.dart';
+import 'package:meal_client/features/notification/scheduled_meal_notifications.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
@@ -81,7 +81,43 @@ void main() {
     expect(second.map((item) => item.id), first.map((item) => item.id));
   });
 
-  group('iOS pending reconciliation', () {
+  test('iOS 한도와 Android의 제한 없는 2주 horizon을 구분한다', () {
+    final week = _fullWeekWithMenus();
+    final settings = NotificationSettings(
+      enabled: true,
+      alertTimes: const {
+        MealNotificationPeriod.morning: TimeOfDay(hour: 8, minute: 0),
+        MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
+      },
+      cafeterias: Cafeteria.values.toSet(),
+      dormMealTypes: DormMealType.values.toSet(),
+      days: DayOfWeek.values.toSet(),
+    );
+    final current = (startDate: DateTime.utc(2026, 7, 20), weekMeal: week);
+    final next = (startDate: DateTime.utc(2026, 7, 27), weekMeal: week);
+
+    final ios = buildMealNotificationBatch(
+      settings: settings,
+      l10n: AppLocalizationsKo(),
+      now: DateTime(2026, 7, 19, 10),
+      currentWeek: current,
+      nextWeek: next,
+      maxNotifications: kMaxScheduledMealNotifications,
+    );
+    final android = buildMealNotificationBatch(
+      settings: settings,
+      l10n: AppLocalizationsKo(),
+      now: DateTime(2026, 7, 19, 10),
+      currentWeek: current,
+      nextWeek: next,
+      maxNotifications: null,
+    );
+
+    expect(ios, hasLength(64));
+    expect(android, hasLength(112));
+  });
+
+  group('예약 알림 pending reconciliation', () {
     final enabledSettings = NotificationSettings(
       enabled: true,
       alertTimes: const {
@@ -94,7 +130,7 @@ void main() {
 
     test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {
       var touchedData = false;
-      await reconcileIosMealNotifications(
+      await reconcileScheduledMealNotifications(
         settings: enabledSettings,
         readAuthorizationStatus: () async =>
             MealNotificationAuthorizationStatus.notAuthorized,
@@ -110,7 +146,7 @@ void main() {
       expect(touchedData, isFalse);
 
       final canceled = <int>[];
-      await reconcileIosMealNotifications(
+      await reconcileScheduledMealNotifications(
         settings: enabledSettings,
         readAuthorizationStatus: () async =>
             MealNotificationAuthorizationStatus.enabled,
@@ -126,7 +162,7 @@ void main() {
       final orphanedId = _ownedId(DateTime.utc(2026, 8, 3));
       final canceled = <int>[];
 
-      await reconcileIosMealNotifications(
+      await reconcileScheduledMealNotifications(
         settings: enabledSettings,
         currentWeek: (
           startDate: DateTime.utc(2026, 7, 20),
@@ -151,7 +187,7 @@ void main() {
           ? DateTime(2026, 7, 19, 10)
           : DateTime(2026, 7, 20, 12);
 
-      await reconcileIosMealNotifications(
+      await reconcileScheduledMealNotifications(
         settings: enabledSettings,
         currentWeek: (
           startDate: DateTime.utc(2026, 7, 20),
@@ -169,7 +205,7 @@ void main() {
         l10n: AppLocalizationsKo(),
       );
       await expectLater(
-        reconcileIosMealNotifications(
+        reconcileScheduledMealNotifications(
           settings: enabledSettings,
           currentWeek: (
             startDate: DateTime.utc(2026, 7, 20),
@@ -188,6 +224,37 @@ void main() {
         ),
         throwsArgumentError,
       );
+    });
+
+    test('개별 cancel과 upsert 실패 뒤에도 안전한 나머지를 모두 시도한다', () async {
+      final staleId = _ownedId(DateTime.utc(2026, 8, 3));
+      final upserted = <int>[];
+
+      await expectLater(
+        reconcileScheduledMealNotifications(
+          settings: enabledSettings.copyWith(
+            days: {DayOfWeek.mon, DayOfWeek.tue},
+          ),
+          currentWeek: (
+            startDate: DateTime.utc(2026, 7, 20),
+            weekMeal: _weekWithLunchMenus({DayOfWeek.mon, DayOfWeek.tue}),
+          ),
+          nowProvider: () => DateTime(2026, 7, 19, 10),
+          readAuthorizationStatus: () async =>
+              MealNotificationAuthorizationStatus.enabled,
+          readPendingIds: () async => [staleId],
+          cancelPending: (_) async => throw StateError('cancel failed'),
+          loadNextWeek: () async => null,
+          upsertNotification: (notification) async {
+            upserted.add(notification.id);
+            if (upserted.length == 1) throw ArgumentError('upsert failed');
+          },
+          l10n: AppLocalizationsKo(),
+        ),
+        throwsStateError,
+      );
+
+      expect(upserted, hasLength(2));
     });
   });
 

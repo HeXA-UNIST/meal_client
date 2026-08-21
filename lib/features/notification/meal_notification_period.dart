@@ -101,7 +101,10 @@ DateTime kstCalendarDate(DateTime instant) {
 }
 
 /// [period]가 검사할 메뉴의 KST 날짜를 반환한다.
-DateTime notificationTargetDateFor(MealNotificationPeriod period, DateTime instant) {
+DateTime notificationTargetDateFor(
+  MealNotificationPeriod period,
+  DateTime instant,
+) {
   final date = kstCalendarDate(instant);
   return period.tomorrow ? date.add(const Duration(days: 1)) : date;
 }
@@ -109,33 +112,6 @@ DateTime notificationTargetDateFor(MealNotificationPeriod period, DateTime insta
 /// 날짜만 가진 KST 달력값의 월요일을 반환한다.
 DateTime kstWeekStartFromDate(DateTime kstDate) {
   return kstDate.subtract(Duration(days: kstDate.weekday - 1));
-}
-
-/// Workmanager 입력에 저장할 날짜값을 생성한다.
-String notificationTargetDateString(DateTime targetDate) {
-  final year = targetDate.year.toString().padLeft(4, '0');
-  final month = targetDate.month.toString().padLeft(2, '0');
-  final day = targetDate.day.toString().padLeft(2, '0');
-  return '$year-$month-$day';
-}
-
-/// Workmanager 입력의 날짜값을 날짜만 가진 KST 달력값으로 파싱한다.
-DateTime? notificationTargetDateFromString(Object? value) {
-  if (value is! String || !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value)) {
-    return null;
-  }
-
-  final parts = value.split('-');
-  final year = int.tryParse(parts[0]);
-  final month = int.tryParse(parts[1]);
-  final day = int.tryParse(parts[2]);
-  if (year == null || month == null || day == null) return null;
-
-  final parsed = DateTime.utc(year, month, day);
-  if (parsed.year != year || parsed.month != month || parsed.day != day) {
-    return null;
-  }
-  return parsed;
 }
 
 /// 저장된 요일 이름을 알림 요일 집합으로 변환한다.

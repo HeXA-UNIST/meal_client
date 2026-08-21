@@ -7,7 +7,6 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
-import 'package:meal_client/features/notification/meal_notification_worker.dart';
 import '../app_settings.dart';
 import 'notification_settings.dart' show DormMealType;
 
@@ -317,37 +316,6 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                 ),
             ],
           ],
-          // 디버그 빌드에서만 표시되는 알림 즉시 테스트 버튼
-          if (kDebugMode && notification.enabled)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.notifications_active_outlined, size: 18),
-                label: const Text('[DEV] 알림 지금 테스트'),
-                onPressed: () async {
-                  // 저장된 키워드 + 현재 입력 중인 미저장 키워드까지 합쳐서 테스트
-                  final pending = _keywordController.text.trim();
-                  final keywords = [
-                    ...notification.keywords,
-                    if (pending.isNotEmpty &&
-                        !notification.keywords.contains(pending))
-                      pending,
-                  ];
-                  await testMealKeywordCheck(keywordsOverride: keywords);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          keywords.isEmpty
-                              ? '전체 메뉴 알림 체크 완료'
-                              : '키워드 ${keywords.length}개로 체크 완료 (매칭 시 알림 발송됨)',
-                        ),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
           const SizedBox(height: 24),
         ],
       ),

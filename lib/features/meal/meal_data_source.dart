@@ -86,15 +86,6 @@ Future<MealResponse> _readCachedMealForWeek(
   throw Exception('Outdated cache');
 }
 
-/// 지정한 주의 식단을 가져온다. 현재 주 캐시에는 저장하지 않는다.
-Future<WeekMeal> fetchMealDataForWeek(
-  String weekStart, {
-  RawMealFetcher fetch = fetchRawString,
-}) async {
-  final rawMeal = await fetch(ApiConstants.mealEndpointFor(weekStart));
-  return parseRawMeal(rawMeal);
-}
-
 /// 지정 주 식단을 가져와 next-week cache에 저장한다.
 /// 미리보기는 이 한 요청의 결과를 화면 표시와 cache 갱신에 함께 사용한다.
 Future<WeekMeal> fetchAndCacheMealDataForWeek(

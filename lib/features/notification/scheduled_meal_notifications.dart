@@ -13,7 +13,7 @@ import 'notification_service.dart';
 const kScheduledMealNotificationIdStart = 100000000;
 const kScheduledMealNotificationIdEnd = 140000000;
 const kMaxScheduledMealNotifications = 64;
-const kIosNotificationScheduleLeadTime = Duration(seconds: 30);
+const kMealNotificationScheduleLeadTime = Duration(seconds: 30);
 
 typedef ScheduledMealNotification = ({
   int id,
@@ -22,13 +22,13 @@ typedef ScheduledMealNotification = ({
   String body,
 });
 
-typedef IosMealWeek = ({DateTime startDate, WeekMeal weekMeal});
-typedef IosMealWeekLoader = Future<IosMealWeek?> Function();
-typedef IosAuthorizationStatusReader =
+typedef ScheduledMealWeek = ({DateTime startDate, WeekMeal weekMeal});
+typedef ScheduledMealWeekLoader = Future<ScheduledMealWeek?> Function();
+typedef MealNotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
-typedef IosPendingIdReader = Future<List<int>> Function();
-typedef IosPendingCanceler = Future<void> Function(int id);
-typedef IosNotificationUpserter =
+typedef ScheduledMealPendingIdReader = Future<List<int>> Function();
+typedef ScheduledMealPendingCanceler = Future<void> Function(int id);
+typedef ScheduledMealNotificationUpserter =
     Future<void> Function(ScheduledMealNotification notification);
 
 bool isScheduledMealNotificationId(int id) =>
@@ -62,12 +62,15 @@ List<ScheduledMealNotification> buildMealNotificationBatch({
   required NotificationSettings settings,
   required AppLocalizations l10n,
   required DateTime now,
-  required IosMealWeek currentWeek,
-  IosMealWeek? nextWeek,
-  Duration leadTime = kIosNotificationScheduleLeadTime,
-  int maxNotifications = kMaxScheduledMealNotifications,
+  required ScheduledMealWeek currentWeek,
+  ScheduledMealWeek? nextWeek,
+  Duration leadTime = kMealNotificationScheduleLeadTime,
+  int? maxNotifications = kMaxScheduledMealNotifications,
 }) {
-  if (!settings.enabled || maxNotifications <= 0) return const [];
+  if (!settings.enabled ||
+      (maxNotifications != null && maxNotifications <= 0)) {
+    return const [];
+  }
 
   final deliverySettings = normalizeNotificationDeliverySettings(settings);
   final slots = <_NotificationSlot>[];
@@ -126,7 +129,10 @@ List<ScheduledMealNotification> buildMealNotificationBatch({
   });
   final batch = <ScheduledMealNotification>[];
   for (final slot in slots) {
-    if (batch.length + slot.notifications.length > maxNotifications) break;
+    if (maxNotifications != null &&
+        batch.length + slot.notifications.length > maxNotifications) {
+      break;
+    }
     batch.addAll(slot.notifications);
   }
   return List.unmodifiable(batch);
@@ -142,18 +148,19 @@ class _NotificationSlot {
   final List<ScheduledMealNotification> notifications;
 }
 
-Future<void> reconcileIosMealNotifications({
+Future<void> reconcileScheduledMealNotifications({
   required NotificationSettings settings,
   bool Function()? isCurrent,
-  IosMealWeek? currentWeek,
-  IosMealWeek? nextWeek,
+  ScheduledMealWeek? currentWeek,
+  ScheduledMealWeek? nextWeek,
   DateTime Function()? nowProvider,
-  IosMealWeekLoader? loadCurrentWeek,
-  IosMealWeekLoader? loadNextWeek,
-  IosAuthorizationStatusReader? readAuthorizationStatus,
-  IosPendingIdReader? readPendingIds,
-  IosPendingCanceler? cancelPending,
-  IosNotificationUpserter? upsertNotification,
+  ScheduledMealWeekLoader? loadCurrentWeek,
+  ScheduledMealWeekLoader? loadNextWeek,
+  MealNotificationAuthorizationStatusReader? readAuthorizationStatus,
+  ScheduledMealPendingIdReader? readPendingIds,
+  ScheduledMealPendingCanceler? cancelPending,
+  ScheduledMealNotificationUpserter? upsertNotification,
+  int? maxNotifications = kMaxScheduledMealNotifications,
   AppLocalizations? l10n,
 }) async {
   final currentGeneration = isCurrent ?? () => true;
@@ -166,8 +173,8 @@ Future<void> reconcileIosMealNotifications({
     return;
   }
 
-  final pendingReader = readPendingIds ?? pendingNotificationIds;
-  final canceler = cancelPending ?? cancelPendingNotification;
+  final pendingReader = readPendingIds ?? pendingMealNotificationIds;
+  final canceler = cancelPending ?? cancelPendingMealNotification;
   final pending = (await pendingReader())
       .where(isScheduledMealNotificationId)
       .toList(growable: false);
@@ -202,16 +209,27 @@ Future<void> reconcileIosMealNotifications({
     now: instant,
     currentWeek: current,
     nextWeek: next,
-    maxNotifications: kMaxScheduledMealNotifications - retainedIds.length,
+    maxNotifications: maxNotifications == null
+        ? null
+        : maxNotifications - retainedIds.length,
   );
   final desiredIds = batch.map((notification) => notification.id).toSet();
 
+  Object? firstError;
+  StackTrace? firstStackTrace;
   for (final id in pending) {
     if (!retainedIds.contains(id) && !desiredIds.contains(id)) {
       if (!currentGeneration()) {
         return;
       }
-      await canceler(id);
+      try {
+        await canceler(id);
+      } catch (error, stackTrace) {
+        debugPrint('[BapU] failed to cancel meal notification $id: $error');
+        debugPrintStack(stackTrace: stackTrace);
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
     }
   }
 
@@ -237,28 +255,22 @@ Future<void> reconcileIosMealNotifications({
       if (error.name == 'scheduledDate' &&
           notification.fireInstant.isBefore(nowAfterFailure)) {
         debugPrint(
-          '[BapU] skipped elapsed iOS meal notification ${notification.id}',
+          '[BapU] skipped elapsed meal notification ${notification.id}',
         );
         continue;
       }
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-}
-
-Future<void> cancelAllPendingMealNotifications({
-  IosPendingIdReader? readPendingIds,
-  IosPendingCanceler? cancelPending,
-}) async {
-  final ids = await (readPendingIds ?? pendingNotificationIds)();
-  final canceler = cancelPending ?? cancelPendingNotification;
-  Object? firstError;
-  StackTrace? firstStackTrace;
-  for (final id in ids.where(isScheduledMealNotificationId)) {
-    try {
-      await canceler(id);
+      debugPrint(
+        '[BapU] failed to schedule meal notification '
+        '${notification.id}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      firstError ??= error;
+      firstStackTrace ??= stackTrace;
     } catch (error, stackTrace) {
-      debugPrint('[BapU] failed to cancel iOS meal notification $id: $error');
+      debugPrint(
+        '[BapU] failed to schedule meal notification '
+        '${notification.id}: $error',
+      );
       debugPrintStack(stackTrace: stackTrace);
       firstError ??= error;
       firstStackTrace ??= stackTrace;
@@ -269,7 +281,30 @@ Future<void> cancelAllPendingMealNotifications({
   }
 }
 
-Future<IosMealWeek?> _loadCachedWeek(DateTime now) async {
+Future<void> cancelAllPendingMealNotifications({
+  ScheduledMealPendingIdReader? readPendingIds,
+  ScheduledMealPendingCanceler? cancelPending,
+}) async {
+  final ids = await (readPendingIds ?? pendingMealNotificationIds)();
+  final canceler = cancelPending ?? cancelPendingMealNotification;
+  Object? firstError;
+  StackTrace? firstStackTrace;
+  for (final id in ids.where(isScheduledMealNotificationId)) {
+    try {
+      await canceler(id);
+    } catch (error, stackTrace) {
+      debugPrint('[BapU] failed to cancel meal notification $id: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      firstError ??= error;
+      firstStackTrace ??= stackTrace;
+    }
+  }
+  if (firstError != null) {
+    Error.throwWithStackTrace(firstError, firstStackTrace!);
+  }
+}
+
+Future<ScheduledMealWeek?> _loadCachedWeek(DateTime now) async {
   final startDate = kstWeekStartForInstant(now);
   final cached = await MealCache().readValidatedMealForWeek(startDate);
   return cached == null
@@ -277,7 +312,7 @@ Future<IosMealWeek?> _loadCachedWeek(DateTime now) async {
       : (startDate: startDate, weekMeal: cached.weekMeal);
 }
 
-Future<IosMealWeek?> _loadCachedNextWeek(DateTime now) async {
+Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
   final startDate = kstWeekStartForInstant(now).add(const Duration(days: 7));
   final cached = await MealCache(
     fileName: StorageKeys.nextMealCacheFile,

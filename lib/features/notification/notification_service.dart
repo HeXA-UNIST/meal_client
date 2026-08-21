@@ -5,6 +5,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import 'notification_platform.dart';
+
 const _channelId = 'meal';
 final _plugin = FlutterLocalNotificationsPlugin();
 
@@ -56,18 +58,53 @@ enum MealNotificationAuthorizationStatus {
 }
 
 Future<MealNotificationAuthorizationStatus>
-mealNotificationAuthorizationStatus() async {
-  final permissions = await _plugin
-      .resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin
-      >()
-      ?.checkPermissions();
-  if (permissions == null) {
-    return MealNotificationAuthorizationStatus.notApplicable;
+mealNotificationAuthorizationStatus({
+  MealNotificationPlatform? platform,
+}) async {
+  switch (platform ?? mealNotificationPlatform) {
+    case MealNotificationPlatform.android:
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) {
+        return MealNotificationAuthorizationStatus.notApplicable;
+      }
+      return androidMealNotificationAuthorizationStatus(
+        appNotificationsEnabled:
+            await android.areNotificationsEnabled() ?? false,
+        channels: await android.getNotificationChannels(),
+      );
+    case MealNotificationPlatform.ios:
+      final permissions = await _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.checkPermissions();
+      if (permissions == null) {
+        return MealNotificationAuthorizationStatus.notApplicable;
+      }
+      return permissions.isAlertEnabled
+          ? MealNotificationAuthorizationStatus.enabled
+          : MealNotificationAuthorizationStatus.notAuthorized;
+    case MealNotificationPlatform.unsupported:
+      return MealNotificationAuthorizationStatus.notApplicable;
   }
-  return permissions.isAlertEnabled
-      ? MealNotificationAuthorizationStatus.enabled
-      : MealNotificationAuthorizationStatus.notAuthorized;
+}
+
+MealNotificationAuthorizationStatus androidMealNotificationAuthorizationStatus({
+  required bool appNotificationsEnabled,
+  required List<AndroidNotificationChannel>? channels,
+}) {
+  if (!appNotificationsEnabled) {
+    return MealNotificationAuthorizationStatus.notAuthorized;
+  }
+  final mealChannel = channels
+      ?.where((channel) => channel.id == _channelId)
+      .firstOrNull;
+  return mealChannel?.importance == Importance.none
+      ? MealNotificationAuthorizationStatus.notAuthorized
+      : MealNotificationAuthorizationStatus.enabled;
 }
 
 const _scheduledMealNotificationDetails = DarwinNotificationDetails(
@@ -77,7 +114,7 @@ const _scheduledMealNotificationDetails = DarwinNotificationDetails(
   interruptionLevel: InterruptionLevel.active,
 );
 
-Future<void> scheduleMealNotification({
+Future<void> scheduleIosMealNotification({
   required int id,
   required DateTime fireInstant,
   required String title,
@@ -99,7 +136,49 @@ Future<void> scheduleMealNotification({
   );
 }
 
-Future<List<int>> pendingNotificationIds() async {
+typedef AndroidZonedSchedule =
+    Future<void> Function({
+      required int id,
+      required String? title,
+      required String? body,
+      required tz.TZDateTime scheduledDate,
+      required AndroidNotificationDetails? notificationDetails,
+      required AndroidScheduleMode scheduleMode,
+    });
+
+Future<void> scheduleAndroidMealNotification({
+  required int id,
+  required DateTime fireInstant,
+  required String title,
+  required String body,
+  AndroidZonedSchedule? zonedSchedule,
+}) async {
+  final channelName = notificationLocalizations().mealNotifications;
+  final schedule =
+      zonedSchedule ??
+      _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.zonedSchedule;
+  if (schedule == null) return;
+  await schedule(
+    id: id,
+    title: title,
+    body: body,
+    scheduledDate: tz.TZDateTime.from(fireInstant, tz.UTC),
+    notificationDetails: AndroidNotificationDetails(
+      _channelId,
+      channelName,
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      styleInformation: BigTextStyleInformation(body, contentTitle: title),
+    ),
+    scheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+  );
+}
+
+Future<List<int>> iosPendingNotificationIds() async {
   final ios = _plugin
       .resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin
@@ -110,13 +189,71 @@ Future<List<int>> pendingNotificationIds() async {
       .toList(growable: false);
 }
 
-Future<void> cancelPendingNotification(int id) async {
+Future<List<int>> androidPendingNotificationIds() async {
+  final android = _plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
+  if (android == null) return const [];
+  return (await android.pendingNotificationRequests())
+      .map((request) => request.id)
+      .toList(growable: false);
+}
+
+Future<void> cancelIosPendingNotification(int id) async {
   await _plugin
       .resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin
       >()
       ?.cancel(id: id);
 }
+
+Future<void> cancelAndroidPendingNotification(int id) async {
+  await _plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.cancel(id: id);
+}
+
+Future<List<int>> pendingMealNotificationIds({
+  MealNotificationPlatform? platform,
+}) => switch (platform ?? mealNotificationPlatform) {
+  MealNotificationPlatform.android => androidPendingNotificationIds(),
+  MealNotificationPlatform.ios => iosPendingNotificationIds(),
+  MealNotificationPlatform.unsupported => Future.value(const []),
+};
+
+Future<void> cancelPendingMealNotification(
+  int id, {
+  MealNotificationPlatform? platform,
+}) => switch (platform ?? mealNotificationPlatform) {
+  MealNotificationPlatform.android => cancelAndroidPendingNotification(id),
+  MealNotificationPlatform.ios => cancelIosPendingNotification(id),
+  MealNotificationPlatform.unsupported => Future.value(),
+};
+
+Future<void> scheduleMealNotification({
+  required int id,
+  required DateTime fireInstant,
+  required String title,
+  required String body,
+  MealNotificationPlatform? platform,
+}) => switch (platform ?? mealNotificationPlatform) {
+  MealNotificationPlatform.android => scheduleAndroidMealNotification(
+    id: id,
+    fireInstant: fireInstant,
+    title: title,
+    body: body,
+  ),
+  MealNotificationPlatform.ios => scheduleIosMealNotification(
+    id: id,
+    fireInstant: fireInstant,
+    title: title,
+    body: body,
+  ),
+  MealNotificationPlatform.unsupported => Future.value(),
+};
 
 Future<bool> requestNotificationPermission() async {
   final androidGranted = await _plugin
@@ -132,34 +269,4 @@ Future<bool> requestNotificationPermission() async {
       ?.requestPermissions(alert: true, badge: true, sound: true);
 
   return androidGranted ?? iosGranted ?? false;
-}
-
-Future<void> showMealNotification({
-  required int id,
-  required String title,
-  required String body,
-}) async {
-  final channelName = notificationLocalizations().mealNotifications;
-  // 식당별 메뉴 또는 여러 키워드 결과를 펼쳐 볼 수 있게 한다.
-  final details = NotificationDetails(
-    android: AndroidNotificationDetails(
-      _channelId,
-      channelName,
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      styleInformation: BigTextStyleInformation(body, contentTitle: title),
-    ),
-    iOS: const DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      interruptionLevel: InterruptionLevel.active,
-    ),
-  );
-  await _plugin.show(
-    id: id,
-    title: title,
-    body: body,
-    notificationDetails: details,
-  );
 }
