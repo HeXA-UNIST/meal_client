@@ -84,6 +84,7 @@ void main() {
   testWidgets('nextWeekStart가 있으면 다음 주 데이터를 불러와 배너와 함께 보여준다', (tester) async {
     var metadataRefreshes = 0;
     var datedLoads = 0;
+    var notificationReconciliations = 0;
     final rawJson = jsonEncode({
       'week': {
         'startDate': '2026-06-22',
@@ -143,6 +144,7 @@ void main() {
             datedLoads++;
             return parseRawMeal(rawJson);
           },
+          onNextWeekMealRefreshed: () => notificationReconciliations++,
         ),
       ),
     );
@@ -153,6 +155,7 @@ void main() {
     expect(find.text('쌀밥'), findsOneWidget);
     expect(metadataRefreshes, 0);
     expect(datedLoads, 1);
+    expect(notificationReconciliations, 1);
   });
 
   testWidgets('다음 주 날짜가 없으면 current metadata를 한 번만 갱신한다', (tester) async {

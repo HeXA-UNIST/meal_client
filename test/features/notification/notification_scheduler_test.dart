@@ -135,8 +135,13 @@ void main() {
       final scheduledDays = <Set<DayOfWeek>>[];
       final coordinator = NotificationScheduleCoordinator(
         debounce: Duration.zero,
-        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
-            scheduledDays.add(settings.days),
+        schedule:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async => scheduledDays.add(settings.days),
       );
 
       final first = coordinator.schedule(
@@ -159,11 +164,17 @@ void main() {
       final releaseSchedule = Completer<void>();
       final coordinator = NotificationScheduleCoordinator(
         debounce: Duration.zero,
-        schedule: (settings, {required clearPendingFirst, currentWeek}) async {
-          events.add('schedule');
-          scheduleStarted.complete();
-          await releaseSchedule.future;
-        },
+        schedule:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async {
+              events.add('schedule');
+              scheduleStarted.complete();
+              await releaseSchedule.future;
+            },
         cancel: () async => events.add('cancel'),
       );
 
@@ -184,8 +195,13 @@ void main() {
       var scheduleCount = 0;
       final coordinator = NotificationScheduleCoordinator(
         debounce: const Duration(milliseconds: 10),
-        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
-            scheduleCount++,
+        schedule:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async => scheduleCount++,
       );
 
       final scheduled = coordinator.schedule(NotificationSettings());
@@ -199,8 +215,13 @@ void main() {
     test('예약 콜백 실패를 반환 Future에 전달한다', () async {
       final coordinator = NotificationScheduleCoordinator(
         debounce: Duration.zero,
-        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
-            throw StateError('schedule failed'),
+        schedule:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async => throw StateError('schedule failed'),
       );
 
       await expectLater(
@@ -213,14 +234,56 @@ void main() {
       var scheduleCount = 0;
       final coordinator = NotificationScheduleCoordinator(
         debounce: const Duration(days: 1),
-        schedule: (settings, {required clearPendingFirst, currentWeek}) async =>
-            scheduleCount++,
+        schedule:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async => scheduleCount++,
       );
 
       final outcome = await coordinator.scheduleNow(NotificationSettings());
 
       expect(outcome, NotificationScheduleOutcome.scheduled);
       expect(scheduleCount, 1);
+    });
+
+    test('진행 중인 이전 세대는 최신 설정 요청 뒤 platform 변경을 계속하지 않는다', () async {
+      final firstStarted = Completer<void>();
+      final releaseFirst = Completer<void>();
+      final appliedDays = <Set<DayOfWeek>>[];
+      final coordinator = NotificationScheduleCoordinator(
+        debounce: Duration.zero,
+        schedule:
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async {
+              if (settings.days.contains(DayOfWeek.mon)) {
+                firstStarted.complete();
+                await releaseFirst.future;
+              }
+              if (isCurrent()) appliedDays.add(settings.days);
+            },
+      );
+
+      final old = coordinator.scheduleNow(
+        NotificationSettings(days: {DayOfWeek.mon}),
+      );
+      await firstStarted.future;
+      final latest = coordinator.scheduleNow(
+        NotificationSettings(days: {DayOfWeek.fri}),
+      );
+      releaseFirst.complete();
+
+      expect(await old, NotificationScheduleOutcome.superseded);
+      expect(await latest, NotificationScheduleOutcome.scheduled);
+      expect(appliedDays, [
+        {DayOfWeek.fri},
+      ]);
     });
   });
 

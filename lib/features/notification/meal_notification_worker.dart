@@ -4,20 +4,34 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
+import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings_store.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
+import 'ios_meal_notification_scheduler.dart';
+import 'meal_notification_mutation_lock.dart';
 import 'meal_notification_content_builder.dart';
 import 'meal_notification_period.dart';
+import 'notification_platform.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
 
 typedef BackgroundCacheRefresh = Future<void> Function();
+typedef BackgroundNotificationReconcile = Future<void> Function();
+typedef BackgroundNotificationSnapshot = ({
+  NotificationSettings settings,
+  int generation,
+  String? currentRevision,
+  String? nextRevision,
+});
+typedef BackgroundNotificationSnapshotLoader =
+    Future<BackgroundNotificationSnapshot> Function();
 
 /// 디버그 빌드에서 UI의 테스트 버튼이 호출하는 함수.
 /// 백그라운드 태스크와 동일한 로직을 메인 isolate에서 즉시 실행한다.
@@ -95,6 +109,8 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   BackgroundCacheRefresh? refreshMealCache,
   BackgroundCacheRefresh? refreshInfoCache,
   BackgroundCacheRefresh? refreshWidget,
+  BackgroundNotificationReconcile? reconcileIosNotifications,
+  MealNotificationPlatform? platform,
 }) async {
   final mealRefresh =
       refreshMealCache ??
@@ -118,6 +134,20 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   if (mealFailure != null) {
     _logBackgroundRefreshFailure('background meal refresh failed', mealFailure);
     return false;
+  }
+
+  if ((platform ?? mealNotificationPlatform) == MealNotificationPlatform.ios) {
+    final notificationFailure = await _captureBackgroundRefreshFailure(
+      'notification',
+      reconcileIosNotifications ?? _reconcileIosNotificationsFromCache,
+    );
+    if (notificationFailure != null) {
+      _logBackgroundRefreshFailure(
+        'background meal notification reconciliation failed',
+        notificationFailure,
+      );
+      return false;
+    }
   }
 
   final infoFailure = failures[1];
@@ -152,6 +182,83 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   }
 
   return true;
+}
+
+Future<void> _reconcileIosNotificationsFromCache() async {
+  await initNotifications();
+  await reconcileBackgroundIosMealNotifications();
+}
+
+Future<void> reconcileBackgroundIosMealNotifications({
+  BackgroundNotificationSnapshotLoader? loadSnapshot,
+  Future<void> Function(NotificationSettings settings)? reconcile,
+  Future<void> Function()? cancelPending,
+  MealNotificationMutationSection? mutationSection,
+}) => (mutationSection ?? withMealNotificationMutationLock)(() async {
+  final snapshotLoader = loadSnapshot ?? _loadFreshNotificationSnapshot;
+  var snapshot = await snapshotLoader();
+  for (var attempt = 0; attempt < 3; attempt++) {
+    if (snapshot.settings.enabled) {
+      await (reconcile ??
+          (settings) => reconcileIosMealNotifications(settings: settings))(
+        snapshot.settings,
+      );
+    } else {
+      await (cancelPending ?? cancelAllPendingMealNotifications)();
+    }
+
+    final after = await snapshotLoader();
+    if (_sameBackgroundSnapshot(snapshot, after)) return;
+    snapshot = after;
+  }
+  throw StateError('iOS notification inputs did not stabilize');
+});
+
+Future<BackgroundNotificationSnapshot> _loadFreshNotificationSnapshot() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  return (
+    settings: loadNotificationSettings(prefs),
+    generation: prefs.getInt(StorageKeys.notificationMutationGeneration) ?? 0,
+    currentRevision: (await MealCache().readRevision())?.rawMeal,
+    nextRevision: (await MealCache(
+      fileName: StorageKeys.nextMealCacheFile,
+    ).readRevision())?.rawMeal,
+  );
+}
+
+bool _sameBackgroundSnapshot(
+  BackgroundNotificationSnapshot first,
+  BackgroundNotificationSnapshot second,
+) =>
+    first.generation == second.generation &&
+    first.currentRevision == second.currentRevision &&
+    first.nextRevision == second.nextRevision &&
+    _notificationSettingsFingerprint(first.settings) ==
+        _notificationSettingsFingerprint(second.settings);
+
+String _notificationSettingsFingerprint(NotificationSettings settings) {
+  final alertTimes =
+      settings.alertTimes.entries
+          .map(
+            (entry) =>
+                '${entry.key.name}:${entry.value?.hour}:${entry.value?.minute}',
+          )
+          .toList()
+        ..sort();
+  final cafeterias = settings.cafeterias.map((item) => item.name).toList()
+    ..sort();
+  final dormTypes = settings.dormMealTypes.map((item) => item.name).toList()
+    ..sort();
+  final days = settings.days.map((item) => item.name).toList()..sort();
+  return [
+    settings.enabled,
+    alertTimes.join(','),
+    settings.keywords.join('\u0000'),
+    cafeterias.join(','),
+    dormTypes.join(','),
+    days.join(','),
+  ].join('|');
 }
 
 Future<_BackgroundRefreshFailure?> _captureBackgroundRefreshFailure(

@@ -33,6 +33,7 @@ typedef IosNotificationUpserter =
 
 enum IosMealReconciliationOutcome {
   scheduled,
+  superseded,
   notAuthorized,
   currentWeekUnavailable,
 }
@@ -151,6 +152,7 @@ class _NotificationSlot {
 Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   required NotificationSettings settings,
   bool clearPendingFirst = false,
+  bool Function()? isCurrent,
   IosMealWeek? currentWeek,
   IosMealWeek? nextWeek,
   DateTime Function()? nowProvider,
@@ -162,8 +164,12 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   IosNotificationUpserter? upsertNotification,
   AppLocalizations? l10n,
 }) async {
+  final currentGeneration = isCurrent ?? () => true;
   final authorization =
       await (readAuthorizationStatus ?? mealNotificationAuthorizationStatus)();
+  if (!currentGeneration()) {
+    return IosMealReconciliationOutcome.superseded;
+  }
   if (authorization == MealNotificationAuthorizationStatus.notAuthorized) {
     return IosMealReconciliationOutcome.notAuthorized;
   }
@@ -173,8 +179,14 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   final pending = (await pendingReader())
       .where(isScheduledMealNotificationId)
       .toList(growable: false);
+  if (!currentGeneration()) {
+    return IosMealReconciliationOutcome.superseded;
+  }
   if (clearPendingFirst) {
     for (final id in pending) {
+      if (!currentGeneration()) {
+        return IosMealReconciliationOutcome.superseded;
+      }
       await canceler(id);
     }
   }
@@ -183,11 +195,17 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   final current =
       currentWeek ??
       await (loadCurrentWeek ?? () => _loadCachedWeek(instant))();
+  if (!currentGeneration()) {
+    return IosMealReconciliationOutcome.superseded;
+  }
   if (current == null) {
     return IosMealReconciliationOutcome.currentWeekUnavailable;
   }
   final next =
       nextWeek ?? await (loadNextWeek ?? () => _loadCachedNextWeek(instant))();
+  if (!currentGeneration()) {
+    return IosMealReconciliationOutcome.superseded;
+  }
 
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
   final retainedIds = clearPendingFirst || next != null
@@ -208,6 +226,9 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
   if (!clearPendingFirst) {
     for (final id in pending) {
       if (!retainedIds.contains(id) && !desiredIds.contains(id)) {
+        if (!currentGeneration()) {
+          return IosMealReconciliationOutcome.superseded;
+        }
         await canceler(id);
       }
     }
@@ -222,6 +243,9 @@ Future<IosMealReconciliationOutcome> reconcileIosMealNotifications({
         body: notification.body,
       );
   for (final notification in batch) {
+    if (!currentGeneration()) {
+      return IosMealReconciliationOutcome.superseded;
+    }
     if (notification.fireInstant.isBefore((nowProvider ?? DateTime.now)())) {
       continue;
     }

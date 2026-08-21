@@ -6,6 +6,7 @@ import 'package:meal_client/features/meal/meal_refresh_service.dart';
 
 final _mealCache = MealCache();
 final _mealRefreshService = MealRefreshService(cache: _mealCache);
+Future<MealResponse>? _foregroundMealRefresh;
 
 typedef RawMealFetcher = Future<String> Function(String url);
 
@@ -14,11 +15,45 @@ typedef MealResponse = ({WeekMeal weekMeal, WeekMeta weekMeta});
 Future<MealResponse> fetchAndCacheMealData({
   RawMealFetcher? fetch,
   bool prefetchNextWeek = true,
+  bool waitForNextWeekPrefetch = false,
+  DateTime? now,
 }) async {
+  final instant = now ?? DateTime.now();
   final service = fetch == null
       ? _mealRefreshService
       : MealRefreshService(cache: _mealCache, fetchRaw: fetch);
-  return service.refreshMealResponse(prefetchNextWeek: prefetchNextWeek);
+  return service.refreshMealResponse(
+    prefetchNextWeek: prefetchNextWeek,
+    waitForNextWeekPrefetch: waitForNextWeekPrefetch,
+    now: instant,
+  );
+}
+
+/// Home과 iOS resume이 공유하는 canonical current-week 단일 실행 경로.
+Future<MealResponse> fetchAndCacheCanonicalMealData({
+  bool waitForNextWeekPrefetch = false,
+  DateTime? now,
+}) => runForegroundMealRefresh(
+  () => fetchAndCacheMealData(
+    waitForNextWeekPrefetch: waitForNextWeekPrefetch,
+    now: now,
+  ),
+);
+
+Future<MealResponse> runForegroundMealRefresh(
+  Future<MealResponse> Function() refresh,
+) async {
+  final running = _foregroundMealRefresh;
+  if (running != null) return running;
+  final operation = refresh();
+  _foregroundMealRefresh = operation;
+  try {
+    return await operation;
+  } finally {
+    if (identical(_foregroundMealRefresh, operation)) {
+      _foregroundMealRefresh = null;
+    }
+  }
 }
 
 Future<MealResponse> getCachedMealData({

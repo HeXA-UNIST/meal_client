@@ -525,8 +525,13 @@ do not describe this sequence as an atomic commit.
    deduplicated foreground meal refresh under an explicit staleness policy
    (do not fetch again on every rapid pause/resume); Sunday always includes the
    next-week refresh described below. A changed response triggers another
-   reconciliation. No `BapUApp` restructuring is needed. Choose and document
-   the staleness interval as a product/network policy before implementation.
+   reconciliation. No `BapUApp` restructuring is needed. **Confirmed policy:
+   one hour.** Compare the canonical current-week cache's successful write time
+   with the resume instant and skip another current-week network refresh while
+   it is at most one hour old. The payload must also identify the KST week
+   containing the resume instant; a recently written response for another week
+   is not fresh. In-flight resume refreshes are deduplicated. This is an
+   operational freshness policy, not an iOS delivery guarantee.
    Reconciliation itself still runs on every resume even when network refresh
    is throttled, because it is the only planned repair for pending requests
    pinned before a device-timezone or locale change. Resolve the locale once
@@ -535,12 +540,29 @@ do not describe this sequence as an atomic commit.
    Settings app: the status read at the head of reconciliation rebuilds the
    batch after a re-grant. A revocation leaves the existing requests pending
    and inert (§ Authorization) and updates the settings UI state.
+
+   The implementation keeps this ownership in `AppSettings`: it registers and
+   disposes the injectable `AppLifecycleListener`, rechecks authorization and
+   performs cache-only reconciliation on every iOS resume, then applies the
+   one-hour network policy. Raw current/next cache payloads, rather than file
+   timestamps, are the stable content revisions used to decide whether a
+   completed refresh needs a second reconciliation.
+   `HomePage` and this resume path both opt into the same canonical foreground
+   meal-refresh single-flight in `meal_data_source.dart`, so a KST week-boundary
+   resume does not issue two current-week requests. Only the iOS Home/resume caller opts
+   into waiting for Sunday next-week prefetch; Android and Web retain the old
+   non-waiting foreground behavior. Metadata and dated-week preview requests do
+   not participate because their prefetch/wait semantics differ and must not
+   weaken a Sunday canonical refresh.
 4. **Successful foreground meal refresh** — after validated current-week or
    next-week data is written, compare the raw payload/content revision with
    the prior cached revision. When it changed, force **notification
-   reconciliation**, not another network refresh. Prefer passing the parsed
-   response that was just fetched into reconciliation instead of reading or
-   downloading the same data again.
+   reconciliation**, not another network refresh. The implementation compares
+   the stable raw cache revisions and then reconciles from the validated cache
+   snapshot. This intentionally performs a local cache read instead of carrying
+   the parsed response across generations: an overlapping refresh may have
+   committed newer data after that response returned. It never starts a second
+   network request merely to rebuild notifications.
 5. **Background meal refresh (iOS only)** — after
    `refreshBackgroundMealAndInfoCaches` successfully refreshes the cache, run
    the same cache-only reconciliation. Keep an explicit iOS platform guard so
@@ -550,6 +572,30 @@ do not describe this sequence as an atomic commit.
    `request*Permission: false` change above, `initNotifications()` is safe to
    call here directly. Reading the authorization status is fine from the
    isolate; *prompting* belongs to the foreground UI flow only.
+
+All iOS pending-request mutations, including foreground reconciliation,
+master-disable/reset cancellation, and background reconciliation, share a
+dedicated atomic exclusive-create marker in the app-support directory through
+the repository's existing `withSharedWidgetFileLock` primitive. This is
+cross-isolate rather than a process-local Dart mutex. Advisory
+`RandomAccessFile.lock` is deliberately not used because macOS/iOS locks are
+process-level and do not exclude isolates in one process. The existing
+primitive's conservative two-second acquisition timeout and owner-only cleanup
+remain: it never steals a same-PID marker and surfaces contention instead of
+risking concurrent pending mutation. The lock timeout is shorter than a worst-
+case 64-request plugin batch, so the lock alone is not the convergence
+mechanism. Foreground setting changes await their `SharedPreferences` write and
+advance a persisted notification-mutation generation before attempting the
+lock. Background enters the lock, reloads uncached preferences plus current and
+next raw-cache revisions, applies that snapshot, then reloads them again before
+release. If any input changed, it applies the newer snapshot in the same
+exclusive section (bounded to three attempts); disabled means canceling all
+owned pending requests. Continued instability throws so Workmanager observes a
+failure instead of reporting a stale success. Thus a foreground disable that
+times out behind a long older background batch still converges: the background
+sees the already-persisted generation and cancels before release. If foreground
+acquires first, a later background batch reloads the persisted disabled state
+and cannot re-add requests.
 
 ### Sunday next-week refresh
 
@@ -567,6 +613,13 @@ written that Sunday. Preserve and use that behavior:
    not add another Workmanager one-off timer. `earliestBeginDate` is not a
    deadline, so iOS may run the refresh after the configured alert time or not
    during that window at all.
+
+The Sunday exception is narrower than "fetch on every Sunday resume": when the
+next-week cache already identifies the expected next KST week and was written
+on the current KST Sunday, the normal one-hour current-week throttle applies.
+Otherwise resume waits for `MealRefreshService`'s existing next-week prefetch
+even if the current-week cache is less than one hour old. Concurrent resume
+callbacks still share one in-flight refresh.
 
 The accepted product policy is **availability first**: if neither the app nor
 BGAppRefresh runs on Sunday, deliver the notification computed from the latest
@@ -629,6 +682,10 @@ force-quits the app.
   run cache-only pending reconciliation. Do not add legacy iOS task cleanup or
   callback-suppression code: the feature has not shipped, and the new iOS path
   never registers meal-notification Workmanager one-offs.
+  The Phase 2 background hook runs only after the meal refresh succeeds,
+  explicitly guards for iOS, initializes the plugin without prompting, loads
+  the latest persisted settings, and performs cache-only reconciliation.
+  Android continues through its existing behavior without this hook.
 - **`app_settings.dart`**: wire the four unwired mutators (trigger #2); add
   the injectable lifecycle registration (trigger #3). Master disable must
   cancel iOS meal pending requests immediately, and `resetAll()` must explicitly
@@ -639,6 +696,9 @@ force-quits the app.
   injectable permission-requester (so tests need no platform channel), and
   expose the resulting authorization state as observable settings state for the
   UI rather than swallowing a denial.
+  Phase 2 also owns the injected resume-listener disposer, deduplicated one-hour
+  foreground refresh, Sunday exception, and stable raw current/next cache
+  revisions described above.
 - **`main.dart`**: `initNotifications()` at line 52 must no longer prompt.
   Leaving cold-start registration in place is correct — only the prompt moves
   to the opt-in flow. Note the consequence for trigger #1: on a fresh install
@@ -654,6 +714,10 @@ force-quits the app.
   response/cache write, request iOS reconciliation with the returned data.
   Avoid a dependency from the meal data layer back into the notification UI
   layer and avoid starting a second fetch merely to rebuild notifications.
+- **next-week preview orchestration**: the successful dated-week load already
+  returns the parsed response after writing `meal-next.json`. Notify
+  `AppSettings` from that UI orchestration point; it compares the stable cache
+  revision and requests cache-only iOS reconciliation without another fetch.
 - **`pubspec.yaml`**: promote `timezone` to a direct dependency.
 
 The new shared content builder and platform-specific scheduler are intentional
@@ -709,6 +773,16 @@ Phase 2 reduces stale content and repairs timezone drift. Deferring it does not
 reintroduce the old Workmanager delivery failure, but Phase 1 alone can retain
 stale content longer and keeps an already-scheduled absolute instant/text until
 the next app launch after a device-timezone or locale change.
+
+The generation guard is carried from `NotificationScheduleCoordinator` into
+the iOS reconciler. A superseded operation checks it after asynchronous reads
+and before each pending cancellation/upsert, while the coordinator serializes
+platform mutations and reports the old request as superseded. This covers
+overlapping launch/resume/settings/foreground-refresh requests in the main
+isolate. The background entry does not carry a foreground snapshot: after its
+successful refresh it runs the bounded stable-snapshot loop above under the
+cross-isolate mutation marker. This persisted-generation recheck covers the
+case where foreground lock acquisition times out behind a long plugin batch.
 
 ### Testing strategy
 

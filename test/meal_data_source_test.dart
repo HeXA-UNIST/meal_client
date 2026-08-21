@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,54 @@ import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 
 void main() {
+  test('동시에 시작한 canonical foreground 갱신은 하나의 network 결과를 공유한다', () async {
+    final response = Completer<MealResponse>();
+    var refreshCount = 0;
+    Future<MealResponse> refresh() {
+      refreshCount++;
+      return response.future;
+    }
+
+    final first = runForegroundMealRefresh(refresh);
+    final second = runForegroundMealRefresh(refresh);
+    response.complete((
+      weekMeal: WeekMeal.empty(),
+      weekMeta: parseWeekMeta(_rawMeal('2026-04-20', isCurrentWeek: true)),
+    ));
+
+    expect(await first, await second);
+    expect(refreshCount, 1);
+  });
+
+  test('독립 preview 갱신은 진행 중인 canonical single-flight에 합쳐지지 않는다', () async {
+    final canonicalResponse = Completer<MealResponse>();
+    var canonicalRefreshes = 0;
+    var previewRefreshes = 0;
+
+    final canonical = runForegroundMealRefresh(() {
+      canonicalRefreshes++;
+      return canonicalResponse.future;
+    });
+    final preview = Future<MealResponse>(() {
+      previewRefreshes++;
+      return (
+        weekMeal: WeekMeal.empty(),
+        weekMeta: parseWeekMeta(_rawMeal('2026-04-27', isCurrentWeek: false)),
+      );
+    });
+    final previewResult = await preview;
+
+    expect(previewResult.weekMeta.startDate, DateTime(2026, 4, 27));
+    expect(canonicalRefreshes, 1);
+    expect(previewRefreshes, 1);
+
+    canonicalResponse.complete((
+      weekMeal: WeekMeal.empty(),
+      weekMeta: parseWeekMeta(_rawMeal('2026-04-20', isCurrentWeek: true)),
+    ));
+    await canonical;
+  });
+
   group('fetchMealDataForWeek', () {
     test('주어진 날짜로 /v2/menu/{date} 형태의 URL을 요청한다', () async {
       String? requestedUrl;

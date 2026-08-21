@@ -20,6 +20,8 @@ class StorageKeys {
   // 설정 (settings_* prefix로 통일)
   static const allergenIds = 'settings_allergen_ids';
   static const notificationEnabled = 'settings_notification_enabled';
+  static const notificationMutationGeneration =
+      'settings_notification_mutation_generation';
   static const notificationKeywords = 'settings_notification_keywords';
   static const notificationCafeterias = 'settings_notification_cafeterias';
 

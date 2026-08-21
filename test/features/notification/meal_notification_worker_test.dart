@@ -1,10 +1,16 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/widget_shared_storage_io.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/notification/meal_notification_content_builder.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/meal_notification_worker.dart';
+import 'package:meal_client/features/notification/notification_platform.dart';
+import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings_store.dart';
 import 'package:meal_client/l10n/app_localizations_en.dart';
@@ -72,6 +78,186 @@ void main() {
 
       expect(result, isFalse);
     });
+
+    test('성공한 background meal refresh는 iOS에서만 pending을 재조정한다', () async {
+      var reconciliations = 0;
+
+      final iosResult = await refreshBackgroundMealAndInfoCaches(
+        platform: MealNotificationPlatform.ios,
+        refreshMealCache: () async {},
+        refreshInfoCache: () async {},
+        refreshWidget: () async {},
+        reconcileIosNotifications: () async => reconciliations++,
+      );
+      final androidResult = await refreshBackgroundMealAndInfoCaches(
+        platform: MealNotificationPlatform.android,
+        refreshMealCache: () async {},
+        refreshInfoCache: () async {},
+        refreshWidget: () async {},
+        reconcileIosNotifications: () async => reconciliations++,
+      );
+
+      expect(iosResult, isTrue);
+      expect(androidResult, isTrue);
+      expect(reconciliations, 1);
+    });
+
+    test('background 재조정 중 disable되면 foreground 취소가 마지막 상태를 만든다', () async {
+      final mutex = _TestMutationMutex();
+      final pending = <int>{};
+      final backgroundStarted = Completer<void>();
+      final releaseBackground = Completer<void>();
+      var persistedEnabled = true;
+      var generation = 0;
+
+      final background = reconcileBackgroundIosMealNotifications(
+        mutationSection: mutex.run,
+        loadSnapshot: () async => (
+          settings: NotificationSettings(enabled: persistedEnabled),
+          generation: generation,
+          currentRevision: 'current',
+          nextRevision: 'next',
+        ),
+        reconcile: (_) async {
+          backgroundStarted.complete();
+          await releaseBackground.future;
+          pending.add(100000001);
+        },
+        cancelPending: () async => pending.clear(),
+      );
+      await backgroundStarted.future;
+
+      persistedEnabled = false;
+      generation++;
+      final foregroundCancel = cancelAllMealNotifications(
+        platform: MealNotificationPlatform.ios,
+        iosCancel: () async => pending.clear(),
+        mutationSection: mutex.run,
+      );
+      releaseBackground.complete();
+
+      await Future.wait([background, foregroundCancel]);
+      expect(pending, isEmpty);
+    });
+
+    test('disable 취소 뒤 시작한 background는 저장된 disabled 상태를 다시 적용한다', () async {
+      final mutex = _TestMutationMutex();
+      final pending = <int>{100000001};
+      final foregroundStarted = Completer<void>();
+      final releaseForeground = Completer<void>();
+      const persistedEnabled = false;
+
+      final foregroundCancel = cancelAllMealNotifications(
+        platform: MealNotificationPlatform.ios,
+        iosCancel: () async {
+          pending.clear();
+          foregroundStarted.complete();
+          await releaseForeground.future;
+        },
+        mutationSection: mutex.run,
+      );
+      await foregroundStarted.future;
+
+      final background = reconcileBackgroundIosMealNotifications(
+        mutationSection: mutex.run,
+        loadSnapshot: () async => (
+          settings: NotificationSettings(enabled: persistedEnabled),
+          generation: 1,
+          currentRevision: 'current',
+          nextRevision: 'next',
+        ),
+        reconcile: (_) async => pending.add(100000002),
+        cancelPending: () async => pending.clear(),
+      );
+      releaseForeground.complete();
+
+      await Future.wait([foregroundCancel, background]);
+      expect(pending, isEmpty);
+    });
+
+    test('background 작업 중 설정 세대가 바뀌면 최신 설정으로 다시 재조정한다', () async {
+      var generation = 0;
+      var cafeterias = {Cafeteria.student};
+      final reconciled = <Set<Cafeteria>>[];
+
+      await reconcileBackgroundIosMealNotifications(
+        mutationSection: (action) => action(),
+        loadSnapshot: () async => (
+          settings: NotificationSettings(enabled: true, cafeterias: cafeterias),
+          generation: generation,
+          currentRevision: 'current',
+          nextRevision: 'next',
+        ),
+        reconcile: (settings) async {
+          reconciled.add({...settings.cafeterias});
+          if (reconciled.length == 1) {
+            cafeterias = {Cafeteria.faculty};
+            generation++;
+          }
+        },
+      );
+
+      expect(reconciled, [
+        {Cafeteria.student},
+        {Cafeteria.faculty},
+      ]);
+    });
+
+    test(
+      '실제 marker lock timeout 뒤에도 background가 persisted disable로 수렴한다',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'bapu-notification-lock-',
+        );
+        final pending = <int>{};
+        final backgroundStarted = Completer<void>();
+        final releaseBackground = Completer<void>();
+        var enabled = true;
+        var generation = 0;
+
+        Future<void> mutationSection(Future<void> Function() action) =>
+            withSharedWidgetFileLock(
+              'meal-notification-pending',
+              action,
+              directory: directory,
+            );
+
+        try {
+          final background = reconcileBackgroundIosMealNotifications(
+            mutationSection: mutationSection,
+            loadSnapshot: () async => (
+              settings: NotificationSettings(enabled: enabled),
+              generation: generation,
+              currentRevision: 'current',
+              nextRevision: 'next',
+            ),
+            reconcile: (_) async {
+              backgroundStarted.complete();
+              await releaseBackground.future;
+              pending.add(100000001);
+            },
+            cancelPending: () async => pending.clear(),
+          );
+          await backgroundStarted.future;
+
+          // 실제 foreground는 설정과 세대를 먼저 저장한 뒤 lock을 기다린다.
+          enabled = false;
+          generation++;
+          await expectLater(
+            mutationSection(() async => pending.clear()),
+            throwsA(isA<TimeoutException>()),
+          );
+
+          releaseBackground.complete();
+          await background;
+
+          expect(pending, isEmpty);
+        } finally {
+          if (!releaseBackground.isCompleted) releaseBackground.complete();
+          await directory.delete(recursive: true);
+        }
+      },
+    );
   });
 
   group('알림 대상 주차 로딩', () {
@@ -339,6 +525,16 @@ void main() {
       expect(contents.single.body, 'Kimchi Stew / 공기밥');
     });
   });
+}
+
+class _TestMutationMutex {
+  Future<void> _queue = Future.value();
+
+  Future<void> run(Future<void> Function() action) {
+    final operation = _queue.then((_) => action());
+    _queue = operation.then<void>((_) {}, onError: (_, _) {});
+    return operation;
+  }
 }
 
 typedef _NotificationSettingsCase = ({

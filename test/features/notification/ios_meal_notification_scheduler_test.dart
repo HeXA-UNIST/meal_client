@@ -317,11 +317,21 @@ void main() {
       clearPendingFirst: false,
       platform: MealNotificationPlatform.ios,
       iosScheduler:
-          (settings, {required clearPendingFirst, currentWeek}) async {
+          (
+            settings, {
+            required clearPendingFirst,
+            required isCurrent,
+            currentWeek,
+          }) async {
             iosCalls++;
           },
       androidScheduler:
-          (settings, {required clearPendingFirst, currentWeek}) async {
+          (
+            settings, {
+            required clearPendingFirst,
+            required isCurrent,
+            currentWeek,
+          }) async {
             androidCalls++;
           },
     );
@@ -335,6 +345,7 @@ void main() {
     Future<void> callback(
       NotificationSettings settings, {
       required bool clearPendingFirst,
+      required bool Function() isCurrent,
       IosMealWeek? currentWeek,
     }) async {
       callCount++;

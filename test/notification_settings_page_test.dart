@@ -24,7 +24,12 @@ void main() {
       prefs,
       notificationScheduleCoordinator: NotificationScheduleCoordinator(
         schedule:
-            (settings, {required clearPendingFirst, currentWeek}) async {},
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async {},
         cancel: () async {},
       ),
       notificationPermissionRequester: () async => true,
@@ -126,7 +131,12 @@ void main() {
       prefs,
       notificationScheduleCoordinator: NotificationScheduleCoordinator(
         schedule:
-            (settings, {required clearPendingFirst, currentWeek}) async {},
+            (
+              settings, {
+              required clearPendingFirst,
+              required isCurrent,
+              currentWeek,
+            }) async {},
         cancel: () async {},
       ),
       notificationPermissionRequester: () async => true,

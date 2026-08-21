@@ -7,6 +7,7 @@ import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
+import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -54,7 +55,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late Future<String?> nextWeekStart;
   late final Future<AppInfo> appInfo;
   Future<void> _mealRefreshQueue = Future.value();
-  bool _didReconcileInitialMealRefresh = false;
 
   @override
   void initState() {
@@ -128,7 +128,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<MealResponse> _enqueueMealRefresh(
     Future<MealResponse> cachedMealRecord,
   ) {
-    final refreshMeal = widget.refreshMeal ?? fetchAndCacheMealData;
+    final refreshMeal =
+        widget.refreshMeal ??
+        () {
+          final now = _now();
+          return fetchAndCacheCanonicalMealData(
+            now: now,
+            waitForNextWeekPrefetch:
+                mealNotificationPlatform == MealNotificationPlatform.ios &&
+                MealTimeConfig.toKst(now).weekday == DateTime.sunday,
+          );
+        };
     final queuedRefresh = _mealRefreshQueue.then((_) async {
       try {
         await cachedMealRecord;
@@ -137,12 +147,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       final meal = await refreshMeal();
       await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
-      if (mounted && !_didReconcileInitialMealRefresh) {
-        _didReconcileInitialMealRefresh = true;
+      if (mounted) {
         Provider.of<AppSettings?>(
           context,
           listen: false,
-        )?.reconcileIosMealNotificationsAfterInitialRefresh(meal.weekMeal);
+        )?.reconcileIosMealNotificationsAfterForegroundRefresh();
       }
       return meal;
     });

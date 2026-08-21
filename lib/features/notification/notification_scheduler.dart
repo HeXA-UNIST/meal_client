@@ -7,6 +7,7 @@ import 'package:workmanager/workmanager.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'ios_meal_notification_scheduler.dart';
+import 'meal_notification_mutation_lock.dart';
 import 'meal_notification_period.dart';
 import 'notification_platform.dart';
 
@@ -78,6 +79,7 @@ typedef MealNotificationScheduler =
     Future<void> Function(
       NotificationSettings settings, {
       required bool clearPendingFirst,
+      required bool Function() isCurrent,
       IosMealWeek? currentWeek,
     });
 
@@ -206,9 +208,12 @@ class NotificationScheduleCoordinator {
     await _schedule(
       settings,
       clearPendingFirst: clearPendingFirst,
+      isCurrent: () => !_disposed && revision == _revision,
       currentWeek: currentWeek,
     );
-    return NotificationScheduleOutcome.scheduled;
+    return revision == _revision
+        ? NotificationScheduleOutcome.scheduled
+        : NotificationScheduleOutcome.superseded;
   });
 
   Future<T> _enqueue<T>(Future<T> Function() operation) {
@@ -224,6 +229,7 @@ Future<void> scheduleMealNotifications(
   NotificationSettings settings, {
   required bool clearPendingFirst,
   IosMealWeek? currentWeek,
+  bool Function()? isCurrent,
   MealNotificationPlatform? platform,
   MealNotificationScheduler? iosScheduler,
   MealNotificationScheduler? androidScheduler,
@@ -233,6 +239,7 @@ Future<void> scheduleMealNotifications(
       await (iosScheduler ?? _scheduleIosMealNotifications)(
         settings,
         clearPendingFirst: clearPendingFirst,
+        isCurrent: isCurrent ?? () => true,
         currentWeek: currentWeek,
       );
       return;
@@ -240,6 +247,7 @@ Future<void> scheduleMealNotifications(
       await (androidScheduler ?? _scheduleAndroidMealNotifications)(
         settings,
         clearPendingFirst: clearPendingFirst,
+        isCurrent: isCurrent ?? () => true,
         currentWeek: currentWeek,
       );
       return;
@@ -251,18 +259,23 @@ Future<void> scheduleMealNotifications(
 Future<void> _scheduleIosMealNotifications(
   NotificationSettings settings, {
   required bool clearPendingFirst,
+  required bool Function() isCurrent,
   IosMealWeek? currentWeek,
 }) async {
-  await reconcileIosMealNotifications(
-    settings: settings,
-    clearPendingFirst: clearPendingFirst,
-    currentWeek: currentWeek,
+  await withMealNotificationMutationLock(
+    () => reconcileIosMealNotifications(
+      settings: settings,
+      clearPendingFirst: clearPendingFirst,
+      isCurrent: isCurrent,
+      currentWeek: currentWeek,
+    ),
   );
 }
 
 Future<void> _scheduleAndroidMealNotifications(
   NotificationSettings settings, {
   required bool clearPendingFirst,
+  required bool Function() isCurrent,
   IosMealWeek? currentWeek,
 }) => scheduleAllKeywordNotifications(settings.alertTimes, settings.days);
 
@@ -270,9 +283,14 @@ Future<void> cancelAllMealNotifications({
   MealNotificationPlatform? platform,
   KeywordNotificationCanceler? iosCancel,
   KeywordNotificationCanceler? androidCancel,
+  MealNotificationMutationSection? mutationSection,
 }) => switch (platform ?? mealNotificationPlatform) {
   MealNotificationPlatform.ios =>
-    (iosCancel ?? cancelAllPendingMealNotifications)(),
+    iosCancel != null
+        ? (mutationSection ?? withMealNotificationMutationLock)(iosCancel)
+        : (mutationSection ?? withMealNotificationMutationLock)(
+            cancelAllPendingMealNotifications,
+          ),
   MealNotificationPlatform.android =>
     (androidCancel ?? cancelAllKeywordNotifications)(),
   MealNotificationPlatform.unsupported => Future.value(),

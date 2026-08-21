@@ -11,12 +11,25 @@ import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
+import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'allergy/allergy_settings.dart';
 import 'notification/notification_settings.dart';
 import 'notification/notification_settings_store.dart';
 
 typedef NotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
+typedef AppResumeListenerRegistrar =
+    VoidCallback Function(VoidCallback onResume);
+typedef ForegroundMealRefresher =
+    Future<void> Function(DateTime now, bool waitForNextWeekPrefetch);
+typedef MealCacheRevisionSnapshot = ({
+  MealCacheRevision? current,
+  MealCacheRevision? next,
+});
+typedef MealCacheRevisionSnapshotReader =
+    Future<MealCacheRevisionSnapshot> Function();
+
+const foregroundMealRefreshInterval = Duration(hours: 1);
 
 class AppSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -27,6 +40,14 @@ class AppSettings extends ChangeNotifier {
   final NotificationScheduleCoordinator _notificationScheduleCoordinator;
   final Future<bool> Function() _requestNotificationPermission;
   final NotificationAuthorizationStatusReader _readAuthorizationStatus;
+  final MealNotificationPlatform _notificationPlatform;
+  final DateTime Function() _clock;
+  final ForegroundMealRefresher _refreshForegroundMeal;
+  final MealCacheRevisionSnapshotReader _readMealCacheRevisions;
+  VoidCallback? _disposeResumeListener;
+  ({String? current, String? next})? _observedCacheContent;
+  Future<void> _notificationGenerationQueue = Future.value();
+  bool _disposed = false;
   MealNotificationAuthorizationStatus? _notificationAuthorizationStatus;
 
   AllergySettings get allergy => _allergy;
@@ -41,6 +62,11 @@ class AppSettings extends ChangeNotifier {
     Future<bool> Function()? notificationPermissionRequester,
     NotificationAuthorizationStatusReader?
     notificationAuthorizationStatusReader,
+    MealNotificationPlatform? notificationPlatform,
+    AppResumeListenerRegistrar? resumeListenerRegistrar,
+    DateTime Function()? clock,
+    ForegroundMealRefresher? foregroundMealRefresher,
+    MealCacheRevisionSnapshotReader? mealCacheRevisionSnapshotReader,
   }) : _notificationScheduleCoordinator =
            notificationScheduleCoordinator ?? NotificationScheduleCoordinator(),
        _requestNotificationPermission =
@@ -48,9 +74,29 @@ class AppSettings extends ChangeNotifier {
        _readAuthorizationStatus =
            notificationAuthorizationStatusReader ??
            mealNotificationAuthorizationStatus,
+       _notificationPlatform = notificationPlatform ?? mealNotificationPlatform,
+       _clock = clock ?? DateTime.now,
+       _refreshForegroundMeal =
+           foregroundMealRefresher ?? _defaultForegroundMealRefresh,
+       _readMealCacheRevisions =
+           mealCacheRevisionSnapshotReader ?? _defaultMealCacheRevisionSnapshot,
        _allergy = _loadAllergy(_prefs),
        _notification = loadNotificationSettings(_prefs),
-       _themeMode = _loadThemeMode(_prefs);
+       _themeMode = _loadThemeMode(_prefs) {
+    if (_notificationPlatform == MealNotificationPlatform.ios) {
+      _disposeResumeListener =
+          (resumeListenerRegistrar ?? _registerResumeListener)(
+            () => unawaited(
+              _handleAppResume().catchError((Object error, StackTrace stack) {
+                debugPrint(
+                  '[BapU] app resume notification refresh failed: $error',
+                );
+                debugPrintStack(stackTrace: stack);
+              }),
+            ),
+          );
+    }
+  }
 
   // --- 알레르기 ---
 
@@ -79,12 +125,14 @@ class AppSettings extends ChangeNotifier {
       _notificationAuthorizationStatus = null;
     }
     _notification = _notification.copyWith(enabled: v);
-    _prefs.setBool(StorageKeys.notificationEnabled, v);
+    final persistence = _prefs.setBool(StorageKeys.notificationEnabled, v);
     notifyListeners();
+    await persistence;
+    if (_disposed) return false;
     if (v) {
-      _requestNotificationReschedule(immediately: true);
+      await _runNotificationReschedule(immediately: true);
     } else {
-      _cancelAllMealNotifications();
+      await _runCancelAllMealNotifications();
     }
     return true;
   }
@@ -92,34 +140,91 @@ class AppSettings extends ChangeNotifier {
   /// 앱 시작 시 현재 알림 설정을 플랫폼 예약 방식에 반영한다.
   void rescheduleMealNotifications() {
     if (_notification.enabled) {
-      unawaited(refreshNotificationAuthorizationStatus());
-      _requestNotificationReschedule(immediately: true);
+      unawaited(_reconcileFromCache());
     }
   }
 
-  /// 최초 foreground 식단 갱신 결과로 iOS 사전 예약 내용을 즉시 갱신한다.
-  void reconcileIosMealNotificationsAfterInitialRefresh(
-    WeekMeal currentWeekMeal, {
-    DateTime? now,
-  }) {
-    if (mealNotificationPlatform != MealNotificationPlatform.ios ||
+  /// foreground 식단 갱신이 cache 내용을 바꿨을 때만 iOS 예약을 다시 만든다.
+  void reconcileIosMealNotificationsAfterForegroundRefresh() {
+    if (_notificationPlatform != MealNotificationPlatform.ios ||
         !_notification.enabled) {
       return;
     }
-    final instant = now ?? DateTime.now();
-    _requestNotificationReschedule(
-      immediately: true,
-      currentWeek: (
-        startDate: kstWeekStartForInstant(instant),
-        weekMeal: currentWeekMeal,
-      ),
+    unawaited(_reconcileChangedForegroundMeal());
+  }
+
+  Future<void> _handleAppResume() async {
+    if (_disposed || !_notification.enabled) return;
+    await refreshNotificationAuthorizationStatus();
+    if (_disposed) return;
+    await _reconcileFromCache(refreshAuthorization: false);
+    if (_disposed) return;
+    await _performForegroundMealRefresh();
+  }
+
+  Future<void> _reconcileFromCache({bool refreshAuthorization = true}) async {
+    if (_disposed || !_notification.enabled) return;
+    if (refreshAuthorization) {
+      await refreshNotificationAuthorizationStatus();
+    }
+    if (_disposed) return;
+    if (_notificationPlatform == MealNotificationPlatform.ios) {
+      _rememberCacheContent(await _readMealCacheRevisions());
+    }
+    if (_disposed) return;
+    await _runNotificationReschedule(immediately: true);
+  }
+
+  Future<void> _reconcileChangedForegroundMeal() async {
+    final revisions = await _readMealCacheRevisions();
+    if (_disposed) return;
+    final isFirstObservation = _observedCacheContent == null;
+    if (!_rememberCacheContent(revisions) && !isFirstObservation) return;
+    await _runNotificationReschedule(immediately: true);
+  }
+
+  Future<void> _performForegroundMealRefresh() async {
+    try {
+      final now = _clock();
+      final before = await _readMealCacheRevisions();
+      if (_disposed) return;
+      final currentUpdatedAt = before.current?.updatedAt;
+      final currentIsFresh =
+          currentUpdatedAt != null &&
+          _revisionTargetsWeek(before.current!, kstWeekStartForInstant(now)) &&
+          now.difference(currentUpdatedAt) <= foregroundMealRefreshInterval;
+      final needsSundayTopUp = _needsSundayNextWeekTopUp(before.next, now);
+      if (currentIsFresh && !needsSundayTopUp) return;
+
+      await _refreshForegroundMeal(now, needsSundayTopUp);
+      if (_disposed) return;
+      final after = await _readMealCacheRevisions();
+      if (_disposed) return;
+      if (_rememberCacheContent(after)) {
+        await _runNotificationReschedule(immediately: true);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[BapU] foreground meal refresh on resume failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  bool _rememberCacheContent(MealCacheRevisionSnapshot revisions) {
+    final next = (
+      current: revisions.current?.rawMeal,
+      next: revisions.next?.rawMeal,
     );
+    final changed =
+        _observedCacheContent != null && _observedCacheContent != next;
+    _observedCacheContent = next;
+    return changed;
   }
 
   /// 앱 시작 시 외부 설정에서 바뀐 iOS 권한 상태를 설정 화면에 반영한다.
   Future<void> refreshNotificationAuthorizationStatus() async {
     final status = await _readAuthorizationStatus();
-    if (!_notification.enabled ||
+    if (_disposed ||
+        !_notification.enabled ||
         status == MealNotificationAuthorizationStatus.notApplicable ||
         status == _notificationAuthorizationStatus) {
       return;
@@ -134,10 +239,15 @@ class AppSettings extends ChangeNotifier {
     if (_notification.keywords.contains(trimmed)) return;
     final next = [..._notification.keywords, trimmed];
     _notification = _notification.copyWith(keywords: next);
-    _prefs.setStringList(StorageKeys.notificationKeywords, next);
+    final persistence = _prefs.setStringList(
+      StorageKeys.notificationKeywords,
+      next,
+    );
     notifyListeners();
     if (_notification.enabled) {
-      _requestNotificationReschedule(clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+    } else {
+      unawaited(persistence);
     }
   }
 
@@ -145,10 +255,15 @@ class AppSettings extends ChangeNotifier {
     if (!_notification.keywords.contains(kw)) return;
     final next = _notification.keywords.where((k) => k != kw).toList();
     _notification = _notification.copyWith(keywords: next);
-    _prefs.setStringList(StorageKeys.notificationKeywords, next);
+    final persistence = _prefs.setStringList(
+      StorageKeys.notificationKeywords,
+      next,
+    );
     notifyListeners();
     if (_notification.enabled) {
-      _requestNotificationReschedule(clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+    } else {
+      unawaited(persistence);
     }
   }
 
@@ -173,19 +288,24 @@ class AppSettings extends ChangeNotifier {
     );
 
     final key = '${StorageKeys.notificationPeriodTimePrefix}${period.name}';
+    final Future<bool> persistence;
     if (time == null) {
-      _prefs.remove(key);
+      persistence = _prefs.remove(key);
     } else {
-      _prefs.setString(key, _formatTime(time));
-      _prefs.setString(
-        '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
-        _formatTime(time),
-      );
+      persistence = Future.wait([
+        _prefs.setString(key, _formatTime(time)),
+        _prefs.setString(
+          '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
+          _formatTime(time),
+        ),
+      ]).then((results) => results.every((result) => result));
     }
     notifyListeners();
 
     if (_notification.enabled) {
-      _requestNotificationReschedule(clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+    } else {
+      unawaited(persistence);
     }
   }
 
@@ -194,13 +314,15 @@ class AppSettings extends ChangeNotifier {
   void setNotificationCafeterias(Set<Cafeteria> cafeterias) {
     final filtered = cafeterias.where((c) => c != Cafeteria.dormitory).toSet();
     _notification = _notification.copyWith(cafeterias: filtered);
-    _prefs.setStringList(
+    final persistence = _prefs.setStringList(
       StorageKeys.notificationCafeterias,
       filtered.map((e) => e.name).toList(),
     );
     notifyListeners();
     if (_notification.enabled) {
-      _requestNotificationReschedule(clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+    } else {
+      unawaited(persistence);
     }
   }
 
@@ -208,66 +330,97 @@ class AppSettings extends ChangeNotifier {
   /// 이 값이 비어있으면 기숙사 식당 자체가 알림 대상에서 빠진 것으로 취급된다.
   void setNotificationDormMealTypes(Set<DormMealType> types) {
     _notification = _notification.copyWith(dormMealTypes: types);
-    _prefs.setStringList(
+    final persistence = _prefs.setStringList(
       StorageKeys.notificationDormMealTypes,
       types.map((e) => e.name).toList(),
     );
     notifyListeners();
     if (_notification.enabled) {
-      _requestNotificationReschedule(clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+    } else {
+      unawaited(persistence);
     }
   }
 
   /// 알림을 받을 요일 집합을 설정하고, 다음 활성 메뉴 요일로 다시 예약한다.
   void setNotificationDays(Set<DayOfWeek> days) {
     _notification = _notification.copyWith(days: days);
-    _prefs.setStringList(
+    final persistence = _prefs.setStringList(
       StorageKeys.notificationDays,
       days.map((e) => e.name).toList(),
     );
     notifyListeners();
     if (_notification.enabled) {
-      _requestNotificationReschedule(clearPendingFirst: true);
+      _rescheduleAfterPersistence(persistence, clearPendingFirst: true);
+    } else {
+      unawaited(persistence);
     }
   }
 
-  void _requestNotificationReschedule({
-    bool immediately = false,
-    bool clearPendingFirst = false,
-    IosMealWeek? currentWeek,
+  void _rescheduleAfterPersistence(
+    Future<bool> persistence, {
+    required bool clearPendingFirst,
   }) {
     unawaited(
-      (immediately
-              ? _notificationScheduleCoordinator.scheduleNow(
-                  _notification,
-                  clearPendingFirst: clearPendingFirst,
-                  currentWeek: currentWeek,
-                )
-              : _notificationScheduleCoordinator.schedule(
-                  _notification,
-                  clearPendingFirst: clearPendingFirst,
-                  currentWeek: currentWeek,
-                ))
-          .catchError((Object error, StackTrace stackTrace) {
-            debugPrint(
-              '[BapU] meal notification reconciliation failed: $error',
-            );
-            debugPrintStack(stackTrace: stackTrace);
-            return NotificationScheduleOutcome.canceled;
-          }),
+      (() async {
+        await persistence;
+        if (_disposed || !_notification.enabled) return;
+        await _runNotificationReschedule(clearPendingFirst: clearPendingFirst);
+      })(),
     );
   }
 
-  void _cancelAllMealNotifications() {
-    unawaited(
-      _notificationScheduleCoordinator.cancelAll().catchError((
-        Object error,
-        StackTrace stackTrace,
-      ) {
-        debugPrint('[BapU] meal notification cancellation failed: $error');
-        debugPrintStack(stackTrace: stackTrace);
-      }),
+  Future<NotificationScheduleOutcome> _runNotificationReschedule({
+    bool immediately = false,
+    bool clearPendingFirst = false,
+    IosMealWeek? currentWeek,
+  }) async {
+    await _advanceNotificationMutationGeneration();
+    if (_disposed) return NotificationScheduleOutcome.disposed;
+    return (immediately
+            ? _notificationScheduleCoordinator.scheduleNow(
+                _notification,
+                clearPendingFirst: clearPendingFirst,
+                currentWeek: currentWeek,
+              )
+            : _notificationScheduleCoordinator.schedule(
+                _notification,
+                clearPendingFirst: clearPendingFirst,
+                currentWeek: currentWeek,
+              ))
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('[BapU] meal notification reconciliation failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
+          return NotificationScheduleOutcome.canceled;
+        });
+  }
+
+  Future<void> _runCancelAllMealNotifications() async {
+    await _advanceNotificationMutationGeneration();
+    if (_disposed) return;
+    await _notificationScheduleCoordinator.cancelAll().catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      debugPrint('[BapU] meal notification cancellation failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    });
+  }
+
+  Future<void> _advanceNotificationMutationGeneration() {
+    if (_notificationPlatform != MealNotificationPlatform.ios) {
+      return Future.value();
+    }
+    final operation = _notificationGenerationQueue.then((_) async {
+      final next =
+          (_prefs.getInt(StorageKeys.notificationMutationGeneration) ?? 0) + 1;
+      await _prefs.setInt(StorageKeys.notificationMutationGeneration, next);
+    });
+    _notificationGenerationQueue = operation.then<void>(
+      (_) {},
+      onError: (_, _) {},
     );
+    return operation;
   }
   // --- 테마 ---
 
@@ -284,27 +437,41 @@ class AppSettings extends ChangeNotifier {
     _notification = _notification.reset();
     _notificationAuthorizationStatus = null;
     _themeMode = ThemeMode.system;
-    _cancelAllMealNotifications();
-    _prefs.setStringList(StorageKeys.allergenIds, []);
-    _prefs.setBool(StorageKeys.notificationEnabled, false);
-    _prefs.setStringList(StorageKeys.notificationKeywords, []);
+    final persistence = <Future<bool>>[
+      _prefs.setStringList(StorageKeys.allergenIds, []),
+      _prefs.setBool(StorageKeys.notificationEnabled, false),
+      _prefs.setStringList(StorageKeys.notificationKeywords, []),
+    ];
     for (final period in MealNotificationPeriod.values) {
-      _prefs.remove(
-        '${StorageKeys.notificationPeriodTimePrefix}${period.name}',
-      );
-      _prefs.remove(
-        '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
-      );
+      persistence.addAll([
+        _prefs.remove(
+          '${StorageKeys.notificationPeriodTimePrefix}${period.name}',
+        ),
+        _prefs.remove(
+          '${StorageKeys.notificationPeriodRememberedPrefix}${period.name}',
+        ),
+      ]);
     }
-    _prefs.remove(StorageKeys.notificationCafeterias); // 기본값(빈 집합)으로 복귀
-    _prefs.remove(StorageKeys.notificationDormMealTypes); // 기본값(한식+할랄)으로 복귀
-    _prefs.remove(StorageKeys.notificationDays); // 기본값(모든 요일)으로 복귀
-    _prefs.setString(StorageKeys.themeMode, ThemeMode.system.name);
+    persistence.addAll([
+      _prefs.remove(StorageKeys.notificationCafeterias),
+      _prefs.remove(StorageKeys.notificationDormMealTypes),
+      _prefs.remove(StorageKeys.notificationDays),
+      _prefs.setString(StorageKeys.themeMode, ThemeMode.system.name),
+    ]);
     notifyListeners();
+    unawaited(_finishReset(persistence));
+  }
+
+  Future<void> _finishReset(List<Future<bool>> persistence) async {
+    await Future.wait(persistence);
+    if (_disposed) return;
+    await _runCancelAllMealNotifications();
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    _disposeResumeListener?.call();
     _notificationScheduleCoordinator.dispose();
     super.dispose();
   }
@@ -327,4 +494,49 @@ class AppSettings extends ChangeNotifier {
   // --- 시간 문자열 파싱/포매팅 헬퍼 ---
 
   static String _formatTime(TimeOfDay t) => '${t.hour}:${t.minute}';
+}
+
+VoidCallback _registerResumeListener(VoidCallback onResume) {
+  final listener = AppLifecycleListener(onResume: onResume);
+  return listener.dispose;
+}
+
+Future<void> _defaultForegroundMealRefresh(
+  DateTime now,
+  bool waitForNextWeekPrefetch,
+) async {
+  await fetchAndCacheCanonicalMealData(
+    now: now,
+    waitForNextWeekPrefetch: waitForNextWeekPrefetch,
+  );
+}
+
+Future<MealCacheRevisionSnapshot> _defaultMealCacheRevisionSnapshot() async => (
+  current: await MealCache().readRevision(),
+  next: await MealCache(fileName: StorageKeys.nextMealCacheFile).readRevision(),
+);
+
+bool _needsSundayNextWeekTopUp(MealCacheRevision? revision, DateTime now) {
+  final nowKst = MealTimeConfig.toKst(now);
+  if (nowKst.weekday != DateTime.sunday) return false;
+  final expectedWeek = kstWeekStartForInstant(now).add(const Duration(days: 7));
+  if (revision == null || !_revisionTargetsWeek(revision, expectedWeek)) {
+    return true;
+  }
+  final writtenAt = revision.updatedAt;
+  final writtenKst = MealTimeConfig.toKst(writtenAt);
+  return writtenKst.year != nowKst.year ||
+      writtenKst.month != nowKst.month ||
+      writtenKst.day != nowKst.day;
+}
+
+bool _revisionTargetsWeek(MealCacheRevision revision, DateTime expectedWeek) {
+  try {
+    final actual = parseWeekMeta(revision.rawMeal).startDate;
+    return actual.year == expectedWeek.year &&
+        actual.month == expectedWeek.month &&
+        actual.day == expectedWeek.day;
+  } on FormatException {
+    return false;
+  }
 }

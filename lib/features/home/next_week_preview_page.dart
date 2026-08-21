@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
+import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'week_menu_scaffold.dart';
 
@@ -15,12 +17,14 @@ class NextWeekPreviewPage extends StatefulWidget {
     required this.appInfo,
     this.refreshNextWeekStart,
     this.loadDatedWeek,
+    this.onNextWeekMealRefreshed,
   });
 
   final Future<String?> nextWeekStartFuture;
   final Future<AppInfo> appInfo;
   final Future<String?> Function()? refreshNextWeekStart;
   final DatedWeekMealLoader? loadDatedWeek;
+  final VoidCallback? onNextWeekMealRefreshed;
 
   @override
   State<NextWeekPreviewPage> createState() => _NextWeekPreviewPageState();
@@ -77,6 +81,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
           nextWeekStart: nextWeekStart,
           appInfo: widget.appInfo,
           loadDatedWeek: widget.loadDatedWeek ?? fetchAndCacheMealDataForWeek,
+          onMealRefreshed: widget.onNextWeekMealRefreshed,
         );
       },
     );
@@ -105,11 +110,13 @@ class _NextWeekMenu extends StatefulWidget {
     required this.nextWeekStart,
     required this.appInfo,
     required this.loadDatedWeek,
+    this.onMealRefreshed,
   });
 
   final String nextWeekStart;
   final Future<AppInfo> appInfo;
   final DatedWeekMealLoader loadDatedWeek;
+  final VoidCallback? onMealRefreshed;
 
   @override
   State<_NextWeekMenu> createState() => _NextWeekMenuState();
@@ -123,7 +130,18 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
   void initState() {
     super.initState();
     _mondayOfWeek = parseWeekStartDate(widget.nextWeekStart);
-    _mealFuture = widget.loadDatedWeek(widget.nextWeekStart);
+    _mealFuture = widget.loadDatedWeek(widget.nextWeekStart).then((meal) {
+      final callback = widget.onMealRefreshed;
+      if (callback != null) {
+        callback();
+      } else if (mounted) {
+        Provider.of<AppSettings?>(
+          context,
+          listen: false,
+        )?.reconcileIosMealNotificationsAfterForegroundRefresh();
+      }
+      return meal;
+    });
   }
 
   @override

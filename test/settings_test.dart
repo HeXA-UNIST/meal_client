@@ -6,6 +6,7 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
+import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/settings/allergy/allergy_settings.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
@@ -166,7 +167,12 @@ void main() {
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule:
-              (settings, {required clearPendingFirst, currentWeek}) async {},
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {},
           cancel: () async {},
         ),
         notificationPermissionRequester: () async => true,
@@ -244,7 +250,12 @@ void main() {
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule:
-              (settings, {required clearPendingFirst, currentWeek}) async {},
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {},
           cancel: () async {},
         ),
         notificationPermissionRequester: () async {
@@ -271,7 +282,12 @@ void main() {
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           debounce: Duration.zero,
           schedule:
-              (settings, {required clearPendingFirst, currentWeek}) async {
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {
                 scheduleCount++;
               },
           cancel: () async {},
@@ -285,13 +301,13 @@ void main() {
       final countAfterEnable = scheduleCount;
 
       settings.addNotificationKeyword('국');
-      await Future<void>.delayed(Duration.zero);
+      await _waitUntil(() => scheduleCount == countAfterEnable + 1);
       settings.removeNotificationKeyword('국');
-      await Future<void>.delayed(Duration.zero);
+      await _waitUntil(() => scheduleCount == countAfterEnable + 2);
       settings.setNotificationCafeterias({Cafeteria.student});
-      await Future<void>.delayed(Duration.zero);
+      await _waitUntil(() => scheduleCount == countAfterEnable + 3);
       settings.setNotificationDormMealTypes({DormMealType.korean});
-      await Future<void>.delayed(Duration.zero);
+      await _waitUntil(() => scheduleCount == countAfterEnable + 4);
 
       expect(scheduleCount, countAfterEnable + 4);
     });
@@ -304,7 +320,12 @@ void main() {
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           debounce: Duration.zero,
           schedule:
-              (settings, {required clearPendingFirst, currentWeek}) async {},
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {},
           cancel: () async => cancelCount++,
         ),
         notificationPermissionRequester: () async => true,
@@ -332,7 +353,12 @@ void main() {
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule:
-              (settings, {required clearPendingFirst, currentWeek}) async {},
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {},
           cancel: () async {},
         ),
         notificationPermissionRequester: () async => true,
@@ -345,6 +371,173 @@ void main() {
       status.complete(MealNotificationAuthorizationStatus.notAuthorized);
       await refresh;
 
+      expect(settings.notificationAuthorizationStatus, isNull);
+    });
+
+    test('iOS resume은 매번 재조정하지만 1시간 이내 foreground fetch는 생략한다', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_enabled': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.utc(2026, 8, 20, 3);
+      VoidCallback? onResume;
+      var scheduleCount = 0;
+      var refreshCount = 0;
+      var currentRevision = (
+        rawMeal: _rawWeek('2026-08-17'),
+        updatedAt: now.subtract(const Duration(minutes: 10)),
+      );
+      final settings = AppSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.ios,
+        resumeListenerRegistrar: (listener) {
+          onResume = listener;
+          return () {};
+        },
+        clock: () => now,
+        mealCacheRevisionSnapshotReader: () async =>
+            (current: currentRevision, next: null),
+        foregroundMealRefresher: (now, waitForNextWeekPrefetch) async {
+          refreshCount++;
+          currentRevision = (
+            rawMeal: '${_rawWeek('2026-08-17')} ',
+            updatedAt: now,
+          );
+        },
+        notificationAuthorizationStatusReader: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule:
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {
+                scheduleCount++;
+              },
+          cancel: () async {},
+        ),
+      );
+      settingsToDispose.add(settings);
+
+      onResume!();
+      await _waitUntil(() => scheduleCount == 1);
+      onResume!();
+      await _waitUntil(() => scheduleCount == 2);
+
+      expect(refreshCount, isZero);
+
+      currentRevision = (
+        rawMeal: currentRevision.rawMeal,
+        updatedAt: now.subtract(const Duration(hours: 2)),
+      );
+      onResume!();
+      await _waitUntil(() => refreshCount == 1);
+
+      expect(refreshCount, 1);
+    });
+
+    test('KST 일요일 next-week top-up은 1시간 제한을 무시하고 중복 실행하지 않는다', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_enabled': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.utc(2026, 8, 23, 3); // KST 일요일 정오
+      VoidCallback? onResume;
+      var refreshCount = 0;
+      var waitForNextWeek = false;
+      var scheduleCount = 0;
+      MealCacheRevisionSnapshot revisions = (
+        current: (rawMeal: _rawWeek('2026-08-17'), updatedAt: now),
+        next: (
+          rawMeal: _rawWeek('2026-08-24'),
+          updatedAt: now.subtract(const Duration(days: 1)),
+        ),
+      );
+      final refreshCompleted = Completer<void>();
+      final settings = AppSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.ios,
+        resumeListenerRegistrar: (listener) {
+          onResume = listener;
+          return () {};
+        },
+        clock: () => now,
+        mealCacheRevisionSnapshotReader: () async => revisions,
+        foregroundMealRefresher: (instant, wait) async {
+          refreshCount++;
+          waitForNextWeek = wait;
+          await refreshCompleted.future;
+        },
+        notificationAuthorizationStatusReader: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule:
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {
+                scheduleCount++;
+              },
+          cancel: () async {},
+        ),
+      );
+      settingsToDispose.add(settings);
+
+      onResume!();
+      await _waitUntil(() => refreshCount == 1);
+      revisions = (
+        current: (rawMeal: _rawWeek('2026-08-17'), updatedAt: now),
+        next: (rawMeal: '${_rawWeek('2026-08-24')} ', updatedAt: now),
+      );
+      refreshCompleted.complete();
+      await _waitUntil(() => scheduleCount == 2);
+
+      expect(refreshCount, 1);
+      expect(waitForNextWeek, isTrue);
+      expect(scheduleCount, 2);
+    });
+
+    test('dispose 중인 iOS resume 권한 조회는 상태와 예약을 변경하지 않는다', () async {
+      SharedPreferences.setMockInitialValues({
+        'settings_notification_enabled': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final authorization = Completer<MealNotificationAuthorizationStatus>();
+      VoidCallback? onResume;
+      var scheduleCount = 0;
+      final settings = AppSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.ios,
+        resumeListenerRegistrar: (listener) {
+          onResume = listener;
+          return () {};
+        },
+        notificationAuthorizationStatusReader: () => authorization.future,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule:
+              (
+                settings, {
+                required clearPendingFirst,
+                required isCurrent,
+                currentWeek,
+              }) async {
+                scheduleCount++;
+              },
+          cancel: () async {},
+        ),
+      );
+
+      onResume!();
+      settings.dispose();
+      authorization.complete(MealNotificationAuthorizationStatus.enabled);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(scheduleCount, isZero);
       expect(settings.notificationAuthorizationStatus, isNull);
     });
 
@@ -532,3 +725,14 @@ void main() {
     });
   });
 }
+
+Future<void> _waitUntil(bool Function() condition) async {
+  for (var attempt = 0; attempt < 50; attempt++) {
+    if (condition()) return;
+    await Future<void>.delayed(Duration.zero);
+  }
+  fail('비동기 조건이 완료되지 않았습니다.');
+}
+
+String _rawWeek(String startDate) =>
+    '{"week":{"startDate":"$startDate","isCurrentWeek":true},"data":[]}';
