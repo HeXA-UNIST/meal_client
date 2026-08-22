@@ -231,10 +231,10 @@ void main() {
 
     expect(korean.map((content) => content.id), [1, 2, 3, 4]);
     expect(korean.map((content) => content.title), [
-      '기숙사 식당(한식) 점심 메뉴를 알려드려요.',
-      '기숙사 식당(할랄) 점심 메뉴를 알려드려요.',
-      '학생 식당 점심 메뉴를 알려드려요.',
-      '교직원 식당 점심 메뉴를 알려드려요.',
+      '기숙사 식당(한식) 점심 메뉴 알림',
+      '기숙사 식당(할랄) 점심 메뉴 알림',
+      '학생 식당 점심 메뉴 알림',
+      '교직원 식당 점심 메뉴 알림',
     ]);
     expect(korean.map((content) => content.body), [
       '김치찌개 / 공기밥',

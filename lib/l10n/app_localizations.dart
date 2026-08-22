@@ -383,7 +383,7 @@ abstract class AppLocalizations {
   /// No description provided for @mealNotificationTitle.
   ///
   /// In ko, this message translates to:
-  /// **'{cafeteria} {mealPeriod} 메뉴를 알려드려요.'**
+  /// **'{cafeteria} {mealPeriod} 메뉴 알림'**
   String mealNotificationTitle(String cafeteria, String mealPeriod);
 
   /// No description provided for @notificationTodayBreakfast.
@@ -503,7 +503,7 @@ abstract class AppLocalizations {
   /// No description provided for @androidNotificationTimingNotice.
   ///
   /// In ko, this message translates to:
-  /// **'Android에서는 기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.'**
+  /// **'기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.'**
   String get androidNotificationTimingNotice;
 
   /// No description provided for @notificationSyncFailed.

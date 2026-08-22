@@ -225,7 +225,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get androidNotificationTimingNotice =>
-      'On Android, device power restrictions may delay notifications beyond the selected time.';
+      'Device power restrictions may delay notifications beyond the selected time.';
 
   @override
   String get notificationSyncFailed =>

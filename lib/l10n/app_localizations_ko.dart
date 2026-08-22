@@ -155,7 +155,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String mealNotificationTitle(String cafeteria, String mealPeriod) {
-    return '$cafeteria $mealPeriod 메뉴를 알려드려요.';
+    return '$cafeteria $mealPeriod 메뉴 알림';
   }
 
   @override
@@ -222,7 +222,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get androidNotificationTimingNotice =>
-      'Android에서는 기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.';
+      '기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.';
 
   @override
   String get notificationSyncFailed => '알림 설정을 적용하지 못했습니다.';

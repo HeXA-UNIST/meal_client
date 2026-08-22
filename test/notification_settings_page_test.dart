@@ -20,7 +20,7 @@ void main() {
     addTearDown(settings.dispose);
 
     expect(
-      find.text('Android에서는 기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.'),
+      find.text('기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.'),
       findsOneWidget,
     );
     expect(

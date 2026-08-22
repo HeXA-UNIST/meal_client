@@ -180,6 +180,31 @@ void main() {
       expect(canceled, [orphanedId]);
     });
 
+    test('다음 주 데이터가 없어도 현재 설정에서 해제한 pending은 취소한다', () async {
+      final nextWeekId = _ownedId(DateTime.utc(2026, 7, 27));
+      final canceled = <int>[];
+
+      await reconcileScheduledMealNotifications(
+        settings: enabledSettings.copyWith(
+          cafeterias: const {Cafeteria.faculty},
+        ),
+        currentWeek: (
+          startDate: DateTime.utc(2026, 7, 20),
+          weekMeal: WeekMeal.empty(),
+        ),
+        nowProvider: () => DateTime(2026, 7, 19, 10),
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        readPendingIds: () async => [nextWeekId],
+        cancelPending: (id) async => canceled.add(id),
+        loadNextWeek: () async => null,
+        upsertNotification: (_) async {},
+        l10n: AppLocalizationsKo(),
+      );
+
+      expect(canceled, [nextWeekId]);
+    });
+
     group('배달 대기 유예', () {
       final mondayLunchId = _ownedId(DateTime.utc(2026, 7, 20));
       final mondayLunchFireInstant = fireInstantForTarget(
@@ -188,9 +213,17 @@ void main() {
         alertTime: const TimeOfDay(hour: 11, minute: 0),
       );
 
+      final dormKoreanLunchId = scheduledMealNotificationId(
+        period: MealNotificationPeriod.lunch,
+        contentId: 1,
+        targetDate: DateTime.utc(2026, 7, 20),
+        alertTime: const TimeOfDay(hour: 11, minute: 0),
+      );
+
       Future<List<int>> reconcileAt(
         DateTime now, {
         NotificationSettings? settings,
+        List<int>? pending,
       }) async {
         final canceled = <int>[];
         await reconcileScheduledMealNotifications(
@@ -202,7 +235,7 @@ void main() {
           nowProvider: () => now,
           readAuthorizationStatus: () async =>
               MealNotificationAuthorizationStatus.enabled,
-          readPendingIds: () async => [mondayLunchId],
+          readPendingIds: () async => pending ?? [mondayLunchId],
           cancelPending: (id) async => canceled.add(id),
           loadNextWeek: () async => null,
           upsertNotification: (_) async {},
@@ -248,6 +281,61 @@ void main() {
             settings: enabledSettings.copyWith(days: const {DayOfWeek.tue}),
           ),
           [mondayLunchId],
+        );
+      });
+
+      test('사용자가 해제한 식당은 유예 없이 취소한다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(const Duration(seconds: 22)),
+            settings: enabledSettings.copyWith(
+              cafeterias: const {Cafeteria.faculty},
+            ),
+          ),
+          [mondayLunchId],
+        );
+      });
+
+      test('기숙사 메뉴 종류를 유지하면 유예 중 보존한다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(const Duration(seconds: 22)),
+            settings: enabledSettings.copyWith(
+              dormMealTypes: const {DormMealType.korean},
+            ),
+            pending: [dormKoreanLunchId],
+          ),
+          isEmpty,
+        );
+      });
+
+      test('사용자가 해제한 기숙사 메뉴 종류는 유예 없이 취소한다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(const Duration(seconds: 22)),
+            settings: enabledSettings.copyWith(
+              dormMealTypes: const {DormMealType.halal},
+            ),
+            pending: [dormKoreanLunchId],
+          ),
+          [dormKoreanLunchId],
+        );
+      });
+
+      test('더 이른 시각으로 변경하면 기존 시각의 pending을 보존하지 않는다', () async {
+        final oldTimeId = scheduledMealNotificationId(
+          period: MealNotificationPeriod.lunch,
+          contentId: 3,
+          targetDate: DateTime.utc(2026, 7, 20),
+          alertTime: const TimeOfDay(hour: 11, minute: 15),
+        );
+
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.subtract(const Duration(seconds: 20)),
+            pending: [oldTimeId],
+          ),
+          [oldTimeId],
         );
       });
     });
@@ -385,6 +473,7 @@ int _ownedId(DateTime targetDate) => scheduledMealNotificationId(
   period: MealNotificationPeriod.lunch,
   contentId: 3,
   targetDate: targetDate,
+  alertTime: const TimeOfDay(hour: 11, minute: 0),
 );
 
 WeekMeal _weekWithLunchMenus(Set<DayOfWeek> days) {

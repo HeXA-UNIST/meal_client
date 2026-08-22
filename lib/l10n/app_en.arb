@@ -89,7 +89,7 @@
   "notificationPermissionDenied": "Notification permission denied. Please allow it in settings.",
   "notificationPermissionUnavailable": "Notifications may not appear. Check the permission in system settings.",
   "openSystemAppSettings": "Open Settings",
-  "androidNotificationTimingNotice": "On Android, device power restrictions may delay notifications beyond the selected time.",
+  "androidNotificationTimingNotice": "Device power restrictions may delay notifications beyond the selected time.",
   "notificationSyncFailed": "Notification settings could not be applied.",
   "retry": "Retry"
 }
