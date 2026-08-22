@@ -15,6 +15,15 @@ const kScheduledMealNotificationIdEnd = 140000000;
 const kMaxScheduledMealNotifications = 64;
 const kMealNotificationScheduleLeadTime = Duration(seconds: 30);
 
+/// 예약 시각이 지난 pending을 stale로 판정하기까지 기다리는 시간.
+///
+/// Android는 `inexactAllowWhileIdle` 알람에 지연 창을 붙여 예약 시각보다 늦게
+/// 배달한다(AlarmManager는 잔여 시간의 75%를 창으로 잡고 1시간에서 자른다).
+/// 창이 닫히기 전에 reconcile이 돌면 아직 배달되지 않은 알림이 batch에서 빠지는데,
+/// 이때 곧바로 취소하면 사용자는 그 끼니 알림을 영영 받지 못한다. 그래서 시각이
+/// 지난 pending도 이 시간 동안은 배달 대기로 보고 그대로 둔다.
+const kMealNotificationDeliveryGrace = Duration(hours: 1);
+
 typedef ScheduledMealNotification = ({
   int id,
   DateTime fireInstant,
@@ -159,6 +168,7 @@ Future<void> reconcileScheduledMealNotifications({
   ScheduledMealPendingCanceler? cancelPending,
   ScheduledMealNotificationUpserter? upsertNotification,
   int maxNotifications = kMaxScheduledMealNotifications,
+  Duration deliveryGrace = kMealNotificationDeliveryGrace,
   AppLocalizations? l10n,
 }) async {
   final currentGeneration = isCurrent ?? () => true;
@@ -196,11 +206,19 @@ Future<void> reconcileScheduledMealNotifications({
   }
 
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
-  final retainedIds = next != null
-      ? const <int>[]
-      : pending
-            .where((id) => _idTargetsWeek(id, expectedNextWeekStart))
-            .toList(growable: false);
+  final retainedIds = <int>{
+    if (next == null)
+      ...pending.where((id) => _idTargetsWeek(id, expectedNextWeekStart)),
+    // 배달 창이 아직 열려 있는 pending은 batch에서 빠지더라도 취소하지 않는다.
+    ...pending.where(
+      (id) => _isAwaitingDelivery(
+        id: id,
+        settings: settings,
+        now: instant,
+        grace: deliveryGrace,
+      ),
+    ),
+  };
   final batch = buildMealNotificationBatch(
     settings: settings,
     l10n: l10n ?? notificationLocalizations(),
@@ -316,6 +334,62 @@ Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
   return cached == null
       ? null
       : (startDate: startDate, weekMeal: cached.weekMeal);
+}
+
+typedef _OwnedNotificationTarget = ({
+  MealNotificationPeriod period,
+  DateTime targetDate,
+});
+
+/// 소유 ID를 발급 근거였던 시간대와 KST 대상 날짜로 되돌린다.
+_OwnedNotificationTarget? _ownedNotificationTarget(int id) {
+  if (!isScheduledMealNotificationId(id)) return null;
+  final periodIndex = (id - kScheduledMealNotificationIdStart) ~/ 10000000;
+  if (periodIndex >= MealNotificationPeriod.values.length) return null;
+  return (
+    period: MealNotificationPeriod.values[periodIndex],
+    targetDate: DateTime.utc(1970).add(Duration(days: id % 1000000)),
+  );
+}
+
+/// 예약 시각은 지났지만 OS가 아직 배달하지 않았을 수 있는 pending인지 판단한다.
+///
+/// 현재 설정 기준으로 더 이상 발송 대상이 아닌 ID(시간대를 껐거나 요일을 뺀 경우)는
+/// 사용자가 명시적으로 끈 것이므로 유예 없이 취소되게 둔다.
+bool _isAwaitingDelivery({
+  required int id,
+  required NotificationSettings settings,
+  required DateTime now,
+  required Duration grace,
+  Duration leadTime = kMealNotificationScheduleLeadTime,
+}) {
+  if (!settings.enabled) return false;
+
+  final target = _ownedNotificationTarget(id);
+  if (target == null) return false;
+
+  final alertTime = settings.alertTimeOf(target.period);
+  if (alertTime == null) return false;
+  if (!settings.days.contains(
+    DayOfWeek.values[target.targetDate.weekday - 1],
+  )) {
+    return false;
+  }
+
+  final DateTime fireInstant;
+  try {
+    fireInstant = fireInstantForTarget(
+      period: target.period,
+      targetKstDate: target.targetDate,
+      alertTime: alertTime,
+    );
+  } on StateError {
+    return false;
+  }
+
+  // batch는 `now + leadTime` 이후만 담으므로, 그 앞의 유예 구간만 여기서 맡는다.
+  return !fireInstant.isBefore(now.subtract(grace)) &&
+      fireInstant.isBefore(now.add(leadTime));
 }
 
 bool _idTargetsWeek(int id, DateTime weekStart) {

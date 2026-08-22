@@ -180,6 +180,78 @@ void main() {
       expect(canceled, [orphanedId]);
     });
 
+    group('배달 대기 유예', () {
+      final mondayLunchId = _ownedId(DateTime.utc(2026, 7, 20));
+      final mondayLunchFireInstant = fireInstantForTarget(
+        period: MealNotificationPeriod.lunch,
+        targetKstDate: DateTime.utc(2026, 7, 20),
+        alertTime: const TimeOfDay(hour: 11, minute: 0),
+      );
+
+      Future<List<int>> reconcileAt(
+        DateTime now, {
+        NotificationSettings? settings,
+      }) async {
+        final canceled = <int>[];
+        await reconcileScheduledMealNotifications(
+          settings: settings ?? enabledSettings,
+          currentWeek: (
+            startDate: DateTime.utc(2026, 7, 20),
+            weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
+          ),
+          nowProvider: () => now,
+          readAuthorizationStatus: () async =>
+              MealNotificationAuthorizationStatus.enabled,
+          readPendingIds: () async => [mondayLunchId],
+          cancelPending: (id) async => canceled.add(id),
+          loadNextWeek: () async => null,
+          upsertNotification: (_) async {},
+          l10n: AppLocalizationsKo(),
+        );
+        return canceled;
+      }
+
+      test('예약 시각 직후 재조정은 아직 배달되지 않은 pending을 남긴다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(const Duration(seconds: 22)),
+          ),
+          isEmpty,
+        );
+      });
+
+      test('유예가 끝나면 배달되지 않은 pending을 정리한다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(
+              kMealNotificationDeliveryGrace + const Duration(minutes: 1),
+            ),
+          ),
+          [mondayLunchId],
+        );
+      });
+
+      test('사용자가 끈 시간대는 유예 없이 취소한다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(const Duration(seconds: 22)),
+            settings: enabledSettings.copyWith(alertTimes: const {}),
+          ),
+          [mondayLunchId],
+        );
+      });
+
+      test('사용자가 뺀 요일은 유예 없이 취소한다', () async {
+        expect(
+          await reconcileAt(
+            mondayLunchFireInstant.add(const Duration(seconds: 22)),
+            settings: enabledSettings.copyWith(days: const {DayOfWeek.tue}),
+          ),
+          [mondayLunchId],
+        );
+      });
+    });
+
     test('호출 사이에 과거가 된 scheduledDate만 건너뛴다', () async {
       var clockReads = 0;
       DateTime clock() => ++clockReads < 3
