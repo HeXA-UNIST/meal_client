@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -26,8 +27,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val pending = goAsync()
-        Thread {
+        enqueueBroadcastWork {
             try {
                 BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, appWidgetIds) { id, data ->
                     performUpdate(context, appWidgetManager, id, data)
@@ -35,10 +35,10 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                 // onEnabled는 위젯이 처음 추가될 때만 불리므로, 앱 업데이트로 재설치된 경우
                 // 기존 위젯의 예약 호출 체인이 안 걸려있을 수 있다. 여기서도 매번 보정해준다.
                 BapUWidgetScheduleManager.scheduleNext(context)
-            } finally {
-                pending.finish()
+            } catch (e: Exception) {
+                Log.e(TAG, "widget update failed", e)
             }
-        }.start()
+        }
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -47,27 +47,40 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         appWidgetId: Int,
         newOptions: Bundle
     ) {
-        val pending = goAsync()
-        Thread {
+        enqueueBroadcastWork {
             try {
                 BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, intArrayOf(appWidgetId)) { id, data ->
                     performUpdate(context, appWidgetManager, id, data)
                 }
-            } finally {
-                pending.finish()
+            } catch (e: Exception) {
+                Log.e(TAG, "widget options update failed", e)
             }
-        }.start()
+        }
     }
 
     override fun onEnabled(context: Context) {
-        BapUWidgetUpdateDispatcher.renderAllWidgets(context)
-        BapUWidgetScheduleManager.scheduleNext(context)
+        enqueueBroadcastWork {
+            BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
+            BapUWidgetScheduleManager.scheduleNext(context)
+        }
     }
 
     override fun onDisabled(context: Context) {
         if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
             BapUWidgetUpdateWorker.cancelLegacy(context)
             BapUWidgetScheduleManager.cancel(context)
+        }
+    }
+
+    /** BroadcastReceiver의 수명 안에서 모든 무거운 cache/render 작업을 공용 큐로 넘긴다. */
+    private fun enqueueBroadcastWork(block: () -> Unit) {
+        val pending = goAsync()
+        BapUWidgetUpdateDispatcher.execute {
+            try {
+                block()
+            } finally {
+                pending.finish()
+            }
         }
     }
 }

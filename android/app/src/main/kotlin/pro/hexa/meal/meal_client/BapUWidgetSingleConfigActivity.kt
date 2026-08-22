@@ -9,8 +9,10 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.view.WindowInsets
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RadioButton
 import android.widget.TextView
 
 /**
@@ -75,16 +77,25 @@ class BapUWidgetSingleConfigActivity : Activity() {
         refreshSelection()
 
         // 미리보기용 캐시 데이터 로드 (cache-only라 가볍지만 파일 IO는 스레드로)
-        Thread {
+        BapUWidgetUpdateDispatcher.execute {
             val data = BapUWidgetFetcher.fetch(applicationContext)
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 previewData = data
                 bindPreview()
             }
-        }.start()
+        }
 
         items.forEachIndexed { index, layout ->
+            layout.accessibilityDelegate = object : View.AccessibilityDelegate() {
+                @Suppress("DEPRECATION")
+                override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    info.className = RadioButton::class.java.name
+                    info.isCheckable = true
+                    info.isChecked = host.isSelected
+                }
+            }
             layout.setOnClickListener {
                 selectedCafeteria = CAFE_OPTIONS[index]
                 refreshSelection()
@@ -92,20 +103,27 @@ class BapUWidgetSingleConfigActivity : Activity() {
         }
 
         findViewById<Button>(R.id.btn_confirm).setOnClickListener {
+            it.isEnabled = false
             saveSingleCafeteria(this, appWidgetId, selectedCafeteria)
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
             val ctx = applicationContext
-            Thread {
+            BapUWidgetUpdateDispatcher.execute {
                 try {
                     BapUWidgetUpdateDispatcher.renderAllWidgets(ctx)
                 } catch (e: Exception) {
                     Log.e(TAG, "widget render failed", e)
+                } finally {
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed) return@runOnUiThread
+                        setResult(
+                            RESULT_OK,
+                            Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+                        )
+                        finish()
+                    }
                 }
-            }.start()
-
-            setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-            finish()
+            }
         }
     }
 
@@ -113,6 +131,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
         val selectedIndex = CAFE_OPTIONS.indexOf(selectedCafeteria).takeIf { it >= 0 } ?: 0
         items.forEachIndexed { index, layout ->
             val selected = index == selectedIndex
+            layout.isSelected = selected
             layout.setBackgroundResource(
                 if (selected) R.drawable.widget_config_item_selected
                 else R.drawable.widget_config_item_normal

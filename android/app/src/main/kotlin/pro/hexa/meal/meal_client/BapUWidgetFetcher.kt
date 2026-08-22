@@ -12,6 +12,7 @@ data class WidgetMealData(
     val studentKcal: Int? = null,
     val facultyMenu: List<String> = emptyList(),
     val facultyKcal: Int? = null,
+    val operatingResults: Map<Int, OperatingResult> = emptyMap(),
     val errorMessageResId: Int? = null,
 ) {
     val isError: Boolean
@@ -59,7 +60,7 @@ fun WidgetMealData.menuItems(context: Context, cafeteria: Int): List<String> =
  */
 fun WidgetMealData.operatingStatus(context: Context, cafeteria: Int): Pair<Int, String> =
     if (isError) Pair(context.getColor(R.color.widget_status_closed), context.getString(R.string.widget_no_menu))
-    else operatingStatusDisplay(context, cafeteria, mealOfDay)
+    else operatingStatusDisplay(context, operatingResults[cafeteria])
 
 fun menuFromData(data: WidgetMealData, cafeteria: Int): List<String> = when (WidgetCafeteria.fromPrefValue(cafeteria)) {
     WidgetCafeteria.DORM_KOREAN -> data.dormKoreanMenu

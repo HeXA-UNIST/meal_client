@@ -14,7 +14,7 @@ object BapUWidgetMealRepository {
         val mealOfDay = BapUWidgetOperatingHours.currentMealOfDay(hours, calendar)
         val dayType = BapUWidgetTime.dayOfWeekApiKey(calendar)
         val languageCode = currentLanguageCode(context)
-        return selectMealData(
+        val data = selectMealData(
             canonicalFile = File(context.filesDir, BapUWidgetContract.MEAL_CACHE_FILE),
             nextWeekFile = File(context.filesDir, BapUWidgetContract.NEXT_MEAL_CACHE_FILE),
             targetWeekStart = BapUWidgetTime.kstWeekStartApiValue(calendar),
@@ -22,6 +22,12 @@ object BapUWidgetMealRepository {
             mealOfDay = mealOfDay,
             languageCode = languageCode,
         ) ?: WidgetMealData.empty(mealOfDay)
+        // 한 render pass가 같은 시각과 같은 info.json 해석을 공유하도록 여기서 한 번만 계산한다.
+        // responsive RemoteViews의 size별 렌더가 다시 파일을 읽지 않게 한다.
+        val operatingResults = CAFE_OPTIONS.associateWith { cafeteria ->
+            requireNotNull(BapUWidgetOperatingHours.statusFor(hours, cafeteria, mealOfDay.index, calendar))
+        }
+        return data.copy(operatingResults = operatingResults)
     }
 
     /// payload week.startDate가 현재 KST 주와 일치하는 파일을 고른다.

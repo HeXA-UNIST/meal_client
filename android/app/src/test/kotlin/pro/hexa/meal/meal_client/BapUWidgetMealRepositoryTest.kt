@@ -1,6 +1,7 @@
 package pro.hexa.meal.meal_client
 
 import java.io.File
+import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -60,7 +61,7 @@ class BapUWidgetMealRepositoryTest {
         nextRaw: String?,
         action: (File, File) -> Unit,
     ) {
-        val directory = createTempDir(prefix = "bapu-widget-")
+        val directory = Files.createTempDirectory("bapu-widget-").toFile()
         try {
             val canonical = File(directory, BapUWidgetContract.MEAL_CACHE_FILE).apply {
                 writeText(canonicalRaw)

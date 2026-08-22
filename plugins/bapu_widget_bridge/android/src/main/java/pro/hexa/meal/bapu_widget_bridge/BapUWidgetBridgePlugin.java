@@ -3,11 +3,13 @@ package pro.hexa.meal.bapu_widget_bridge;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.function.Consumer;
 
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -51,22 +53,39 @@ public final class BapUWidgetBridgePlugin implements FlutterPlugin, MethodChanne
             return;
         }
 
-        // 위젯 렌더는 캐시 파일 읽기 + JSON 파싱 + 뷰 measure를 포함해 무겁다. MethodChannel
-        // 핸들러는 플랫폼(메인) 스레드에서 실행되므로, 백그라운드에서 렌더하고 결과만 메인으로
-        // 되돌려 앱 UI 스레드를 막지 않는다. (provider/receiver 경로의 goAsync+Thread와 동일한 모델)
+        // 실제 렌더는 app 모듈의 단일 executor가 맡는다. 여기서는 reflection으로 작업을 넣고
+        // 완료 결과만 메인 스레드의 MethodChannel에 전달한다.
         final Handler mainHandler = new Handler(Looper.getMainLooper());
-        new Thread(() -> {
-            try {
-                Class<?> dispatcherClass = Class.forName(DISPATCHER_CLASS);
-                Field instanceField = dispatcherClass.getField("INSTANCE");
-                Object dispatcher = instanceField.get(null);
-                Method renderAllWidgets = dispatcherClass.getMethod("renderAllWidgets", Context.class);
-                renderAllWidgets.invoke(dispatcher, context);
-                mainHandler.post(() -> result.success(null));
-            } catch (Exception e) {
-                mainHandler.post(() -> result.error("RENDER_FAILED", e.getMessage(), null));
-            }
-        }).start();
+        try {
+            Class<?> dispatcherClass = Class.forName(DISPATCHER_CLASS);
+            Method enqueue = dispatcherClass.getMethod(
+                    "enqueueRenderAllWidgets", Context.class, Consumer.class);
+            Consumer<Throwable> completion = failure -> mainHandler.post(() -> {
+                if (failure == null) {
+                    result.success(null);
+                } else {
+                    result.error(
+                            "RENDER_FAILED",
+                            failure.getMessage(),
+                            Log.getStackTraceString(failure));
+                }
+            });
+            enqueue.invoke(null, context, completion);
+        } catch (Exception error) {
+            Throwable cause = unwrapReflectionFailure(error);
+            mainHandler.post(() -> result.error(
+                    "RENDER_FAILED",
+                    cause.getMessage(),
+                    Log.getStackTraceString(cause)));
+        }
+    }
+
+    private static Throwable unwrapReflectionFailure(Throwable error) {
+        if (error instanceof InvocationTargetException) {
+            Throwable target = ((InvocationTargetException) error).getTargetException();
+            if (target != null) return target;
+        }
+        return error;
     }
 
     public static void registerWith(@NonNull FlutterEngine flutterEngine) {

@@ -327,8 +327,8 @@ fun RemoteViews.applyTextSizes(
  * info.json 캐시 자체를 못 불러온 경우(운영시간 데이터 없음)는 상태 줄을 숨기지 않고
  * "-"로 표시한다 — 오늘 미운영(NO_SERVICE, "미운영")과는 다른, "몰라서 못 보여줌" 상태.
  */
-fun operatingStatusDisplay(context: Context, cafeteria: Int, mealOfDay: Int): Pair<Int, String> {
-    val result = BapUWidgetOperatingHours.statusFor(context, cafeteria, mealOfDay)
+fun operatingStatusDisplay(context: Context, result: OperatingResult?): Pair<Int, String> {
+    result
         ?: return Pair(context.getColor(R.color.widget_status_closed), context.getString(R.string.widget_no_menu))
     return when (result.status) {
         OperatingStatus.BEFORE_OPEN  -> Pair(

@@ -13,19 +13,24 @@ class BapUWidgetScheduledUpdateReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
-        Thread {
+        BapUWidgetUpdateDispatcher.execute {
             try {
-                BapUWidgetUpdateDispatcher.renderAllWidgets(context)
+                BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
             } catch (e: Exception) {
                 Log.e(TAG, "scheduled update failed", e)
             } finally {
-                // 위젯이 남아있는 한 계속 다음 호출을 예약한다.
-                if (BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
-                    BapUWidgetScheduleManager.scheduleNext(context)
+                try {
+                    // 위젯이 남아있는 한 계속 다음 호출을 예약한다.
+                    if (BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
+                        BapUWidgetScheduleManager.scheduleNext(context)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "next widget update scheduling failed", e)
+                } finally {
+                    pending.finish()
                 }
-                pending.finish()
             }
-        }.start()
+        }
     }
 
     companion object {
