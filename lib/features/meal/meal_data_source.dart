@@ -5,7 +5,7 @@ import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
 
 final _mealCache = MealCache();
-final _mealRefreshService = MealRefreshService(cache: _mealCache);
+final _mealRefreshService = MealRefreshService();
 Future<MealResponse>? _foregroundMealRefresh;
 
 typedef RawMealFetcher = Future<String> Function(String url);
@@ -21,7 +21,7 @@ Future<MealResponse> fetchAndCacheMealData({
   final instant = now ?? DateTime.now();
   final service = fetch == null
       ? _mealRefreshService
-      : MealRefreshService(cache: _mealCache, fetchRaw: fetch);
+      : MealRefreshService(fetchRaw: fetch);
   return service.refreshMealResponse(
     prefetchNextWeek: prefetchNextWeek,
     waitForNextWeekPrefetch: waitForNextWeekPrefetch,

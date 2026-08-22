@@ -80,6 +80,7 @@ void main() {
     final sundayRefreshStarted = Completer<void>();
     final mondayRefreshStarted = Completer<void>();
     final sundayWidgetRefreshStarted = Completer<void>();
+    var widgetRefreshCount = 0;
 
     await tester.pumpWidget(
       _buildHomePage(
@@ -101,7 +102,8 @@ void main() {
           return mondayRefresh.future;
         },
         refreshHomeWidgets: () {
-          if (!sundayWidgetRefreshStarted.isCompleted) {
+          widgetRefreshCount++;
+          if (widgetRefreshCount == 2) {
             sundayWidgetRefreshStarted.complete();
             return sundayWidgetRefresh.future;
           }
@@ -130,6 +132,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(await mondayScaffold.mealFuture, same(mondayResponse.weekMeal));
   });
+
+  testWidgets('늦게 저장된 info cache도 후속 위젯 render를 요청한다', (tester) async {
+    final info = Completer<AppInfo>();
+    var widgetRefreshCount = 0;
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () => info.future,
+        refreshHomeWidgets: () async => widgetRefreshCount++,
+      ),
+    );
+    await tester.pump();
+    expect(widgetRefreshCount, 1);
+
+    info.complete(await _loadEmptyAppInfo());
+    await tester.pump();
+    expect(widgetRefreshCount, 2);
+  });
+
+  testWidgets('info 갱신 실패는 meal cache의 위젯 render를 막지 않는다', (tester) async {
+    var widgetRefreshCount = 0;
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () async => throw Exception('info failed'),
+        refreshHomeWidgets: () async => widgetRefreshCount++,
+      ),
+    );
+    await tester.pump();
+
+    expect(widgetRefreshCount, 1);
+  });
 }
 
 Future<String?>? _nextWeekStart(WeekMenuScaffold scaffold) {
@@ -138,6 +174,7 @@ Future<String?>? _nextWeekStart(WeekMenuScaffold scaffold) {
 
 Widget _buildHomePage(
   DateTime Function() now, {
+  Future<AppInfo> Function()? loadAppInfo,
   Future<MealResponse> Function()? loadCachedMeal,
   Future<MealResponse> Function()? refreshMeal,
   Future<void> Function()? refreshHomeWidgets,
@@ -147,7 +184,7 @@ Widget _buildHomePage(
     supportedLocales: AppLocalizations.supportedLocales,
     home: HomePage(
       now: now,
-      loadAppInfo: _loadEmptyAppInfo,
+      loadAppInfo: loadAppInfo ?? _loadEmptyAppInfo,
       loadCachedMeal:
           loadCachedMeal ??
           () async => _mealResponse(DateTime.utc(2026, 8, 10)),

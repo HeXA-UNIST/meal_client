@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_cache.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 
@@ -47,6 +49,49 @@ void main() {
         throwsA(isA<InfoCacheWriteException>()),
       );
     });
+
+    test('늦게 끝난 이전 요청은 최신 info cache를 덮지 않는다', () async {
+      var rawInfo = _rawInfoJson('기존');
+      var updatedAt = DateTime.utc(2026, 4, 13);
+      var writeTime = updatedAt;
+      final cache = InfoCache(
+        writeFile: (_, data) async {
+          rawInfo = data;
+          updatedAt = writeTime;
+        },
+        readFile: (_) async => rawInfo,
+        readLastModified: (_) async => updatedAt,
+      );
+      final olderResponse = Completer<String>();
+      final newerResponse = Completer<String>();
+      var olderNow = DateTime.utc(2026, 4, 14, 1);
+      var newerNow = DateTime.utc(2026, 4, 14, 2);
+      final older = InfoRefreshService(
+        cache: cache,
+        clock: () => olderNow,
+        fetchRaw: (_) => olderResponse.future,
+      ).refreshInfo();
+      final newer = InfoRefreshService(
+        cache: cache,
+        clock: () => newerNow,
+        fetchRaw: (_) => newerResponse.future,
+      ).refreshInfo();
+
+      newerNow = DateTime.utc(2026, 4, 14, 3);
+      writeTime = newerNow;
+      newerResponse.complete(_rawInfoJson('최신'));
+      await newer;
+
+      olderNow = DateTime.utc(2026, 4, 14, 4);
+      writeTime = olderNow;
+      olderResponse.complete(_rawInfoJson('늦은 이전'));
+      await older;
+
+      expect(
+        AppInfo.fromJson(jsonDecode(rawInfo)).announcement?.content.ko,
+        '최신',
+      );
+    });
   });
 }
 
@@ -62,11 +107,11 @@ InfoCache _memoryInfoCache({void Function(String rawJson)? onWrite}) {
   );
 }
 
-String _rawInfoJson() {
+String _rawInfoJson([String notice = 'notice']) {
   return jsonEncode({
     'announcement': {
       'title': {'ko': 'title', 'en': 'Title'},
-      'content': {'ko': 'notice', 'en': 'Notice'},
+      'content': {'ko': notice, 'en': 'Notice'},
       'showAnnouncementEveryTime': false,
     },
     'operatingHours': {'weekday': _periodJson(), 'weekend': _periodJson()},

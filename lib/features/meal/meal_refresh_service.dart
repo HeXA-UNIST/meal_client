@@ -9,8 +9,9 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 
 typedef RawStringFetcher = Future<String> Function(String url);
-typedef NextWeekCacheWriteLock =
+typedef MealCacheWriteLock =
     Future<void> Function(Future<void> Function() action);
+typedef NextWeekCacheWriteLock = MealCacheWriteLock;
 
 class MealRefreshService {
   MealRefreshService({
@@ -18,6 +19,7 @@ class MealRefreshService {
     MealCache? nextWeekCache,
     RawStringFetcher? fetchRaw,
     DateTime Function()? clock,
+    MealCacheWriteLock? lockCanonicalCache,
     NextWeekCacheWriteLock? lockNextWeekCache,
     bool? supportsSharedCache,
     bool throwOnCacheWriteFailure = false,
@@ -26,6 +28,12 @@ class MealRefreshService {
            nextWeekCache ?? MealCache(fileName: StorageKeys.nextMealCacheFile),
        _fetchRaw = fetchRaw ?? fetchRawString,
        _clock = clock ?? DateTime.now,
+       _lockCanonicalCache =
+           lockCanonicalCache ??
+           (cache == null
+               ? (action) =>
+                     withSharedWidgetFileLock(StorageKeys.mealCacheFile, action)
+               : (action) => action()),
        _lockNextWeekCache =
            lockNextWeekCache ??
            ((action) =>
@@ -37,6 +45,7 @@ class MealRefreshService {
   final MealCache _nextWeekCache;
   final RawStringFetcher _fetchRaw;
   final DateTime Function() _clock;
+  final MealCacheWriteLock _lockCanonicalCache;
   final NextWeekCacheWriteLock _lockNextWeekCache;
   final bool _supportsSharedCache;
   final bool _throwOnCacheWriteFailure;
@@ -58,22 +67,17 @@ class MealRefreshService {
     bool waitForNextWeekPrefetch = false,
     DateTime? now,
   }) async {
+    final requestStartedAt = now ?? _clock();
     final rawMeal = await _fetchRaw(ApiConstants.mealEndpoint);
     final weekMeal = _parseValidRawMeal(rawMeal);
     final weekMeta = parseWeekMeta(rawMeal);
-    final refreshNow = now ?? _clock();
-    final responseIsPast = _isPastWeek(
-      weekMeta.startDate,
-      kstWeekStartForInstant(refreshNow),
+    final canonicalWriteSucceeded = await _commitCanonicalMeal(
+      rawMeal,
+      responseWeekStart: weekMeta.startDate,
+      requestStartedAt: requestStartedAt,
     );
-    var canonicalWriteSucceeded = false;
-    if (!responseIsPast) {
-      canonicalWriteSucceeded = await _writeRawMealJson(rawMeal);
-    } else {
-      debugPrint('[BapU] discarded meal response from a past KST week');
-    }
-    if (prefetchNextWeek && !responseIsPast && canonicalWriteSucceeded) {
-      final prefetch = _prefetchNextWeekIfEligible(weekMeta, refreshNow);
+    if (prefetchNextWeek && canonicalWriteSucceeded) {
+      final prefetch = _prefetchNextWeekIfEligible(weekMeta, _clock());
       if (waitForNextWeekPrefetch) {
         await prefetch;
       } else {
@@ -202,6 +206,44 @@ class MealRefreshService {
         Error.throwWithStackTrace(e, stackTrace);
       }
       debugPrint('[BapU] meal cache write failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  /// 네트워크 완료 순서가 뒤집혀도 먼저 시작한 요청이 최신 cache를 덮지 않게 한다.
+  ///
+  /// 주차 판정과 수정 시각 비교부터 파일 교체까지만 잠그며, 네트워크 요청과
+  /// JSON 파싱은 이 짧은 임계 구역에 포함하지 않는다.
+  Future<bool> _commitCanonicalMeal(
+    String rawMeal, {
+    required DateTime responseWeekStart,
+    required DateTime requestStartedAt,
+  }) async {
+    var written = false;
+    try {
+      await _lockCanonicalCache(() async {
+        if (_isPastWeek(responseWeekStart, kstWeekStartForInstant(_clock()))) {
+          debugPrint('[BapU] discarded meal response from a past KST week');
+          return;
+        }
+        try {
+          final currentUpdatedAt = await _cache.getRawMealUpdatedAt();
+          if (currentUpdatedAt.isAfter(requestStartedAt)) {
+            debugPrint('[BapU] discarded stale canonical meal response');
+            return;
+          }
+        } catch (_) {
+          // cache가 아직 없거나 timestamp를 읽지 못하면 검증된 응답으로 복구한다.
+        }
+        written = await _writeRawMealJson(rawMeal);
+      });
+      return written;
+    } catch (e, stackTrace) {
+      if (_throwOnCacheWriteFailure) {
+        Error.throwWithStackTrace(e, stackTrace);
+      }
+      debugPrint('[BapU] meal cache commit failed: $e');
       debugPrintStack(stackTrace: stackTrace);
       return false;
     }

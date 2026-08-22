@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
@@ -62,8 +64,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initializeModelAndDate();
     _initializeDataLoading();
-    appInfo = (widget.loadAppInfo ?? fetchAppInfo)();
+    appInfo = _loadAppInfo();
     _checkAnnouncement();
+  }
+
+  Future<AppInfo> _loadAppInfo() async {
+    final info = await (widget.loadAppInfo ?? fetchAppInfo)();
+    // 식단과 안내 정보는 독립적으로 갱신된다. info.json이 늦게 저장돼도
+    // 위젯이 오류 화면에 머물지 않도록 각 cache 성공 뒤 따로 다시 그린다.
+    unawaited(_refreshHomeWidgetsAfterInfoCache());
+    return info;
+  }
+
+  Future<void> _refreshHomeWidgetsAfterInfoCache() async {
+    try {
+      await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
+    } catch (e) {
+      assert(() {
+        debugPrint('[BapU] widget refresh after info cache failed: $e');
+        return true;
+      }());
+    }
   }
 
   DateTime _now() => widget.now?.call() ?? DateTime.now();

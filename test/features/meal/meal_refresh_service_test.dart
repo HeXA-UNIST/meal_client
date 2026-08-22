@@ -120,6 +120,7 @@ void main() {
       final files = <String, String>{};
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -147,6 +148,7 @@ void main() {
       final datedResponse = Completer<String>();
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -176,6 +178,7 @@ void main() {
       var refreshCompleted = false;
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -210,6 +213,7 @@ void main() {
         cache: MealCache(
           writeFile: (_, _) async => throw Exception('disk full'),
         ),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -279,6 +283,7 @@ void main() {
       final files = <String, String>{};
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _lockTimeout,
         fetchRaw: (url) async {
@@ -323,9 +328,54 @@ void main() {
         },
       );
 
-      await service.refreshMealResponse(prefetchNextWeek: false);
+      await service.refreshMealResponse(
+        now: DateTime.utc(2026, 4, 19, 14, 59),
+        prefetchNextWeek: false,
+      );
 
       expect(files, isEmpty);
+    });
+
+    test('늦게 끝난 이전 요청은 최신 canonical cache를 덮지 않는다', () async {
+      final files = <String, String>{};
+      var updatedAt = DateTime.utc(2026, 4, 13);
+      var writeTime = updatedAt;
+      final cache = MealCache(
+        writeFile: (name, data) async {
+          files[name] = data;
+          updatedAt = writeTime;
+        },
+        readFile: (name) async => files[name]!,
+        readLastModified: (_) async => updatedAt,
+      );
+      final olderResponse = Completer<String>();
+      final newerResponse = Completer<String>();
+      var olderNow = DateTime.utc(2026, 4, 14, 1);
+      var newerNow = DateTime.utc(2026, 4, 14, 2);
+      final older = MealRefreshService(
+        cache: cache,
+        clock: () => olderNow,
+        lockCanonicalCache: _withoutLock,
+        fetchRaw: (_) => olderResponse.future,
+      ).refreshMealResponse(prefetchNextWeek: false);
+      final newer = MealRefreshService(
+        cache: cache,
+        clock: () => newerNow,
+        lockCanonicalCache: _withoutLock,
+        fetchRaw: (_) => newerResponse.future,
+      ).refreshMealResponse(prefetchNextWeek: false);
+
+      newerNow = DateTime.utc(2026, 4, 14, 3);
+      writeTime = newerNow;
+      newerResponse.complete(_rawMealJson('최신 응답'));
+      await newer;
+
+      olderNow = DateTime.utc(2026, 4, 14, 4);
+      writeTime = olderNow;
+      olderResponse.complete(_rawMealJson('늦은 이전 응답'));
+      await older;
+
+      expect(files['meal.json'], contains('최신 응답'));
     });
 
     test('평일에는 일치하는 next cache를 다시 선반입하지 않는다', () async {
@@ -335,6 +385,7 @@ void main() {
       var datedFetches = 0;
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         fetchRaw: (url) async {
           if (url.endsWith('/2026-04-20')) datedFetches++;
@@ -357,6 +408,7 @@ void main() {
           rawJson: _rawMealJson('이전'),
           updatedAt: DateTime.utc(2026, 4, 13),
         ),
+        clock: _testClock,
         supportsSharedCache: false,
         fetchRaw: (url) async {
           if (url.endsWith('/2026-04-20')) datedFetches++;
@@ -389,6 +441,7 @@ void main() {
       );
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: () => DateTime.utc(2026, 4, 19, 3),
         nextWeekCache: nextCache,
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -434,6 +487,7 @@ void main() {
       var datedFetches = 0;
       await MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: () => DateTime.utc(2026, 4, 19, 3),
         nextWeekCache: nextCache,
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -456,6 +510,7 @@ void main() {
       var requestedUrl = '';
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -495,6 +550,7 @@ void main() {
       final datedFetchStarted = Completer<void>();
       final automatic = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: () => DateTime.utc(2026, 4, 19, 3),
         nextWeekCache: nextCache,
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -540,6 +596,7 @@ void main() {
       final autoStarted = Completer<void>();
       final automatic = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
+        clock: () => DateTime.utc(2026, 4, 19, 3),
         nextWeekCache: nextCache,
         lockNextWeekCache: _withoutLock,
         fetchRaw: (url) async {
@@ -592,6 +649,7 @@ void main() {
       ) {
         return MealRefreshService(
           cache: _mapMealCache(files, 'meal.json'),
+          clock: () => DateTime.utc(2026, 4, 19, 3),
           nextWeekCache: nextCache,
           lockNextWeekCache: _withoutLock,
           fetchRaw: (url) async {
@@ -645,6 +703,7 @@ void main() {
       ) {
         return MealRefreshService(
           cache: _mapMealCache(files, 'meal.json'),
+          clock: () => DateTime.utc(2026, 4, 19, 3),
           nextWeekCache: nextCache,
           lockNextWeekCache: _withoutLock,
           fetchRaw: (url) async {
