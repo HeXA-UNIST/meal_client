@@ -13,7 +13,6 @@
     <string name="widget_loading">Loading…</string>
     <string name="widget_no_data">No data</string>
     <string name="widget_no_menu">-</string>
-    <string name="widget_kcal">%d kcal</string>
 
     <!-- 식사 시간 -->
     <string name="meal_breakfast">Breakfast</string>
@@ -27,8 +26,8 @@
     <!-- 운영 상태 -->
     <string name="status_before_open">Opens at %1$02d:%2$02d</string>
     <string name="status_open">Open</string>
-    <string name="status_closing_soon">Closing in %d min</string>
-    <string name="status_just_closed">Closed</string>
+    <string name="status_closing_soon">Closing soon</string>
+    <string name="status_closed">Closed</string>
     <string name="status_no_service">Not in service</string>
 
     <!-- 식당 이름 -->

@@ -1,8 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 운영시간 경계(운영 시작·마감임박)에 정확히 맞춰 위젯을 갱신하기 위함.
-         권한이 없거나 사용자가 거부해도 setAndAllowWhileIdle로 대체 동작함(덜 정확할 뿐 크래시 없음). -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
@@ -50,7 +47,7 @@
                 android:resource="@xml/widget_info_2x2" />
         </receiver>
 
-        <!-- 운영시간 경계(운영 시작·마감임박)마다 위젯을 갱신하는 예약 호출 수신자 -->
+        <!-- 끼니·운영시간 경계마다 위젯을 갱신하는 예약 호출 수신자 -->
         <receiver
             android:name=".BapUWidgetScheduledUpdateReceiver"
             android:exported="false" />

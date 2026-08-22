@@ -18,7 +18,20 @@ class BapUWidgetOperatingHoursTest {
         assertEquals(OperatingStatus.OPEN, dormStatus?.status)
         assertEquals(OperatingStatus.OPEN, halalStatus?.status)
         assertEquals(OperatingStatus.CLOSING_SOON, facultyStatus?.status)
-        assertEquals(30, facultyStatus?.minutesLeft)
+    }
+
+    @Test
+    fun `종료 정확히 45분 전부터 마감 임박 상태다`() {
+        val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())
+
+        val status = BapUWidgetOperatingHours.statusFor(
+            hours,
+            CAFE_FACULTY,
+            WidgetMealOfDay.LUNCH.index,
+            kstCalendar(Calendar.MONDAY, 11, 45),
+        )
+
+        assertEquals(OperatingStatus.CLOSING_SOON, status?.status)
     }
 
     @Test
@@ -32,13 +45,14 @@ class BapUWidgetOperatingHoursTest {
     }
 
     @Test
-    fun `저녁 종료 후에는 자정까지 운영 종료 상태를 유지한다`() {
-        val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())
-        val now = kstCalendar(Calendar.MONDAY, 19, 31)
+    fun `선택 식당이 먼저 닫히면 다음 전역 끼니까지 운영 종료를 유지한다`() {
+        val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())!!
+        val now = kstCalendar(Calendar.MONDAY, 13, 0)
 
-        val status = BapUWidgetOperatingHours.statusFor(hours, CAFE_DORM_KOREAN, 2, now)
+        val status = BapUWidgetOperatingHours.statusFor(hours, CAFE_FACULTY, WidgetMealOfDay.LUNCH.index, now)
 
-        assertEquals(OperatingStatus.JUST_CLOSED, status?.status)
+        assertEquals(WidgetMealOfDay.LUNCH, BapUWidgetOperatingHours.currentMealOfDay(hours, now))
+        assertEquals(OperatingStatus.CLOSED, status?.status)
     }
 
     @Test

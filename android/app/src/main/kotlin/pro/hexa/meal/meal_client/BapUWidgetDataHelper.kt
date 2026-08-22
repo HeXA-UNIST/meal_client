@@ -201,7 +201,7 @@ fun truncateMenuTwoColumnsByRealLayout(
 data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val endM: Int)
 
 enum class OperatingStatus {
-    BEFORE_OPEN, OPEN, CLOSING_SOON, JUST_CLOSED,
+    BEFORE_OPEN, OPEN, CLOSING_SOON, CLOSED,
     /** 오늘 이 식당/끼니의 운영시간 자체가 없음 (예: 주말 학생·교직원 식당, 교직원 조식). */
     NO_SERVICE,
 }
@@ -212,7 +212,6 @@ enum class OperatingStatus {
  */
 data class OperatingResult(
     val status: OperatingStatus,
-    val minutesLeft: Int = 0,
     val nextStartH: Int = 0,
     val nextStartM: Int = 0,
 )
@@ -282,13 +281,6 @@ fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
 }
 
 /**
- * 위젯 전체 너비와 패널 수로 패널 하나의 콘텐츠 너비(dp)를 반환한다.
- * 루트 패딩 22dp(=11×2) + 패널 간 간격 24dp×(columns-1) 를 제외한 값.
- */
-fun calcPanelWidthDp(widthDp: Int, columns: Int = 1): Int =
-    (widthDp - 22 - 24 * (columns - 1)) / columns
-
-/**
  * 메뉴 텍스트 크기(sp). 위젯 크기와 무관하게 항상 동일한 크기를 쓴다
  * (2x2와 확대 상태에서 폰트가 달라지지 않도록). 공간이 부족하면 실측 truncate가
  * 항목 수를 줄이는 것으로 대응한다.
@@ -341,11 +333,11 @@ fun operatingStatusDisplay(context: Context, result: OperatingResult?): Pair<Int
         )
         OperatingStatus.CLOSING_SOON -> Pair(
             context.getColor(R.color.widget_status_closing),
-            context.getString(R.string.status_closing_soon, result.minutesLeft)
+            context.getString(R.string.status_closing_soon)
         )
-        OperatingStatus.JUST_CLOSED  -> Pair(
+        OperatingStatus.CLOSED       -> Pair(
             context.getColor(R.color.widget_status_closed),
-            context.getString(R.string.status_just_closed)
+            context.getString(R.string.status_closed)
         )
         OperatingStatus.NO_SERVICE   -> Pair(
             context.getColor(R.color.widget_status_closed),

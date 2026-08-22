@@ -57,21 +57,15 @@ object BapUWidgetOperatingHours {
                 OperatingResult(OperatingStatus.BEFORE_OPEN, nextStartH = period.startH, nextStartM = period.startM)
             nowMins < endMins -> {
                 val left = endMins - nowMins
-                if (left >= BapUWidgetContract.MealTime.CLOSING_SOON_THRESHOLD_MINUTES) {
+                if (left > BapUWidgetContract.MealTime.CLOSING_SOON_THRESHOLD_MINUTES) {
                     OperatingResult(OperatingStatus.OPEN)
                 } else {
-                    OperatingResult(OperatingStatus.CLOSING_SOON, left)
+                    OperatingResult(OperatingStatus.CLOSING_SOON)
                 }
             }
-            nowMins <= endMins + BapUWidgetContract.MealTime.JUST_CLOSED_DURATION_MINUTES ->
-                OperatingResult(OperatingStatus.JUST_CLOSED)
-            // 저녁이 완전히 끝난 뒤 자정까지는 "운영 종료"를 유지한다 (자정이 지나면
-            // mealOfDay가 조식으로 바뀌면서 자연스럽게 "운영 전"으로 전환됨).
-            else -> if (WidgetMealOfDay.fromIndex(mealOfDay) == WidgetMealOfDay.DINNER) {
-                OperatingResult(OperatingStatus.JUST_CLOSED)
-            } else {
-                OperatingResult(OperatingStatus.BEFORE_OPEN, nextStartH = period.startH, nextStartM = period.startM)
-            }
+            // 현재 끼니는 모든 식당의 가장 늦은 종료 시각으로 전환한다. 선택 식당이
+            // 먼저 닫혔다면 다음 전역 끼니로 넘어갈 때까지 종료 상태를 유지한다.
+            else -> OperatingResult(OperatingStatus.CLOSED)
         }
     }
 

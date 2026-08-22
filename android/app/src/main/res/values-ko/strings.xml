@@ -15,7 +15,6 @@
     <string name="widget_no_menu">-</string>
     <string name="widget_error_title">오류</string>
     <string name="widget_data_error">위젯 데이터 오류</string>
-    <string name="widget_kcal">%d kcal</string>
 
     <!-- 식사 시간 -->
     <string name="meal_breakfast">아침</string>
@@ -29,8 +28,8 @@
     <!-- 운영 상태 -->
     <string name="status_before_open">%1$02d:%2$02d부터 운영</string>
     <string name="status_open">운영 중</string>
-    <string name="status_closing_soon">종료 %d분 전</string>
-    <string name="status_just_closed">운영 종료</string>
+    <string name="status_closing_soon">마감 임박</string>
+    <string name="status_closed">운영 종료</string>
     <string name="status_no_service">미운영</string>
 
     <!-- 식당 이름 -->

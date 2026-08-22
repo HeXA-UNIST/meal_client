@@ -43,7 +43,7 @@ Android 위젯 관련 Kotlin 코드는 `android/app/src/main/kotlin/pro/hexa/mea
 - 설정 저장소: `getWidgetConfigPrefs()`, `loadSingleCafeteria()`, `saveDualCafeterias()` 등
 - 시간 계산: `info.json` 기반 끼니 전환 계산, KST week id
 - 운영시간 계산: `operatingPeriod()`, `getOperatingStatus()`
-- 위젯 크기 계산: `widgetWidthDp()`, `widgetHeightDp()`, `calcPanelWidthDp()`, `calcMenuTextSp()`
+- 위젯 크기 계산: `widgetWidthDp()`, `widgetHeightDp()`, `calcMenuTextSp()`
 - 메뉴 fitting: `truncateMenuByRealLayout()`, `splitMenuTwoColumnsByRealLayout()`
 - Android UI helper: `RemoteViews.applyTextSizes()`, `RemoteViews.bindFoodType()`
 - launch intent 생성: `makeLaunchPendingIntent()`
@@ -171,7 +171,6 @@ object BapUWidgetContract {
         const val BREAKFAST_END_MINUTES = 9 * 60 + 20
         const val LUNCH_END_MINUTES = 13 * 60 + 30
         const val CLOSING_SOON_THRESHOLD_MINUTES = 45
-        const val JUST_CLOSED_DURATION_MINUTES = 30
     }
 }
 
@@ -281,7 +280,7 @@ BapUWidgetMealRepository.kt
 - `/v2/menu` JSON 구조만 안다.
 - `REGULAR` 섹션만 사용한다.
 - 영어 locale이면 `en` 우선, 없으면 `ko` fallback.
-- 여러 `REGULAR` section의 calorie가 있으면 기존 Flutter 정책처럼 kcal은 `null`.
+- 칼로리는 홈 위젯 제품 범위가 아니므로 파싱하지 않는다.
 
 `BapUWidgetMealRepository.kt`:
 
@@ -399,7 +398,7 @@ Dart 값을 Kotlin test에서 직접 import할 수는 없으므로 완전 자동
 - `info.json`에서 계산한 lunch 최종 종료 + 1분 -> 석식
 - 월요일 00:00 KST에서 week id 증가
 - closing soon 45분 경계
-- just closed 30분 경계
+- 운영 종료 시각부터 다음 전역 끼니 전환까지 closed 유지
 - 기숙사 할랄은 기숙사 운영시간 공유
 
 ### Phase 3: Parser + repository 정리
@@ -427,7 +426,7 @@ Dart 값을 Kotlin test에서 직접 import할 수는 없으므로 완전 자동
 - v2 JSON parsing
 - `REGULAR` only
 - 영어 locale fallback
-- 여러 `REGULAR` section이면 kcal null
+- 여러 `REGULAR` section의 메뉴 순서 유지
 - `data: []` 처리
 - stale cache면 `null`
 - corrupt cache면 `null`
@@ -470,7 +469,7 @@ Dart 값을 Kotlin test에서 직접 import할 수는 없으므로 완전 자동
 - KST 요일에 따라 weekday/weekend table 선택이 맞는지
 - cache miss → 운영상태 unknown(표시 생략)
 - corrupt cache → 운영상태 unknown(표시 생략)
-- status 계산(운영 전/open/closing soon/just closed)이 cache 기반 period로도 동일하게 동작
+- status 계산(운영 전/open/closing soon/closed)이 cache 기반 period로도 동일하게 동작
 
 ### Phase 5: 갱신 경로 단일화 — cache-only widget render (필수)
 
@@ -484,7 +483,7 @@ Dart 값을 Kotlin test에서 직접 import할 수는 없으므로 완전 자동
 
 근거:
 
-- status 전환은 이미 AlarmManager 경계 예약이 정확히 처리하므로, 15분 주기 WorkManager는 표시 목적에서 redundant다.
+- status 전환은 AlarmManager의 inexact 경계 예약으로 처리하므로, 15분 주기 WorkManager는 표시 목적에서 redundant다. 절전 정책에 따른 지연은 허용한다.
 - 메뉴/운영시간 fetch는 Dart 백그라운드 refresh가 이미 담당하고 있으므로, native가 같은 데이터를 중복 폴링할 이유가 없다.
 - cache write를 Dart로 일원화하면 `meal.json`/`info.json`의 스키마와 freshness 정책을 Flutter 앱과 위젯이 같은 소스로 공유한다.
 
@@ -498,7 +497,7 @@ Dart 값을 Kotlin test에서 직접 import할 수는 없으므로 완전 자동
 6. `BapUBaseWidgetProvider.onUpdate`/`onAppWidgetOptionsChanged`는 network fetch 없이 cache read 기반 렌더로 정리한다.
 7. Dart `meal_background_refresh_io.dart`에서 `MealRefreshService().refreshMealData()`가 성공한 직후 render 트리거(`updateHomeWidgets()` → iOS 대비를 위해 `refreshWidgets()` seam으로 일반화, Seam 2 참조)를 호출한다. Phase 4 이후에는 같은 background refresh에서 `/v2/info` cache도 갱신한 뒤 한 번만 호출한다.
 8. 현재 `MainActivity`에 묶인 MethodChannel handler는 foreground Activity가 있을 때만 안전하다. background isolate에서도 호출되어야 하므로 application context 기반 native bridge로 옮긴다. 구현 방법은 Flutter plugin 또는 engine 등록 시점의 app-context channel 중 하나로 정하되, handler는 Activity에 의존하지 않고 `BapUWidgetUpdateDispatcher.renderAllWidgets(context)`만 호출한다.
-9. AlarmManager 경계 예약(자정·끼니 경계·운영 경계·마감 임박)은 유지한다. 끼니 경계는 `info.json`에서 오늘 모든 식당의 breakfast/lunch 중 가장 늦은 종료 시각을 계산하고, 그 다음 분을 예약해 조식/중식/석식 선택이 native periodic worker 없이도 제때 바뀌게 한다. `info.json`이 없거나 불완전하면 고정 경계로 대체하지 않고 위젯 데이터 오류를 표시한다.
+9. AlarmManager의 inexact 경계 예약(자정·끼니 경계·운영 시작·마감 임박 시작·운영 종료)은 유지한다. 끼니 경계는 `info.json`에서 오늘 모든 식당의 breakfast/lunch 중 가장 늦은 종료 시각을 계산하고, 그 다음 분을 예약해 조식/중식/석식 선택을 전환한다. `info.json`이 없거나 불완전하면 고정 경계로 대체하지 않고 위젯 데이터 오류를 표시한다.
 10. 운영시간 cache가 없으면 운영 경계 예약은 생략하지만, 자정과 끼니 경계 예약은 운영시간 cache와 무관하게 유지한다. 이 두 경계는 `MealTimeConfig`/`BapUWidgetTime` 계약만으로 계산 가능하다.
 11. Dart background entrypoint에서는 `WidgetsFlutterBinding.ensureInitialized()` 이후 `DartPluginRegistrant.ensureInitialized()`를 호출해 `path_provider`, native render bridge 등 plugin/channel 등록을 보장한다.
 12. `updateHomeWidgets()` 또는 새 native render bridge는 background refresh 경로에서 실패를 삼키지 않는다. foreground UI 호출에서는 log-only가 가능하지만, background task에서는 실패를 throw/return해서 Workmanager가 실패를 감지할 수 있어야 한다.
@@ -612,7 +611,7 @@ iOS cache-only 위젯을 구현할 때는 timeline entry에 최소한 다음 경
 
 `refreshWidgets()`의 iOS 구현(`WidgetCenter.shared.reloadAllTimelines()`)은 timeline을 다시 요청하게 만드는 trigger일 뿐이다. 실제 표시 전환 타이밍은 reload 호출 자체가 아니라 `TimelineProvider`가 제공한 timeline entry들이 좌우한다.
 
-분 단위 "N분 남음" 카운트다운은 WidgetKit에서 Android AlarmManager처럼 안정적으로 보장하기 어렵다. iOS 위젯은 coarse 상태(open/마감임박/종료)를 중심으로 표현하고, 분 단위 카운트다운이 필요하면 정확도/staleness 한계를 감수한다.
+Android와 iOS 모두 분 단위 카운트다운 없이 coarse 상태(open/마감임박/종료)를 표현한다.
 
 ### iOS 구현 시 주의 (나중 작업)
 
@@ -634,13 +633,13 @@ iOS cache-only 위젯을 구현할 때는 timeline entry에 최소한 다음 경
   - day api key
 - `BapUWidgetOperatingHoursTest`
   - 식당/끼니별 운영시간
-  - 운영 전/open/closing soon/just closed
+  - 운영 전/open/closing soon/closed
   - dorm halal은 dormitory 운영시간 공유
 - `BapUWidgetMealParserTest`
   - v2 JSON parsing
   - `REGULAR` only
   - 영어 locale fallback
-  - 여러 `REGULAR` section이면 kcal null
+  - 여러 `REGULAR` section의 메뉴 순서 유지
   - `data: []`
 
 선택 테스트:

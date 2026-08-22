@@ -11,9 +11,6 @@ import android.widget.RemoteViews
 import android.widget.TextView
 
 class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
-
-    override val TAG = Companion.TAG
-
     override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) =
         Companion.updateWidget(context, manager, widgetId, data)
 

@@ -289,7 +289,7 @@ Android 홈 화면 위젯은 `android/app/src/main/kotlin/pro/hexa/meal/meal_cli
 
 Android 위젯은 네트워크를 직접 호출하지 않습니다. `meal.json`이 없거나 stale/corrupt이면 `info.json`으로 계산한 현재 끼니의 빈 메뉴 상태를 렌더합니다. `info.json`이 없거나 corrupt이거나 breakfast/lunch 전환 계산에 필요한 운영시간이 없으면 고정 경계로 대체하지 않고 위젯 데이터 오류를 표시합니다. 데이터 갱신의 단일 owner는 Dart foreground/background refresh입니다.
 
-표시 전환은 AlarmManager로 처리합니다. 예약 경계는 자정, `info.json`에서 계산한 끼니 전환 시각(오늘 모든 식당의 breakfast/lunch 중 가장 늦은 종료 시각 + 1분), 운영 시작, 마감임박 시작(종료 45분 전)입니다. 마감임박 구간에서는 1분 단위로 다시 예약해 “N분 남음” 표시를 갱신합니다. provider XML의 `updatePeriodMillis`는 `0`이며, 순수 native 주기 안전망이 필요해질 때만 다시 검토합니다.
+표시 전환은 AlarmManager의 inexact one-shot으로 처리합니다. 예약 경계는 자정, `info.json`에서 계산한 끼니 전환 시각(오늘 모든 식당의 breakfast/lunch 중 가장 늦은 종료 시각 + 1분), 모든 운영 시작, 마감임박 시작(종료 45분 전), 모든 운영 종료입니다. 마감임박은 분 단위 카운트다운 없이 coarse 상태로 표시하며, 시스템 절전 정책에 따라 실제 갱신은 경계보다 늦을 수 있습니다. provider XML의 `updatePeriodMillis`는 `0`이며, 순수 native 주기 안전망이 필요해질 때만 다시 검토합니다.
 
 `BapUWidgetUpdateWorker`는 legacy WorkManager class 이름을 보존해 기존 예약이 missing class가 되지 않게 하는 shim입니다. active render path가 아니며, 실행되면 legacy unique work를 cancel하고 성공 종료합니다.
 

@@ -5,13 +5,9 @@ import android.content.Context
 data class WidgetMealData(
     val mealOfDay: Int,
     val dormKoreanMenu: List<String> = emptyList(),
-    val dormKoreanKcal: Int? = null,
     val dormHalalMenu: List<String> = emptyList(),
-    val dormHalalKcal: Int? = null,
     val studentMenu: List<String> = emptyList(),
-    val studentKcal: Int? = null,
     val facultyMenu: List<String> = emptyList(),
-    val facultyKcal: Int? = null,
     val operatingResults: Map<Int, OperatingResult> = emptyMap(),
     val errorMessageResId: Int? = null,
 ) {
@@ -67,11 +63,4 @@ fun menuFromData(data: WidgetMealData, cafeteria: Int): List<String> = when (Wid
     WidgetCafeteria.DORM_HALAL -> data.dormHalalMenu
     WidgetCafeteria.STUDENT -> data.studentMenu
     WidgetCafeteria.FACULTY -> data.facultyMenu
-}
-
-fun kcalFromData(data: WidgetMealData, cafeteria: Int): Int? = when (WidgetCafeteria.fromPrefValue(cafeteria)) {
-    WidgetCafeteria.DORM_KOREAN -> data.dormKoreanKcal
-    WidgetCafeteria.DORM_HALAL -> data.dormHalalKcal
-    WidgetCafeteria.STUDENT -> data.studentKcal
-    WidgetCafeteria.FACULTY -> data.facultyKcal
 }

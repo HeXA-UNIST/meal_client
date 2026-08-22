@@ -1,7 +1,6 @@
 package pro.hexa.meal.meal_client
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class BapUWidgetFetcherTest {
@@ -125,13 +124,9 @@ class BapUWidgetFetcherTest {
         val data = BapUWidgetFetcher.parseWidgetMealData(json, "MON", "BREAKFAST", 0)
 
         assertEquals(listOf("쌀밥", "황태해장국"), data.dormKoreanMenu)
-        assertEquals(935, data.dormKoreanKcal)
         assertEquals(listOf("할랄밥"), data.dormHalalMenu)
-        assertEquals(958, data.dormHalalKcal)
         assertEquals(listOf("학생식당 조식"), data.studentMenu)
-        assertNull(data.studentKcal)
         assertEquals(listOf("교직원식당 조식"), data.facultyMenu)
-        assertEquals(730, data.facultyKcal)
     }
 
     @Test
@@ -189,7 +184,7 @@ class BapUWidgetFetcherTest {
     }
 
     @Test
-    fun `여러 REGULAR 섹션이 있으면 메뉴를 합치고 칼로리는 숨긴다`() {
+    fun `여러 REGULAR 섹션이 있으면 메뉴를 순서대로 합친다`() {
         val json = """
             {
               "week": {
@@ -241,7 +236,6 @@ class BapUWidgetFetcherTest {
         val data = BapUWidgetFetcher.parseWidgetMealData(json, "TUE", "LUNCH", 1)
 
         assertEquals(listOf("쌀밥", "된장국"), data.dormKoreanMenu)
-        assertNull(data.dormKoreanKcal)
     }
 
     @Test
