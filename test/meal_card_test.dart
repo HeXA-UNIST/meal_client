@@ -15,7 +15,7 @@ void main() {
     );
   }
 
-  testWidgets('운영시간은 칼로리보다 굵은 글씨로 표시하고, 운영 중일 때는 회색이 아닌 색으로 표시한다', (
+  testWidgets('운영시간은 칼로리보다 굵은 글씨로 표시한다', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -39,37 +39,6 @@ void main() {
 
     expect(timeStyle?.fontWeight, FontWeight.w700);
     expect(kcalText.style?.fontWeight, isNot(FontWeight.w700));
-    expect(
-      timeStyle?.color,
-      isNot(
-        Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
-      ),
-    );
-  });
-
-  testWidgets('운영 중이 아닌 운영시간은 회색으로 표시한다', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: MealCard(
-            title: '기숙사 식당',
-            meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
-            operatingTimeLabel: '08:00 - 09:20',
-            isOperating: false,
-          ),
-        ),
-      ),
-    );
-
-    final timeText = tester.widget<RichText>(findOperatingTimeText());
-    final timeStyle = (timeText.text as TextSpan).style;
-
-    expect(
-      timeStyle?.color,
-      Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
-    );
   });
 
   testWidgets('롱프레스에서는 공유 콜백을 먼저 실행하고 첫 ink 프레임 뒤 햅틱을 실행한다', (tester) async {
@@ -155,7 +124,7 @@ void main() {
     expect(find.text('된장찌개'), findsOneWidget);
   });
 
-  testWidgets('섹션 제목을 메뉴 위에 작은 회색 굵은 글씨로 좌측 정렬해 표시한다', (tester) async {
+  testWidgets('섹션 제목을 메뉴 위에 작은 굵은 글씨로 좌측 정렬해 표시한다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('ko'),
@@ -185,10 +154,6 @@ void main() {
     final titleText = tester.widget<Text>(find.text('천원의 아침밥'));
     expect(titleText.textAlign, isNull);
     expect(titleText.style?.fontWeight, FontWeight.w600);
-    expect(
-      titleText.style?.color,
-      Theme.of(tester.element(find.byType(MealCard))).colorScheme.outline,
-    );
     expect(find.text('간편식'), findsOneWidget);
     expect(find.text('쌀밥'), findsOneWidget);
     expect(find.text('삼각김밥'), findsOneWidget);

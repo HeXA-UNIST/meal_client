@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
-import 'package:meal_client/main.dart' show mainColor;
 
 // Pretendard w700에서 가장 넓은 숫자('0')와 실사용 최대 자릿수 기준 최악의 경우 문자열.
 // 실제 라벨 대신 이걸 측정해야 카드마다 내용이 달라도 항상 같은 축소 배율이 나온다.
@@ -21,6 +20,23 @@ const _metadataHorizontalPadding = 16.0;
 const _metadataIconSize = 13.0;
 const _metadataIconGap = 3.0;
 const _metadataKcalGap = 3.0;
+
+Color _metadataColor(ThemeData theme) {
+  // APCA: 라이트 #5E6B61/#FAFAFA = Lc 75.00,
+  // 다크 #CCCCCC/#121212 = Lc -75.10.
+  return theme.brightness == Brightness.light
+      ? const Color(0xFF5E6B61)
+      : const Color(0xFFCCCCCC);
+}
+
+Color _activeOperatingTimeColor(ThemeData theme) {
+  // 브랜드 hue를 유지하고 OKLCH lightness를 조절했다.
+  // APCA: 라이트 #147549/#FAFAFA = Lc 75.19,
+  // 다크 #3BE696/#121212 = Lc -75.05.
+  return theme.brightness == Brightness.light
+      ? const Color(0xFF147549)
+      : const Color(0xFF3BE696);
+}
 
 // 시스템 글자 크기 설정까지 반영한 실제 렌더링 폭을 얻는다. 고정된 글자 수나
 // fontSize만으로 추정하면 접근성 글자 크기에서 계산값과 화면 폭이 달라질 수 있다.
@@ -45,9 +61,9 @@ TextStyle _operatingTimeTextStyle(ThemeData theme, Color color) {
 
 TextStyle _kcalTextStyle(ThemeData theme) {
   // 칼로리는 메뉴 본문보다 낮은 위계의 보조 정보이므로, 운영시간 라벨의 기본
-  // 색상과 동일하게 outline을 사용해 항상 낮은 강조로 표시한다.
+  // 색상과 동일한 metadataColor를 사용해 낮은 강조로 표시한다.
   return theme.textTheme.labelMedium!.copyWith(
-    color: theme.colorScheme.outline,
+    color: _metadataColor(theme),
     fontSize: 11,
     letterSpacing: 0,
     height: 1,
@@ -61,7 +77,7 @@ double _calculateMetadataScale(
   final theme = Theme.of(context);
   final operatingTimeStyle = _operatingTimeTextStyle(
     theme,
-    theme.colorScheme.outline,
+    _metadataColor(theme),
   );
   final kcalStyle = _kcalTextStyle(theme);
   // 실제 카드에 운영시간이나 kcal가 없더라도 둘 다 있는 최악의 경우를 기준으로
@@ -215,6 +231,7 @@ class MealCard extends StatelessWidget {
     // primaryContainer의 HSL 변환을 한 번만 수행하여 중복 계산 방지
     final primaryHsl = HSLColor.fromColor(theme.colorScheme.primaryContainer);
     final isLight = theme.brightness == Brightness.light;
+    final metadataColor = _metadataColor(theme);
     // 다크 메뉴 본문: #F5F5F5/#121212 = APCA Lc -100.72.
     final menuTextStyle = theme.textTheme.bodyMedium!.copyWith(
       color: isLight ? null : const Color(0xFFF5F5F5),
@@ -224,19 +241,13 @@ class MealCard extends StatelessWidget {
     // 제목이 실제로 있는 첫 섹션에서만 만들고 이후 섹션은 같은 스타일을 재사용한다.
     late final sectionTitleStyle = theme.textTheme.labelSmall!.copyWith(
       fontSize: 10.5,
-      color: theme.colorScheme.outline,
+      color: metadataColor,
       fontWeight: FontWeight.w600,
       height: 1.1,
     );
-    // colorScheme.primary는 명암비 확보를 위해 라이트 모드에서 브랜드 그린을
-    // 크게 어둡게 눌러버려 (#00CD80 → #006D41) 쨍한 느낌이 사라진다. 브랜드
-    // 색상(hue·saturation)은 그대로 유지한 채 밝기만 배경 대비 최소 4.5:1을
-    // 만족하는 선에서 조정해 채도를 살린다.
     final operatingTimeColor = isOperating
-        ? HSLColor.fromColor(
-            mainColor,
-          ).withLightness(isLight ? 0.25 : 0.40).toColor()
-        : theme.colorScheme.outline;
+        ? _activeOperatingTimeColor(theme)
+        : metadataColor;
     final operatingTimeStyle = _operatingTimeTextStyle(
       theme,
       operatingTimeColor,
