@@ -215,7 +215,11 @@ class MealCard extends StatelessWidget {
     // primaryContainer의 HSL 변환을 한 번만 수행하여 중복 계산 방지
     final primaryHsl = HSLColor.fromColor(theme.colorScheme.primaryContainer);
     final isLight = theme.brightness == Brightness.light;
-    final menuTextStyle = theme.textTheme.bodyMedium!.copyWith(height: 1.15);
+    // 다크 메뉴 본문: #F5F5F5/#121212 = APCA Lc -100.72.
+    final menuTextStyle = theme.textTheme.bodyMedium!.copyWith(
+      color: isLight ? null : const Color(0xFFF5F5F5),
+      height: 1.15,
+    );
     final menuLineGap = (menuTextStyle.fontSize ?? 14.0) * 0.72;
     // 제목이 실제로 있는 첫 섹션에서만 만들고 이후 섹션은 같은 스타일을 재사용한다.
     late final sectionTitleStyle = theme.textTheme.labelSmall!.copyWith(
@@ -358,12 +362,14 @@ class MealCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: theme.textTheme.titleSmall!.copyWith(
-                      // 라이트 배경 #E8F7F2에서 APCA Lc 68.56이 되도록
-                      // 브랜드 HSL hue를 유지하고 lightness만 0.27로 낮춘다.
-                      color: primaryHsl
-                          .withSaturation(0.8)
-                          .withLightness(isLight ? 0.27 : 0.7)
-                          .toColor(),
+                      // #006B42 = oklch(0.465091 0.107810 158.53).
+                      // sRGB 최대 채도에 가깝고 #E8F7F2에서 APCA Lc 75.26이다.
+                      color: isLight
+                          ? const Color(0xFF006B42)
+                          : primaryHsl
+                                .withSaturation(0.8)
+                                .withLightness(0.7)
+                                .toColor(),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
