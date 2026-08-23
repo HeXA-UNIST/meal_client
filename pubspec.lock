@@ -108,10 +108,10 @@ packages:
     dependency: transitive
     description:
       name: dbus
-      sha256: "792974a4007974fbc5c1b5433eb2330a9db3e368c3f906253af4c007d0f49a91"
+      sha256: a48d5da28e89bd02196e80d81ed8d7954923d00a0f4a68cc20b575038f023383
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.13"
+    version: "0.7.15"
   fake_async:
     dependency: transitive
     description:
@@ -797,18 +797,18 @@ packages:
     dependency: "direct main"
     description:
       name: workmanager
-      sha256: "6a919b83138e457dc8f68d725755e11f47e19a8943b4554f3abbb18fdafa8e2d"
+      sha256: c2c7a3eb984cfcf5623308042fc8270e7e02f5021b34f491ffc0a1ec8e281d5c
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.8"
+    version: "0.10.9"
   workmanager_android:
     dependency: transitive
     description:
       name: workmanager_android
-      sha256: "08bbc7805b762bd93de6b137ef5c2651d305e43adf00b8e0e6da9bc525e40281"
+      sha256: "187d1d34864f57f9e388b33b88c001c494093c53679831a3dec2e8176e8829d1"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.7"
+    version: "0.10.8"
   workmanager_apple:
     dependency: transitive
     description:
