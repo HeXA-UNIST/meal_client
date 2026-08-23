@@ -38,6 +38,15 @@ Color _activeOperatingTimeColor(ThemeData theme) {
       : const Color(0xFF3BE696);
 }
 
+Color _sectionTitleColor(ThemeData theme) {
+  // 메타데이터보다 초록 기운만 살짝 높이고 작은 제목에 필요한 대비는 유지한다.
+  // APCA: 라이트 #506D59/#FAFAFA = Lc 75.58,
+  // 다크 #BBD4BE/#121212 = Lc -76.00.
+  return theme.brightness == Brightness.light
+      ? const Color(0xFF506D59)
+      : const Color(0xFFBBD4BE);
+}
+
 // 시스템 글자 크기 설정까지 반영한 실제 렌더링 폭을 얻는다. 고정된 글자 수나
 // fontSize만으로 추정하면 접근성 글자 크기에서 계산값과 화면 폭이 달라질 수 있다.
 double _measureTextWidth(BuildContext context, String text, TextStyle style) {
@@ -241,7 +250,7 @@ class MealCard extends StatelessWidget {
     // 제목이 실제로 있는 첫 섹션에서만 만들고 이후 섹션은 같은 스타일을 재사용한다.
     late final sectionTitleStyle = theme.textTheme.labelSmall!.copyWith(
       fontSize: 10.5,
-      color: metadataColor,
+      color: _sectionTitleColor(theme),
       fontWeight: FontWeight.w600,
       height: 1.1,
     );
