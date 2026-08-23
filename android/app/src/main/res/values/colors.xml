@@ -13,17 +13,19 @@
     <color name="widget_menu_panel_start">#F6F6F8</color>
     <color name="widget_menu_panel_end">#F1F1F4</color>
 
-    <!-- 위젯 텍스트 색상 (시안 기준: 음식종류 검정, 메뉴 #2E2E2E) -->
+    <!-- 식당명은 라이트 모드에서 시각적 브랜드를 우선해 원색을 유지한다. -->
     <color name="widget_text_cafeteria">#00CD80</color>
     <color name="widget_text_meal">#000000</color>
     <color name="widget_text_food_type">#000000</color>
     <color name="widget_text_menu">#2E2E2E</color>
 
     <!-- 운영 상태 색상 -->
-    <color name="widget_status_open">#00CD80</color>
+    <!-- 작은 상태 텍스트는 브랜드 hue(약 158°)를 유지하면서
+         카드 배경에서 APCA |Lc| 약 75 이상이 되도록 조정한다. -->
+    <color name="widget_status_open">#147549</color>
     <color name="widget_status_closing">#000000</color>
-    <color name="widget_status_closed">#717171</color>
-    <color name="widget_status_before">#717171</color>
+    <color name="widget_status_closed">#526057</color>
+    <color name="widget_status_before">#526057</color>
 
     <!-- 위젯 설정 화면 색상 (라이트 기본값 / 다크는 values-night/colors.xml) -->
     <color name="config_bg">#F5F5F7</color>

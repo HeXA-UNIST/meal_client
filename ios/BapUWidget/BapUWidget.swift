@@ -210,11 +210,29 @@ enum OperatingStatus: Equatable {
 
   var color: Color {
     switch self {
-    case .open: return Color(red: 0, green: 0.62, blue: 0.39)
-    case .closingSoon: return Color(red: 0.89, green: 0.52, blue: 0.05)
-    case .closed, .noService: return .secondary
-    case .beforeOpen, .unavailable: return Color(red: 0.24, green: 0.45, blue: 0.72)
+    case .open: return WidgetTextColor.brand
+    case .closingSoon: return .primary
+    case .closed, .noService, .beforeOpen, .unavailable:
+      return WidgetTextColor.secondary
     }
+  }
+}
+
+private enum WidgetTextColor {
+  // Android 위젯과 같은 OKLCH 계열이다. 작은 텍스트가 각 시스템 배경에서
+  // APCA |Lc| 약 75 이상을 유지하도록 라이트/다크 밝기를 분리한다.
+  static let brand = adaptive(light: 0x147549, dark: 0x40E99B)
+  static let secondary = adaptive(light: 0x526057, dark: 0xCECECE)
+
+  private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+    Color(uiColor: UIColor { traits in
+      UIColor(
+        red: CGFloat((traits.userInterfaceStyle == .dark ? dark : light) >> 16 & 0xFF) / 255,
+        green: CGFloat((traits.userInterfaceStyle == .dark ? dark : light) >> 8 & 0xFF) / 255,
+        blue: CGFloat((traits.userInterfaceStyle == .dark ? dark : light) & 0xFF) / 255,
+        alpha: 1
+      )
+    })
   }
 }
 
@@ -553,16 +571,17 @@ private struct BapUWidgetView: View {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(entry.snapshot.selection.localizedCafeteriaName)
           .font(.system(size: 12, weight: .bold))
+          .foregroundStyle(WidgetTextColor.brand)
           .lineLimit(1)
         if let foodType = entry.snapshot.selection.localizedFoodTypeName {
           Text(foodType)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(WidgetTextColor.secondary)
         }
         Spacer(minLength: 4)
         Text(entry.snapshot.meal.localizedName)
           .font(.system(size: 10, weight: .bold))
-          .foregroundStyle(.secondary)
+          .foregroundStyle(WidgetTextColor.secondary)
       }
 
       menuPanel
@@ -585,7 +604,7 @@ private struct BapUWidgetView: View {
         Spacer(minLength: 0)
         Text(Locale.current.languageCode == "en" ? "No menu" : "메뉴 정보 없음")
           .font(.system(size: 11, weight: .medium))
-          .foregroundStyle(.secondary)
+          .foregroundStyle(WidgetTextColor.secondary)
           .frame(maxWidth: .infinity, alignment: .center)
         Spacer(minLength: 0)
       } else {
