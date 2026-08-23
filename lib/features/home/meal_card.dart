@@ -235,7 +235,7 @@ class MealCard extends StatelessWidget {
     // 다크 메뉴 본문: #F5F5F5/#121212 = APCA Lc -100.72.
     final menuTextStyle = theme.textTheme.bodyMedium!.copyWith(
       color: isLight ? null : const Color(0xFFF5F5F5),
-      height: 1.15,
+      height: 1.135,
     );
     final menuLineGap = (menuTextStyle.fontSize ?? 14.0) * 0.72;
     // 제목이 실제로 있는 첫 섹션에서만 만들고 이후 섹션은 같은 스타일을 재사용한다.
