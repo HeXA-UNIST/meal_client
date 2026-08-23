@@ -84,6 +84,43 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(snapshot.menu, ["Rice", "된장찌개"])
   }
 
+  func testMenuNormalizationSkipsEmptyDuplicateGroup() throws {
+    let date = try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 0)
+    try writeInfoCache()
+    try writeMealCache(
+      modifiedAt: date,
+      dormMenusByTypeJSON: #"""
+      [
+        {
+          "menuType": "KOREAN",
+          "sections": [{"sectionType": "REGULAR", "menus": [
+            {"ko": "  ", "en": "\n"}
+          ]}]
+        },
+        {
+          "menuType": "KOREAN",
+          "sections": [{"sectionType": "REGULAR", "menus": [
+            {"ko": "  쌀밥  ", "en": "   "},
+            {"ko": "  된장찌개\n", "en": "  Soybean stew  "}
+          ]}]
+        }
+      ]
+      """#
+    )
+
+    let korean = WidgetCacheReader(
+      containerURL: cacheDirectory,
+      languageCode: "ko"
+    ).snapshot(at: date)
+    let english = WidgetCacheReader(
+      containerURL: cacheDirectory,
+      languageCode: "en-US"
+    ).snapshot(at: date)
+
+    XCTAssertEqual(korean.menu, ["쌀밥", "된장찌개"])
+    XCTAssertEqual(english.menu, ["쌀밥", "Soybean stew"])
+  }
+
   func testConfiguredSelectionSurvivesMissingInfoCache() throws {
     let date = try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 0)
 
@@ -150,7 +187,34 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertTrue(minuteValues.contains(9 * 60 + 21))
     XCTAssertTrue(minuteValues.contains(12 * 60 + 45))
     XCTAssertTrue(minuteValues.contains(13 * 60 + 30))
-    XCTAssertTrue(minuteValues.contains(13 * 60 + 31))
+    XCTAssertFalse(minuteValues.contains(14 * 60 + 1))
+  }
+
+  func testClosingSoonStartsAtExactBoundaryAndEndsAtClosingTime() throws {
+    try writeInfoCache()
+    try writeMealCache(
+      modifiedAt: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 44)
+    )
+    let reader = WidgetCacheReader(containerURL: cacheDirectory)
+
+    XCTAssertEqual(
+      reader.snapshot(
+        at: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 44)
+      ).status,
+      .open
+    )
+    XCTAssertEqual(
+      reader.snapshot(
+        at: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 45)
+      ).status,
+      .closingSoon
+    )
+    XCTAssertEqual(
+      reader.snapshot(
+        at: try kstDate(year: 2026, month: 8, day: 3, hour: 13, minute: 30)
+      ).status,
+      .closed
+    )
   }
 
   func testMondayUsesSundayPrefetchedNextWeekCache() throws {
@@ -245,8 +309,33 @@ final class BapUWidgetTests: XCTestCase {
     fileName: String = "meal.json",
     weekStart: String = "2026-08-03",
     modifiedAt: Date,
-    menuName: String = "쌀밥"
+    menuName: String = "쌀밥",
+    dormMenusByTypeJSON: String? = nil
   ) throws {
+    let defaultDormGroups = #"""
+    [
+      {
+        "menuType": "KOREAN",
+        "sections": [
+          {"sectionType": "REGULAR", "menus": [
+            {"ko": "\#(menuName)", "en": "Rice"},
+            {"ko": "된장찌개", "en": null}
+          ]},
+          {"sectionType": "SALAD", "menus": [
+            {"ko": "샐러드", "en": "Salad"}
+          ]}
+        ]
+      },
+      {
+        "menuType": "HALAL",
+        "sections": [{"sectionType": "REGULAR", "menus": [
+          {"ko": "할랄라이스", "en": "Halal Rice"},
+          {"ko": "치킨커리", "en": "Chicken Curry"}
+        ]}]
+      }
+    ]
+    """#
+    let dormGroups = dormMenusByTypeJSON ?? defaultDormGroups
     let json = #"""
     {
       "week": {"startDate": "\#(weekStart)"},
@@ -256,27 +345,7 @@ final class BapUWidgetTests: XCTestCase {
           "meals": [{
             "dayOfWeek": "MON",
             "timeType": "LUNCH",
-            "menusByType": [
-              {
-                "menuType": "KOREAN",
-                "sections": [
-                  {"sectionType": "REGULAR", "menus": [
-                    {"ko": "\#(menuName)", "en": "Rice"},
-                    {"ko": "된장찌개", "en": null}
-                  ]},
-                  {"sectionType": "SALAD", "menus": [
-                    {"ko": "샐러드", "en": "Salad"}
-                  ]}
-                ]
-              },
-              {
-                "menuType": "HALAL",
-                "sections": [{"sectionType": "REGULAR", "menus": [
-                  {"ko": "할랄라이스", "en": "Halal Rice"},
-                  {"ko": "치킨커리", "en": "Chicken Curry"}
-                ]}]
-              }
-            ]
+            "menusByType": \#(dormGroups)
           }]
         },
         {

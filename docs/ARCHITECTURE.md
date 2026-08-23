@@ -135,7 +135,7 @@ BapUApp
   - `NotificationSettings` (`lib/features/settings/notification_settings.dart`) — 알림 on/off, 복수 키워드, 시간대별 시각, 요일, 대상 식당
   - `ThemeMode` — Flutter 표준 enum 그대로 사용
 
-  알림 설정은 Workmanager 예약과 즉시 연결됩니다. Android 홈 화면 위젯은 네이티브 config activity를 사용하고, iOS 위젯은 사용자 설정이 없는 고정형 WidgetKit extension입니다.
+  알림 설정은 네이티브 local notification 예약과 즉시 연결됩니다. Android 홈 화면 위젯은 네이티브 config activity를 사용하고, iOS 위젯은 인스턴스별 식당을 고르는 `IntentConfiguration` 기반 WidgetKit extension입니다.
 
 `BapUModel` 플레이스홀더는 더 이상 존재하지 않습니다(`d1da738`에서 삭제).
 
@@ -297,7 +297,7 @@ Android render bridge는 로컬 Flutter plugin `plugins/bapu_widget_bridge`가 �
 
 #### iOS WidgetKit
 
-`ios/BapUWidget/`에 작은 크기의 고정형 WidgetKit extension과 `TimelineProvider`가 구현되어 있습니다. 기숙사 식당을 표시하고 현재 시각과 운영시간으로 끼니를 자동 선택하며, 사용자 설정 intent는 제공하지 않습니다.
+`ios/BapUWidget/`에 `systemSmall` WidgetKit extension과 `IntentTimelineProvider`가 구현되어 있습니다. 현재 시각과 운영시간으로 끼니를 자동 선택하고, 각 위젯 인스턴스는 intent로 기숙사 한식·기숙사 할랄·학생·교직원 식당 중 하나를 선택합니다. 제한된 공간에서는 메뉴와 운영 상태를 우선하며 kcal은 의도적으로 표시하지 않습니다.
 
 - `ios/Runner/AppDelegate.swift`: App Group path 조회 channel(`pro.hexa.meal.meal_client/widget_shared_storage`)과 WidgetKit reload channel(`pro.hexa.meal.meal_client/widget`) 등록
 - `ios/Runner/Runner.entitlements`: Runner App Group capability
@@ -305,7 +305,7 @@ Android render bridge는 로컬 Flutter plugin `plugins/bapu_widget_bridge`가 �
 - `ios/Runner.xcodeproj/project.pbxproj`: `APP_GROUP_IDENTIFIER = group.com.wjddnwls7879.unistbab`
 - `lib/core/widget_shared_storage_io.dart`: iOS에서 native bridge로 App Group container path 조회
 
-WidgetKit은 Android AlarmManager처럼 분 단위 갱신을 보장하지 않으므로 timeline entry에 자정, `info.json`에서 계산한 끼니 전환 시각, 운영 시작, 마감임박 시작, 운영 종료를 미리 넣습니다.
+WidgetKit은 Android AlarmManager처럼 분 단위 갱신을 보장하지 않으므로 timeline entry에 자정, `info.json`에서 계산한 끼니 전환 시각, 운영 시작, 종료 45분 전의 coarse 마감임박 시작, 운영 종료를 미리 넣습니다. 한 timeline 생성 중에는 App Group cache를 파일별로 한 번만 읽어 모든 entry가 같은 입력을 공유하고, 전체 entry를 제공한 뒤 `.atEnd`에서 다음 timeline을 요청합니다.
 
 ## 플랫폼 분기
 

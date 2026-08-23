@@ -11,7 +11,6 @@ private enum WidgetContract {
   static let nextMealCacheFile = "meal-next.json"
   static let infoCacheFile = "info.json"
   static let closingSoonMinutes = 45
-  static let justClosedMinutes = 30
 
   static let kst: TimeZone = TimeZone(identifier: "Asia/Seoul")!
 
@@ -85,14 +84,13 @@ private struct LocalizedMenu: Decodable {
   let ko: String
   let en: String?
 
-  func localizedName(for languageCode: String) -> String {
-    guard languageCode == "en",
-          let en,
-          !en.isEmpty
-    else {
-      return ko
-    }
-    return en
+  func localizedName(for languageCode: String) -> String? {
+    let koreanName = ko.trimmingCharacters(in: .whitespacesAndNewlines)
+    let englishName = en?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let localized = languageCode.hasPrefix("en") && !englishName.isEmpty
+      ? englishName
+      : koreanName
+    return localized.isEmpty ? nil : localized
   }
 }
 
@@ -227,6 +225,14 @@ struct WidgetSnapshot {
   let status: OperatingStatus
 }
 
+// 한 timeline을 만드는 동안의 입력을 고정한다. WidgetKit entry마다 같은 주간
+// JSON을 다시 읽지 않으면서도 다음 reload에서는 최신 파일을 다시 읽는다.
+private struct WidgetTimelineInput {
+  let info: InfoResponse?
+  let currentMeal: MealResponse?
+  let nextMeal: MealResponse?
+}
+
 func displayMenuItems(_ items: [String], limit: Int = 5) -> [String] {
   guard limit > 0 else { return [] }
   var displayed = Array(items.prefix(limit))
@@ -235,7 +241,7 @@ func displayMenuItems(_ items: [String], limit: Int = 5) -> [String] {
   return displayed
 }
 
-private struct BapUWidgetEntry: TimelineEntry {
+fileprivate struct BapUWidgetEntry: TimelineEntry {
   let date: Date
   let snapshot: WidgetSnapshot
 
@@ -278,7 +284,15 @@ struct WidgetCacheReader {
     at date: Date,
     selection: WidgetMenuSelection = .dormKorean
   ) -> WidgetSnapshot {
-    guard let hours: InfoResponse = decode(WidgetContract.infoCacheFile) else {
+    snapshot(at: date, selection: selection, input: loadTimelineInput())
+  }
+
+  private func snapshot(
+    at date: Date,
+    selection: WidgetMenuSelection,
+    input: WidgetTimelineInput
+  ) -> WidgetSnapshot {
+    guard let hours = input.info else {
       return WidgetSnapshot(
         selection: selection,
         meal: .lunch,
@@ -297,7 +311,7 @@ struct WidgetCacheReader {
       )
     }
 
-    let menu = readMenu(at: date, meal: meal, selection: selection)
+    let menu = readMenu(at: date, meal: meal, selection: selection, input: input)
     let range = period.hours(for: selection)?.range(for: meal)
     return WidgetSnapshot(
       selection: selection,
@@ -308,7 +322,11 @@ struct WidgetCacheReader {
   }
 
   func timelineDates(after date: Date) -> [Date] {
-    guard let info: InfoResponse = decode(WidgetContract.infoCacheFile) else {
+    timelineDates(after: date, input: loadTimelineInput())
+  }
+
+  private func timelineDates(after date: Date, input: WidgetTimelineInput) -> [Date] {
+    guard let info = input.info else {
       return [date.addingTimeInterval(30 * 60)]
     }
 
@@ -325,7 +343,6 @@ struct WidgetCacheReader {
         minutes.insert(start)
         minutes.insert(max(0, end - WidgetContract.closingSoonMinutes))
         minutes.insert(end)
-        minutes.insert(min(24 * 60 - 1, end + WidgetContract.justClosedMinutes + 1))
       }
     }
 
@@ -347,39 +364,63 @@ struct WidgetCacheReader {
       .sorted()
   }
 
+  fileprivate func timelineEntries(
+    from date: Date,
+    selection: WidgetMenuSelection
+  ) -> [BapUWidgetEntry] {
+    let input = loadTimelineInput()
+    let dates = [date] + timelineDates(after: date, input: input)
+    return dates.map {
+      BapUWidgetEntry(
+        date: $0,
+        snapshot: snapshot(at: $0, selection: selection, input: input)
+      )
+    }
+  }
+
   private func readMenu(
     at date: Date,
     meal: WidgetMealOfDay,
-    selection: WidgetMenuSelection
+    selection: WidgetMenuSelection,
+    input: WidgetTimelineInput
   ) -> [String] {
-    guard let response = mealResponse(for: date) else {
+    guard let response = mealResponse(for: date, input: input) else {
       return []
     }
 
     let weekday = dayOfWeek(at: date)
-    return response.data
+    let groups = response.data
       .first { $0.cafeteria == selection.apiCafeteria }?
       .meals
       .first { $0.dayOfWeek == weekday && $0.timeType == meal.rawValue }?
-      .menusByType
-      .first { $0.menuType == selection.apiMenuType }?
-      .sections
-      .filter { $0.sectionType == "REGULAR" }
-      .flatMap(\.menus)
-      .map { $0.localizedName(for: languageCode) } ?? []
+      .menusByType ?? []
+
+    // Android와 같이 같은 menuType을 순서대로 보되, REGULAR 메뉴가 실제로
+    // 존재하는 첫 그룹만 사용한다. 여러 그룹을 합쳐 중복 메뉴를 만들지 않는다.
+    for group in groups where group.menuType == selection.apiMenuType {
+      let menu = group.sections
+        .filter { $0.sectionType == "REGULAR" }
+        .flatMap(\.menus)
+        .compactMap { $0.localizedName(for: languageCode) }
+      if !menu.isEmpty { return menu }
+    }
+    return []
   }
 
-  private func mealResponse(for date: Date) -> MealResponse? {
+  private func mealResponse(for date: Date, input: WidgetTimelineInput) -> MealResponse? {
     let targetWeekStart = kstWeekIdentifier(for: date)
-    for fileName in [WidgetContract.mealCacheFile, WidgetContract.nextMealCacheFile] {
-      guard let response: MealResponse = decode(fileName),
-            response.week.startDate == targetWeekStart
-      else {
-        continue
-      }
-      return response
+    for response in [input.currentMeal, input.nextMeal].compactMap({ $0 }) {
+      if response.week.startDate == targetWeekStart { return response }
     }
     return nil
+  }
+
+  private func loadTimelineInput() -> WidgetTimelineInput {
+    WidgetTimelineInput(
+      info: decode(WidgetContract.infoCacheFile),
+      currentMeal: decode(WidgetContract.mealCacheFile),
+      nextMeal: decode(WidgetContract.nextMealCacheFile)
+    )
   }
 
   private func periodResponse(from info: InfoResponse, at date: Date) -> OperatingPeriodResponse {
@@ -411,7 +452,7 @@ struct WidgetCacheReader {
 
     if now < start { return .beforeOpen(startMinutes: start) }
     if now < end {
-      return end - now < WidgetContract.closingSoonMinutes ? .closingSoon : .open
+      return end - now <= WidgetContract.closingSoonMinutes ? .closingSoon : .open
     }
     return .closed
   }
@@ -489,11 +530,11 @@ private struct BapUWidgetProvider: IntentTimelineProvider {
     completion: @escaping (Timeline<BapUWidgetEntry>) -> Void
   ) {
     let now = Date()
-    let dates = [now] + cache.timelineDates(after: now)
     let selection = WidgetMenuSelection(configuration: configuration)
-    let entries = dates.map { entry(at: $0, selection: selection) }
-    let nextRefresh = dates.dropFirst().first ?? now.addingTimeInterval(30 * 60)
-    completion(Timeline(entries: entries, policy: .after(nextRefresh)))
+    let entries = cache.timelineEntries(from: now, selection: selection)
+    // 캐시가 바뀌면 Flutter bridge가 reload를 요청한다. 여기서는 이미 제공한
+    // 마지막 경계까지 소비한 뒤에만 다음 timeline을 요청해 갱신 예산을 아낀다.
+    completion(Timeline(entries: entries, policy: .atEnd))
   }
 
   private func entry(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
@@ -551,6 +592,7 @@ private struct BapUWidgetView: View {
         ForEach(Array(displayMenuItems(entry.snapshot.menu).enumerated()), id: \.offset) { _, item in
           Text(item)
             .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.primary)
             .lineLimit(1)
         }
       }
@@ -558,14 +600,7 @@ private struct BapUWidgetView: View {
     .padding(9)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(
-      LinearGradient(
-        colors: [
-          Color(red: 0.91, green: 1.0, blue: 0.96),
-          Color(red: 0.96, green: 0.98, blue: 1.0),
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-      ),
+      Color(uiColor: .secondarySystemBackground),
       in: RoundedRectangle(cornerRadius: 8)
     )
   }
