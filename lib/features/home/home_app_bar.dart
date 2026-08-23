@@ -36,6 +36,7 @@ class MealOfDaySwitchButton extends StatelessWidget {
       ),
       icon: Icon(icon),
       style: TextButton.styleFrom(
+        visualDensity: VisualDensity.comfortable,
         iconColor: colorScheme.onPrimaryContainer,
         backgroundColor: colorScheme.primaryContainer,
         overlayColor: colorScheme.onPrimaryContainer,
@@ -49,7 +50,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   final TabController tabController;
 
-  static const _preferredSize = Size.fromHeight(46.0);
+  static const _preferredSize = Size.fromHeight(44.0);
 
   static const _overlayColor = WidgetStatePropertyAll<Color>(
     Colors.transparent,
@@ -71,48 +72,67 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
 
     return PreferredSize(
       preferredSize: _preferredSize,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(128.0),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.shadow.withValues(alpha: 0.03),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 8.0),
-        padding: const EdgeInsets.all(4.0),
-        child: TabBar(
-          tabs: [
-            Tab(text: l10n.mon, height: 36),
-            Tab(text: l10n.tue, height: 36),
-            Tab(text: l10n.wed, height: 36),
-            Tab(text: l10n.thu, height: 36),
-            Tab(text: l10n.fri, height: 36),
-            Tab(text: l10n.sat, height: 36),
-            Tab(text: l10n.sun, height: 36),
-          ],
-          labelColor: colorScheme.onPrimaryContainer,
-          unselectedLabelColor: unselectedLabelColor,
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(128),
+      child: SizedBox(
+        height: 44,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(128.0),
+                  ),
+                ),
+              ),
+              Padding(
+                // 기존 요일바의 좌우 4px inset을 유지한다. 세로 방향은
+                // TabBar를 줄이지 않고 indicator만 inset하여 44px 터치
+                // 영역을 그대로 보존한다.
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: TabBar(
+                  tabs: [
+                    Tab(text: l10n.mon),
+                    Tab(text: l10n.tue),
+                    Tab(text: l10n.wed),
+                    Tab(text: l10n.thu),
+                    Tab(text: l10n.fri),
+                    Tab(text: l10n.sat),
+                    Tab(text: l10n.sun),
+                  ],
+                  labelColor: colorScheme.onPrimaryContainer,
+                  unselectedLabelColor: unselectedLabelColor,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  // 요일바 외곽과 각 요일의 터치 영역은 44px로 유지하고,
+                  // 선택 필박스만 상하 4px씩 줄여 끼니 전환 버튼의 Material과
+                  // 같은 36px로 그린다.
+                  indicatorPadding: const EdgeInsets.symmetric(vertical: 4),
+                  indicator: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(128),
+                  ),
+                  labelStyle: theme.textTheme.titleSmall!.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  labelPadding: EdgeInsets.zero,
+                  // resolveWith 대신 all을 사용하여 매 빌드마다
+                  // 새 클로저를 생성하지 않도록 한다.
+                  overlayColor: _overlayColor,
+                  splashFactory: NoSplash.splashFactory,
+                  dividerHeight: 0,
+                  controller: tabController,
+                ),
+              ),
+            ],
           ),
-          labelStyle: theme.textTheme.titleSmall!.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-          labelPadding: EdgeInsets.zero,
-          // resolveWith 대신 all을 사용하여 매 빌드마다
-          // 새 클로저를 생성하지 않도록 한다.
-          overlayColor: _overlayColor,
-          splashFactory: NoSplash.splashFactory,
-          dividerHeight: 0,
-          controller: tabController,
         ),
       ),
     );
