@@ -167,7 +167,6 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
         ],
         actionsPadding: const EdgeInsets.only(right: 8),
         backgroundColor: colorScheme.surface,
-        scrolledUnderElevation: 0,
         bottom: bottom,
         flexibleSpace: flexibleSpace,
       ),
@@ -191,12 +190,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
             );
           } else {
             return Center(
-              child: CircularProgressIndicator(
+              child: CircularProgressIndicator.adaptive(
                 // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
                 // 확보하고, 다크 surface에서는 브랜드 primaryContainer를 유지한다.
-                color: theme.brightness == Brightness.light
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.primaryContainer,
+                valueColor: AlwaysStoppedAnimation(
+                  theme.brightness == Brightness.light
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.primaryContainer,
+                ),
               ),
             );
           }
@@ -222,12 +223,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
               } else if (!cacheSnapshot.hasError ||
                   !downloadSnapshot.hasError) {
                 return Center(
-                  child: CircularProgressIndicator(
+                  child: CircularProgressIndicator.adaptive(
                     // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트
                     // 대비를 확보한다.
-                    color: theme.brightness == Brightness.light
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.primaryContainer,
+                    valueColor: AlwaysStoppedAnimation(
+                      theme.brightness == Brightness.light
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.primaryContainer,
+                    ),
                   ),
                 );
               } else {
@@ -242,12 +245,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
           );
         } else {
           return Center(
-            child: CircularProgressIndicator(
+            child: CircularProgressIndicator.adaptive(
               // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
               // 확보한다.
-              color: theme.brightness == Brightness.light
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primaryContainer,
+              valueColor: AlwaysStoppedAnimation(
+                theme.brightness == Brightness.light
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.primaryContainer,
+              ),
             ),
           );
         }

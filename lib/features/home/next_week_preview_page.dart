@@ -57,12 +57,14 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
         if (snapshot.connectionState != ConnectionState.done) {
           return _MessageScaffold(
             title: l10n.nextWeekPreview,
-            child: CircularProgressIndicator(
+            child: CircularProgressIndicator.adaptive(
               // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
               // 확보하고, 다크 surface에서는 브랜드 primaryContainer를 유지한다.
-              color: theme.brightness == Brightness.light
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primaryContainer,
+              valueColor: AlwaysStoppedAnimation(
+                theme.brightness == Brightness.light
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.primaryContainer,
+              ),
             ),
           );
         }
@@ -103,7 +105,7 @@ class _MessageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(title),
       ),
       body: Center(child: child),
     );
@@ -168,12 +170,14 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
         if (!snapshot.hasData) {
           return _MessageScaffold(
             title: l10n.nextWeekPreview,
-            child: CircularProgressIndicator(
+            child: CircularProgressIndicator.adaptive(
               // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
               // 확보하고, 다크 surface에서는 브랜드 primaryContainer를 유지한다.
-              color: theme.brightness == Brightness.light
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primaryContainer,
+              valueColor: AlwaysStoppedAnimation(
+                theme.brightness == Brightness.light
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.primaryContainer,
+              ),
             ),
           );
         }

@@ -37,19 +37,16 @@ class AllergySettingsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        scrolledUnderElevation: 0,
-        title: Text(
-          l10n.manageAllergies,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(l10n.manageAllergies),
       ),
       body: ListView.builder(
         itemCount: _allergenNames.length,
         itemBuilder: (context, index) {
           final id = index + 1;
-          return CheckboxListTile(
+          return CheckboxListTile.adaptive(
             title: Text('$id. ${_allergenNames[id]!}'),
             value: enabledIds.contains(id),
+            activeColor: Theme.of(context).colorScheme.primary,
             onChanged: (_) =>
                 context.read<AppSettings>().toggleAllergen(id),
           );

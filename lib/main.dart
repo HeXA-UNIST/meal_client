@@ -22,25 +22,32 @@ final _pageTransitionsTheme = PageTransitionsTheme(
 
 ThemeData _buildTheme(Brightness brightness) {
   final isLight = brightness == Brightness.light;
-  return ThemeData(
+  final colorScheme =
+      ColorScheme.fromSeed(
+        seedColor: mainColor,
+        brightness: brightness,
+        dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+      ).copyWith(
+        onPrimaryContainer: Colors.white,
+        onSurface: isLight ? null : const Color(0xFFE6E6E6),
+        outline: isLight ? null : const Color(0xFF9E9E9E),
+        outlineVariant: isLight ? null : const Color(0xFF454545),
+        surface: isLight ? Colors.white : Colors.black,
+        surfaceContainer: isLight
+            ? const Color(0xFFFAFAFA)
+            : const Color(0xFF121212),
+      );
+  final theme = ThemeData(
     fontFamily: 'Pretendard',
     brightness: brightness,
     pageTransitionsTheme: _pageTransitionsTheme,
-    colorScheme:
-        ColorScheme.fromSeed(
-          seedColor: mainColor,
-          brightness: brightness,
-          dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-        ).copyWith(
-          onPrimaryContainer: Colors.white,
-          onSurface: isLight ? null : const Color(0xFFE6E6E6),
-          outline: isLight ? null : const Color(0xFF9E9E9E),
-          outlineVariant: isLight ? null : const Color(0xFF454545),
-          surface: isLight ? Colors.white : Colors.black,
-          surfaceContainer: isLight
-              ? const Color(0xFFFAFAFA)
-              : const Color(0xFF121212),
-        ),
+    colorScheme: colorScheme,
+  );
+  return theme.copyWith(
+    appBarTheme: theme.appBarTheme.copyWith(
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+    ),
   );
 }
 
@@ -75,6 +82,18 @@ class BapUApp extends StatelessWidget {
       onGenerateTitle: (context) => AppLocalizations.of(context)!.title,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) {
+        final theme = Theme.of(context);
+        return AppBarTheme(
+          data: theme.appBarTheme.copyWith(
+            titleTextStyle: theme.textTheme.titleLarge?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          child: child!,
+        );
+      },
       themeMode: themeMode,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),

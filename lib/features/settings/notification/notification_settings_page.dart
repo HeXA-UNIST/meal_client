@@ -114,16 +114,13 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final appSettings = context.watch<AppSettings>();
     final notification = appSettings.notification;
     final authorizationStatus = appSettings.notificationAuthorizationStatus;
     return Scaffold(
       appBar: AppBar(
-        scrolledUnderElevation: 0,
-        title: Text(
-          l10n.notificationSettings,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(l10n.notificationSettings),
       ),
       body: ListView(
         children: [
@@ -180,15 +177,17 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         l10n.androidNotificationTimingNotice,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.brightness == Brightness.dark
+                              ? theme.colorScheme.onSurface
+                              : theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
                   ),
                 if (notification.enabled && notification.activePeriods.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                     child: Text(
                       l10n.notificationTimeSelectionRequired,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(

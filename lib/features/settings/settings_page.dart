@@ -19,11 +19,7 @@ class SettingsPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        scrolledUnderElevation: 0,
-        title: Text(
-          l10n.settings,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: Text(l10n.settings),
       ),
       body: ListView(
         children: [
