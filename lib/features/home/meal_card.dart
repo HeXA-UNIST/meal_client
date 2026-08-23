@@ -358,9 +358,11 @@ class MealCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: theme.textTheme.titleSmall!.copyWith(
+                      // 라이트 배경 #E8F7F2에서 APCA Lc 68.56이 되도록
+                      // 브랜드 HSL hue를 유지하고 lightness만 0.27로 낮춘다.
                       color: primaryHsl
                           .withSaturation(0.8)
-                          .withLightness(isLight ? 0.3 : 0.7)
+                          .withLightness(isLight ? 0.27 : 0.7)
                           .toColor(),
                       fontWeight: FontWeight.w600,
                     ),

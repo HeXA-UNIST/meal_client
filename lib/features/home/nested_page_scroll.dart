@@ -361,6 +361,9 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAliveClientMixin 필수
+    // 좁은 화면은 2px + 카드 상단 margin 8px로, 상단 버튼과 요일바 사이의
+    // 시각 간격 10px에 맞춘다. 넓은 화면은 기존 여백을 유지한다.
+    final topPadding = MediaQuery.sizeOf(context).width < 840 ? 2.0 : 10.0;
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         scrollDirection: Axis.vertical,
@@ -370,7 +373,7 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: EdgeInsets.only(top: topPadding),
             child: widget.builder(context, widget.pageIndex),
           ),
         ),

@@ -65,10 +65,11 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    final unselectedLabelColor = HSLColor.fromColor(colorScheme.onSurface)
-        .withSaturation(0)
-        .withLightness(theme.brightness == Brightness.light ? 0.6 : 0.4)
-        .toColor();
+    // APCA 0.0.98G-4g로 실제 surfaceContainer와 계산한 값이다.
+    // 라이트: #737373/#FAFAFA = Lc 69.95, 다크: #AAAAAA/#121212 = Lc -55.66.
+    final unselectedLabelColor = theme.brightness == Brightness.light
+        ? const Color(0xFF737373)
+        : const Color(0xFFAAAAAA);
 
     return PreferredSize(
       preferredSize: _preferredSize,

@@ -50,6 +50,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return FutureBuilder<String?>(
       future: _nextWeekStartFuture,
       builder: (context, snapshot) {
@@ -57,7 +58,11 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
           return _MessageScaffold(
             title: l10n.nextWeekPreview,
             child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
+              // 확보하고, 다크 surface에서는 브랜드 primaryContainer를 유지한다.
+              color: theme.brightness == Brightness.light
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.primaryContainer,
             ),
           );
         }
@@ -147,6 +152,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return FutureBuilder<WeekMeal>(
       future: _mealFuture,
       builder: (context, snapshot) {
@@ -163,7 +169,11 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
           return _MessageScaffold(
             title: l10n.nextWeekPreview,
             child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
+              // 확보하고, 다크 surface에서는 브랜드 primaryContainer를 유지한다.
+              color: theme.brightness == Brightness.light
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.primaryContainer,
             ),
           );
         }

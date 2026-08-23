@@ -39,7 +39,7 @@ ThemeData _buildTheme(Brightness brightness) {
           surface: isLight ? Colors.white : Colors.black,
           surfaceContainer: isLight
               ? const Color(0xFFFAFAFA)
-              : const Color(0xFF0F0F0F),
+              : const Color(0xFF121212),
         ),
   );
 }
