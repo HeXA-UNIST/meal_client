@@ -1,5 +1,6 @@
 import 'dart:async' show unawaited;
 
+import 'package:flutter/cupertino.dart' show CupertinoSwitch;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -134,7 +135,8 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
             contentPadding: const EdgeInsets.fromLTRB(16, 4, 24, 4),
             title: Text(l10n.mealNotifications),
             subtitle: Text(l10n.notificationDescription),
-            trailing: Switch(
+            trailing: _platformSwitch(
+              context,
               value: notification.enabled,
               onChanged: _handleNotificationToggle,
             ),
@@ -163,205 +165,197 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                 child: Text(l10n.retry),
               ),
             ),
-          if (notification.enabled) ...[
-            if (appSettings.usesInexactNotificationTiming)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 24, 4),
-                child: Text(
-                  l10n.androidNotificationTimingNotice,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            // 시간대별 알림 설정 (아침·점심·저녁·밤)
-            const Divider(height: 28, indent: 16, endIndent: 16),
-            _SubGroupLabel(l10n.notificationTimesLabel),
-            if (notification.activePeriods.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-                child: Text(
-                  l10n.notificationTimeSelectionRequired,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ),
-            for (final period in MealNotificationPeriod.values)
-              _PeriodAlertRow(period: period),
-            // 알림 받을 요일 선택 (월화수목금토일)
-            const Divider(height: 28, indent: 16, endIndent: 16),
-            _SubGroupLabel(l10n.notificationDaysLabel),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  const minDayRowWidth = 42.0 * 7 + 18.0 * 6;
-                  const maxDayRowWidth = 560.0;
-                  final dayToggles = [
-                    for (final day in _notificationDayOrder)
-                      _DayToggle(
-                        label: _dayLabel(l10n, day),
-                        selected: notification.isDayEnabled(day),
-                        onTap: () {
-                          final current = notification.days;
-                          final next = current.contains(day)
-                              ? current.where((d) => d != day).toSet()
-                              : {...current, day};
-                          // 최소 1개 요일은 유지
-                          if (next.isNotEmpty) {
-                            context.read<AppSettings>().setNotificationDays(
-                              next,
-                            );
-                          }
-                        },
-                      ),
-                  ];
-
-                  if (constraints.maxWidth < minDayRowWidth) {
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (
-                            var index = 0;
-                            index < dayToggles.length;
-                            index++
-                          ) ...[
-                            if (index > 0) const SizedBox(width: 18),
-                            dayToggles[index],
-                          ],
-                        ],
-                      ),
-                    );
-                  }
-
-                  final rowWidth = constraints.maxWidth > maxDayRowWidth
-                      ? maxDayRowWidth
-                      : constraints.maxWidth;
-                  return Center(
-                    child: SizedBox(
-                      width: rowWidth,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: dayToggles,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            // 알림 대상 식당 선택 (기숙사는 한식/할랄을 구분해서 선택)
-            const Divider(height: 28, indent: 16, endIndent: 16),
-            _SubGroupLabel(l10n.notificationCafeteriasLabel),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final dormMealType in DormMealType.values)
-                    FilterChip(
-                      label: Text(
-                        l10n.cafeteriaWithMealType(
-                          l10n.dormitoryCafeteria,
-                          _dormMealTypeName(l10n, dormMealType),
+          _NotificationOptions(
+            enabled: notification.enabled,
+            child: Column(
+              children: [
+                // 시간대별 알림 설정 (아침·점심·저녁·밤)
+                const Divider(height: 28, indent: 16, endIndent: 16),
+                _SubGroupLabel(l10n.notificationTimesLabel),
+                if (notification.enabled &&
+                    appSettings.usesInexactNotificationTiming)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 24, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        l10n.androidNotificationTimingNotice,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      selected: notification.isDormMealTypeEnabled(
-                        dormMealType,
-                      ),
-                      onSelected: (checked) {
-                        final current = notification.dormMealTypes;
-                        final next = checked
-                            ? {...current, dormMealType}
-                            : current.where((t) => t != dormMealType).toSet();
-                        // 최소 1개는 선택 유지
-                        if (next.isNotEmpty ||
-                            notification.cafeterias.isNotEmpty) {
-                          context
-                              .read<AppSettings>()
-                              .setNotificationDormMealTypes(next);
-                        }
-                      },
                     ),
-                  for (final cafeteria in Cafeteria.values.where(
-                    (c) => c != Cafeteria.dormitory,
-                  ))
-                    FilterChip(
-                      label: Text(_cafeteriaName(l10n, cafeteria)),
-                      selected: notification.cafeterias.contains(cafeteria),
-                      onSelected: (checked) {
-                        final current = notification.cafeterias;
-                        final next = checked
-                            ? {...current, cafeteria}
-                            : current.where((c) => c != cafeteria).toSet();
-                        // 최소 1개는 선택 유지
-                        if (next.isNotEmpty ||
-                            notification.dormMealTypes.isNotEmpty) {
-                          context.read<AppSettings>().setNotificationCafeterias(
-                            next,
-                          );
-                        }
-                      },
-                    ),
-                ],
-              ),
-            ),
-            // 키워드 기능은 알림 기능 최초 배포 이후 잘 작동하면 도입
-            if (kDebugMode) ...[
-              // 키워드 입력 + 추가 버튼
-              const Divider(height: 28, indent: 16, endIndent: 16),
-              _SubGroupLabel(l10n.notificationKeywordLabel),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _keywordController,
-                        focusNode: _keywordFocusNode,
-                        textInputAction: TextInputAction.done,
-                        decoration: InputDecoration(
-                          labelText: l10n.notificationKeywordLabel,
-                          hintText: l10n.notificationKeywordHint,
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        onSubmitted: (_) => _submitKeyword(),
+                  ),
+                if (notification.enabled && notification.activePeriods.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                    child: Text(
+                      l10n.notificationTimeSelectionRequired,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton.filledTonal(
-                      icon: const Icon(Icons.add),
-                      tooltip: l10n.addNotificationKeyword,
-                      onPressed: _submitKeyword,
-                    ),
-                  ],
-                ),
-              ),
-              // 등록된 키워드 칩 목록
-              if (notification.keywords.isNotEmpty)
+                  ),
+                for (final period in MealNotificationPeriod.values)
+                  _PeriodAlertRow(period: period),
+                // 알림 받을 요일 선택 (월화수목금토일)
+                const Divider(height: 28, indent: 16, endIndent: 16),
+                _SubGroupLabel(l10n.notificationDaysLabel),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const maxDayRowWidth = 560.0;
+                      final rowWidth = constraints.maxWidth > maxDayRowWidth
+                          ? maxDayRowWidth
+                          : constraints.maxWidth;
+                      return Center(
+                        child: SizedBox(
+                          width: rowWidth,
+                          child: Row(
+                            children: [
+                              for (final day in _notificationDayOrder)
+                                Expanded(
+                                  child: _DayToggle(
+                                    label: _dayLabel(l10n, day),
+                                    selected: notification.isDayEnabled(day),
+                                    onTap: () {
+                                      final current = notification.days;
+                                      final next = current.contains(day)
+                                          ? current
+                                                .where((d) => d != day)
+                                                .toSet()
+                                          : {...current, day};
+                                      // 최소 1개 요일은 유지
+                                      if (next.isNotEmpty) {
+                                        context
+                                            .read<AppSettings>()
+                                            .setNotificationDays(next);
+                                      }
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                // 알림 대상 식당 선택 (기숙사는 한식/할랄을 구분해서 선택)
+                const Divider(height: 28, indent: 16, endIndent: 16),
+                _SubGroupLabel(l10n.notificationCafeteriasLabel),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
-                      for (final kw in notification.keywords)
-                        Chip(
-                          label: Text(kw),
-                          onDeleted: () => context
-                              .read<AppSettings>()
-                              .removeNotificationKeyword(kw),
+                      for (final dormMealType in DormMealType.values)
+                        FilterChip(
+                          label: Text(
+                            l10n.cafeteriaWithMealType(
+                              l10n.dormitoryCafeteria,
+                              _dormMealTypeName(l10n, dormMealType),
+                            ),
+                          ),
+                          selected: notification.isDormMealTypeEnabled(
+                            dormMealType,
+                          ),
+                          onSelected: (checked) {
+                            final current = notification.dormMealTypes;
+                            final next = checked
+                                ? {...current, dormMealType}
+                                : current
+                                      .where((t) => t != dormMealType)
+                                      .toSet();
+                            // 최소 1개는 선택 유지
+                            if (next.isNotEmpty ||
+                                notification.cafeterias.isNotEmpty) {
+                              context
+                                  .read<AppSettings>()
+                                  .setNotificationDormMealTypes(next);
+                            }
+                          },
+                        ),
+                      for (final cafeteria in Cafeteria.values.where(
+                        (c) => c != Cafeteria.dormitory,
+                      ))
+                        FilterChip(
+                          label: Text(_cafeteriaName(l10n, cafeteria)),
+                          selected: notification.cafeterias.contains(cafeteria),
+                          onSelected: (checked) {
+                            final current = notification.cafeterias;
+                            final next = checked
+                                ? {...current, cafeteria}
+                                : current.where((c) => c != cafeteria).toSet();
+                            // 최소 1개는 선택 유지
+                            if (next.isNotEmpty ||
+                                notification.dormMealTypes.isNotEmpty) {
+                              context
+                                  .read<AppSettings>()
+                                  .setNotificationCafeterias(next);
+                            }
+                          },
                         ),
                     ],
                   ),
                 ),
-            ],
-          ],
+                // 키워드 기능은 알림 기능 최초 배포 이후 잘 작동하면 도입
+                if (kDebugMode) ...[
+                  // 키워드 입력 + 추가 버튼
+                  const Divider(height: 28, indent: 16, endIndent: 16),
+                  _SubGroupLabel(l10n.notificationKeywordLabel),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _keywordController,
+                            focusNode: _keywordFocusNode,
+                            textInputAction: TextInputAction.done,
+                            decoration: InputDecoration(
+                              labelText: l10n.notificationKeywordLabel,
+                              hintText: l10n.notificationKeywordHint,
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => _submitKeyword(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.add),
+                          tooltip: l10n.addNotificationKeyword,
+                          onPressed: _submitKeyword,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 등록된 키워드 칩 목록
+                  if (notification.keywords.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          for (final kw in notification.keywords)
+                            Chip(
+                              label: Text(kw),
+                              onDeleted: () => context
+                                  .read<AppSettings>()
+                                  .removeNotificationKeyword(kw),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
         ],
       ),
@@ -389,6 +383,52 @@ String _dayLabel(AppLocalizations l10n, DayOfWeek day) => switch (day) {
   DayOfWeek.sat => l10n.sat,
   DayOfWeek.sun => l10n.sun,
 };
+
+Widget _platformSwitch(
+  BuildContext context, {
+  required bool value,
+  required ValueChanged<bool>? onChanged,
+}) {
+  final activeTrackColor = Theme.of(context).colorScheme.primary;
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    return CupertinoSwitch(
+      value: value,
+      onChanged: onChanged,
+      activeTrackColor: activeTrackColor,
+    );
+  }
+  return Switch(
+    value: value,
+    onChanged: onChanged,
+    activeTrackColor: activeTrackColor,
+  );
+}
+
+/// 상위 알림 스위치가 꺼져도 종속 설정을 숨기지 않고 비활성 상태로 유지한다.
+class _NotificationOptions extends StatelessWidget {
+  const _NotificationOptions({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      enabled: enabled,
+      child: ExcludeFocus(
+        excluding: !enabled,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: AnimatedOpacity(
+            opacity: enabled ? 1 : 0.38,
+            duration: const Duration(milliseconds: 150),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// 알림 섹션 내부 소제목 (알림 시간 / 알림 받을 요일 / 알림 대상 식당).
 class _SubGroupLabel extends StatelessWidget {
@@ -431,36 +471,47 @@ class _DayToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Semantics(
-      label: label,
-      button: true,
-      selected: selected,
-      onTap: onTap,
-      child: ExcludeSemantics(
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: selected ? scheme.primary : Colors.transparent,
-              border: Border.all(
-                color: selected ? scheme.primary : scheme.outlineVariant,
-              ),
-            ),
-            child: Text(
-              label,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final diameter = constraints.maxWidth < 42.0
+            ? constraints.maxWidth
+            : 42.0;
+        return Center(
+          child: Semantics(
+            label: label,
+            button: true,
+            selected: selected,
+            onTap: onTap,
+            child: ExcludeSemantics(
+              child: InkWell(
+                onTap: onTap,
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: diameter,
+                  height: diameter,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? scheme.primary : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? scheme.primary : scheme.outlineVariant,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: selected
+                          ? scheme.onPrimary
+                          : scheme.onSurfaceVariant,
+                      fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -531,7 +582,8 @@ class _PeriodAlertRow extends StatelessWidget {
           ),
         ],
       ),
-      trailing: Switch(
+      trailing: _platformSwitch(
+        context,
         value: enabled,
         onChanged: (v) {
           // 켤 때는 마지막으로 선택했던 시각(없으면 기본 슬롯)으로 복원한다.

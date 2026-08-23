@@ -154,7 +154,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationSettings => '알림 설정';
 
   @override
-  String get notificationDescription => '선택한 식당과 시간대에 맞춰 푸시 알림을 보내드립니다.';
+  String get notificationDescription => '선택한 식당과 시간에 맞춰 푸시 알림을 보내드려요.';
 
   @override
   String mealNotificationTitle(String cafeteria, String mealPeriod) {
@@ -225,7 +225,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get androidNotificationTimingNotice =>
-      '기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.';
+      '절전 설정에 따라 알림이 예정보다 늦게 도착할 수 있습니다.';
 
   @override
   String get notificationSyncFailed => '알림 설정을 적용하지 못했습니다.';

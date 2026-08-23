@@ -383,7 +383,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationDescription.
   ///
   /// In ko, this message translates to:
-  /// **'선택한 식당과 시간대에 맞춰 푸시 알림을 보내드립니다.'**
+  /// **'선택한 식당과 시간에 맞춰 푸시 알림을 보내드려요.'**
   String get notificationDescription;
 
   /// No description provided for @mealNotificationTitle.
@@ -509,7 +509,7 @@ abstract class AppLocalizations {
   /// No description provided for @androidNotificationTimingNotice.
   ///
   /// In ko, this message translates to:
-  /// **'기기 절전 상태에 따라 알림이 선택한 시각보다 늦게 도착할 수 있습니다.'**
+  /// **'절전 설정에 따라 알림이 예정보다 늦게 도착할 수 있습니다.'**
   String get androidNotificationTimingNotice;
 
   /// No description provided for @notificationSyncFailed.
