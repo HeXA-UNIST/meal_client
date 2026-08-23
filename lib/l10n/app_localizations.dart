@@ -260,6 +260,12 @@ abstract class AppLocalizations {
   /// **'언어 / Language'**
   String get language;
 
+  /// No description provided for @appLanguageSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'앱 언어 설정'**
+  String get appLanguageSettings;
+
   /// No description provided for @dormitoryCafeteria.
   ///
   /// In ko, this message translates to:

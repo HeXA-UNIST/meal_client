@@ -90,6 +90,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get language => '언어 / Language';
 
   @override
+  String get appLanguageSettings => '앱 언어 설정';
+
+  @override
   String get dormitoryCafeteria => '기숙사 식당';
 
   @override

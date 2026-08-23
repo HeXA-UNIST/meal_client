@@ -90,6 +90,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language / 언어';
 
   @override
+  String get appLanguageSettings => 'App Language Settings';
+
+  @override
   String get dormitoryCafeteria => 'Dormitory';
 
   @override

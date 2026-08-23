@@ -1,3 +1,4 @@
+import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,9 @@ class SettingsPage extends StatelessWidget {
             ],
             _SectionHeader(l10n.mealNotifications),
             _MealNotificationTile(),
+            const Divider(indent: 16, endIndent: 16),
+            _SectionHeader(l10n.language),
+            _LanguageTile(),
             const Divider(indent: 16, endIndent: 16),
           ],
           _SectionHeader(l10n.themeMode),
@@ -99,6 +103,24 @@ class _MealNotificationTile extends StatelessWidget {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const MealNotificationPage()),
+      ),
+    );
+  }
+}
+
+class _LanguageTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text(l10n.appLanguageSettings),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => device_settings.AppSettings.openAppSettings(
+        type: switch (defaultTargetPlatform) {
+          TargetPlatform.android => device_settings.AppSettingsType.appLocale,
+          TargetPlatform.iOS => device_settings.AppSettingsType.settings,
+          _ => device_settings.AppSettingsType.settings,
+        },
       ),
     );
   }
