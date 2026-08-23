@@ -67,18 +67,20 @@ void main() {
   });
 
   group('MealNotificationPeriod', () {
-    test('각 시간대는 15분 간격 선택지와 올바른 대상 식사를 갖는다', () {
+    test('각 시간대는 30분 간격 선택지와 올바른 대상 식사를 갖는다', () {
       for (final period in MealNotificationPeriod.values) {
-        expect(period.allSlots, hasLength(5));
+        expect(period.allSlots, hasLength(3));
       }
-      expect(
-        MealNotificationPeriod.morning.allSlots.first,
-        const TimeOfDay(hour: 7, minute: 30),
-      );
-      expect(
-        MealNotificationPeriod.night.allSlots.last,
-        const TimeOfDay(hour: 22, minute: 0),
-      );
+      expect(MealNotificationPeriod.morning.allSlots, const [
+        TimeOfDay(hour: 7, minute: 30),
+        TimeOfDay(hour: 8, minute: 0),
+        TimeOfDay(hour: 8, minute: 30),
+      ]);
+      expect(MealNotificationPeriod.night.allSlots, const [
+        TimeOfDay(hour: 21, minute: 0),
+        TimeOfDay(hour: 21, minute: 30),
+        TimeOfDay(hour: 22, minute: 0),
+      ]);
       expect(MealNotificationPeriod.night.tomorrow, isTrue);
       expect(MealNotificationPeriod.night.mealOfDay, MealOfDay.breakfast);
     });

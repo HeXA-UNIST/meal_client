@@ -327,7 +327,7 @@ void main() {
           period: MealNotificationPeriod.lunch,
           contentId: 3,
           targetDate: DateTime.utc(2026, 7, 20),
-          alertTime: const TimeOfDay(hour: 11, minute: 15),
+          alertTime: const TimeOfDay(hour: 11, minute: 30),
         );
 
         expect(

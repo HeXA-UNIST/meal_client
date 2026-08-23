@@ -48,7 +48,7 @@ class NotificationSettings {
   final List<String> keywords;
 
   /// 시간대별 알림 시각. 값이 없으면(=키가 없거나 null이면) 그 시간대는 꺼진 상태.
-  /// 저장된 TimeOfDay는 해당 시간대 범위 내의 15분 슬롯 중 하나여야 한다.
+  /// 저장된 TimeOfDay는 해당 시간대 범위 내의 30분 슬롯 중 하나여야 한다.
   final Map<MealNotificationPeriod, TimeOfDay?> alertTimes;
 
   /// 시간대별 "마지막으로 선택한 시각". 시간대를 꺼도 유지되어, 다시 켜거나

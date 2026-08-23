@@ -67,14 +67,18 @@ enum MealNotificationPeriod {
     return slots[slots.length ~/ 2];
   }
 
-  /// 15분 단위 슬롯 목록. 시작·끝 포함.
+  /// 30분 단위 슬롯 목록. 시작·끝 포함.
+  ///
+  /// inexact 알람은 요청 시각보다 늦게만 배달되고 실측 오차는 수 분 수준이라
+  /// 15분 간격도 의미는 있지만, 실제 배포 후 배달 지연 통계를 확보하기 전까지는
+  /// 선택지를 넓게 유지한다.
   List<TimeOfDay> get allSlots {
     final result = <TimeOfDay>[];
     var h = startHour;
     var m = startMinute;
     while (h < endHour || (h == endHour && m <= endMinute)) {
       result.add(TimeOfDay(hour: h, minute: m));
-      m += 15;
+      m += 30;
       if (m >= 60) {
         h += m ~/ 60;
         m %= 60;
