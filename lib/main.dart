@@ -33,6 +33,9 @@ ThemeData _buildTheme(Brightness brightness) {
           dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
         ).copyWith(
           onPrimaryContainer: Colors.white,
+          onSurface: isLight ? null : const Color(0xFFE6E6E6),
+          outline: isLight ? null : const Color(0xFF9E9E9E),
+          outlineVariant: isLight ? null : const Color(0xFF454545),
           surface: isLight ? Colors.white : Colors.black,
           surfaceContainer: isLight
               ? const Color(0xFFFAFAFA)
