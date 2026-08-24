@@ -27,4 +27,14 @@ class BapUWidgetLayoutTest {
             appendInlineMenuEllipsis(listOf("1", "2", "3"))
         )
     }
+
+    @Test
+    fun `메뉴 높이 측정의 1픽셀 반올림 오차를 허용한다`() {
+        assertTrue(fitsWithinWidgetMenuHeight(511, 510))
+    }
+
+    @Test
+    fun `메뉴 높이가 2픽셀 이상 넘으면 거부한다`() {
+        assertFalse(fitsWithinWidgetMenuHeight(512, 510))
+    }
 }

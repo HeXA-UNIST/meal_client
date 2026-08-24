@@ -14,6 +14,9 @@ import android.widget.TextView
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
 const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
 
+/** TextView의 내용 높이와 부모가 배정한 높이 사이에서 발생할 수 있는 픽셀 반올림 오차. */
+private const val WIDGET_MENU_MEASURE_ROUNDING_TOLERANCE_PX = 1
+
 /** AOSP Launcher3 셀 공식상 4칸 너비에 해당하는 최소 크기. */
 const val WIDGET_TWO_COLUMN_MIN_WIDTH_DP = 250
 
@@ -89,7 +92,7 @@ fun truncateMenuByRealLayout(
         menuView.measure(menuWidthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
         val neededHeight = menuView.measuredHeight
 
-        return neededHeight <= assignedHeight
+        return fitsWithinWidgetMenuHeight(neededHeight, assignedHeight)
     }
 
     val fullMenu = filtered.joinToString("\n")
@@ -161,7 +164,7 @@ fun truncateMenuTwoColumnsByRealLayout(
             val assignedHeight = menuView.measuredHeight
             val widthSpec = View.MeasureSpec.makeMeasureSpec(menuView.measuredWidth, View.MeasureSpec.EXACTLY)
             menuView.measure(widthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-            menuView.measuredHeight <= assignedHeight
+            fitsWithinWidgetMenuHeight(menuView.measuredHeight, assignedHeight)
         }
     }
 
@@ -197,6 +200,10 @@ fun truncateMenuTwoColumnsByRealLayout(
     }
     return "..." to ""
 }
+
+/** 실제 레이아웃 측정 과정의 1px 반올림 차이만 허용하고, 내용 한 줄의 초과는 거부한다. */
+internal fun fitsWithinWidgetMenuHeight(neededHeight: Int, assignedHeight: Int): Boolean =
+    neededHeight <= assignedHeight + WIDGET_MENU_MEASURE_ROUNDING_TOLERANCE_PX
 
 data class OperatingPeriod(val startH: Int, val startM: Int, val endH: Int, val endM: Int)
 
