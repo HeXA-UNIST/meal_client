@@ -592,7 +592,6 @@ private struct BapUWidgetView: View {
         .foregroundStyle(entry.snapshot.status.color)
         .lineLimit(1)
     }
-    .padding(12)
     .widgetURL(URL(string: "bapu://home"))
     .modifier(WidgetBackgroundModifier())
   }
