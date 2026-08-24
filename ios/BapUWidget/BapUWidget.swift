@@ -608,12 +608,7 @@ private struct BapUWidgetView: View {
           .frame(maxWidth: .infinity, alignment: .center)
         Spacer(minLength: 0)
       } else {
-        ForEach(Array(displayMenuItems(entry.snapshot.menu).enumerated()), id: \.offset) { _, item in
-          Text(item)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.primary)
-            .lineLimit(1)
-        }
+        adaptiveMenuRows
       }
     }
     .padding(9)
@@ -622,6 +617,40 @@ private struct BapUWidgetView: View {
       Color(uiColor: .secondarySystemBackground),
       in: RoundedRectangle(cornerRadius: 8)
     )
+  }
+
+  @ViewBuilder
+  private var adaptiveMenuRows: some View {
+    if #available(iOSApplicationExtension 16.0, *) {
+      ViewThatFits(in: .vertical) {
+        menuRows(limit: entry.snapshot.menu.count)
+        menuRows(limit: 8)
+        menuRows(limit: 7)
+        menuRows(limit: 6)
+        menuRows(limit: 5)
+        menuRows(limit: 4)
+        menuRows(limit: 3)
+        menuRows(limit: 2)
+        menuRows(limit: 1)
+      }
+    } else {
+      // iOS 15에서는 기존의 고정 5행 표시를 유지한다.
+      menuRows(limit: 5)
+    }
+  }
+
+  private func menuRows(limit: Int) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      ForEach(
+        Array(displayMenuItems(entry.snapshot.menu, limit: limit).enumerated()),
+        id: \.offset
+      ) { _, item in
+        Text(item)
+          .font(.system(size: 11, weight: .medium))
+          .foregroundStyle(.primary)
+          .lineLimit(1)
+      }
+    }
   }
 }
 
