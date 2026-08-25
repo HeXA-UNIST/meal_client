@@ -59,7 +59,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late Future<WeekMeal> cachedMeal;
   late Future<WeekMeal> downloadedMeal;
   late Future<String?> nextWeekStart;
+  /// 화면 표시용. 캐시가 있으면 그것으로 먼저 완료되고 이후 fresh로 교체된다.
   late Future<AppInfo> appInfo;
+
+  /// 공지 비교 전용. 캐시된 공지로 판단하면 서버의 새 공지가 다음 실행까지
+  /// 밀리고, 게다가 캐시 공지의 fingerprint가 저장돼 버린다.
+  late final Future<AppInfo> _freshAppInfo;
   Future<void> _mealRefreshQueue = Future.value();
 
   @override
@@ -68,15 +73,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initializeModelAndDate();
     _initializeDataLoading();
-    appInfo = _loadAppInfo();
+    _freshAppInfo = _fetchFreshAppInfo();
+    appInfo = _loadAppInfo(_freshAppInfo);
+    // 화면의 FutureBuilder가 붙기 전에 실패하면 listener가 없어 unhandled async
+    // error가 된다. 오류 표시는 그대로 FutureBuilder가 맡고, 여기서는 관찰만 한다.
+    unawaited(appInfo.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
     _checkAnnouncement();
   }
 
   /// 캐시된 info.json이 있으면 그것으로 먼저 화면을 채우고, 네트워크 응답이
   /// 도착하면 future를 교체한다. FutureBuilder는 future가 바뀌어도 직전 data를
   /// 유지하므로(`_FutureBuilderState.didUpdateWidget`) 교체 시 깜빡이지 않는다.
-  Future<AppInfo> _loadAppInfo() async {
-    final fresh = _fetchFreshAppInfo();
+  Future<AppInfo> _loadAppInfo(Future<AppInfo> fresh) async {
     // cache를 읽는 사이에 fresh가 먼저 실패하면 listener가 없어 unhandled async
     // error가 된다. 결과 관찰을 곧바로 걸어 두고, 성공 여부만 따로 받는다.
     final freshFailed = fresh.then<bool>(
@@ -222,7 +230,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _checkAnnouncement() {
-    checkForNewAnnouncement(loadInfo: () => appInfo)
+    checkForNewAnnouncement(loadInfo: () => _freshAppInfo)
         .then((announcement) {
           if (announcement != null && mounted) {
             SchedulerBinding.instance.addPostFrameCallback((_) {

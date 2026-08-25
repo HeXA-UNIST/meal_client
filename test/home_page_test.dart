@@ -6,6 +6,7 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
 import 'package:meal_client/features/home/home_page.dart';
 import 'package:meal_client/features/home/week_menu_scaffold.dart';
+import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -230,6 +231,44 @@ void main() {
       find.byType(WeekMenuScaffold),
     );
     expect(await scaffold.appInfo, same(freshInfo));
+  });
+
+  testWidgets('공지는 캐시가 아니라 최신 info로 검사한다', (tester) async {
+    final cached = _appInfoWithAnnouncement('캐시에 남아 있는 지난 공지');
+    final freshInfo = _appInfoWithAnnouncement('서버에 새로 올라온 공지');
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () async => freshInfo,
+        loadCachedAppInfo: () async => cached,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('서버에 새로 올라온 공지'), findsOneWidget);
+    expect(find.text('캐시에 남아 있는 지난 공지'), findsNothing);
+
+    // 캐시 공지의 fingerprint가 저장돼 다음 실행에서 최신 공지가 묻히면 안 된다.
+    final stored = await getStoredAnnouncement();
+    expect(
+      stored?.contentFingerprint,
+      freshInfo.announcement!.contentFingerprint,
+    );
+  });
+}
+
+AppInfo _appInfoWithAnnouncement(String content) {
+  return AppInfo.fromJson({
+    'announcement': {
+      'title': null,
+      'content': {'ko': content, 'en': content},
+      'showAnnouncementEveryTime': false,
+    },
+    'operatingHours': {
+      'weekday': <String, dynamic>{},
+      'weekend': <String, dynamic>{},
+    },
   });
 }
 
