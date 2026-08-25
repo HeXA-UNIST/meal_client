@@ -203,13 +203,13 @@ void main() {
     );
     expect(releaseSettings.keywords, isEmpty);
     expect(releaseSettings.cafeterias, {Cafeteria.dormitory});
-    expect(releaseSettings.dormMealTypes, DormMealType.values.toSet());
+    expect(releaseSettings.dormMealTypes, DormMenuType.values.toSet());
   });
 
   test('식당별 전체 메뉴를 한국어와 영어로 동일한 고유 그룹에 생성한다', () {
     final settings = NotificationDeliverySettings(
       cafeterias: Cafeteria.values.toSet(),
-      dormMealTypes: DormMealType.values.toSet(),
+      dormMealTypes: DormMenuType.values.toSet(),
       keywords: const [],
     );
     final weekMeal = _notificationWeekMeal();

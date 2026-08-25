@@ -5,20 +5,20 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 
 /// 기숙사 식당 알림 대상 메뉴 종류.
-enum DormMealType { korean, halal }
+enum DormMenuType { korean, halal }
 
 /// 실제 알림 콘텐츠 생성에 사용하는 정규화된 설정 스냅샷.
 class NotificationDeliverySettings {
   NotificationDeliverySettings({
     required Set<Cafeteria> cafeterias,
-    required Set<DormMealType> dormMealTypes,
+    required Set<DormMenuType> dormMealTypes,
     required List<String> keywords,
   }) : cafeterias = Set.unmodifiable(cafeterias),
        dormMealTypes = Set.unmodifiable(dormMealTypes),
        keywords = List.unmodifiable(keywords);
 
   final Set<Cafeteria> cafeterias;
-  final Set<DormMealType> dormMealTypes;
+  final Set<DormMenuType> dormMealTypes;
   final List<String> keywords;
 }
 
@@ -62,7 +62,7 @@ class NotificationSettings {
 
   /// 기숙사 식당 알림 대상 메뉴 종류(한식/할랄). 기본값은 둘 다.
   /// 비어있으면 기숙사 식당 자체가 알림 대상에서 빠진 것으로 취급한다.
-  final Set<DormMealType> dormMealTypes;
+  final Set<DormMenuType> dormMealTypes;
 
   /// 알림을 받을 요일. 이 집합에 없는 요일에는 알림이 발송되지 않는다.
   /// 기본값은 모든 요일.
@@ -74,9 +74,9 @@ class NotificationSettings {
     Map<MealNotificationPeriod, TimeOfDay?> alertTimes = const {},
     Map<MealNotificationPeriod, TimeOfDay> rememberedTimes = const {},
     Set<Cafeteria> cafeterias = const {},
-    Set<DormMealType> dormMealTypes = const {
-      DormMealType.korean,
-      DormMealType.halal,
+    Set<DormMenuType> dormMealTypes = const {
+      DormMenuType.korean,
+      DormMenuType.halal,
     },
     Set<DayOfWeek>? days,
   }) : keywords = List.unmodifiable(keywords),
@@ -100,7 +100,7 @@ class NotificationSettings {
 
   bool isDayEnabled(DayOfWeek d) => days.contains(d);
 
-  bool isDormMealTypeEnabled(DormMealType t) => dormMealTypes.contains(t);
+  bool isDormMealTypeEnabled(DormMenuType t) => dormMealTypes.contains(t);
 
   /// 기숙사 식당(선택된 경우)까지 포함한 실제 알림 대상 식당 집합.
   Set<Cafeteria> get activeCafeterias => {
@@ -114,7 +114,7 @@ class NotificationSettings {
     Map<MealNotificationPeriod, TimeOfDay?>? alertTimes,
     Map<MealNotificationPeriod, TimeOfDay>? rememberedTimes,
     Set<Cafeteria>? cafeterias,
-    Set<DormMealType>? dormMealTypes,
+    Set<DormMenuType>? dormMealTypes,
     Set<DayOfWeek>? days,
   }) => NotificationSettings(
     enabled: enabled ?? this.enabled,

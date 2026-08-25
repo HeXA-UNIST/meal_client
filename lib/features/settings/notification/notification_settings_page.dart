@@ -11,7 +11,7 @@ import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import '../app_settings.dart';
-import 'notification_settings.dart' show DormMealType, NotificationSettings;
+import 'notification_settings.dart' show DormMenuType, NotificationSettings;
 
 /// 식단 알림(키워드·시간대·요일·대상 식당) 전용 설정 페이지.
 class MealNotificationPage extends StatefulWidget {
@@ -99,10 +99,10 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
         Cafeteria.faculty => l10n.facultyCafeteria,
       };
 
-  String _dormMealTypeName(AppLocalizations l10n, DormMealType type) =>
+  String _dormMealTypeName(AppLocalizations l10n, DormMenuType type) =>
       switch (type) {
-        DormMealType.korean => l10n.menuKorean,
-        DormMealType.halal => l10n.menuHalal,
+        DormMenuType.korean => l10n.menuKorean,
+        DormMenuType.halal => l10n.menuHalal,
       };
 
   // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
@@ -301,7 +301,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    for (final dormMealType in DormMealType.values)
+                    for (final dormMealType in DormMenuType.values)
                       FilterChip(
                         label: Text(
                           l10n.cafeteriaWithMealType(

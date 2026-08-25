@@ -374,8 +374,8 @@ class AppSettings extends ChangeNotifier {
 
   /// 기숙사 식당 알림 대상 메뉴 종류(한식/할랄)를 설정한다.
   /// 이 값이 비어있으면 기숙사 식당 자체가 알림 대상에서 빠진 것으로 취급된다.
-  void setNotificationDormMealTypes(Set<DormMealType> types) {
-    final snapshot = Set<DormMealType>.from(types);
+  void setNotificationDormMealTypes(Set<DormMenuType> types) {
+    final snapshot = Set<DormMenuType>.from(types);
     unawaited(
       _enqueueNotificationMutation(
         () => _applyNotificationMutation(

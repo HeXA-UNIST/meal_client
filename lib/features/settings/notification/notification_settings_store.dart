@@ -23,8 +23,8 @@ NotificationSettings loadNotificationSettings(SharedPreferences prefs) {
     StorageKeys.notificationDormMealTypes,
   );
   final dormMealTypes = dormMealTypeNames != null
-      ? enumSetFromNames(dormMealTypeNames, DormMealType.values)
-      : const <DormMealType>{DormMealType.korean, DormMealType.halal};
+      ? enumSetFromNames(dormMealTypeNames, DormMenuType.values)
+      : const <DormMenuType>{DormMenuType.korean, DormMenuType.halal};
 
   final keywords = prefs.getStringList(StorageKeys.notificationKeywords) ?? [];
 
