@@ -498,7 +498,7 @@ ShapeBorder _dialogShape() {
 // M3 기본값(16)으로 대체한다. 곡선 종류(superellipse)는 iOS에서만 사용한다.
 ShapeBorder _drawerShape(BuildContext context) {
   const fallbackRadius = Radius.circular(16);
-  final displayCornerRadii = MediaQuery.of(context).displayCornerRadii;
+  final displayCornerRadii = MediaQuery.displayCornerRadiiOf(context);
   final isLtr = Directionality.of(context) == TextDirection.ltr;
   final topRight = displayCornerRadii?.topRight ?? fallbackRadius;
   final bottomRight = displayCornerRadii?.bottomRight ?? fallbackRadius;

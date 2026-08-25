@@ -22,6 +22,7 @@ class HomePage extends StatefulWidget {
     super.key,
     this.now,
     this.loadAppInfo,
+    this.loadCachedAppInfo,
     this.loadCachedMeal,
     this.refreshMeal,
     this.refreshHomeWidgets,
@@ -32,6 +33,9 @@ class HomePage extends StatefulWidget {
 
   /// 위젯 테스트에서 네트워크 없이 안내 정보를 제공하기 위한 주입점.
   final Future<AppInfo> Function()? loadAppInfo;
+
+  /// 위젯 테스트에서 캐시된 안내 정보를 제공하기 위한 주입점.
+  final Future<AppInfo?> Function()? loadCachedAppInfo;
 
   /// 위젯 테스트에서 캐시 식단 로딩 순서를 제어하기 위한 주입점.
   final Future<MealResponse> Function()? loadCachedMeal;
@@ -55,7 +59,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late Future<WeekMeal> cachedMeal;
   late Future<WeekMeal> downloadedMeal;
   late Future<String?> nextWeekStart;
-  late final Future<AppInfo> appInfo;
+  late Future<AppInfo> appInfo;
   Future<void> _mealRefreshQueue = Future.value();
 
   @override
@@ -68,12 +72,48 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _checkAnnouncement();
   }
 
+  /// 캐시된 info.json이 있으면 그것으로 먼저 화면을 채우고, 네트워크 응답이
+  /// 도착하면 future를 교체한다. FutureBuilder는 future가 바뀌어도 직전 data를
+  /// 유지하므로(`_FutureBuilderState.didUpdateWidget`) 교체 시 깜빡이지 않는다.
   Future<AppInfo> _loadAppInfo() async {
+    final fresh = _fetchFreshAppInfo();
+    // cache를 읽는 사이에 fresh가 먼저 실패하면 listener가 없어 unhandled async
+    // error가 된다. 결과 관찰을 곧바로 걸어 두고, 성공 여부만 따로 받는다.
+    final freshFailed = fresh.then<bool>(
+      (_) => false,
+      onError: (Object error, StackTrace _) {
+        assert(() {
+          debugPrint('[BapU] fresh app info fetch failed: $error');
+          return true;
+        }());
+        return true;
+      },
+    );
+    final cached = await (widget.loadCachedAppInfo ?? readCachedAppInfo)();
+    if (cached == null) return fresh;
+    unawaited(_replaceAppInfoWithFresh(fresh, freshFailed));
+    return cached;
+  }
+
+  Future<AppInfo> _fetchFreshAppInfo() async {
     final info = await (widget.loadAppInfo ?? fetchAppInfo)();
     // 식단과 안내 정보는 독립적으로 갱신된다. info.json이 늦게 저장돼도
     // 위젯이 오류 화면에 머물지 않도록 각 cache 성공 뒤 따로 다시 그린다.
     unawaited(_refreshHomeWidgetsAfterInfoCache());
     return info;
+  }
+
+  /// 네트워크 응답이 실패하면 캐시로 그린 화면을 그대로 둔다.
+  Future<void> _replaceAppInfoWithFresh(
+    Future<AppInfo> fresh,
+    Future<bool> freshFailed,
+  ) async {
+    if (await freshFailed) return;
+    if (!mounted) return;
+    // 화살표 본문은 대입 결과인 Future를 돌려주어 setState assert에 걸린다.
+    setState(() {
+      appInfo = fresh;
+    });
   }
 
   Future<void> _refreshHomeWidgetsAfterInfoCache() async {

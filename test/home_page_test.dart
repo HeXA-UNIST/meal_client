@@ -166,6 +166,71 @@ void main() {
 
     expect(widgetRefreshCount, 1);
   });
+
+  testWidgets('캐시된 info가 있으면 네트워크 응답을 기다리지 않고 먼저 반영한다', (tester) async {
+    final cached = await _loadEmptyAppInfo();
+    final fresh = Completer<AppInfo>();
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () => fresh.future,
+        loadCachedAppInfo: () async => cached,
+      ),
+    );
+    await tester.pump();
+
+    final scaffold = tester.widget<WeekMenuScaffold>(
+      find.byType(WeekMenuScaffold),
+    );
+    expect(await scaffold.appInfo, same(cached));
+
+    // 네트워크 응답이 도착하면 최신 값으로 교체된다.
+    final freshInfo = await _loadEmptyAppInfo();
+    fresh.complete(freshInfo);
+    await tester.pumpAndSettle();
+
+    final refreshed = tester.widget<WeekMenuScaffold>(
+      find.byType(WeekMenuScaffold),
+    );
+    expect(await refreshed.appInfo, same(freshInfo));
+  });
+
+  testWidgets('네트워크 info 갱신이 실패해도 캐시된 info를 유지한다', (tester) async {
+    final cached = await _loadEmptyAppInfo();
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () async => throw Exception('info failed'),
+        loadCachedAppInfo: () async => cached,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scaffold = tester.widget<WeekMenuScaffold>(
+      find.byType(WeekMenuScaffold),
+    );
+    expect(await scaffold.appInfo, same(cached));
+  });
+
+  testWidgets('캐시된 info가 없으면 네트워크 응답을 그대로 사용한다', (tester) async {
+    final freshInfo = await _loadEmptyAppInfo();
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () async => freshInfo,
+        loadCachedAppInfo: () async => null,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scaffold = tester.widget<WeekMenuScaffold>(
+      find.byType(WeekMenuScaffold),
+    );
+    expect(await scaffold.appInfo, same(freshInfo));
+  });
 }
 
 Future<String?>? _nextWeekStart(WeekMenuScaffold scaffold) {
@@ -175,6 +240,7 @@ Future<String?>? _nextWeekStart(WeekMenuScaffold scaffold) {
 Widget _buildHomePage(
   DateTime Function() now, {
   Future<AppInfo> Function()? loadAppInfo,
+  Future<AppInfo?> Function()? loadCachedAppInfo,
   Future<MealResponse> Function()? loadCachedMeal,
   Future<MealResponse> Function()? refreshMeal,
   Future<void> Function()? refreshHomeWidgets,
@@ -185,6 +251,7 @@ Widget _buildHomePage(
     home: HomePage(
       now: now,
       loadAppInfo: loadAppInfo ?? _loadEmptyAppInfo,
+      loadCachedAppInfo: loadCachedAppInfo ?? () async => null,
       loadCachedMeal:
           loadCachedMeal ??
           () async => _mealResponse(DateTime.utc(2026, 8, 10)),

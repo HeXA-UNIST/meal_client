@@ -95,7 +95,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     final dayOfWeekTabBar = DayOfWeekTabBar(tabController: _tabController);
     final PreferredSizeWidget? bottom;
     final Widget? flexibleSpace;
-    if (MediaQuery.of(context).size.width >= 840) {
+    if (MediaQuery.sizeOf(context).width >= 840) {
       flexibleSpace = SafeArea(
         child: Center(child: SizedBox(width: 420, child: dayOfWeekTabBar)),
       );
