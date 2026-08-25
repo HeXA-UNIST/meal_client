@@ -190,7 +190,7 @@ String _notificationSettingsFingerprint(NotificationSettings settings) {
         ..sort();
   final cafeterias = settings.cafeterias.map((item) => item.name).toList()
     ..sort();
-  final dormTypes = settings.dormMealTypes.map((item) => item.name).toList()
+  final dormTypes = settings.dormMenuTypes.map((item) => item.name).toList()
     ..sort();
   final days = settings.days.map((item) => item.name).toList()..sort();
   return [

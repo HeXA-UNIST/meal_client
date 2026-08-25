@@ -117,7 +117,7 @@ void main() {
 
     // 비활성 컨트롤을 탭해도 설정이 바뀌지 않는다.
     final daysBefore = settings.notification.days;
-    final dormTypesBefore = settings.notification.dormMealTypes;
+    final dormTypesBefore = settings.notification.dormMenuTypes;
     final alertTimesBefore = Map.of(settings.notification.alertTimes);
 
     await tester.tap(find.bySemanticsLabel('월'), warnIfMissed: false);
@@ -129,7 +129,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(settings.notification.days, daysBefore);
-    expect(settings.notification.dormMealTypes, dormTypesBefore);
+    expect(settings.notification.dormMenuTypes, dormTypesBefore);
     expect(settings.notification.alertTimes, alertTimesBefore);
     expect(settings.notification.enabled, isFalse);
   });

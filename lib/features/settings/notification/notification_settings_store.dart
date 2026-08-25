@@ -19,11 +19,11 @@ NotificationSettings loadNotificationSettings(SharedPreferences prefs) {
       .where((cafeteria) => cafeteria != Cafeteria.dormitory)
       .toSet();
 
-  final dormMealTypeNames = prefs.getStringList(
-    StorageKeys.notificationDormMealTypes,
+  final dormMenuTypeNames = prefs.getStringList(
+    StorageKeys.notificationDormMenuTypes,
   );
-  final dormMealTypes = dormMealTypeNames != null
-      ? enumSetFromNames(dormMealTypeNames, DormMenuType.values)
+  final dormMenuTypes = dormMenuTypeNames != null
+      ? enumSetFromNames(dormMenuTypeNames, DormMenuType.values)
       : const <DormMenuType>{DormMenuType.korean, DormMenuType.halal};
 
   final keywords = prefs.getStringList(StorageKeys.notificationKeywords) ?? [];
@@ -60,7 +60,7 @@ NotificationSettings loadNotificationSettings(SharedPreferences prefs) {
     alertTimes: alertTimes,
     rememberedTimes: rememberedTimes,
     cafeterias: cafeterias,
-    dormMealTypes: dormMealTypes,
+    dormMenuTypes: dormMenuTypes,
     days: notificationDaysFromNames(
       prefs.getStringList(StorageKeys.notificationDays),
     ),

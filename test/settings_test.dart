@@ -52,7 +52,7 @@ void main() {
       expect(s.activePeriods, isEmpty);
       expect(s.activeCafeterias, equals({Cafeteria.dormitory}));
       expect(
-        () => (s.dormMealTypes as dynamic).clear(),
+        () => (s.dormMenuTypes as dynamic).clear(),
         throwsUnsupportedError,
       );
       expect(

@@ -42,7 +42,7 @@ void main() {
         MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
       },
       cafeterias: Cafeteria.values.toSet(),
-      dormMealTypes: DormMenuType.values.toSet(),
+      dormMenuTypes: DormMenuType.values.toSet(),
       days: DayOfWeek.values.toSet(),
     );
 
@@ -90,7 +90,7 @@ void main() {
         MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
       },
       cafeterias: Cafeteria.values.toSet(),
-      dormMealTypes: DormMenuType.values.toSet(),
+      dormMenuTypes: DormMenuType.values.toSet(),
       days: DayOfWeek.values.toSet(),
     );
     final current = (startDate: DateTime.utc(2026, 7, 20), weekMeal: week);
@@ -123,7 +123,7 @@ void main() {
         MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
       },
       cafeterias: const {Cafeteria.student},
-      dormMealTypes: const {},
+      dormMenuTypes: const {},
       days: const {DayOfWeek.mon},
     );
 
@@ -301,7 +301,7 @@ void main() {
           await reconcileAt(
             mondayLunchFireInstant.add(const Duration(seconds: 22)),
             settings: enabledSettings.copyWith(
-              dormMealTypes: const {DormMenuType.korean},
+              dormMenuTypes: const {DormMenuType.korean},
             ),
             pending: [dormKoreanLunchId],
           ),
@@ -314,7 +314,7 @@ void main() {
           await reconcileAt(
             mondayLunchFireInstant.add(const Duration(seconds: 22)),
             settings: enabledSettings.copyWith(
-              dormMealTypes: const {DormMenuType.halal},
+              dormMenuTypes: const {DormMenuType.halal},
             ),
             pending: [dormKoreanLunchId],
           ),

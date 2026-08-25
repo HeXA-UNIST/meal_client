@@ -456,8 +456,8 @@ bool _matchesCurrentNotificationSettings(
     return target.groupCode == 9 && deliverySettings.cafeterias.isNotEmpty;
   }
   return switch (target.groupCode) {
-    0 => deliverySettings.dormMealTypes.contains(DormMenuType.korean),
-    1 => deliverySettings.dormMealTypes.contains(DormMenuType.halal),
+    0 => deliverySettings.dormMenuTypes.contains(DormMenuType.korean),
+    1 => deliverySettings.dormMenuTypes.contains(DormMenuType.halal),
     2 => deliverySettings.cafeterias.contains(Cafeteria.student),
     3 => deliverySettings.cafeterias.contains(Cafeteria.faculty),
     _ => false,

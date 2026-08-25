@@ -99,7 +99,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
         Cafeteria.faculty => l10n.facultyCafeteria,
       };
 
-  String _dormMealTypeName(AppLocalizations l10n, DormMenuType type) =>
+  String _dormMenuTypeName(AppLocalizations l10n, DormMenuType type) =>
       switch (type) {
         DormMenuType.korean => l10n.menuKorean,
         DormMenuType.halal => l10n.menuHalal,
@@ -301,31 +301,31 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    for (final dormMealType in DormMenuType.values)
+                    for (final dormMenuType in DormMenuType.values)
                       FilterChip(
                         label: Text(
                           l10n.cafeteriaWithMealType(
                             l10n.dormitoryCafeteria,
-                            _dormMealTypeName(l10n, dormMealType),
+                            _dormMenuTypeName(l10n, dormMenuType),
                           ),
                         ),
-                        selected: notification.isDormMealTypeEnabled(
-                          dormMealType,
+                        selected: notification.isDormMenuTypeEnabled(
+                          dormMenuType,
                         ),
                         onSelected: notification.enabled
                             ? (checked) {
-                                final current = notification.dormMealTypes;
+                                final current = notification.dormMenuTypes;
                                 final next = checked
-                                    ? {...current, dormMealType}
+                                    ? {...current, dormMenuType}
                                     : current
-                                          .where((t) => t != dormMealType)
+                                          .where((t) => t != dormMenuType)
                                           .toSet();
                                 // 최소 1개는 선택 유지
                                 if (next.isNotEmpty ||
                                     notification.cafeterias.isNotEmpty) {
                                   context
                                       .read<AppSettings>()
-                                      .setNotificationDormMealTypes(next);
+                                      .setNotificationDormMenuTypes(next);
                                 }
                               }
                             : null,
@@ -346,7 +346,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                                           .toSet();
                                 // 최소 1개는 선택 유지
                                 if (next.isNotEmpty ||
-                                    notification.dormMealTypes.isNotEmpty) {
+                                    notification.dormMenuTypes.isNotEmpty) {
                                   context
                                       .read<AppSettings>()
                                       .setNotificationCafeterias(next);

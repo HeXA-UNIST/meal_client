@@ -27,8 +27,8 @@ class StorageKeys {
 
   /// 기숙사 식당의 알림 대상 메뉴 종류(한식/할랄) 저장 키.
   /// 키가 없으면 한식·할랄 모두 대상(기본값).
-  static const notificationDormMealTypes =
-      'settings_notification_dorm_meal_types';
+  static const notificationDormMenuTypes =
+      'settings_notification_dorm_menu_types';
 
   /// 시간대별 알림 시각 저장 키 prefix.
   /// 실제 키는 `${notificationPeriodTimePrefix}${period.name}` 형태로,

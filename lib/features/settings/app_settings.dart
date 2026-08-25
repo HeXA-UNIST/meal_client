@@ -356,7 +356,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   /// 학생·교직원 식당 알림 대상을 설정한다. 기숙사 식당은 여기서 다루지 않고
-  /// [setNotificationDormMealTypes]가 전담한다 (진실 공급원을 하나로 유지).
+  /// [setNotificationDormMenuTypes]가 전담한다 (진실 공급원을 하나로 유지).
   void setNotificationCafeterias(Set<Cafeteria> cafeterias) {
     final filtered = cafeterias.where((c) => c != Cafeteria.dormitory).toSet();
     unawaited(
@@ -374,14 +374,14 @@ class AppSettings extends ChangeNotifier {
 
   /// 기숙사 식당 알림 대상 메뉴 종류(한식/할랄)를 설정한다.
   /// 이 값이 비어있으면 기숙사 식당 자체가 알림 대상에서 빠진 것으로 취급된다.
-  void setNotificationDormMealTypes(Set<DormMenuType> types) {
+  void setNotificationDormMenuTypes(Set<DormMenuType> types) {
     final snapshot = Set<DormMenuType>.from(types);
     unawaited(
       _enqueueNotificationMutation(
         () => _applyNotificationMutation(
-          next: _notification.copyWith(dormMealTypes: snapshot),
+          next: _notification.copyWith(dormMenuTypes: snapshot),
           persist: () => _prefs.setStringList(
-            StorageKeys.notificationDormMealTypes,
+            StorageKeys.notificationDormMenuTypes,
             snapshot.map((type) => type.name).toList(),
           ),
         ),
@@ -560,8 +560,8 @@ class AppSettings extends ChangeNotifier {
         settings.cafeterias.map((cafeteria) => cafeteria.name).toList(),
       ),
       _prefs.setStringList(
-        StorageKeys.notificationDormMealTypes,
-        settings.dormMealTypes.map((type) => type.name).toList(),
+        StorageKeys.notificationDormMenuTypes,
+        settings.dormMenuTypes.map((type) => type.name).toList(),
       ),
       _prefs.setStringList(
         StorageKeys.notificationDays,
@@ -654,7 +654,7 @@ class AppSettings extends ChangeNotifier {
               _prefs.setBool(StorageKeys.notificationEnabled, false),
               _prefs.setStringList(StorageKeys.notificationKeywords, []),
               _prefs.remove(StorageKeys.notificationCafeterias),
-              _prefs.remove(StorageKeys.notificationDormMealTypes),
+              _prefs.remove(StorageKeys.notificationDormMenuTypes),
               _prefs.remove(StorageKeys.notificationDays),
             ];
             for (final period in MealNotificationPeriod.values) {

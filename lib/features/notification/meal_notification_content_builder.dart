@@ -29,14 +29,14 @@ List<MealNotificationContent> buildMealNotificationContents({
       final int notificationId;
       if (cafeteria == Cafeteria.dormitory) {
         if (meal is KoreanMeal) {
-          if (!settings.dormMealTypes.contains(DormMenuType.korean)) continue;
+          if (!settings.dormMenuTypes.contains(DormMenuType.korean)) continue;
           label = l10n.cafeteriaWithMealType(
             l10n.dormitoryCafeteria,
             l10n.menuKorean,
           );
           notificationId = 1;
         } else if (meal is HalalMeal) {
-          if (!settings.dormMealTypes.contains(DormMenuType.halal)) continue;
+          if (!settings.dormMenuTypes.contains(DormMenuType.halal)) continue;
           label = l10n.cafeteriaWithMealType(
             l10n.dormitoryCafeteria,
             l10n.menuHalal,
