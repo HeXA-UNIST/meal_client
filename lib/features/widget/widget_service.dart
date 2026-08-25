@@ -1,2 +1,1 @@
-export 'widget_service_stub.dart'
-    if (dart.library.io) 'widget_service_io.dart';
+export 'widget_service_stub.dart' if (dart.library.io) 'widget_service_io.dart';

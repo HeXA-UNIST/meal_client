@@ -59,6 +59,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late Future<WeekMeal> cachedMeal;
   late Future<WeekMeal> downloadedMeal;
   late Future<String?> nextWeekStart;
+
   /// 화면 표시용. 캐시가 있으면 그것으로 먼저 완료되고 이후 fresh로 교체된다.
   late Future<AppInfo> appInfo;
 

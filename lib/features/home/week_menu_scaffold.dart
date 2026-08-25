@@ -111,7 +111,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     final bannerText = widget.bannerText;
     if (bannerText != null) {
       body = Column(
-        children: [_PreviewBanner(text: bannerText), Expanded(child: body)],
+        children: [
+          _PreviewBanner(text: bannerText),
+          Expanded(child: body),
+        ],
       );
     }
 
@@ -186,7 +189,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
             return _buildTabBarView(snapshot.data!);
           } else if (snapshot.hasError) {
             return Center(
-              child: Text(l10n.cannotLoadMeal, style: theme.textTheme.titleMedium),
+              child: Text(
+                l10n.cannotLoadMeal,
+                style: theme.textTheme.titleMedium,
+              ),
             );
           } else {
             return Center(
