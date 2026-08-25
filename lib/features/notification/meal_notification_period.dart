@@ -72,7 +72,11 @@ enum MealNotificationPeriod {
   /// inexact 알람은 요청 시각보다 늦게만 배달되고 실측 오차는 수 분 수준이라
   /// 15분 간격도 의미는 있지만, 실제 배포 후 배달 지연 통계를 확보하기 전까지는
   /// 선택지를 넓게 유지한다.
-  List<TimeOfDay> get allSlots {
+  /// 값이 시간대별로 고정이므로 최초 계산 후 캐시한다.
+  /// 설정 화면의 시간 선택 드롭다운이 빌드마다 이 목록을 읽는다.
+  List<TimeOfDay> get allSlots => _slotCache[this] ??= _computeAllSlots();
+
+  List<TimeOfDay> _computeAllSlots() {
     final result = <TimeOfDay>[];
     var h = startHour;
     var m = startMinute;
@@ -84,8 +88,10 @@ enum MealNotificationPeriod {
         m %= 60;
       }
     }
-    return result;
+    return List.unmodifiable(result);
   }
+
+  static final Map<MealNotificationPeriod, List<TimeOfDay>> _slotCache = {};
 }
 
 /// 실제 시각을 날짜만 가진 KST 달력값으로 정규화한다.

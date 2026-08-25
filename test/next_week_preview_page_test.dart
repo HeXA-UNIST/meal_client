@@ -60,7 +60,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Cannot load meal information.'), findsOneWidget);
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    expect(find.text(l10n.cannotLoadMeal), findsOneWidget);
   });
 
   testWidgets('nextWeekStart가 null이면 준비되지 않음 메시지를 보여준다', (tester) async {
@@ -78,7 +79,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text("Next week's menu is not ready yet."), findsOneWidget);
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    expect(find.text(l10n.nextWeekNotReady), findsOneWidget);
   });
 
   testWidgets('nextWeekStart가 있으면 다음 주 데이터를 불러와 배너와 함께 보여준다', (tester) async {
@@ -151,7 +153,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('다음 주 미리보기 중'), findsOneWidget);
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    expect(find.text(l10n.previewingNextWeek), findsOneWidget);
     expect(find.text('쌀밥'), findsOneWidget);
     expect(metadataRefreshes, 0);
     expect(datedLoads, 1);

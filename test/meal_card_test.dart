@@ -154,7 +154,8 @@ void main() {
     final titleText = tester.widget<Text>(find.text('천원의 아침밥'));
     expect(titleText.textAlign, isNull);
     expect(titleText.style?.fontWeight, FontWeight.w600);
-    expect(find.text('간편식'), findsOneWidget);
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    expect(find.text(l10n.menuSectionConvenience), findsOneWidget);
     expect(find.text('쌀밥'), findsOneWidget);
     expect(find.text('삼각김밥'), findsOneWidget);
   });

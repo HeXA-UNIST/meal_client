@@ -51,6 +51,11 @@ ThemeData _buildTheme(Brightness brightness) {
   );
 }
 
+// ColorScheme.fromSeed는 매 호출마다 시드 색에서 팔레트를 다시 계산해 비용이 크다.
+// 테마는 밝기 외의 입력이 없으므로 한 번만 만들어 재사용한다.
+final _lightTheme = _buildTheme(Brightness.light);
+final _darkTheme = _buildTheme(Brightness.dark);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeNativeServices();
@@ -74,9 +79,11 @@ class BapUApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // context.select 대신 context.watch 사용: 설정 변경은 사용자 탭으로만 발생하므로
-    // 빈도가 낮고, home: const HomePage()가 홈 서브트리 리빌드를 막아 실질적 영향 없음.
-    final themeMode = context.watch<AppSettings>().themeMode;
+    // 알림 설정 화면은 탭 한 번에 여러 번 notifyListeners를 호출하므로,
+    // watch로 전체 MaterialApp을 다시 만들지 않고 themeMode 변경만 구독한다.
+    final themeMode = context.select<AppSettings, ThemeMode>(
+      (settings) => settings.themeMode,
+    );
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.title,
@@ -95,8 +102,8 @@ class BapUApp extends StatelessWidget {
         );
       },
       themeMode: themeMode,
-      theme: _buildTheme(Brightness.light),
-      darkTheme: _buildTheme(Brightness.dark),
+      theme: _lightTheme,
+      darkTheme: _darkTheme,
       home: const HomePage(),
     );
   }

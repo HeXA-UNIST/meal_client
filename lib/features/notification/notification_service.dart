@@ -70,9 +70,13 @@ mealNotificationAuthorizationStatus({
       if (android == null) {
         return MealNotificationAuthorizationStatus.notApplicable;
       }
+      // 앱 알림 자체가 꺼져 있으면 채널을 더 볼 필요가 없다.
+      // 채널 조회는 네이티브 왕복이라 결과가 정해진 경우엔 건너뛴다.
+      if (!(await android.areNotificationsEnabled() ?? false)) {
+        return MealNotificationAuthorizationStatus.notAuthorized;
+      }
       return androidMealNotificationAuthorizationStatus(
-        appNotificationsEnabled:
-            await android.areNotificationsEnabled() ?? false,
+        appNotificationsEnabled: true,
         channels: await android.getNotificationChannels(),
       );
     case MealNotificationPlatform.ios:

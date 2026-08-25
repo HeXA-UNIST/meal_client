@@ -186,7 +186,14 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> _handleAppResume() async {
     if (_disposed) return;
-    await refreshNotificationAuthorizationStatus();
+    // 알림을 켜지 않았으면 권한이 없는 게 정상이라 확인할 이유가 없다.
+    // 단, 권한 거부 안내에서 시스템 설정을 열었다가 돌아온 경우는 확인해야
+    // 저장된 notAuthorized 상태가 갱신된다.
+    if (_notification.enabled ||
+        _notificationAuthorizationStatus ==
+            MealNotificationAuthorizationStatus.notAuthorized) {
+      await refreshNotificationAuthorizationStatus();
+    }
     if (_disposed || !_notification.enabled) return;
     await _enqueueNotificationMutation(
       () => _reconcileFromCache(refreshAuthorization: false),
