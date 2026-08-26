@@ -63,6 +63,18 @@ import workmanager_apple
       switch call.method {
       case "sharedWidgetCacheDir":
         sharedWidgetCacheDir(result: result)
+      case "excludeFileFromBackup":
+        guard let path = call.arguments as? String, !path.isEmpty else {
+          result(
+            FlutterError(
+              code: "BACKUP_EXCLUSION_PATH_INVALID",
+              message: "A cache file path is required",
+              details: nil
+            )
+          )
+          return
+        }
+        excludeFileFromBackup(path: path, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -101,5 +113,24 @@ import workmanager_apple
     }
 
     result(containerURL.path)
+  }
+
+  private static func excludeFileFromBackup(path: String, result: FlutterResult) {
+    var resourceValues = URLResourceValues()
+    resourceValues.isExcludedFromBackup = true
+
+    do {
+      var fileURL = URL(fileURLWithPath: path)
+      try fileURL.setResourceValues(resourceValues)
+      result(nil)
+    } catch {
+      result(
+        FlutterError(
+          code: "BACKUP_EXCLUSION_FAILED",
+          message: "Could not exclude the widget cache file from backup",
+          details: error.localizedDescription
+        )
+      )
+    }
   }
 }

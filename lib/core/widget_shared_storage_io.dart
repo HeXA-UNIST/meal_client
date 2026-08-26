@@ -46,6 +46,13 @@ Future<void> saveSharedWidgetFileAsString(String fileName, String data) async {
     }
     await tmpFile.rename(file.path);
   }
+
+  if (Platform.isIOS) {
+    await _sharedStorageChannel.invokeMethod<void>(
+      'excludeFileFromBackup',
+      file.path,
+    );
+  }
 }
 
 Future<String> readSharedWidgetFileAsString(String fileName) async {
