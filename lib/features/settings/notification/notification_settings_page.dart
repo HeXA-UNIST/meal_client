@@ -27,6 +27,8 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   late final TextEditingController _keywordController;
   late final FocusNode _keywordFocusNode;
   Animation<double>? _watchedRouteAnimation;
+  // dispose에서 context로 조회하면 이미 트리에서 빠진 뒤라 실패하므로 미리 잡아 둔다.
+  ScaffoldMessengerState? _scaffoldMessenger;
 
   @override
   void initState() {
@@ -43,8 +45,17 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger = ScaffoldMessenger.of(context);
+  }
+
+  @override
   void dispose() {
     _watchedRouteAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    // SnackBar는 앱 루트 ScaffoldMessenger에 붙어 이 페이지를 나가도 남으므로,
+    // 이 화면에서 띄운 안내는 화면을 벗어날 때 함께 정리한다.
+    _scaffoldMessenger?.clearSnackBars();
     _keywordController.dispose();
     _keywordFocusNode.dispose();
     super.dispose();
@@ -118,26 +129,39 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
     );
     if (!mounted) return;
     if (enable && result != NotificationEnableResult.enabled) {
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result == NotificationEnableResult.permissionDenied
-                ? l10n.notificationPermissionDenied
-                : l10n.notificationSyncFailed,
-          ),
-          action: result == NotificationEnableResult.permissionDenied
-              ? SnackBarAction(
-                  label: l10n.openSystemAppSettings,
-                  onPressed: _openNotificationSettings,
-                )
-              : SnackBarAction(
-                  label: l10n.retry,
-                  onPressed: () => unawaited(_handleNotificationToggle(true)),
-                ),
-        ),
-      );
+      _showToggleFailureSnackBar(result);
     }
+  }
+
+  void _showToggleFailureSnackBar(NotificationEnableResult result) {
+    final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
+    final snackBar = SnackBar(
+      content: Text(
+        result == NotificationEnableResult.permissionDenied
+            ? l10n.notificationPermissionDenied
+            : l10n.notificationSyncFailed,
+      ),
+      action: result == NotificationEnableResult.permissionDenied
+          ? SnackBarAction(
+              label: l10n.openSystemAppSettings,
+              onPressed: _openNotificationSettings,
+            )
+          : SnackBarAction(
+              label: l10n.retry,
+              onPressed: () => unawaited(_handleNotificationToggle(true)),
+            ),
+    );
+    // 최초 권한 요청은 시스템 다이얼로그를 띄우며 Activity를 pause 시킨다.
+    // await 직후(아직 다이얼로그 닫힘 전환 중)에 바로 showSnackBar를 하면
+    // 등장 애니메이션이 프레임을 못 받아 완료되지 않고, 그 완료 콜백에서만
+    // 걸리는 자동 해제 타이머가 무장되지 않아 SnackBar가 사라지지 않는다.
+    // 실제 프레임이 도는 다음 프레임까지 미뤄 이 타이밍 문제를 피한다.
+    messenger.clearSnackBars();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      messenger.showSnackBar(snackBar);
+    });
   }
 
   @override
