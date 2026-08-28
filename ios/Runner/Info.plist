@@ -20,6 +20,11 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>meal_client</string>
 	<key>CFBundlePackageType</key>
