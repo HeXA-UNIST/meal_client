@@ -78,7 +78,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noMeal => 'There is no meal information.';
 
   @override
-  String get nextWeekPreview => 'Next Week\'s Menu Preview';
+  String get nextWeekPreview => 'Next Week\'s Menu';
 
   @override
   String get previewingNextWeek => 'Previewing Next Week';
