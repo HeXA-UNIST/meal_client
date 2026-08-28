@@ -1,137 +1,109 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents when working with code in this repository.
+This is a guardrail and routing file, not a codebase overview. Current source,
+tests, and configuration are the source of truth. Verify task-relevant behavior
+before editing and flag any conflict with this file.
 
 ## Project
 
-밥먹어U (BapU) — Flutter app for viewing UNIST cafeteria menus. Version 5.0.1+18, GPL-2.0, by HeXA.
-Backend API: `https://meal.hexa.pro/`
+밥먹어U (BapU) is a Flutter app for viewing UNIST cafeteria menus.
+Supported platforms: Android, iOS, and Web.
 
-Targets: Android, iOS, Web. Dart SDK ^3.11.5.
+## Before Editing
 
-## Build & Development Commands
+- Read the affected code path, nearby tests, and `git status`. Do not rely on
+  remembered architecture or an older document snapshot.
+- Preserve the user's worktree. Do not stash, reset, switch branches, stage,
+  commit, delete, or tidy unrelated files unless explicitly asked.
+- Make the smallest change that satisfies the request. Do not add features,
+  refactor adjacent code, or introduce a new abstraction without a demonstrated
+  need.
+- Match the local design. Do not impose a repository pattern or stricter layer
+  boundary merely because it is conventional elsewhere.
+- Ask before making product, policy, compatibility, or Git-history decisions that
+  cannot be resolved from current code and tests.
+- Code comments and test descriptions are Korean.
 
-```bash
-# Run (debug)
-flutter run
+## Routing
 
-# Build
-flutter build apk
-flutter build ios
-flutter build web
+- Use `README.md` for current commands and the documentation index.
+- Treat `pubspec.yaml`, `analysis_options.yaml`, and `l10n.yaml` as authoritative
+  for SDK, dependency, analyzer, and localization configuration.
+- Preserve existing conditional-export boundaries when changing platform code;
+  keep Web paths free of `dart:io` and native-only imports.
+- Use architecture documents for orientation only, then verify the relevant path
+  in source. Search for symbols and user-visible text instead of relying on a
+  fixed file or test list.
+- Before changing `lib/features/home/nested_page_scroll.dart`, read its comments
+  and `docs/features/nested_page_scroll.md`; its touch and pointer paths form a
+  coupled state machine.
 
-# Analyze (lint)
-flutter analyze
+## Change-Sensitive Guardrails
 
-# Run all tests
-flutter test
+### Localization
 
-# Run a single test file
-flutter test test/domain_test.dart
-flutter test test/info_test.dart
-flutter test test/home_drawer_test.dart
-flutter test test/meal_card_test.dart
-flutter test test/settings_test.dart
-flutter test test/week_meal_view_test.dart
-flutter test test/widget_test.dart
+- Edit the Korean and English ARB files, never generated
+  `lib/l10n/app_localizations*.dart` files directly.
+- Keep locale keys aligned, run `flutter gen-l10n`, and update tests that assert
+  localized text.
 
-# Get dependencies
-flutter pub get
-```
+### Shared data and native consumers
 
-Lint rules: `package:flutter_lints/flutter.yaml` (see `analysis_options.yaml`). `dead_code` is set to `info` severity.
+- Before changing cache paths, names, schemas, freshness, parsing, or write order,
+  trace Flutter foreground/background code plus Android, iOS, and bridge consumers.
+- Preserve atomic final-file writes. On iOS, backup exclusion must be applied to
+  the final file after rename, not only to a temporary file.
+- Native widgets consume the shared cache. A new native network owner or a silent
+  fixed-data fallback requires an explicit product decision.
+- Cache-first display and fresh-response decisions are different concerns. Do not
+  use cached info for a decision that requires current server data, such as
+  detecting a newly published announcement.
+- When renaming persisted settings or enums, trace storage keys, serialization,
+  scheduling/filtering code, legacy values, and tests before deciding migration
+  behavior.
 
-## Architecture
+### Notifications and lifecycle UI
 
-Three layers, no explicit boundary (no repository pattern). UI imports data layer directly.
-For later `develop-widget` → `develop` integration scope and merge-risk notes, see `docs/develop-widget-integration-notes.ko.md`.
+- Trace notification changes through UI state, persistence, scheduling, delivery
+  filtering, platform permission, and cleanup. Updating only the visible control
+  is insufficient.
+- App preference and OS authorization are distinct states; do not infer one from
+  the other.
+- Feedback after a system permission dialog must wait for a real Flutter frame.
+  Guard deferred callbacks against disposal and remove screen-owned feedback when
+  the route exits.
 
-```
-UI Layer          → features/home/ (home_page, home_app_bar, week_meal_view, meal_card,
-                                    nested_page_scroll, home_drawer, model)
-                    features/settings/ (settings_page, allergy_selection_page,
-                                        app_settings, allergy/notification_settings)
-State/Domain      → domain/meal.dart (domain types),
-                    core/constants.dart (ApiConstants, MealTimeConfig, StorageKeys)
-i18n              → lib/l10n/ (app_ko.arb, app_en.arb, generated AppLocalizations)
-Data/Infra        → features/info/ (app_info, info_data_source, announcement_state)
-                    features/meal/ (meal_data_source, meal_cache, meal_refresh_service,
-                                    meal_background_refresh)
-                    features/notification/ (meal_notification_worker, notification_scheduler,
-                                            notification_service)
-                    features/widget/ (widget_service)
-                    core/widget_shared_storage*.dart,
-                    core/network/ (platform_http_client*, http_client)
-Native Android    → android/app/src/main/kotlin/.../meal_client/ (BapUWidget* providers,
-                                                                  config activities,
-                                                                  cache-only fetcher,
-                                                                  parser/repository,
-                                                                  update dispatcher)
-Native bridges    → plugins/bapu_widget_bridge/ (Android headless widget render bridge),
-                    ios/Runner/AppDelegate.swift (iOS App Group path + WidgetKit reload bridge)
-```
+### UI changes
 
-### Key Architectural Decisions
+- Preserve exact requested labels, spacing, and behavior. Reuse the touched
+  screen's local constants and theme typography; avoid global styling or unrelated
+  visual cleanup.
+- Prefer standard Material selected and disabled states. Add custom styling only
+  for the requested distinction and preserve accessibility semantics.
 
-- **State management**: `HomePageModel` is a plain mutable class owned by `_HomePageState`; meal-of-day button state is separated into `ValueNotifier<MealOfDay>` to reduce rebuild scope.
-  `AppSettings extends ChangeNotifier` (provided via `provider`) manages allergy, notification, and
-  theme settings with SharedPreferences persistence. `BapUModel` has been deleted.
-- **Theme**: Uses Flutter standard `themeMode: ThemeMode.system` + `theme`/`darkTheme`. `_buildTheme(Brightness)` builds light/dark themes separately. System brightness changes are handled automatically by the framework.
-- **Language**: Supports Korean (primary) and English via `flutter_localizations` + `intl`. Translation strings live in `lib/l10n/app_ko.arb` and `lib/l10n/app_en.arb`. The `lib/l10n/app_localizations*.dart` files are code-generated by `flutter gen-l10n` — do not edit them directly; edit the ARB files instead.
-- **Constants**: All magic strings/values centralized in `lib/core/constants.dart` — `ApiConstants` (endpoint URLs), `MealTimeConfig` (meal time boundary logic + `determineMealOfDay()` + monotonic KST week ID), `StorageKeys` (SharedPreferences + cache keys).
-- **Info API**: `/v2/info` is treated as one backend resource under `features/info/`. `features/info/app_info.dart` models it (`AppInfo`, `LocalizedText`, `AppAnnouncement`, `OperatingHours`, `OperatingHoursPeriod`, `OperatingTimeRange`) and performs no network or persistence. `features/info/info_refresh_service.dart` fetches and validates raw info JSON, writes `info.json` through `InfoCache`, and returns `AppInfo`; `features/info/info_data_source.dart` keeps the public `fetchAppInfo()` entry point. It currently contains a nullable localized announcement plus weekday/weekend operating hours. `HomePage` creates one shared `Future<AppInfo>` and passes it to the drawer and meal view.
-- **Announcement state**: `features/info/announcement_state.dart` exposes `checkForNewAnnouncement()` and `getStoredAnnouncement()`. It reads announcement data from `/v2/info` (via `info_data_source.dart`), compares the localized content fingerprint against the stored JSON in SharedPreferences, supports legacy stored strings, and returns `AppAnnouncement?` when a popup should be shown. There is no separate `features/announcement/` folder — this is local display-decision state for the info resource, not a distinct backend feature.
-- **Operating hours**: Operating hours are read-only data from `/v2/info`. Meal cards show the selected date/meal operating time, and `HomePageDrawer` exposes operation hours as a navigation item that opens a weekday/weekend dialog. Raw `/v2/info` JSON is also cached as `info.json` for native widgets. Drawer announcement/operation-hour dialogs wrap their content in `SelectionArea` for copy/select support.
-- **Shared widget cache and refresh**: Raw meal API JSON in `meal.json` and raw info API JSON in `info.json` are the canonical widget cache files. `MealCache` and `InfoCache` write only these raw files through `core/widget_shared_storage.dart`. Writes are temp-file + rename to avoid partial reads. Android maps the shared widget cache to `getApplicationSupportDirectory()`/`context.filesDir`; iOS resolves an App Group container through a native bridge.
-- **Menu API**: `/v2/menu` is the current-week menu entry point. It returns `data[] → meals[] → menusByType[] → sections[] → menus[]`; the client renders `REGULAR`, `CONVENIENCE`, and `SPECIAL` sections with localized `sectionTitle` fallback, while `SALAD` and allergen display remain deferred.
-- **Data flow**: `home_page.dart` uses a FutureBuilder chain for meals — loads cached data first (`getCachedMealData`), then always fetches fresh data (`fetchAndCacheMealData`). Cache invalidation uses `MealTimeConfig.kstWeekId`, a monotonic KST week ID anchored at Monday 1970-01-05.
-- **Background refresh and notifications**: `main.dart` initializes Workmanager once with `features/notification/meal_notification_worker.dart`'s `callbackDispatcher`. Native platforms register hourly `bapu_meal_refresh`; the same dispatcher also handles keyword notification one-off tasks. Periodic refresh updates `meal.json` and `info.json`, then calls `refreshWidgets(throwOnFailure: true)` so cache or render-bridge failures are visible to Workmanager.
-- **Android home widgets**: Implemented natively under `android/app/src/main/kotlin/pro/hexa/meal/meal_client`. Widgets are cache-only: `BapUWidgetMealRepository` reads fresh `context.filesDir/meal.json`, `BapUWidgetOperatingHours` requires valid `context.filesDir/info.json`, and missing/stale/corrupt meal cache produces an empty-menu state without attempting native HTTP. Missing/corrupt/incomplete `info.json` is treated as widget data failure and renders an error message instead of falling back to fixed meal boundaries. `BapUWidgetUpdateDispatcher` renders all providers; `BapUWidgetScheduleManager` uses AlarmManager for display boundaries (midnight, info-derived meal transitions, operating start, closing-soon). The legacy `BapUWidgetUpdateWorker` only cancels old scheduled WorkManager work and does not render.
-- **Widget render bridges**: `features/widget/widget_service.dart` conditionally exports platform implementations. Android render is handled by the local `bapu_widget_bridge` Flutter plugin, which registers in headless/background engines and calls `BapUWidgetUpdateDispatcher.renderAllWidgets(applicationContext)`. iOS render calls `WidgetCenter.shared.reloadAllTimelines()` and shared cache path lookup returns the native App Group container path; Dart never hardcodes the App Group ID.
-- **iOS home widget**: `ios/BapUWidget/` contains a small `systemSmall` WidgetKit extension. It reads the App Group raw caches, chooses the meal from the current time and operating hours, and uses an `IntentConfiguration` so each widget instance can select Dormitory Korean, Dormitory Halal, Student, or Faculty. It intentionally omits kcal because the compact widget prioritizes menu and operating status.
-- **Platform branching**: Conditional exports for widget shared storage (`core/widget_shared_storage.dart` → `*_io.dart` / `*_web.dart`), widget render service (`features/widget/widget_service.dart` → `*_io.dart` / stub), and HTTP client (`core/network/platform_http_client.dart` → `*_io.dart` / `*_web.dart`). iOS uses cupertino_http, Android uses cronet_http.
-- **Custom scroll system**: `nested_page_scroll.dart` implements a complex nested PageView+ScrollView system for swiping between meals (breakfast/lunch/dinner) with inner content scrolling. The most complex part of the codebase — read its comments carefully before modifying.
+## Validation
 
-### Domain Model
+Validate in proportion to the change and report any unverified boundary.
 
-- Three cafeterias: Dormitory, Student, Faculty
-- `WeekMeal` → 7 `DayMeal` (indexed by `DayOfWeek`) → 3 `CafeteriaMeal` (indexed by `MealOfDay`) → lists of `Meal` subclasses (`KoreanMeal`, `HalalMeal`)
-- `Meal` stores `List<MealSection>`; each section owns its localized menu items, optional title, type, and calories. UI uses `localizedMenu(languageCode)`, with English falling back to Korean when unavailable.
-- `CafeteriaMeal.empty()` creates growable lists; `parseRawMeal` mutates them during construction (two-phase init pattern).
+- Documentation only: inspect the final diff and run `git diff --check`.
+- Dart/Flutter: format changed Dart files, run the narrowest relevant tests, and
+  run `flutter analyze` when the change can affect the application broadly.
+- Create tests only when requirements or implementation are complex enough to
+  warrant TDD, or when regression coverage is essential to preserve correct app
+  behavior through future maintenance. Do not create tests for simple changes;
+  run relevant existing tests instead.
+- Localization: run generation, affected tests, and analysis.
+- Platform code: run available platform tests or builds. On Windows, do not claim
+  Xcode, WidgetKit, signing, VoiceOver, or iOS-device validation. Treat real-device
+  notification timing and launcher-widget behavior as separate QA boundaries.
+- Before handoff, review the diff for correctness, code quality, scope, and
+  overengineering. If a commit was requested, also inspect the staged file list
+  and run `git diff --cached --check` without including unrelated changes.
 
-### API
+## Maintenance
 
-- `parseRawMeal` maps v2 cafeteria enum values (`DORMITORY`, `STUDENT`, `FACULTY`), `dayOfWeek` (`MON`..`SUN`), and `timeType` (`BREAKFAST`, `LUNCH`, `DINNER`) into domain enums.
-- `REGULAR`, `CONVENIENCE`, and `SPECIAL` sections are converted to `MealSection`; `SALAD` and unknown section types are skipped.
-- `/v2/info` maps `announcement` and `operatingHours` into `AppInfo`. `announcement` may be `null`, and `announcement.title` may also be `null`; UI falls back to the localized `announcement` label.
-- `operatingHours` is split into `weekday` and `weekend`, then cafeteria keys (`dormitory`, `student`, `faculty`) and meal keys (`breakfast`, `lunch`, `dinner`) are mapped to domain enums.
-- Global HTTP client singleton in `core/network/http_client.dart` (`appHttpClient`)
-
-### Key Packages
-
-- `cupertino_http` / `cronet_http` — platform HTTP (iOS / Android)
-- `provider` — `AppSettings` state management
-- `shared_preferences` — settings and announcement persistence
-- `flutter_local_notifications` — Android/iOS local keyword notifications
-- `workmanager` — hourly cache/widget refresh and keyword notification scheduling
-- `app_settings` — opens OS settings after notification permission denial
-- local `bapu_widget_bridge` plugin — Android background-safe native widget render MethodChannel
-- `flutter_svg`, `share_plus`, `url_launcher` — UI utilities
-
-## Known TODOs
-
-- Settings screen UI is implemented for allergy selection, keyword notifications, and theme. Allergy warning rendering is not yet functional.
-- Allergy warning displays (requires modeling menu/section allergen data from `/v2/menu`)
-- `SALAD` section and section-level allergen rendering
-- Android/iOS notification scheduling and native widgets require final real-device QA.
-- Easy menu copying on web - a small hover button to copy the menu in text format for sharing (web clipboard API)
-
-## Conventions
-
-- Code comments: Korean
-- Commit messages: English (Korean is optionally available if the commit message is too complicated or easy to get confused)
-- Test descriptions: Korean
-- Plans and specs (superpowers/AI tooling): English
-- l10n string keys and ARB files: English keys, Korean/English values
-- Font: Pretendard (bundled in assets)
-- Primary color: `#00CD80`
+Keep root guidance cross-cutting. Put a recurring module-specific landmine in the
+nearest scoped `AGENTS.md` only when source and tests cannot make it obvious.
+Remove rules when the underlying friction is fixed. Do not copy version numbers,
+package inventories, directory trees, command catalogs, or TODO lists into this
+file.
