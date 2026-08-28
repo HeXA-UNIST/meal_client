@@ -13,6 +13,8 @@ import 'package:meal_client/features/notification/notification_service.dart';
 import '../app_settings.dart';
 import 'notification_settings.dart' show DormMenuType, NotificationSettings;
 
+const _selectedCafeteriaChipLabelStyle = TextStyle(fontWeight: FontWeight.w600);
+
 /// 식단 알림(키워드·시간대·요일·대상 식당) 전용 설정 페이지.
 class MealNotificationPage extends StatefulWidget {
   const MealNotificationPage({super.key});
@@ -333,6 +335,10 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                             _dormMenuTypeName(l10n, dormMenuType),
                           ),
                         ),
+                        labelStyle:
+                            notification.isDormMenuTypeEnabled(dormMenuType)
+                            ? _selectedCafeteriaChipLabelStyle
+                            : null,
                         selected: notification.isDormMenuTypeEnabled(
                           dormMenuType,
                         ),
@@ -359,6 +365,9 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                     ))
                       FilterChip(
                         label: Text(_cafeteriaName(l10n, cafeteria)),
+                        labelStyle: notification.cafeterias.contains(cafeteria)
+                            ? _selectedCafeteriaChipLabelStyle
+                            : null,
                         selected: notification.cafeterias.contains(cafeteria),
                         onSelected: notification.enabled
                             ? (checked) {
