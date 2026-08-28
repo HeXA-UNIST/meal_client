@@ -15,7 +15,7 @@ Supported platforms: Android, iOS, and Web.
   remembered architecture or an older document snapshot.
 - Preserve the user's worktree. Do not stash, reset, switch branches, stage,
   commit, delete, or tidy unrelated files unless explicitly asked.
-- Make the smallest change that satisfies the request. Do not add features,
+- Make small change that satisfies the request. Do not add features,
   refactor adjacent code, or introduce a new abstraction without a demonstrated
   need.
 - Match the local design. Do not impose a repository pattern or stricter layer
