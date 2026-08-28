@@ -121,6 +121,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     return Scaffold(
       drawer: widget.drawer,
       appBar: AppBar(
+        toolbarHeight: 52,
         titleSpacing: 0,
         centerTitle: false,
         title: AnimatedDateTitle(

@@ -11,6 +11,8 @@ import 'nested_page_scroll.dart';
 
 const _cardMinWidth = 160;
 const _cardMaxWidth = 208;
+const _cardOuterMargin = 8.0;
+const _cardInnerMargin = 6.0;
 
 String buildMealShareText({
   required String cardTitle,
@@ -87,10 +89,57 @@ class WeekMealTabBarView extends StatelessWidget {
                 return SafeArea(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
+                      final cardCount = Cafeteria.values.fold<int>(
+                        0,
+                        (count, cafeteria) =>
+                            count + nowMeal.fromCafeteria(cafeteria).length,
+                      );
+
+                      if (cardCount == 0) {
+                        return Center(
+                          child: Text(
+                            l10n.noMeal,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        );
+                      }
+
+                      final double cardWidth;
+                      final int columns;
+                      final int leftFill;
+                      {
+                        var divided = (constraints.maxWidth / _cardMaxWidth)
+                            .toInt();
+                        if (divided < 2) {
+                          final halfCardWidth = constraints.maxWidth / 2;
+                          if (halfCardWidth > _cardMinWidth) {
+                            divided = 2;
+                            cardWidth = halfCardWidth;
+                          } else {
+                            cardWidth = _cardMaxWidth.toDouble();
+                          }
+                        } else {
+                          cardWidth = _cardMaxWidth.toDouble();
+                        }
+
+                        if (cardCount <= divided) {
+                          columns = cardCount;
+                          leftFill = 0;
+                        } else {
+                          columns = divided;
+                          leftFill = (columns - (cardCount / columns).toInt());
+                        }
+                      }
+
+                      final rowCount = (cardCount + columns - 1) ~/ columns;
+                      var cardIndex = 0;
                       final cards = Cafeteria.values
                           .map<Iterable<Widget>>((cafeteria) {
                             final meals = nowMeal.fromCafeteria(cafeteria);
                             return meals.map((meal) {
+                              final columnIndex = cardIndex % columns;
+                              final rowIndex = cardIndex ~/ columns;
+                              cardIndex++;
                               var title = switch (cafeteria) {
                                 Cafeteria.dormitory => l10n.dormitoryCafeteria,
                                 Cafeteria.student => l10n.studentCafeteria,
@@ -131,6 +180,23 @@ class WeekMealTabBarView extends StatelessWidget {
                               return MealCard(
                                 title: title,
                                 meal: meal,
+                                // 화면 바깥쪽은 기존 8dp를 유지하고, 카드끼리
+                                // 마주 보는 면만 5dp씩 사용해 가로·세로 모두
+                                // 카드 사이의 실제 간격을 10dp로 맞춘다.
+                                margin: EdgeInsets.fromLTRB(
+                                  columnIndex == 0
+                                      ? _cardOuterMargin
+                                      : _cardInnerMargin,
+                                  rowIndex == 0
+                                      ? _cardOuterMargin
+                                      : _cardInnerMargin,
+                                  columnIndex == columns - 1
+                                      ? _cardOuterMargin
+                                      : _cardInnerMargin,
+                                  rowIndex == rowCount - 1
+                                      ? _cardOuterMargin
+                                      : _cardInnerMargin,
+                                ),
                                 operatingTimeLabel: operatingTime?.label,
                                 isOperating: isOperating,
                                 onLongPress: kIsWeb
@@ -161,43 +227,6 @@ class WeekMealTabBarView extends StatelessWidget {
                           })
                           .expand((e) => e)
                           .toList(growable: true);
-
-                      if (cards.isEmpty) {
-                        return Center(
-                          child: Text(
-                            l10n.noMeal,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        );
-                      }
-
-                      final double cardWidth;
-                      final int columns;
-                      final int leftFill;
-                      {
-                        var divided = (constraints.maxWidth / _cardMaxWidth)
-                            .toInt();
-                        if (divided < 2) {
-                          final halfCardWidth = constraints.maxWidth / 2;
-                          if (halfCardWidth > _cardMinWidth) {
-                            divided = 2;
-                            cardWidth = halfCardWidth;
-                          } else {
-                            cardWidth = _cardMaxWidth.toDouble();
-                          }
-                        } else {
-                          cardWidth = _cardMaxWidth.toDouble();
-                        }
-
-                        if (cards.length <= divided) {
-                          columns = cards.length;
-                          leftFill = 0;
-                        } else {
-                          columns = divided;
-                          leftFill =
-                              (columns - (cards.length / columns).toInt());
-                        }
-                      }
                       for (var i = 0; i < leftFill; i++) {
                         cards.add(const SizedBox());
                       }
@@ -240,6 +269,9 @@ class WeekMealTabBarView extends StatelessWidget {
                         scale: calculateMealCardMetadataScale(
                           context,
                           cardWidth: cardWidth,
+                          horizontalMargin: columns == 1
+                              ? 2 * _cardOuterMargin
+                              : _cardOuterMargin + _cardInnerMargin,
                         ),
                         child: Table(
                           border: const TableBorder(),

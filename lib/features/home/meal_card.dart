@@ -103,16 +103,17 @@ double _calculateMetadataScale(
 
 /// 동일한 폭의 식단 카드들이 공유할 운영시간/칼로리 표시 배율을 계산한다.
 ///
-/// [cardWidth]에는 카드의 외부 margin까지 포함되어 있다. 따라서 margin과 하단
-/// 영역의 좌우 padding을 뺀 실제 가용 폭으로 worst-case 조합을 측정한다. 결과는
-/// 원래 크기보다 확대되지 않도록 최대 1.0이며, 화면 폭이나 시스템 글자 크기가
-/// 바뀌어 상위 위젯이 다시 빌드되면 함께 다시 계산된다.
+/// [cardWidth]에는 카드의 외부 margin까지 포함되어 있다. 따라서 실제
+/// [horizontalMargin]과 하단 영역의 좌우 padding을 뺀 가용 폭으로 worst-case
+/// 조합을 측정한다. 결과는 원래 크기보다 확대되지 않도록 최대 1.0이며, 화면
+/// 폭이나 시스템 글자 크기가 바뀌어 상위 위젯이 다시 빌드되면 함께 다시 계산된다.
 double calculateMealCardMetadataScale(
   BuildContext context, {
   required double cardWidth,
+  double horizontalMargin = 2 * _cardMargin,
 }) {
   final availableWidth =
-      cardWidth - 2 * _cardMargin - 2 * _metadataHorizontalPadding;
+      cardWidth - horizontalMargin - 2 * _metadataHorizontalPadding;
   return _calculateMetadataScale(
     context,
     availableWidth: availableWidth.clamp(0.0, double.infinity),
@@ -223,6 +224,7 @@ class MealCard extends StatelessWidget {
     this.operatingTimeLabel,
     this.isOperating = false,
     this.onLongPress,
+    this.margin = const EdgeInsets.all(_cardMargin),
   });
 
   final String title;
@@ -230,6 +232,7 @@ class MealCard extends StatelessWidget {
   final String? operatingTimeLabel;
   final bool isOperating;
   final VoidCallback? onLongPress;
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +353,7 @@ class MealCard extends StatelessWidget {
 
     return Card.filled(
       color: theme.colorScheme.surfaceContainer,
-      margin: EdgeInsetsGeometry.all(_cardMargin),
+      margin: margin,
       shape: defaultTargetPlatform == TargetPlatform.iOS
           ? RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(24))
           : RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
