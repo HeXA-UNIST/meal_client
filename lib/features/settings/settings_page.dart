@@ -11,37 +11,68 @@ import 'notification/notification_settings_page.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
 
+const _settingsHorizontalPadding = 16.0;
+const _settingsSectionDividerHeight = 24.0;
+const _settingsPageTopPadding = 8.0;
+const _settingsPageBottomPadding = 16.0;
+
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.settings)),
-      body: ListView(
-        children: [
-          if (!kIsWeb) ...[
-            if (kDebugMode) ...[
-              _SectionHeader(l10n.allergyWarning),
-              _AllergyTile(),
-              const Divider(indent: 16, endIndent: 16),
+      body: ListTileTheme(
+        data: ListTileThemeData(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: _settingsHorizontalPadding,
+          ),
+          titleTextStyle: theme.textTheme.bodyLarge,
+          subtitleTextStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.only(top: _settingsPageTopPadding),
+          children: [
+            if (!kIsWeb) ...[
+              if (kDebugMode) ...[
+                _SectionHeader(l10n.allergyWarning),
+                _AllergyTile(),
+                const _SectionDivider(),
+              ],
+              _SectionHeader(l10n.mealNotifications),
+              _MealNotificationTile(),
+              const _SectionDivider(),
+              _SectionHeader(l10n.language),
+              _LanguageTile(),
+              const _SectionDivider(),
             ],
-            _SectionHeader(l10n.mealNotifications),
-            _MealNotificationTile(),
-            const Divider(indent: 16, endIndent: 16),
-            _SectionHeader(l10n.language),
-            _LanguageTile(),
-            const Divider(indent: 16, endIndent: 16),
+            _SectionHeader(l10n.themeMode),
+            _ThemeTile(),
+            const _SectionDivider(),
+            _SectionHeader(l10n.about),
+            _LicenseTile(),
+            const SizedBox(height: _settingsPageBottomPadding),
           ],
-          _SectionHeader(l10n.themeMode),
-          _ThemeTile(),
-          const Divider(indent: 16, endIndent: 16),
-          _SectionHeader(l10n.about),
-          _LicenseTile(),
-          const SizedBox(height: 24),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(
+      height: _settingsSectionDividerHeight,
+      indent: _settingsHorizontalPadding,
+      endIndent: _settingsHorizontalPadding,
     );
   }
 }
@@ -52,12 +83,18 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      padding: const EdgeInsets.fromLTRB(
+        _settingsHorizontalPadding,
+        4,
+        _settingsHorizontalPadding,
+        4,
+      ),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.labelLarge!.copyWith(
-          color: Theme.of(context).colorScheme.primary,
+        style: theme.textTheme.labelLarge!.copyWith(
+          color: theme.colorScheme.primary,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -125,9 +162,21 @@ class _ThemeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final themeMode = context.watch<AppSettings>().themeMode;
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: _settingsHorizontalPadding,
+        vertical: 8,
+      ),
       child: SegmentedButton<ThemeMode>(
+        style: ButtonStyle(
+          textStyle: WidgetStatePropertyAll(theme.textTheme.labelLarge),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            return states.contains(WidgetState.selected)
+                ? theme.colorScheme.onSurface
+                : theme.colorScheme.onSurfaceVariant;
+          }),
+        ),
         segments: [
           ButtonSegment(
             value: ThemeMode.system,
