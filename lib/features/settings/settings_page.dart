@@ -12,7 +12,7 @@ import 'notification/notification_settings_page.dart';
 Future<void>? _fontLicenseRegistrationFuture;
 
 const _settingsHorizontalPadding = 16.0;
-const _settingsSectionDividerHeight = 24.0;
+const _settingsSectionDividerHeight = 20.0;
 const _settingsPageTopPadding = 8.0;
 const _settingsPageBottomPadding = 16.0;
 
@@ -170,7 +170,13 @@ class _ThemeTile extends StatelessWidget {
       ),
       child: SegmentedButton<ThemeMode>(
         style: ButtonStyle(
-          textStyle: WidgetStatePropertyAll(theme.textTheme.labelLarge),
+          textStyle: WidgetStateProperty.resolveWith((states) {
+            return theme.textTheme.labelLarge?.copyWith(
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.w600
+                  : null,
+            );
+          }),
           foregroundColor: WidgetStateProperty.resolveWith((states) {
             return states.contains(WidgetState.selected)
                 ? theme.colorScheme.onSurface
