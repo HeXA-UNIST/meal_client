@@ -1,0 +1,10 @@
+"widgetConfigurationDisplayName" = "밥먹어U";
+"widgetConfigurationDescription" = "현재 학식 메뉴와 운영 상태를 확인합니다.";
+"widgetConfigurationTitle" = "식당 선택";
+"widgetConfigurationIntentDescription" = "위젯에 표시할 식당을 선택합니다.";
+"widgetCafeteriaParameter" = "식당";
+"widgetCafeteriaType" = "식당";
+"widgetDormKorean" = "기숙사 한식";
+"widgetDormHalal" = "기숙사 할랄";
+"widgetStudentCafeteria" = "학생식당";
+"widgetFacultyCafeteria" = "교직원식당";

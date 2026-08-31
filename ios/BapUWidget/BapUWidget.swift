@@ -1,12 +1,16 @@
 import SwiftUI
 import WidgetKit
 
+#if !BAPU_WIDGET_TESTS
+import AppIntents
+#endif
+
 private enum WidgetContract {
   static let kind = "BapUWidget"
   static let mealCacheFile = "meal.json"
+  static let nextMealCacheFile = "meal-next.json"
   static let infoCacheFile = "info.json"
   static let closingSoonMinutes = 45
-  static let justClosedMinutes = 30
 
   static let kst: TimeZone = TimeZone(identifier: "Asia/Seoul")!
 
@@ -21,7 +25,7 @@ enum WidgetMealOfDay: String, CaseIterable {
   case dinner = "DINNER"
 
   var localizedName: String {
-    let korean = Locale.current.languageCode != "en"
+    let korean = Locale.current.language.languageCode?.identifier != "en"
     switch self {
     case .breakfast: return korean ? "조식" : "Breakfast"
     case .lunch: return korean ? "중식" : "Lunch"
@@ -30,11 +34,49 @@ enum WidgetMealOfDay: String, CaseIterable {
   }
 }
 
-enum WidgetCafeteria: String {
-  case dormitory = "DORMITORY"
+enum WidgetMenuSelection: String, Equatable, CaseIterable {
+  case dormKorean
+  case dormHalal
+  case student
+  case faculty
 
-  var localizedName: String {
-    Locale.current.languageCode == "en" ? "Dormitory" : "기숙사"
+  init(intentRawValue: Int?) {
+    switch intentRawValue {
+    case 2: self = .dormHalal
+    case 3: self = .student
+    case 4: self = .faculty
+    default: self = .dormKorean
+    }
+  }
+
+  var apiCafeteria: String {
+    switch self {
+    case .dormKorean, .dormHalal: return "DORMITORY"
+    case .student: return "STUDENT"
+    case .faculty: return "FACULTY"
+    }
+  }
+
+  var apiMenuType: String {
+    self == .dormHalal ? "HALAL" : "KOREAN"
+  }
+
+  var localizedCafeteriaName: String {
+    let korean = Locale.current.language.languageCode?.identifier != "en"
+    switch self {
+    case .dormKorean, .dormHalal: return korean ? "기숙사식당" : "Dormitory Cafeteria"
+    case .student: return korean ? "학생식당" : "Student Cafeteria"
+    case .faculty: return korean ? "교직원식당" : "Faculty Cafeteria"
+    }
+  }
+
+  var localizedFoodTypeName: String? {
+    let korean = Locale.current.language.languageCode?.identifier != "en"
+    switch self {
+    case .dormKorean: return korean ? "한식" : "Korean"
+    case .dormHalal: return korean ? "할랄" : "Halal"
+    case .student, .faculty: return nil
+    }
   }
 }
 
@@ -42,19 +84,23 @@ private struct LocalizedMenu: Decodable {
   let ko: String
   let en: String?
 
-  func localizedName(for languageCode: String) -> String {
-    guard languageCode == "en",
-          let en,
-          !en.isEmpty
-    else {
-      return ko
-    }
-    return en
+  func localizedName(for languageCode: String) -> String? {
+    let koreanName = ko.trimmingCharacters(in: .whitespacesAndNewlines)
+    let englishName = en?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    let localized = languageCode.hasPrefix("en") && !englishName.isEmpty
+      ? englishName
+      : koreanName
+    return localized.isEmpty ? nil : localized
   }
 }
 
 private struct MealResponse: Decodable {
+  let week: WeekResponse
   let data: [CafeteriaResponse]
+}
+
+private struct WeekResponse: Decodable {
+  let startDate: String
 }
 
 private struct CafeteriaResponse: Decodable {
@@ -94,6 +140,14 @@ private struct OperatingPeriodResponse: Decodable {
 
   var allCafeterias: [CafeteriaHoursResponse] {
     [dormitory, student, faculty].compactMap { $0 }
+  }
+
+  func hours(for selection: WidgetMenuSelection) -> CafeteriaHoursResponse? {
+    switch selection {
+    case .dormKorean, .dormHalal: return dormitory
+    case .student: return student
+    case .faculty: return faculty
+    }
   }
 }
 
@@ -141,7 +195,7 @@ enum OperatingStatus: Equatable {
   case unavailable
 
   var localizedText: String {
-    let korean = Locale.current.languageCode != "en"
+    let korean = Locale.current.language.languageCode?.identifier != "en"
     switch self {
     case .beforeOpen(let minutes):
       let time = String(format: "%02d:%02d", minutes / 60, minutes % 60)
@@ -156,29 +210,69 @@ enum OperatingStatus: Equatable {
 
   var color: Color {
     switch self {
-    case .open: return Color(red: 0, green: 0.62, blue: 0.39)
-    case .closingSoon: return Color(red: 0.89, green: 0.52, blue: 0.05)
-    case .closed, .noService: return .secondary
-    case .beforeOpen, .unavailable: return Color(red: 0.24, green: 0.45, blue: 0.72)
+    case .open: return WidgetTextColor.brand
+    case .closingSoon: return .primary
+    case .closed, .noService, .beforeOpen, .unavailable:
+      return WidgetTextColor.secondary
     }
   }
 }
 
+private enum WidgetTextColor {
+  // Android 위젯과 같은 OKLCH 계열이다. 작은 텍스트가 각 시스템 배경에서
+  // APCA |Lc| 약 75 이상을 유지하도록 라이트/다크 밝기를 분리한다.
+  static let brand = adaptive(light: 0x147549, dark: 0x40E99B)
+  static let secondary = adaptive(light: 0x526057, dark: 0xCECECE)
+
+  private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+    Color(uiColor: UIColor { traits in
+      UIColor(
+        red: CGFloat((traits.userInterfaceStyle == .dark ? dark : light) >> 16 & 0xFF) / 255,
+        green: CGFloat((traits.userInterfaceStyle == .dark ? dark : light) >> 8 & 0xFF) / 255,
+        blue: CGFloat((traits.userInterfaceStyle == .dark ? dark : light) & 0xFF) / 255,
+        alpha: 1
+      )
+    })
+  }
+}
+
 struct WidgetSnapshot {
-  let cafeteria: WidgetCafeteria
+  let selection: WidgetMenuSelection
   let meal: WidgetMealOfDay
   let menu: [String]
   let status: OperatingStatus
 }
 
-private struct BapUWidgetEntry: TimelineEntry {
+// 한 timeline을 만드는 동안의 입력을 고정한다. WidgetKit entry마다 같은 주간
+// JSON을 다시 읽지 않으면서도 다음 reload에서는 최신 파일을 다시 읽는다.
+private struct WidgetTimelineInput {
+  let info: InfoResponse?
+  let currentMeal: MealResponse?
+  let nextMeal: MealResponse?
+}
+
+func displayMenuItems(
+  _ items: [String],
+  limit: Int,
+  languageCode: String = Locale.current.language.languageCode?.identifier ?? "ko"
+) -> [String] {
+  guard limit > 0 else { return [] }
+  guard items.count > limit else { return items }
+  let remainingCount = items.count - limit
+  let moreLabel = languageCode.hasPrefix("en")
+    ? "+\(remainingCount) more"
+    : "+\(remainingCount)개 더"
+  return Array(items.prefix(limit)) + [moreLabel]
+}
+
+fileprivate struct BapUWidgetEntry: TimelineEntry {
   let date: Date
   let snapshot: WidgetSnapshot
 
   static let placeholder = BapUWidgetEntry(
     date: Date(),
     snapshot: WidgetSnapshot(
-      cafeteria: .dormitory,
+      selection: .dormKorean,
       meal: .lunch,
       menu: ["쌀밥", "된장찌개", "제육볶음", "오늘의 반찬"],
       status: .open
@@ -193,7 +287,7 @@ struct WidgetCacheReader {
 
   init(
     containerURL: URL? = WidgetCacheReader.defaultContainerURL(),
-    languageCode: String = Locale.current.languageCode ?? "ko"
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "ko"
   ) {
     self.containerURL = containerURL
     self.languageCode = languageCode
@@ -210,10 +304,21 @@ struct WidgetCacheReader {
     )
   }
 
-  func snapshot(at date: Date) -> WidgetSnapshot {
-    guard let hours: InfoResponse = decode(WidgetContract.infoCacheFile) else {
+  func snapshot(
+    at date: Date,
+    selection: WidgetMenuSelection = .dormKorean
+  ) -> WidgetSnapshot {
+    snapshot(at: date, selection: selection, input: loadTimelineInput())
+  }
+
+  private func snapshot(
+    at date: Date,
+    selection: WidgetMenuSelection,
+    input: WidgetTimelineInput
+  ) -> WidgetSnapshot {
+    guard let hours = input.info else {
       return WidgetSnapshot(
-        cafeteria: .dormitory,
+        selection: selection,
         meal: .lunch,
         menu: [],
         status: .unavailable
@@ -223,17 +328,17 @@ struct WidgetCacheReader {
     let period = periodResponse(from: hours, at: date)
     guard let meal = currentMeal(in: period, at: date) else {
       return WidgetSnapshot(
-        cafeteria: .dormitory,
+        selection: selection,
         meal: .lunch,
         menu: [],
         status: .unavailable
       )
     }
 
-    let menu = readMenu(at: date, meal: meal)
-    let range = period.dormitory?.range(for: meal)
+    let menu = readMenu(at: date, meal: meal, selection: selection, input: input)
+    let range = period.hours(for: selection)?.range(for: meal)
     return WidgetSnapshot(
-      cafeteria: .dormitory,
+      selection: selection,
       meal: meal,
       menu: menu,
       status: operatingStatus(range: range, at: date)
@@ -241,7 +346,11 @@ struct WidgetCacheReader {
   }
 
   func timelineDates(after date: Date) -> [Date] {
-    guard let info: InfoResponse = decode(WidgetContract.infoCacheFile) else {
+    timelineDates(after: date, input: loadTimelineInput())
+  }
+
+  private func timelineDates(after date: Date, input: WidgetTimelineInput) -> [Date] {
+    guard let info = input.info else {
       return [date.addingTimeInterval(30 * 60)]
     }
 
@@ -258,7 +367,6 @@ struct WidgetCacheReader {
         minutes.insert(start)
         minutes.insert(max(0, end - WidgetContract.closingSoonMinutes))
         minutes.insert(end)
-        minutes.insert(min(24 * 60 - 1, end + WidgetContract.justClosedMinutes + 1))
       }
     }
 
@@ -280,23 +388,63 @@ struct WidgetCacheReader {
       .sorted()
   }
 
-  private func readMenu(at date: Date, meal: WidgetMealOfDay) -> [String] {
-    guard isFreshMealCache(at: date) else { return [] }
-    guard let response: MealResponse = decode(WidgetContract.mealCacheFile) else {
+  fileprivate func timelineEntries(
+    from date: Date,
+    selection: WidgetMenuSelection
+  ) -> [BapUWidgetEntry] {
+    let input = loadTimelineInput()
+    let dates = [date] + timelineDates(after: date, input: input)
+    return dates.map {
+      BapUWidgetEntry(
+        date: $0,
+        snapshot: snapshot(at: $0, selection: selection, input: input)
+      )
+    }
+  }
+
+  private func readMenu(
+    at date: Date,
+    meal: WidgetMealOfDay,
+    selection: WidgetMenuSelection,
+    input: WidgetTimelineInput
+  ) -> [String] {
+    guard let response = mealResponse(for: date, input: input) else {
       return []
     }
 
     let weekday = dayOfWeek(at: date)
-    return response.data
-      .first { $0.cafeteria == WidgetCafeteria.dormitory.rawValue }?
+    let groups = response.data
+      .first { $0.cafeteria == selection.apiCafeteria }?
       .meals
       .first { $0.dayOfWeek == weekday && $0.timeType == meal.rawValue }?
-      .menusByType
-      .first { $0.menuType == "KOREAN" }?
-      .sections
-      .filter { $0.sectionType == "REGULAR" }
-      .flatMap(\.menus)
-      .map { $0.localizedName(for: languageCode) } ?? []
+      .menusByType ?? []
+
+    // Android와 같이 같은 menuType을 순서대로 보되, REGULAR 메뉴가 실제로
+    // 존재하는 첫 그룹만 사용한다. 여러 그룹을 합쳐 중복 메뉴를 만들지 않는다.
+    for group in groups where group.menuType == selection.apiMenuType {
+      let menu = group.sections
+        .filter { $0.sectionType == "REGULAR" }
+        .flatMap(\.menus)
+        .compactMap { $0.localizedName(for: languageCode) }
+      if !menu.isEmpty { return menu }
+    }
+    return []
+  }
+
+  private func mealResponse(for date: Date, input: WidgetTimelineInput) -> MealResponse? {
+    let targetWeekStart = kstWeekIdentifier(for: date)
+    for response in [input.currentMeal, input.nextMeal].compactMap({ $0 }) {
+      if response.week.startDate == targetWeekStart { return response }
+    }
+    return nil
+  }
+
+  private func loadTimelineInput() -> WidgetTimelineInput {
+    WidgetTimelineInput(
+      info: decode(WidgetContract.infoCacheFile),
+      currentMeal: decode(WidgetContract.mealCacheFile),
+      nextMeal: decode(WidgetContract.nextMealCacheFile)
+    )
   }
 
   private func periodResponse(from info: InfoResponse, at date: Date) -> OperatingPeriodResponse {
@@ -328,7 +476,7 @@ struct WidgetCacheReader {
 
     if now < start { return .beforeOpen(startMinutes: start) }
     if now < end {
-      return end - now < WidgetContract.closingSoonMinutes ? .closingSoon : .open
+      return end - now <= WidgetContract.closingSoonMinutes ? .closingSoon : .open
     }
     return .closed
   }
@@ -354,18 +502,6 @@ struct WidgetCacheReader {
     return try? decoder.decode(T.self, from: data)
   }
 
-  private func isFreshMealCache(at date: Date) -> Bool {
-    guard let container = containerURL else { return false }
-
-    let url = container.appendingPathComponent(WidgetContract.mealCacheFile)
-    guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
-          let modifiedAt = values.contentModificationDate
-    else {
-      return false
-    }
-    return kstWeekIdentifier(for: modifiedAt) == kstWeekIdentifier(for: date)
-  }
-
   private func kstWeekIdentifier(for date: Date) -> String {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = WidgetContract.kst
@@ -380,92 +516,175 @@ struct WidgetCacheReader {
 }
 
 #if !BAPU_WIDGET_TESTS
-private struct BapUWidgetProvider: TimelineProvider {
+extension WidgetMenuSelection: AppEnum {
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(
+    name: "widgetCafeteriaType"
+  )
+  static let caseDisplayRepresentations: [WidgetMenuSelection: DisplayRepresentation] = [
+    .dormKorean: DisplayRepresentation(title: "widgetDormKorean"),
+    .dormHalal: DisplayRepresentation(title: "widgetDormHalal"),
+    .student: DisplayRepresentation(title: "widgetStudentCafeteria"),
+    .faculty: DisplayRepresentation(title: "widgetFacultyCafeteria"),
+  ]
+}
+
+struct BapUWidgetConfigurationIntent: WidgetConfigurationIntent {
+  static let title: LocalizedStringResource = "widgetConfigurationTitle"
+  static let description = IntentDescription("widgetConfigurationIntentDescription")
+
+  @Parameter(title: "widgetCafeteriaParameter", default: .dormKorean)
+  var cafeteria: WidgetMenuSelection
+}
+
+private struct BapUWidgetProvider: AppIntentTimelineProvider {
   private let cache = WidgetCacheReader()
 
   func placeholder(in context: Context) -> BapUWidgetEntry {
     .placeholder
   }
 
-  func getSnapshot(in context: Context, completion: @escaping (BapUWidgetEntry) -> Void) {
-    completion(context.isPreview ? .placeholder : entry(at: Date()))
+  func snapshot(
+    for configuration: BapUWidgetConfigurationIntent,
+    in context: Context
+  ) async -> BapUWidgetEntry {
+    context.isPreview
+      ? .placeholder
+      : entry(
+        at: Date(),
+        selection: configuration.cafeteria
+      )
   }
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<BapUWidgetEntry>) -> Void) {
+  func timeline(
+    for configuration: BapUWidgetConfigurationIntent,
+    in context: Context
+  ) async -> Timeline<BapUWidgetEntry> {
     let now = Date()
-    let dates = [now] + cache.timelineDates(after: now)
-    let entries = dates.map(entry(at:))
-    let nextRefresh = dates.dropFirst().first ?? now.addingTimeInterval(30 * 60)
-    completion(Timeline(entries: entries, policy: .after(nextRefresh)))
+    let entries = cache.timelineEntries(
+      from: now,
+      selection: configuration.cafeteria
+    )
+    // 캐시가 바뀌면 Flutter bridge가 reload를 요청한다. 여기서는 이미 제공한
+    // 마지막 경계까지 소비한 뒤에만 다음 timeline을 요청해 갱신 예산을 아낀다.
+    return Timeline(entries: entries, policy: .atEnd)
   }
 
-  private func entry(at date: Date) -> BapUWidgetEntry {
-    BapUWidgetEntry(date: date, snapshot: cache.snapshot(at: date))
+  private func entry(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
+    BapUWidgetEntry(
+      date: date,
+      snapshot: cache.snapshot(at: date, selection: selection)
+    )
   }
 }
 
 private struct BapUWidgetView: View {
   let entry: BapUWidgetEntry
 
+  private var displayedMenu: [String] {
+    let languageCode = Locale.current.language.languageCode?.identifier ?? "ko"
+    let limit = languageCode.hasPrefix("en") ? 5 : 7
+    return displayMenuItems(
+      entry.snapshot.menu,
+      limit: limit,
+      languageCode: languageCode
+    )
+  }
+
+  private var menuColumns: ([String], [String]) {
+    let midpoint = (displayedMenu.count + 1) / 2
+    return (
+      Array(displayedMenu.prefix(midpoint)),
+      Array(displayedMenu.dropFirst(midpoint))
+    )
+  }
+
   var body: some View {
-    VStack(spacing: 7) {
+    VStack(spacing: 8) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
-        Text(entry.snapshot.cafeteria.localizedName)
-          .font(.system(size: 12, weight: .bold))
+        Text(entry.snapshot.selection.localizedCafeteriaName)
+          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
+          .foregroundStyle(WidgetTextColor.brand)
           .lineLimit(1)
-        Text(Locale.current.languageCode == "en" ? "Korean" : "한식")
-          .font(.system(size: 10, weight: .semibold))
-          .foregroundStyle(.secondary)
+          .minimumScaleFactor(0.72)
+        if let foodType = entry.snapshot.selection.localizedFoodTypeName {
+          Text(foodType)
+            .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+        }
         Spacer(minLength: 4)
         Text(entry.snapshot.meal.localizedName)
-          .font(.system(size: 10, weight: .bold))
-          .foregroundStyle(.secondary)
+          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 14))
+          .foregroundStyle(.primary)
+          .lineLimit(1)
       }
+      .layoutPriority(2)
 
       menuPanel
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
       Text(entry.snapshot.status.localizedText)
-        .font(.system(size: 10, weight: .bold))
+        .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 13))
         .foregroundStyle(entry.snapshot.status.color)
         .lineLimit(1)
+        .layoutPriority(2)
     }
-    .padding(12)
     .widgetURL(URL(string: "bapu://home"))
     .modifier(WidgetBackgroundModifier())
   }
 
   @ViewBuilder
   private var menuPanel: some View {
-    VStack(alignment: .leading, spacing: 3) {
+    Group {
       if entry.snapshot.menu.isEmpty {
-        Spacer(minLength: 0)
-        Text(Locale.current.languageCode == "en" ? "No menu" : "메뉴 정보 없음")
-          .font(.system(size: 11, weight: .medium))
-          .foregroundStyle(.secondary)
-          .frame(maxWidth: .infinity, alignment: .center)
-        Spacer(minLength: 0)
+        Text(
+          Locale.current.language.languageCode?.identifier == "en"
+            ? "No menu"
+            : "메뉴 정보 없음"
+        )
+          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
+          .foregroundStyle(WidgetTextColor.secondary)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       } else {
-        ForEach(Array(entry.snapshot.menu.prefix(5).enumerated()), id: \.offset) { _, item in
-          Text(item)
-            .font(.system(size: 11, weight: .medium))
-            .lineLimit(1)
+        HStack(alignment: .top, spacing: 0) {
+          menuColumn(menuColumns.0)
+          Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(width: 1)
+            .padding(.vertical, 1)
+            .padding(.horizontal, 10)
+          menuColumn(menuColumns.1)
         }
       }
     }
-    .padding(9)
+    .padding(.horizontal, 13)
+    .padding(.vertical, 9)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(
       LinearGradient(
         colors: [
-          Color(red: 0.91, green: 1.0, blue: 0.96),
-          Color(red: 0.96, green: 0.98, blue: 1.0),
+          Color(uiColor: .secondarySystemBackground),
+          Color(uiColor: .tertiarySystemBackground),
         ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+        startPoint: .top,
+        endPoint: .bottom
       ),
-      in: RoundedRectangle(cornerRadius: 8)
+      in: RoundedRectangle(cornerRadius: 13, style: .continuous)
     )
+    .clipped()
+  }
+
+  private func menuColumn(_ items: [String]) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+        Text(item)
+          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
+          .foregroundStyle(.primary)
+          .fixedSize(horizontal: false, vertical: true)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .topLeading)
   }
 }
 
@@ -487,12 +706,16 @@ struct BapUWidget: Widget {
   let kind = WidgetContract.kind
 
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: BapUWidgetProvider()) { entry in
+    AppIntentConfiguration(
+      kind: kind,
+      intent: BapUWidgetConfigurationIntent.self,
+      provider: BapUWidgetProvider()
+    ) { entry in
       BapUWidgetView(entry: entry)
     }
-    .configurationDisplayName("밥먹어U")
-    .description("현재 학식 메뉴와 운영 상태를 확인합니다.")
-    .supportedFamilies([.systemSmall])
+    .configurationDisplayName(LocalizedStringKey("widgetConfigurationDisplayName"))
+    .description(LocalizedStringKey("widgetConfigurationDescription"))
+    .supportedFamilies([.systemMedium])
   }
 }
 #endif
