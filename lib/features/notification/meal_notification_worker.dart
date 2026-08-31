@@ -11,6 +11,7 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
+import 'package:meal_client/features/widget/widget_service.dart';
 import 'meal_alert_period.dart';
 import 'notification_scheduler.dart';
 import 'notification_service.dart';
@@ -103,6 +104,16 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
       'background info refresh skipped',
       infoFailure,
     );
+  }
+
+  try {
+    await refreshWidgets(throwOnFailure: true);
+  } catch (e, stackTrace) {
+    _logBackgroundRefreshFailure(
+      'background widget refresh failed',
+      _BackgroundRefreshFailure('widget', e, stackTrace),
+    );
+    return false;
   }
 
   return true;

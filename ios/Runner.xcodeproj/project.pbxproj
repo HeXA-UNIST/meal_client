@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B20000000000000000000001 /* BapUWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* BapUWidget.swift */; };
+		B20000000000000000000002 /* BapUWidgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* BapUWidgetTests.swift */; };
+		A10000000000000000000001 /* BapUWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* BapUWidget.swift */; };
+		A10000000000000000000002 /* BapUWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* BapUWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A10000000000000000000003 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* WidgetData.swift */; };
+		A10000000000000000000004 /* SpoqaHanSansNeo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* SpoqaHanSansNeo-Medium.ttf */; };
+		A10000000000000000000005 /* SpoqaHanSansNeo-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* SpoqaHanSansNeo-Bold.ttf */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		34E1CA166CAC3ABE791604A2 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9EBB74C6670CBE9D4AA18262 /* Pods_RunnerTests.framework */; };
@@ -17,14 +24,16 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
-		BA0000010000000000000001 /* BapUWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000001 /* BapUWidget.swift */; };
-		BA0000010000000000000003 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000005 /* WidgetData.swift */; };
-		BA0000010000000000000004 /* Pretendard-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000006 /* Pretendard-Medium.otf */; };
-		BA0000010000000000000005 /* Pretendard-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000007 /* Pretendard-Bold.otf */; };
-		BA0000010000000000000002 /* BapUWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = BA0000020000000000000004 /* BapUWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A10000000000000000000061 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000041;
+			remoteInfo = BapUWidget;
+		};
 		331C8085294A63A400263BE5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
@@ -32,16 +41,20 @@
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
 		};
-		BA0000030000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = BA0000070000000000000001;
-			remoteInfo = BapUWidget;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		A10000000000000000000034 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A10000000000000000000002 /* BapUWidget.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9705A1C41CF9048500538489 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -52,20 +65,18 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BA0000040000000000000001 /* Embed App Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				BA0000010000000000000002 /* BapUWidget.appex in Embed App Extensions */,
-			);
-			name = "Embed App Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B20000000000000000000011 /* BapUWidgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BapUWidgetTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000012 /* BapUWidgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BapUWidgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000011 /* BapUWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BapUWidget.swift; sourceTree = "<group>"; };
+		A10000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000000000000000000013 /* BapUWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BapUWidget.entitlements; sourceTree = "<group>"; };
+		A10000000000000000000014 /* BapUWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BapUWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000015 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
+		A10000000000000000000016 /* SpoqaHanSansNeo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fonts/SpoqaHanSansNeo-Medium.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000017 /* SpoqaHanSansNeo-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fonts/SpoqaHanSansNeo-Bold.ttf"; sourceTree = "<group>"; };
 		03969F4120BE548322DBF740 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -92,16 +103,23 @@
 		CFBBA941289E6B6891E32426 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		D38AE19C2E1A2C4C00B42510 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
-		BA0000020000000000000001 /* BapUWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BapUWidget.swift; sourceTree = "<group>"; };
-		BA0000020000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		BA0000020000000000000003 /* BapUWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BapUWidget.entitlements; sourceTree = "<group>"; };
-		BA0000020000000000000004 /* BapUWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BapUWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		BA0000020000000000000005 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
-		BA0000020000000000000006 /* Pretendard-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Pretendard-Medium.otf"; path = "../../assets/fonts/Pretendard-Medium.otf"; sourceTree = "<group>"; };
-		BA0000020000000000000007 /* Pretendard-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Pretendard-Bold.otf"; path = "../../assets/fonts/Pretendard-Bold.otf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		B20000000000000000000032 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000000000000000000032 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		46E52E862EFFAF7E3220D01E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -119,16 +137,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BA0000050000000000000001 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		B20000000000000000000021 /* BapUWidgetTests */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000011 /* BapUWidgetTests.swift */,
+			);
+			path = BapUWidgetTests;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000021 /* BapUWidget */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000011 /* BapUWidget.swift */,
+				A10000000000000000000015 /* WidgetData.swift */,
+				A10000000000000000000012 /* Info.plist */,
+				A10000000000000000000013 /* BapUWidget.entitlements */,
+				A10000000000000000000016 /* SpoqaHanSansNeo-Medium.ttf */,
+				A10000000000000000000017 /* SpoqaHanSansNeo-Bold.ttf */,
+			);
+			path = BapUWidget;
+			sourceTree = "<group>";
+		};
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -163,7 +195,8 @@
 			children = (
 				9740EEB11CF90186004384FC /* Flutter */,
 				97C146F01CF9000F007C117D /* Runner */,
-				BA0000060000000000000001 /* BapUWidget */,
+				A10000000000000000000021 /* BapUWidget */,
+				B20000000000000000000021 /* BapUWidgetTests */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				A24191ADEC815CEBB94D9E0B /* Pods */,
@@ -176,7 +209,8 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
-				BA0000020000000000000004 /* BapUWidget.appex */,
+				A10000000000000000000014 /* BapUWidget.appex */,
+				B20000000000000000000012 /* BapUWidgetTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -197,19 +231,6 @@
 			path = Runner;
 			sourceTree = "<group>";
 		};
-		BA0000060000000000000001 /* BapUWidget */ = {
-			isa = PBXGroup;
-			children = (
-				BA0000020000000000000001 /* BapUWidget.swift */,
-				BA0000020000000000000005 /* WidgetData.swift */,
-				BA0000020000000000000002 /* Info.plist */,
-				BA0000020000000000000003 /* BapUWidget.entitlements */,
-				BA0000020000000000000006 /* Pretendard-Medium.otf */,
-				BA0000020000000000000007 /* Pretendard-Bold.otf */,
-			);
-			path = BapUWidget;
-			sourceTree = "<group>";
-		};
 		A24191ADEC815CEBB94D9E0B /* Pods */ = {
 			isa = PBXGroup;
 			children = (
@@ -226,6 +247,40 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B20000000000000000000041 /* BapUWidgetTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000000000000000000054 /* Build configuration list for PBXNativeTarget "BapUWidgetTests" */;
+			buildPhases = (
+				B20000000000000000000031 /* Sources */,
+				B20000000000000000000032 /* Frameworks */,
+				B20000000000000000000033 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BapUWidgetTests;
+			productName = BapUWidgetTests;
+			productReference = B20000000000000000000012 /* BapUWidgetTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A10000000000000000000041 /* BapUWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000054 /* Build configuration list for PBXNativeTarget "BapUWidget" */;
+			buildPhases = (
+				A10000000000000000000031 /* Sources */,
+				A10000000000000000000032 /* Frameworks */,
+				A10000000000000000000033 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BapUWidget;
+			productName = BapUWidget;
+			productReference = A10000000000000000000014 /* BapUWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		331C8080294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
@@ -258,36 +313,19 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
-				BA0000040000000000000001 /* Embed App Extensions */,
+				A10000000000000000000034 /* Embed App Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				80515D9DA0CC1A9FE6103AAB /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BA0000080000000000000001 /* PBXTargetDependency */,
+				A10000000000000000000062 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
-		};
-		BA0000070000000000000001 /* BapUWidget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = BA00000A0000000000000001 /* Build configuration list for PBXNativeTarget "BapUWidget" */;
-			buildPhases = (
-				BA0000090000000000000001 /* Sources */,
-				BA0000050000000000000001 /* Frameworks */,
-				BA00000B0000000000000001 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = BapUWidget;
-			productName = BapUWidget;
-			productReference = BA0000020000000000000004 /* BapUWidget.appex */;
-			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -302,8 +340,11 @@
 				LastUpgradeCheck = 1510;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
-					BA0000070000000000000001 = {
-						CreatedOnToolsVersion = 26.0;
+					A10000000000000000000041 = {
+						CreatedOnToolsVersion = 15.1;
+					};
+					B20000000000000000000041 = {
+						CreatedOnToolsVersion = 15.1;
 					};
 					331C8080294A63A400263BE5 = {
 						CreatedOnToolsVersion = 14.0;
@@ -331,12 +372,29 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
-				BA0000070000000000000001 /* BapUWidget */,
+				A10000000000000000000041 /* BapUWidget */,
+				B20000000000000000000041 /* BapUWidgetTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B20000000000000000000033 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000000000000000000033 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000004 /* SpoqaHanSansNeo-Medium.ttf in Resources */,
+				A10000000000000000000005 /* SpoqaHanSansNeo-Bold.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		331C807F294A63A400263BE5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -352,15 +410,6 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		BA00000B0000000000000001 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				BA0000010000000000000004 /* Pretendard-Medium.otf in Resources */,
-				BA0000010000000000000005 /* Pretendard-Bold.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -462,6 +511,24 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B20000000000000000000031 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000001 /* BapUWidget.swift in Sources */,
+				B20000000000000000000002 /* BapUWidgetTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000000000000000000031 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* BapUWidget.swift in Sources */,
+				A10000000000000000000003 /* WidgetData.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		331C807D294A63A400263BE5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -479,27 +546,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		BA0000090000000000000001 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				BA0000010000000000000001 /* BapUWidget.swift in Sources */,
-				BA0000010000000000000003 /* WidgetData.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A10000000000000000000062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000041 /* BapUWidget */;
+			targetProxy = A10000000000000000000061 /* PBXContainerItemProxy */;
+		};
 		331C8086294A63A400263BE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
-		};
-		BA0000080000000000000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BA0000070000000000000001 /* BapUWidget */;
-			targetProxy = BA0000030000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -524,7 +582,59 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		BA00000C0000000000000001 /* Debug */ = {
+		B20000000000000000000051 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4B6G582F82;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wjddnwls7879.unistbab.widget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG BAPU_WIDGET_TESTS";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B20000000000000000000052 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4B6G582F82;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wjddnwls7879.unistbab.widget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = BAPU_WIDGET_TESTS;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B20000000000000000000053 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4B6G582F82;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wjddnwls7879.unistbab.widget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = BAPU_WIDGET_TESTS;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Profile;
+		};
+		A10000000000000000000051 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
@@ -536,7 +646,11 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BapUWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wjddnwls7879.unistbab.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -549,7 +663,7 @@
 			};
 			name = Debug;
 		};
-		BA00000C0000000000000002 /* Release */ = {
+		A10000000000000000000052 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
@@ -561,7 +675,11 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BapUWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wjddnwls7879.unistbab.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -570,10 +688,11 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		BA00000C0000000000000003 /* Profile */ = {
+		A10000000000000000000053 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
@@ -585,14 +704,20 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BapUWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
 				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.wjddnwls7879.unistbab.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Profile;
 		};
@@ -900,12 +1025,22 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		BA00000A0000000000000001 /* Build configuration list for PBXNativeTarget "BapUWidget" */ = {
+		B20000000000000000000054 /* Build configuration list for PBXNativeTarget "BapUWidgetTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				BA00000C0000000000000001 /* Debug */,
-				BA00000C0000000000000002 /* Release */,
-				BA00000C0000000000000003 /* Profile */,
+				B20000000000000000000051 /* Debug */,
+				B20000000000000000000052 /* Release */,
+				B20000000000000000000053 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000054 /* Build configuration list for PBXNativeTarget "BapUWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000051 /* Debug */,
+				A10000000000000000000052 /* Release */,
+				A10000000000000000000053 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

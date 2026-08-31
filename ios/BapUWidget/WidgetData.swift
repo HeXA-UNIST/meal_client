@@ -2,6 +2,17 @@ import Foundation
 
 private let kstTimeZone = TimeZone(identifier: "Asia/Seoul")!
 
+enum WidgetLanguage {
+  case korean
+  case english
+
+  static var current: WidgetLanguage {
+    Locale.current.language.languageCode?.identifier == "en" ? .english : .korean
+  }
+
+  var isEnglish: Bool { self == .english }
+}
+
 enum MealOfDay: String {
   case breakfast = "BREAKFAST"
   case lunch = "LUNCH"
@@ -9,9 +20,9 @@ enum MealOfDay: String {
 
   var displayName: String {
     switch self {
-    case .breakfast: "조식"
-    case .lunch: "중식"
-    case .dinner: "석식"
+    case .breakfast: WidgetLanguage.current.isEnglish ? "Breakfast" : "조식"
+    case .lunch: WidgetLanguage.current.isEnglish ? "Lunch" : "중식"
+    case .dinner: WidgetLanguage.current.isEnglish ? "Dinner" : "석식"
     }
   }
 
@@ -47,7 +58,9 @@ struct WidgetDataLoader {
           mealOfDay: context.meal,
           menus: [],
           status: status,
-          errorMessage: "식단 캐시가 없습니다"
+          errorMessage: WidgetLanguage.current.isEnglish
+            ? "No cached menu available"
+            : "식단 캐시가 없습니다"
         )
       }
       guard try isFreshMealCache(url: mealURL, now: now) else {
@@ -55,7 +68,9 @@ struct WidgetDataLoader {
           mealOfDay: context.meal,
           menus: [],
           status: status,
-          errorMessage: "식단 캐시가 오래되었습니다"
+          errorMessage: WidgetLanguage.current.isEnglish
+            ? "The cached menu is out of date"
+            : "식단 캐시가 오래되었습니다"
         )
       }
 
@@ -82,7 +97,9 @@ struct WidgetDataLoader {
         mealOfDay: .breakfast,
         menus: [],
         status: "-",
-        errorMessage: "위젯 데이터를 불러올 수 없습니다"
+        errorMessage: WidgetLanguage.current.isEnglish
+          ? "Unable to load widget data"
+          : "위젯 데이터를 불러올 수 없습니다"
       )
     }
   }
@@ -334,6 +351,7 @@ private enum OperatingStatusResolver {
     meal: MealOfDay,
     now: Date
   ) -> String {
+    let isEnglish = WidgetLanguage.current.isEnglish
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = kstTimeZone
     let cafeteriaKey = switch cafeteria {
@@ -345,18 +363,25 @@ private enum OperatingStatusResolver {
       let range = hours.period(for: now)[cafeteriaKey]?[meal.infoKey],
       let start = range.startMinutes,
       let end = range.endMinutes
-    else { return "미운영" }
+    else { return isEnglish ? "Unavailable" : "미운영" }
 
     let current = calendar.component(.hour, from: now) * 60
       + calendar.component(.minute, from: now)
     if current < start {
-      return String(format: "%02d:%02d부터 운영", start / 60, start % 60)
+      return isEnglish
+        ? String(format: "Opens at %02d:%02d", start / 60, start % 60)
+        : String(format: "%02d:%02d부터 운영", start / 60, start % 60)
     }
     if current < end {
       let remaining = end - current
-      return remaining >= 45 ? "운영 중" : "종료 \(remaining)분 전"
+      if remaining >= 45 { return isEnglish ? "Open" : "운영 중" }
+      return isEnglish ? "Closes in \(remaining) min" : "종료 \(remaining)분 전"
     }
-    if current <= end + 30 || meal == .dinner { return "운영 종료" }
-    return String(format: "%02d:%02d부터 운영", start / 60, start % 60)
+    if current <= end + 30 || meal == .dinner {
+      return isEnglish ? "Closed" : "운영 종료"
+    }
+    return isEnglish
+      ? String(format: "Opens at %02d:%02d", start / 60, start % 60)
+      : String(format: "%02d:%02d부터 운영", start / 60, start % 60)
   }
 }

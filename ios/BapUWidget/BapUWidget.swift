@@ -18,16 +18,19 @@ enum CafeteriaOption: String, AppEnum {
 
   var displayName: String {
     switch self {
-    case .dormKorean, .dormHalal: "기숙사 식당"
-    case .student: "학생식당"
-    case .faculty: "교직원식당"
+    case .dormKorean, .dormHalal:
+      WidgetLanguage.current.isEnglish ? "Dormitory Cafeteria" : "기숙사식당"
+    case .student:
+      WidgetLanguage.current.isEnglish ? "Student Cafeteria" : "학생식당"
+    case .faculty:
+      WidgetLanguage.current.isEnglish ? "Faculty Cafeteria" : "교직원식당"
     }
   }
 
   var foodType: String? {
     switch self {
-    case .dormKorean: "한식"
-    case .dormHalal: "할랄"
+    case .dormKorean: WidgetLanguage.current.isEnglish ? "Korean" : "한식"
+    case .dormHalal: WidgetLanguage.current.isEnglish ? "Halal" : "할랄"
     case .student, .faculty: nil
     }
   }
@@ -54,8 +57,10 @@ struct BapUWidgetProvider: AppIntentTimelineProvider {
       cafeteria: .dormKorean,
       content: WidgetContent(
         mealOfDay: .lunch,
-        menus: ["어니언하이라이스", "계란후라이", "우동국"],
-        status: "운영 중",
+        menus: WidgetLanguage.current.isEnglish
+          ? ["Onion Hayashi Rice", "Fried Egg", "Udon Soup"]
+          : ["어니언하이라이스", "계란후라이", "우동국"],
+        status: WidgetLanguage.current.isEnglish ? "Open" : "운영 중",
         errorMessage: nil
       )
     )
@@ -116,8 +121,11 @@ struct BapUWidgetView: View {
   }
 
   private var statusColor: Color {
-    if entry.content.status == "운영 중" { return brandColor }
-    if entry.content.status.hasPrefix("종료 ") {
+    if entry.content.status == "운영 중" || entry.content.status == "Open" {
+      return brandColor
+    }
+    if entry.content.status.hasPrefix("종료 ")
+      || entry.content.status.hasPrefix("Closes in ") {
       return colorScheme == .dark ? .white : .black
     }
     return colorScheme == .dark
@@ -127,8 +135,14 @@ struct BapUWidgetView: View {
 
   private var visibleMenus: [String] {
     let filtered = entry.content.menus.filter { !$0.isEmpty }
-    guard filtered.count > 8 else { return filtered }
-    return Array(filtered.prefix(7)) + ["…"]
+    let limit = WidgetLanguage.current.isEnglish ? 5 : 7
+    guard filtered.count > limit else { return filtered }
+
+    let remainingCount = filtered.count - limit
+    let moreLabel = WidgetLanguage.current.isEnglish
+      ? "+\(remainingCount) more"
+      : "+\(remainingCount)개 더"
+    return Array(filtered.prefix(limit)) + [moreLabel]
   }
 
   private var menuColumns: ([String], [String]) {
@@ -141,31 +155,33 @@ struct BapUWidgetView: View {
       HStack(spacing: 5) {
         Text(entry.cafeteria.displayName)
           .foregroundStyle(brandColor)
-          .font(.custom("Pretendard-Bold", fixedSize: 15))
+          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
           .lineLimit(1)
           .minimumScaleFactor(0.8)
         if let foodType = entry.cafeteria.foodType {
           Text(foodType)
             .foregroundStyle(.primary)
-            .font(.custom("Pretendard-Bold", fixedSize: 15))
+            .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
             .lineLimit(1)
         }
         Spacer()
         Text(entry.content.mealOfDay.displayName)
           .foregroundStyle(.primary)
-          .font(.custom("Pretendard-Bold", fixedSize: 14))
+          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 14))
       }
       .padding(.horizontal, 4)
+      .fixedSize(horizontal: false, vertical: true)
+      .layoutPriority(2)
 
       Group {
         if let errorMessage = entry.content.errorMessage {
           Text(errorMessage)
-            .font(.custom("Pretendard-Medium", fixedSize: 13))
+            .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if entry.content.menus.isEmpty {
           Text("-")
-            .font(.custom("Pretendard-Medium", fixedSize: 14))
+            .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 14))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -191,12 +207,15 @@ struct BapUWidgetView: View {
         ),
         in: RoundedRectangle(cornerRadius: 13, style: .continuous)
       )
+      .clipped()
 
       Text(entry.content.status)
         .frame(maxWidth: .infinity)
         .foregroundStyle(statusColor)
-        .font(.custom("Pretendard-Bold", fixedSize: 13))
+        .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 13))
         .lineLimit(1)
+        .fixedSize(horizontal: false, vertical: true)
+        .layoutPriority(2)
     }
     .padding(.horizontal, 16)
     .padding(.top, 13)
@@ -209,9 +228,8 @@ struct BapUWidgetView: View {
       ForEach(Array(menus.enumerated()), id: \.offset) { _, menu in
         Text(menu)
           .foregroundStyle(menuColor)
-          .font(.custom("Pretendard-Medium", fixedSize: 13))
-          .lineLimit(1)
-          .truncationMode(.tail)
+          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
+          .fixedSize(horizontal: false, vertical: true)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
     }

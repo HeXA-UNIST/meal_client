@@ -56,6 +56,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+		 <TestableReference
+			skipped = "NO"
+			parallelizable = "YES">
+			<BuildableReference
+			   BuildableIdentifier = "primary"
+			   BlueprintIdentifier = "B20000000000000000000041"
+			   BuildableName = "BapUWidgetTests.xctest"
+			   BlueprintName = "BapUWidgetTests"
+			   ReferencedContainer = "container:Runner.xcodeproj">
+			</BuildableReference>
+		 </TestableReference>
          <TestableReference
             skipped = "NO"
             parallelizable = "YES">
