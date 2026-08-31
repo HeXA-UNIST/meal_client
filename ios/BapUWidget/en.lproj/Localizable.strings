@@ -1,2 +1,10 @@
 "widgetConfigurationDisplayName" = "BapU";
 "widgetConfigurationDescription" = "View the current cafeteria menu and operating status.";
+"widgetConfigurationTitle" = "Select Cafeteria";
+"widgetConfigurationIntentDescription" = "Choose the cafeteria shown in the widget.";
+"widgetCafeteriaParameter" = "Cafeteria";
+"widgetCafeteriaType" = "Cafeteria";
+"widgetDormKorean" = "Dormitory Korean";
+"widgetDormHalal" = "Dormitory Halal";
+"widgetStudentCafeteria" = "Student Cafeteria";
+"widgetFacultyCafeteria" = "Faculty Cafeteria";

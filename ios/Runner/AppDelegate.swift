@@ -15,8 +15,6 @@ import workmanager_apple
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
-    GeneratedPluginRegistrant.register(with: self)
-    Self.registerBapUWidgetChannels(with: self)
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)
       AppDelegate.registerBapUWidgetChannels(with: registry)
