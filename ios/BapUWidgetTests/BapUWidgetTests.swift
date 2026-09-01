@@ -167,12 +167,16 @@ final class BapUWidgetTests: XCTestCase {
 
   func testDisplayMenuItemsAddsOverflowMarkerOnlyAfterLimit() {
     XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5"]),
+      displayMenuItems(["1", "2", "3", "4", "5"], limit: 5, languageCode: "en"),
       ["1", "2", "3", "4", "5"]
     )
     XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5", "6"]),
-      ["1", "2", "3", "4", "5…"]
+      displayMenuItems(["1", "2", "3", "4", "5", "6"], limit: 5, languageCode: "en"),
+      ["1", "2", "3", "4", "5", "+1 more"]
+    )
+    XCTAssertEqual(
+      displayMenuItems(["1", "2", "3", "4", "5", "6", "7", "8"], limit: 7, languageCode: "ko"),
+      ["1", "2", "3", "4", "5", "6", "7", "+1개 더"]
     )
   }
 

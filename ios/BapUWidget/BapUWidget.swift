@@ -2,7 +2,7 @@ import SwiftUI
 import WidgetKit
 
 #if !BAPU_WIDGET_TESTS
-import Intents
+import AppIntents
 #endif
 
 private enum WidgetContract {
@@ -25,7 +25,7 @@ enum WidgetMealOfDay: String, CaseIterable {
   case dinner = "DINNER"
 
   var localizedName: String {
-    let korean = Locale.current.languageCode != "en"
+    let korean = Locale.current.language.languageCode?.identifier != "en"
     switch self {
     case .breakfast: return korean ? "조식" : "Breakfast"
     case .lunch: return korean ? "중식" : "Lunch"
@@ -34,7 +34,7 @@ enum WidgetMealOfDay: String, CaseIterable {
   }
 }
 
-enum WidgetMenuSelection: Equatable, CaseIterable {
+enum WidgetMenuSelection: String, Equatable, CaseIterable {
   case dormKorean
   case dormHalal
   case student
@@ -62,16 +62,16 @@ enum WidgetMenuSelection: Equatable, CaseIterable {
   }
 
   var localizedCafeteriaName: String {
-    let korean = Locale.current.languageCode != "en"
+    let korean = Locale.current.language.languageCode?.identifier != "en"
     switch self {
-    case .dormKorean, .dormHalal: return korean ? "기숙사 식당" : "Dormitory"
-    case .student: return korean ? "학생 식당" : "Student"
-    case .faculty: return korean ? "교직원 식당" : "Faculty"
+    case .dormKorean, .dormHalal: return korean ? "기숙사식당" : "Dormitory Cafeteria"
+    case .student: return korean ? "학생식당" : "Student Cafeteria"
+    case .faculty: return korean ? "교직원식당" : "Faculty Cafeteria"
     }
   }
 
   var localizedFoodTypeName: String? {
-    let korean = Locale.current.languageCode != "en"
+    let korean = Locale.current.language.languageCode?.identifier != "en"
     switch self {
     case .dormKorean: return korean ? "한식" : "Korean"
     case .dormHalal: return korean ? "할랄" : "Halal"
@@ -195,7 +195,7 @@ enum OperatingStatus: Equatable {
   case unavailable
 
   var localizedText: String {
-    let korean = Locale.current.languageCode != "en"
+    let korean = Locale.current.language.languageCode?.identifier != "en"
     switch self {
     case .beforeOpen(let minutes):
       let time = String(format: "%02d:%02d", minutes / 60, minutes % 60)
@@ -251,12 +251,18 @@ private struct WidgetTimelineInput {
   let nextMeal: MealResponse?
 }
 
-func displayMenuItems(_ items: [String], limit: Int = 5) -> [String] {
+func displayMenuItems(
+  _ items: [String],
+  limit: Int,
+  languageCode: String = Locale.current.language.languageCode?.identifier ?? "ko"
+) -> [String] {
   guard limit > 0 else { return [] }
-  var displayed = Array(items.prefix(limit))
-  guard items.count > limit, !displayed.isEmpty else { return displayed }
-  displayed[displayed.count - 1] += "…"
-  return displayed
+  guard items.count > limit else { return items }
+  let remainingCount = items.count - limit
+  let moreLabel = languageCode.hasPrefix("en")
+    ? "+\(remainingCount) more"
+    : "+\(remainingCount)개 더"
+  return Array(items.prefix(limit)) + [moreLabel]
 }
 
 fileprivate struct BapUWidgetEntry: TimelineEntry {
@@ -281,7 +287,7 @@ struct WidgetCacheReader {
 
   init(
     containerURL: URL? = WidgetCacheReader.defaultContainerURL(),
-    languageCode: String = Locale.current.languageCode ?? "ko"
+    languageCode: String = Locale.current.language.languageCode?.identifier ?? "ko"
   ) {
     self.containerURL = containerURL
     self.languageCode = languageCode
@@ -510,49 +516,57 @@ struct WidgetCacheReader {
 }
 
 #if !BAPU_WIDGET_TESTS
-private extension WidgetMenuSelection {
-  init(configuration: BapUWidgetConfigurationIntent) {
-    // SiriKit의 생성 enum은 Objective-C 정수 enum으로 브리지된다. 생성된 case
-    // 이름에 비즈니스 로직을 결합하지 않고 intentdefinition의 안정적인 raw value만 읽는다.
-    let rawValue = (configuration.value(forKey: "cafeteria") as? NSNumber)?.intValue
-    self.init(intentRawValue: rawValue)
-  }
+extension WidgetMenuSelection: AppEnum {
+  static let typeDisplayRepresentation = TypeDisplayRepresentation(
+    name: "widgetCafeteriaType"
+  )
+  static let caseDisplayRepresentations: [WidgetMenuSelection: DisplayRepresentation] = [
+    .dormKorean: DisplayRepresentation(title: "widgetDormKorean"),
+    .dormHalal: DisplayRepresentation(title: "widgetDormHalal"),
+    .student: DisplayRepresentation(title: "widgetStudentCafeteria"),
+    .faculty: DisplayRepresentation(title: "widgetFacultyCafeteria"),
+  ]
 }
 
-private struct BapUWidgetProvider: IntentTimelineProvider {
-  typealias Intent = BapUWidgetConfigurationIntent
+struct BapUWidgetConfigurationIntent: WidgetConfigurationIntent {
+  static let title: LocalizedStringResource = "widgetConfigurationTitle"
+  static let description = IntentDescription("widgetConfigurationIntentDescription")
+
+  @Parameter(title: "widgetCafeteriaParameter", default: .dormKorean)
+  var cafeteria: WidgetMenuSelection
+}
+
+private struct BapUWidgetProvider: AppIntentTimelineProvider {
   private let cache = WidgetCacheReader()
 
   func placeholder(in context: Context) -> BapUWidgetEntry {
     .placeholder
   }
 
-  func getSnapshot(
+  func snapshot(
     for configuration: BapUWidgetConfigurationIntent,
-    in context: Context,
-    completion: @escaping (BapUWidgetEntry) -> Void
-  ) {
-    completion(
-      context.isPreview
-        ? .placeholder
-        : entry(
-          at: Date(),
-          selection: WidgetMenuSelection(configuration: configuration)
-        )
-    )
+    in context: Context
+  ) async -> BapUWidgetEntry {
+    context.isPreview
+      ? .placeholder
+      : entry(
+        at: Date(),
+        selection: configuration.cafeteria
+      )
   }
 
-  func getTimeline(
+  func timeline(
     for configuration: BapUWidgetConfigurationIntent,
-    in context: Context,
-    completion: @escaping (Timeline<BapUWidgetEntry>) -> Void
-  ) {
+    in context: Context
+  ) async -> Timeline<BapUWidgetEntry> {
     let now = Date()
-    let selection = WidgetMenuSelection(configuration: configuration)
-    let entries = cache.timelineEntries(from: now, selection: selection)
+    let entries = cache.timelineEntries(
+      from: now,
+      selection: configuration.cafeteria
+    )
     // 캐시가 바뀌면 Flutter bridge가 reload를 요청한다. 여기서는 이미 제공한
     // 마지막 경계까지 소비한 뒤에만 다음 timeline을 요청해 갱신 예산을 아낀다.
-    completion(Timeline(entries: entries, policy: .atEnd))
+    return Timeline(entries: entries, policy: .atEnd)
   }
 
   private func entry(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
@@ -566,31 +580,54 @@ private struct BapUWidgetProvider: IntentTimelineProvider {
 private struct BapUWidgetView: View {
   let entry: BapUWidgetEntry
 
+  private var displayedMenu: [String] {
+    let languageCode = Locale.current.language.languageCode?.identifier ?? "ko"
+    let limit = languageCode.hasPrefix("en") ? 5 : 7
+    return displayMenuItems(
+      entry.snapshot.menu,
+      limit: limit,
+      languageCode: languageCode
+    )
+  }
+
+  private var menuColumns: ([String], [String]) {
+    let midpoint = (displayedMenu.count + 1) / 2
+    return (
+      Array(displayedMenu.prefix(midpoint)),
+      Array(displayedMenu.dropFirst(midpoint))
+    )
+  }
+
   var body: some View {
-    VStack(spacing: 7) {
+    VStack(spacing: 8) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(entry.snapshot.selection.localizedCafeteriaName)
-          .font(.system(size: 12, weight: .bold))
+          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
           .foregroundStyle(WidgetTextColor.brand)
           .lineLimit(1)
+          .minimumScaleFactor(0.72)
         if let foodType = entry.snapshot.selection.localizedFoodTypeName {
           Text(foodType)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(WidgetTextColor.secondary)
+            .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
+            .foregroundStyle(.primary)
+            .lineLimit(1)
         }
         Spacer(minLength: 4)
         Text(entry.snapshot.meal.localizedName)
-          .font(.system(size: 10, weight: .bold))
-          .foregroundStyle(WidgetTextColor.secondary)
+          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 14))
+          .foregroundStyle(.primary)
+          .lineLimit(1)
       }
+      .layoutPriority(2)
 
       menuPanel
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
       Text(entry.snapshot.status.localizedText)
-        .font(.system(size: 10, weight: .bold))
+        .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 13))
         .foregroundStyle(entry.snapshot.status.color)
         .lineLimit(1)
+        .layoutPriority(2)
     }
     .widgetURL(URL(string: "bapu://home"))
     .modifier(WidgetBackgroundModifier())
@@ -598,58 +635,56 @@ private struct BapUWidgetView: View {
 
   @ViewBuilder
   private var menuPanel: some View {
-    VStack(alignment: .leading, spacing: 3) {
+    Group {
       if entry.snapshot.menu.isEmpty {
-        Spacer(minLength: 0)
-        Text(Locale.current.languageCode == "en" ? "No menu" : "메뉴 정보 없음")
-          .font(.system(size: 11, weight: .medium))
+        Text(
+          Locale.current.language.languageCode?.identifier == "en"
+            ? "No menu"
+            : "메뉴 정보 없음"
+        )
+          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
           .foregroundStyle(WidgetTextColor.secondary)
-          .frame(maxWidth: .infinity, alignment: .center)
-        Spacer(minLength: 0)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       } else {
-        adaptiveMenuRows
+        HStack(alignment: .top, spacing: 0) {
+          menuColumn(menuColumns.0)
+          Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(width: 1)
+            .padding(.vertical, 1)
+            .padding(.horizontal, 10)
+          menuColumn(menuColumns.1)
+        }
       }
     }
-    .padding(9)
+    .padding(.horizontal, 13)
+    .padding(.vertical, 9)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .background(
-      Color(uiColor: .secondarySystemBackground),
-      in: RoundedRectangle(cornerRadius: 8)
+      LinearGradient(
+        colors: [
+          Color(uiColor: .secondarySystemBackground),
+          Color(uiColor: .tertiarySystemBackground),
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+      ),
+      in: RoundedRectangle(cornerRadius: 13, style: .continuous)
     )
+    .clipped()
   }
 
-  @ViewBuilder
-  private var adaptiveMenuRows: some View {
-    if #available(iOSApplicationExtension 16.0, *) {
-      ViewThatFits(in: .vertical) {
-        menuRows(limit: entry.snapshot.menu.count)
-        menuRows(limit: 8)
-        menuRows(limit: 7)
-        menuRows(limit: 6)
-        menuRows(limit: 5)
-        menuRows(limit: 4)
-        menuRows(limit: 3)
-        menuRows(limit: 2)
-        menuRows(limit: 1)
-      }
-    } else {
-      // iOS 15에서는 기존의 고정 5행 표시를 유지한다.
-      menuRows(limit: 5)
-    }
-  }
-
-  private func menuRows(limit: Int) -> some View {
-    VStack(alignment: .leading, spacing: 3) {
-      ForEach(
-        Array(displayMenuItems(entry.snapshot.menu, limit: limit).enumerated()),
-        id: \.offset
-      ) { _, item in
+  private func menuColumn(_ items: [String]) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      ForEach(Array(items.enumerated()), id: \.offset) { _, item in
         Text(item)
-          .font(.system(size: 11, weight: .medium))
+          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
           .foregroundStyle(.primary)
-          .lineLimit(1)
+          .fixedSize(horizontal: false, vertical: true)
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
+    .frame(maxWidth: .infinity, alignment: .topLeading)
   }
 }
 
@@ -671,7 +706,7 @@ struct BapUWidget: Widget {
   let kind = WidgetContract.kind
 
   var body: some WidgetConfiguration {
-    IntentConfiguration(
+    AppIntentConfiguration(
       kind: kind,
       intent: BapUWidgetConfigurationIntent.self,
       provider: BapUWidgetProvider()
@@ -680,7 +715,7 @@ struct BapUWidget: Widget {
     }
     .configurationDisplayName(LocalizedStringKey("widgetConfigurationDisplayName"))
     .description(LocalizedStringKey("widgetConfigurationDescription"))
-    .supportedFamilies([.systemSmall])
+    .supportedFamilies([.systemMedium])
   }
 }
 #endif
