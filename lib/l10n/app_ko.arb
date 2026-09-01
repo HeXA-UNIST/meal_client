@@ -1,0 +1,102 @@
+{
+  "@@locale": "ko",
+  "title": "밥먹어U",
+  "close": "닫기",
+  "announcement": "공지사항",
+  "noAnnouncement": "공지사항이 없어요.",
+  "cannotLoadAnnouncement": "공지사항을 불러올 수 없어요.",
+  "operationHours": "운영 시간",
+  "weekday": "평일",
+  "weekend": "주말",
+  "cannotLoadOperationHours": "운영 시간을 불러올 수 없어요.",
+  "noOperationHours": "등록된 운영 시간이 없어요.",
+  "contactDeveloper": "개발자에게 문의하기",
+  "mon": "월",
+  "tue": "화",
+  "wed": "수",
+  "thu": "목",
+  "fri": "금",
+  "sat": "토",
+  "sun": "일",
+  "breakfast": "아침",
+  "lunch": "점심",
+  "dinner": "저녁",
+  "cannotLoadMeal": "식단 정보를 불러올 수 없어요.",
+  "noMeal": "식단 정보가 없어요.",
+  "nextWeekPreview": "다음 주 식단 미리보기",
+  "previewingNextWeek": "다음 주 미리보기 중",
+  "nextWeekNotReady": "다음 주 식단이 아직 준비되지 않았어요.",
+  "language": "언어 / Language",
+  "appLanguageSettings": "앱 언어 설정",
+  "dormitoryCafeteria": "기숙사 식당",
+  "studentCafeteria": "학생 식당",
+  "facultyCafeteria": "교직원 식당",
+  "menuKorean": "한식",
+  "menuHalal": "할랄",
+  "cafeteriaWithMealType": "{cafeteria}({mealType})",
+  "@cafeteriaWithMealType": {
+    "placeholders": {
+      "cafeteria": { "type": "String" },
+      "mealType": { "type": "String" }
+    }
+  },
+  "menuSectionConvenience": "간편식",
+  "menuSectionSpecial": "특별식",
+  "settings": "설정",
+  "allergyWarning": "알레르기 경고",
+  "manageAllergies": "알레르기 관리",
+  "noAllergenSelected": "선택된 알레르기 없음",
+  "allergenSelectedCount": "{count}개 선택됨",
+  "@allergenSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "themeMode": "화면 모드",
+  "themeModeSystem": "시스템",
+  "themeModeLight": "라이트",
+  "themeModeDark": "다크",
+  "mealNotifications": "식단 알림",
+  "notificationSettings": "알림 설정",
+  "notificationDescription": "선택한 식당과 시간에 맞춰 푸시 알림을 보내드려요.",
+  "mealNotificationTitle": "{cafeteria} {mealPeriod} 메뉴 알림",
+  "@mealNotificationTitle": {
+    "placeholders": {
+      "cafeteria": { "type": "String" },
+      "mealPeriod": { "type": "String" }
+    }
+  },
+  "notificationTodayBreakfast": "오늘 아침",
+  "notificationTodayLunch": "오늘 점심",
+  "notificationTodayDinner": "오늘 저녁",
+  "notificationTomorrowBreakfast": "내일 아침",
+  "keywordMealNotificationTitle": "{period} \"{keyword}\" 메뉴가 있어요!",
+  "@keywordMealNotificationTitle": {
+    "placeholders": {
+      "period": { "type": "String" },
+      "keyword": { "type": "String" }
+    }
+  },
+  "multipleKeywordMealNotificationTitle": "{period} 매칭된 메뉴가 있어요!",
+  "@multipleKeywordMealNotificationTitle": {
+    "placeholders": {
+      "period": { "type": "String" }
+    }
+  },
+  "notificationKeywordLabel": "키워드",
+  "notificationKeywordHint": "메뉴 키워드를 입력하세요.",
+  "addNotificationKeyword": "키워드 추가",
+  "notificationTimesLabel": "알림 시간",
+  "notificationTimeSelectionRequired": "알림 받을 시간대를 하나 이상 켜주세요.",
+  "notificationPeriodNight": "밤 (내일 아침)",
+  "notificationCafeteriasLabel": "알림 대상 식당",
+  "notificationDaysLabel": "알림 받을 요일",
+  "about": "앱 정보",
+  "openSourceLicenses": "오픈소스 라이선스",
+  "notificationPermissionDenied": "알림 권한이 차단되었습니다. 설정에서 허용해주세요.",
+  "notificationPermissionUnavailable": "알림이 현재 표시되지 않을 수 있습니다. 시스템 설정에서 권한을 확인해주세요.",
+  "openSystemAppSettings": "설정 열기",
+  "androidNotificationTimingNotice": "절전 설정에 따라 알림이 예정보다 늦게 도착할 수 있습니다.",
+  "notificationSyncFailed": "알림 설정을 적용하지 못했습니다.",
+  "retry": "다시 시도"
+}

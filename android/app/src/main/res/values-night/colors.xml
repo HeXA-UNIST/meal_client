@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 위젯 색상 (다크) — Flutter 다크 팔레트 기준.
+         레이아웃/드로어블의 @color 참조는 런처가 재-inflate할 때 자동 적용되고,
+         운영상태처럼 코드에서 setTextColor로 주입하는 색은 렌더 시점의 uiMode를 따른다
+         (테마 전환 직후엔 다음 렌더까지 이전 색이 남을 수 있음 — 수용). -->
+    <color name="widget_card_bg">#1C1C1E</color>
+    <color name="widget_menu_panel_start">#2C2C2E</color>
+    <color name="widget_menu_panel_end">#26262A</color>
+    <color name="widget_text_cafeteria">#40E99B</color>
+    <color name="widget_text_meal">#FFFFFF</color>
+    <color name="widget_text_food_type">#FFFFFF</color>
+    <color name="widget_text_menu">#E5E5EA</color>
+    <!-- 초록은 브랜드 hue(약 158°)를 유지하고, 작은 상태/보조 텍스트는
+         카드 배경에서 APCA |Lc| 약 75 이상이 되도록 밝기를 조정한다. -->
+    <color name="widget_status_open">#40E99B</color>
+    <!-- closing은 라이트에서 검정이라 다크 배경에선 안 보임 — 흰색으로 반전 (필수) -->
+    <color name="widget_status_closing">#FFFFFF</color>
+    <color name="widget_status_before">#CECECE</color>
+    <color name="widget_status_closed">#CECECE</color>
+
+    <!-- 위젯 설정 화면 색상 (다크) -->
+    <color name="config_bg">#000000</color>
+    <color name="config_item_bg">#1C1C1E</color>
+    <color name="config_item_selected_bg">#0F3527</color>
+    <color name="config_text_primary">#FFFFFF</color>
+    <color name="config_text_hint">#8E8E93</color>
+    <color name="config_btn_text">#FFFFFF</color>
+</resources>

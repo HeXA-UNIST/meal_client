@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/widget_2x2"
+    android:previewLayout="@layout/widget_2x2_preview"
+    android:previewImage="@drawable/widget_preview"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:configure="pro.hexa.meal.meal_client.BapUWidgetSingleConfigActivity"
+    android:widgetFeatures="reconfigurable"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_2x2_label"
+    android:resizeMode="horizontal|vertical" />
+<!-- 확대 전용 리사이즈: min 값들은 AOSP Launcher3의 셀 공식(크기 = 70×n − 30dp) 기준
+     2셀 한계인 110dp로 둔다 (그보다 크면 AOSP에서 최소가 3셀로 올림됨. 예: 140dp → 3셀).
+     Periodic AppWidget fallback candidate: 1800000. Active path is AlarmManager + Dart render push. -->

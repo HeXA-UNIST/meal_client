@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 카드 안 메뉴 목록을 감싸는 둥근 그라데이션 패널 (시안: radius 22px→11dp, 180°) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:startColor="@color/widget_menu_panel_start"
+        android:endColor="@color/widget_menu_panel_end"
+        android:type="linear"
+        android:angle="270" />
+    <corners android:radius="11dp" />
+</shape>

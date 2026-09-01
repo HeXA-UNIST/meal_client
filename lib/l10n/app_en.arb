@@ -1,0 +1,96 @@
+{
+  "@@locale": "en",
+  "title": "BapU",
+  "close": "Close",
+  "announcement": "Announcement",
+  "noAnnouncement": "There is no announcement.",
+  "cannotLoadAnnouncement": "Cannot load announcement.",
+  "operationHours": "Operation Hours",
+  "weekday": "Weekday",
+  "weekend": "Weekend",
+  "cannotLoadOperationHours": "Cannot load operation hours.",
+  "noOperationHours": "No operation hours available.",
+  "contactDeveloper": "Contact Developer",
+  "mon": "Mon",
+  "tue": "Tue",
+  "wed": "Wed",
+  "thu": "Thu",
+  "fri": "Fri",
+  "sat": "Sat",
+  "sun": "Sun",
+  "breakfast": "Breakfast",
+  "lunch": "Lunch",
+  "dinner": "Dinner",
+  "cannotLoadMeal": "Cannot load meal information.",
+  "noMeal": "There is no meal information.",
+  "nextWeekPreview": "Next Week's Menu",
+  "previewingNextWeek": "Previewing Next Week",
+  "nextWeekNotReady": "Next week's menu is not ready yet.",
+  "language": "Language / 언어",
+  "appLanguageSettings": "App Language Settings",
+  "dormitoryCafeteria": "Dormitory",
+  "studentCafeteria": "Student",
+  "facultyCafeteria": "Faculty",
+  "menuKorean": "Korean",
+  "menuHalal": "Halal",
+  "cafeteriaWithMealType": "{cafeteria} ({mealType})",
+  "menuSectionConvenience": "Convenience meal",
+  "menuSectionSpecial": "Special meal",
+  "settings": "Settings",
+  "allergyWarning": "Allergy Warning",
+  "manageAllergies": "Manage Allergies",
+  "noAllergenSelected": "None selected",
+  "allergenSelectedCount": "{count} selected",
+  "@allergenSelectedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "themeMode": "Theme Mode",
+  "themeModeSystem": "System",
+  "themeModeLight": "Light",
+  "themeModeDark": "Dark",
+  "mealNotifications": "Meal Notifications",
+  "notificationSettings": "Notification Settings",
+  "notificationDescription": "Get meal notifications for your selected cafeterias and times.",
+  "mealNotificationTitle": "{cafeteria} {mealPeriod} Menu",
+  "@mealNotificationTitle": {
+    "placeholders": {
+      "cafeteria": { "type": "String" },
+      "mealPeriod": { "type": "String" }
+    }
+  },
+  "notificationTodayBreakfast": "Today's breakfast",
+  "notificationTodayLunch": "Today's lunch",
+  "notificationTodayDinner": "Today's dinner",
+  "notificationTomorrowBreakfast": "Tomorrow's breakfast",
+  "keywordMealNotificationTitle": "{period}: \"{keyword}\" is on the menu!",
+  "@keywordMealNotificationTitle": {
+    "placeholders": {
+      "period": { "type": "String" },
+      "keyword": { "type": "String" }
+    }
+  },
+  "multipleKeywordMealNotificationTitle": "{period}: Matching menu items found!",
+  "@multipleKeywordMealNotificationTitle": {
+    "placeholders": {
+      "period": { "type": "String" }
+    }
+  },
+  "notificationKeywordLabel": "Keyword",
+  "notificationKeywordHint": "Enter a menu keyword.",
+  "addNotificationKeyword": "Add keyword",
+  "notificationTimesLabel": "Notification Times",
+  "notificationTimeSelectionRequired": "Turn on at least one notification time.",
+  "notificationPeriodNight": "Night (for Tomorrow Morning)",
+  "notificationCafeteriasLabel": "Target Cafeterias",
+  "notificationDaysLabel": "Notification Days",
+  "about": "About",
+  "openSourceLicenses": "Open Source Licenses",
+  "notificationPermissionDenied": "Notification permission denied. Please allow it in settings.",
+  "notificationPermissionUnavailable": "Notifications may not appear. Check the permission in system settings.",
+  "openSystemAppSettings": "Open Settings",
+  "androidNotificationTimingNotice": "Device power restrictions may delay notifications beyond the selected time.",
+  "notificationSyncFailed": "Notification settings could not be applied.",
+  "retry": "Retry"
+}
