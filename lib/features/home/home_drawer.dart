@@ -476,7 +476,8 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
             icon: Icons.help_outline_outlined,
             title: l10n.contactDeveloper,
             onTap: () async =>
-                await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj")),
+                await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj"),
+                mode: LaunchMode.externalApplication),
           ),
           const SafeArea(top: false, child: SizedBox(height: 12)),
         ],
