@@ -258,7 +258,10 @@ Future<AppSettings> _pumpPage(
       value: settings,
       child: const MaterialApp(
         locale: Locale('ko'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: MealNotificationPage(),
       ),

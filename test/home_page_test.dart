@@ -285,7 +285,10 @@ Widget _buildHomePage(
   Future<void> Function()? refreshHomeWidgets,
 }) {
   return MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
+    ],
     supportedLocales: AppLocalizations.supportedLocales,
     home: HomePage(
       now: now,

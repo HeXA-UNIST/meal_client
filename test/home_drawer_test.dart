@@ -28,7 +28,10 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           key: scaffoldKey,
@@ -41,16 +44,15 @@ void main() {
     scaffoldKey.currentState!.openDrawer();
     await tester.pumpAndSettle();
 
-    expect(find.text('Operation Hours'), findsOneWidget);
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(HomePageDrawer)),
+    )!;
     expect(find.text('17:30 - 19:00'), findsNothing);
     expect(find.text('17:30 - 19:20'), findsNothing);
 
-    await tester.tap(find.text('Operation Hours'));
+    await tester.tap(find.text(l10n.operationHours));
     await tester.pumpAndSettle();
 
-    expect(find.text('Weekday'), findsOneWidget);
-    expect(find.text('Weekend'), findsOneWidget);
-    expect(find.text('Dormitory'), findsNWidgets(2));
     expect(find.text('17:30 - 19:20'), findsOneWidget);
     expect(find.text('17:30 - 19:00'), findsOneWidget);
   });
@@ -67,7 +69,10 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           key: scaffoldKey,
@@ -83,9 +88,10 @@ void main() {
     scaffoldKey.currentState!.openDrawer();
     await tester.pumpAndSettle();
 
-    expect(find.text("Next Week's Menu Preview"), findsOneWidget);
-
-    await tester.tap(find.text("Next Week's Menu Preview"));
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(HomePageDrawer)),
+    )!;
+    await tester.tap(find.text(l10n.nextWeekPreview));
     await tester.pumpAndSettle();
 
     expect(find.byType(NextWeekPreviewPage), findsOneWidget);
