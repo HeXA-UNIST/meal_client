@@ -585,7 +585,8 @@ private struct BapUWidgetView: View {
   private let headerHorizontalPadding: CGFloat = 6
   private let headerToPanelSpacing: CGFloat = 8
   private let panelToStatusSpacing: CGFloat = 8
-  private let menuPanelHeight: CGFloat = 96
+  private let minimumMenuPanelHeight: CGFloat = 88
+  private let maximumMenuPanelHeight: CGFloat = 96
   private let menuItemSpacing: CGFloat = 4
 
   private var displayedMenu: [String] {
@@ -630,8 +631,12 @@ private struct BapUWidgetView: View {
       .padding(.horizontal, headerHorizontalPadding)
 
       menuPanel
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: menuPanelHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(
+          minHeight: minimumMenuPanelHeight,
+          maxHeight: maximumMenuPanelHeight,
+          alignment: .topLeading
+        )
         .padding(.top, headerToPanelSpacing)
 
       Text(entry.snapshot.status.localizedText)
