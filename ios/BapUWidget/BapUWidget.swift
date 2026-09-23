@@ -580,8 +580,12 @@ private struct BapUWidgetProvider: AppIntentTimelineProvider {
 private struct BapUWidgetView: View {
   let entry: BapUWidgetEntry
 
+  // 헤더와 상태 영역의 세로 균형을 맞추기 위한 보정값이다. Apple은 기기별로
+  // 달라지는 위젯 크기에 유연하게 대응하도록 권장하므로, 다양한 기기와 텍스트
+  // 크기에서 비교한 뒤 이 고정 패딩의 제거 여부를 재검토한다.
   private let topContentPadding: CGFloat = 12
   private let bottomContentPadding: CGFloat = 8
+
   private let headerHorizontalPadding: CGFloat = 6
   private let headerToPanelSpacing: CGFloat = 8
   private let panelToStatusSpacing: CGFloat = 8
