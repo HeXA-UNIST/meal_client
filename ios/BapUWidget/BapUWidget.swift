@@ -580,6 +580,19 @@ private struct BapUWidgetProvider: AppIntentTimelineProvider {
 private struct BapUWidgetView: View {
   let entry: BapUWidgetEntry
 
+  // 헤더와 상태 영역의 세로 균형을 맞추기 위한 보정값이다. Apple은 기기별로
+  // 달라지는 위젯 크기에 유연하게 대응하도록 권장하므로, 다양한 기기와 텍스트
+  // 크기에서 비교한 뒤 이 고정 패딩의 제거 여부를 재검토한다.
+  private let topContentPadding: CGFloat = 12
+  private let bottomContentPadding: CGFloat = 8
+
+  private let headerHorizontalPadding: CGFloat = 6
+  private let headerToPanelSpacing: CGFloat = 8
+  private let panelToStatusSpacing: CGFloat = 8
+  private let minimumMenuPanelHeight: CGFloat = 88
+  private let maximumMenuPanelHeight: CGFloat = 96
+  private let menuItemSpacing: CGFloat = 4
+
   private var displayedMenu: [String] {
     let languageCode = Locale.current.language.languageCode?.identifier ?? "ko"
     let limit = languageCode.hasPrefix("en") ? 5 : 7
@@ -599,36 +612,47 @@ private struct BapUWidgetView: View {
   }
 
   var body: some View {
-    VStack(spacing: 8) {
+    VStack(spacing: 0) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(entry.snapshot.selection.localizedCafeteriaName)
-          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
+          .font(.custom("Pretendard-Bold", fixedSize: 15))
           .foregroundStyle(WidgetTextColor.brand)
           .lineLimit(1)
           .minimumScaleFactor(0.72)
         if let foodType = entry.snapshot.selection.localizedFoodTypeName {
           Text(foodType)
-            .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 15))
+            .font(.custom("Pretendard-Bold", fixedSize: 15))
             .foregroundStyle(.primary)
             .lineLimit(1)
         }
         Spacer(minLength: 4)
         Text(entry.snapshot.meal.localizedName)
-          .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 14))
+          .font(.custom("Pretendard-Bold", fixedSize: 14))
           .foregroundStyle(.primary)
           .lineLimit(1)
       }
       .layoutPriority(2)
+      .padding(.horizontal, headerHorizontalPadding)
 
       menuPanel
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(
+          minHeight: minimumMenuPanelHeight,
+          maxHeight: maximumMenuPanelHeight,
+          alignment: .topLeading
+        )
+        .padding(.top, headerToPanelSpacing)
 
       Text(entry.snapshot.status.localizedText)
-        .font(.custom("SpoqaHanSansNeo-Bold", fixedSize: 13))
+        .font(.custom("Pretendard-Bold", fixedSize: 13))
         .foregroundStyle(entry.snapshot.status.color)
         .lineLimit(1)
         .layoutPriority(2)
+        .padding(.top, panelToStatusSpacing)
     }
+    .padding(.top, topContentPadding)
+    .padding(.bottom, bottomContentPadding)
+    .frame(maxHeight: .infinity, alignment: .center)
     .widgetURL(URL(string: "bapu://home"))
     .modifier(WidgetBackgroundModifier())
   }
@@ -642,7 +666,7 @@ private struct BapUWidgetView: View {
             ? "No menu"
             : "메뉴 정보 없음"
         )
-          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
+          .font(.custom("Pretendard-Medium", fixedSize: 12))
           .foregroundStyle(WidgetTextColor.secondary)
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       } else {
@@ -675,10 +699,10 @@ private struct BapUWidgetView: View {
   }
 
   private func menuColumn(_ items: [String]) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
+    VStack(alignment: .leading, spacing: menuItemSpacing) {
       ForEach(Array(items.enumerated()), id: \.offset) { _, item in
         Text(item)
-          .font(.custom("SpoqaHanSansNeo-Medium", fixedSize: 13))
+          .font(.custom("Pretendard-Medium", fixedSize: 12))
           .foregroundStyle(.primary)
           .fixedSize(horizontal: false, vertical: true)
           .frame(maxWidth: .infinity, alignment: .leading)

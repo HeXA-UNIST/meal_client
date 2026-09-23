@@ -21,8 +21,8 @@
 		A10000000000000000000002 /* BapUWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* BapUWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000004 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* Localizable.strings */; };
 		A10000000000000000000005 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* InfoPlist.strings */; };
-		A10000000000000000000006 /* SpoqaHanSansNeo-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* SpoqaHanSansNeo-Medium.ttf */; };
-		A10000000000000000000007 /* SpoqaHanSansNeo-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* SpoqaHanSansNeo-Bold.ttf */; };
+		A10000000000000000000006 /* Pretendard-Medium.otf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* Pretendard-Medium.otf */; };
+		A10000000000000000000007 /* Pretendard-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* Pretendard-Bold.otf */; };
 		B20000000000000000000001 /* BapUWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* BapUWidget.swift */; };
 		B20000000000000000000002 /* BapUWidgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* BapUWidgetTests.swift */; };
 /* End PBXBuildFile section */
@@ -103,8 +103,8 @@
 		A1000000000000000000001D /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A1000000000000000000001E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A1000000000000000000001F /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		A10000000000000000000023 /* SpoqaHanSansNeo-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fonts/SpoqaHanSansNeo-Medium.ttf"; sourceTree = "<group>"; };
-		A10000000000000000000024 /* SpoqaHanSansNeo-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fonts/SpoqaHanSansNeo-Bold.ttf"; sourceTree = "<group>"; };
+		A10000000000000000000023 /* Pretendard-Medium.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Pretendard-Medium.otf"; path = "../../assets/fonts/Pretendard-Medium.otf"; sourceTree = "<group>"; };
+		A10000000000000000000024 /* Pretendard-Bold.otf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Pretendard-Bold.otf"; path = "../../assets/fonts/Pretendard-Bold.otf"; sourceTree = "<group>"; };
 		B20000000000000000000011 /* BapUWidgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BapUWidgetTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000012 /* BapUWidgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BapUWidgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFBBA941289E6B6891E32426 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
@@ -224,8 +224,8 @@
 				A10000000000000000000022 /* InfoPlist.strings */,
 				A10000000000000000000012 /* Info.plist */,
 				A10000000000000000000013 /* BapUWidget.entitlements */,
-				A10000000000000000000023 /* SpoqaHanSansNeo-Medium.ttf */,
-				A10000000000000000000024 /* SpoqaHanSansNeo-Bold.ttf */,
+				A10000000000000000000023 /* Pretendard-Medium.otf */,
+				A10000000000000000000024 /* Pretendard-Bold.otf */,
 			);
 			path = BapUWidget;
 			sourceTree = "<group>";
@@ -409,8 +409,8 @@
 			files = (
 				A10000000000000000000004 /* Localizable.strings in Resources */,
 				A10000000000000000000005 /* InfoPlist.strings in Resources */,
-				A10000000000000000000006 /* SpoqaHanSansNeo-Medium.ttf in Resources */,
-				A10000000000000000000007 /* SpoqaHanSansNeo-Bold.ttf in Resources */,
+				A10000000000000000000006 /* Pretendard-Medium.otf in Resources */,
+				A10000000000000000000007 /* Pretendard-Bold.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
