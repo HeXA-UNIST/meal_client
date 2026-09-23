@@ -17,12 +17,11 @@ typedef ValidatedMealCache = ({
 
 class MealCache {
   MealCache({
-    String fileName = StorageKeys.mealCacheFile,
+    this._fileName = StorageKeys.mealCacheFile,
     MealCacheWriter? writeFile,
     MealCacheReader? readFile,
     MealCacheLastModifiedReader? readLastModified,
-  }) : _fileName = fileName,
-       _writeFile = writeFile ?? saveSharedWidgetFileAsString,
+  }) : _writeFile = writeFile ?? saveSharedWidgetFileAsString,
        _readFile = readFile ?? readSharedWidgetFileAsString,
        _readLastModified =
            readLastModified ?? getLastModifiedOfSharedWidgetFile;

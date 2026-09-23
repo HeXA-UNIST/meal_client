@@ -22,7 +22,7 @@ class MealRefreshService {
     MealCacheWriteLock? lockCanonicalCache,
     NextWeekCacheWriteLock? lockNextWeekCache,
     bool? supportsSharedCache,
-    bool throwOnCacheWriteFailure = false,
+    this._throwOnCacheWriteFailure = false,
   }) : _cache = cache ?? MealCache(),
        _nextWeekCache =
            nextWeekCache ?? MealCache(fileName: StorageKeys.nextMealCacheFile),
@@ -38,8 +38,7 @@ class MealRefreshService {
            lockNextWeekCache ??
            ((action) =>
                withSharedWidgetFileLock(StorageKeys.nextMealCacheFile, action)),
-       _supportsSharedCache = supportsSharedCache ?? supportsSharedWidgetCache,
-       _throwOnCacheWriteFailure = throwOnCacheWriteFailure;
+       _supportsSharedCache = supportsSharedCache ?? supportsSharedWidgetCache;
 
   final MealCache _cache;
   final MealCache _nextWeekCache;
