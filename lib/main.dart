@@ -4,6 +4,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
 import 'package:meal_client/core/native_startup.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
@@ -59,6 +62,10 @@ final _darkTheme = _buildTheme(Brightness.dark);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Android/iOS의 백그라운드 식단 갱신 작업을 등록한다.
+  // flutter_local_notifications를 설정하고 Android 알림 채널을 생성한다.
   await initializeNativeServices();
   final prefs = await SharedPreferences.getInstance();
 

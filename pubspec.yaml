@@ -57,6 +57,9 @@ dependencies:
 
   material_ui: any
   cupertino_ui: any
+  firebase_core: ^4.15.0
+  firebase_analytics: ^12.6.0
+  firebase_crashlytics: ^5.4.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
