@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 /**
  * 시각 호출 예약(AlarmManager)은 재부팅하면 사라진다.
@@ -21,6 +22,7 @@ class BapUWidgetBootReceiver : BroadcastReceiver() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "boot widget restore failed", e)
+                FirebaseCrashlytics.getInstance().recordException(e)
             } finally {
                 pending.finish()
             }

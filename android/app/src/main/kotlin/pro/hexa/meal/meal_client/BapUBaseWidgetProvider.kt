@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -35,6 +36,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                 BapUWidgetScheduleManager.scheduleNext(context)
             } catch (e: Exception) {
                 Log.e(javaClass.simpleName, "widget update failed", e)
+                FirebaseCrashlytics.getInstance().recordException(e)
             }
         }
     }
@@ -52,6 +54,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                 }
             } catch (e: Exception) {
                 Log.e(javaClass.simpleName, "widget options update failed", e)
+                FirebaseCrashlytics.getInstance().recordException(e)
             }
         }
     }

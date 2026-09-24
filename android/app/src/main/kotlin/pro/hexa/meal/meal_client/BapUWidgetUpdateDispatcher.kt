@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import androidx.annotation.Keep
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import java.util.concurrent.Executors
 import java.util.function.Consumer
 
@@ -34,6 +35,7 @@ object BapUWidgetUpdateDispatcher {
                 // 각 진입점이 결과를 직접 전달한 뒤에도 남을 수 있는 예외가 Android process의
                 // uncaught exception이 되지 않도록 executor 경계에서 마지막으로 차단한다.
                 Log.e(TAG, "uncaught widget task failure", error)
+                FirebaseCrashlytics.getInstance().recordException(error)
             }
         }
     }
@@ -55,6 +57,7 @@ object BapUWidgetUpdateDispatcher {
                     }
                 }
             }.exceptionOrNull()
+            if (failure != null) FirebaseCrashlytics.getInstance().recordException(failure)
             completion.accept(failure)
         }
     }
@@ -77,6 +80,7 @@ object BapUWidgetUpdateDispatcher {
             renderAllWidgets(context)
         } catch (e: Exception) {
             Log.e(TAG, e.message, e)
+            FirebaseCrashlytics.getInstance().recordException(e)
         }
     }
 
@@ -87,10 +91,13 @@ object BapUWidgetUpdateDispatcher {
         update: (Int, WidgetMealData) -> Unit
     ) {
         val data = BapUWidgetFetcher.fetch(context)
-        updateBestEffort(widgetIds) { id -> update(id, data) }
-            .forEach { failure ->
-                Log.e(TAG, "update failed id=${failure.widgetId}", failure.cause)
-            }
+        val failures = updateBestEffort(widgetIds) { id -> update(id, data) }
+        failures.forEach { failure ->
+            Log.e(TAG, "update failed id=${failure.widgetId}", failure.cause)
+        }
+        if (failures.isNotEmpty()) {
+            FirebaseCrashlytics.getInstance().recordException(WidgetRenderException(failures))
+        }
     }
 
     internal fun updateBestEffort(
