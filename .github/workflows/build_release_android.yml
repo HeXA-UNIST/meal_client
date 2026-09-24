@@ -87,6 +87,11 @@ jobs:
         shell: bash
         working-directory: .
 
+      - name: Upload native symbols to Crashlytics
+        run: ./gradlew app:uploadCrashlyticsSymbolFileRelease
+        shell: bash
+        working-directory: ./android
+
       - name: Upload App Bundle
         uses: actions/upload-artifact@v7
         with:
