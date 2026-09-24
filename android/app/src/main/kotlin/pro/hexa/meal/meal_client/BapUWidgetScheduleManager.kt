@@ -16,6 +16,7 @@ import java.util.TimeZone
 object BapUWidgetScheduleManager {
     private const val TAG = "BapUWidgetScheduleManager"
     private const val REQUEST_CODE = 5100
+    private const val CACHE_RETRY_DELAY_MILLIS = 30 * 60_000L
     private const val ACTION_SCHEDULED_UPDATE = "pro.hexa.meal.meal_client.action.WIDGET_SCHEDULED_UPDATE"
     private val KST = TimeZone.getTimeZone("Asia/Seoul")
 
@@ -23,18 +24,18 @@ object BapUWidgetScheduleManager {
     fun scheduleNext(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val now = Calendar.getInstance(KST)
-        val scheduleData = try {
+        val delayMillis = try {
             val hours = BapUWidgetOperatingHours.loadRequiredFromCache(context)
             val periods = BapUWidgetOperatingHours.periodsForToday(hours, now)
             val transitions = BapUWidgetOperatingHours.mealTransitionsForToday(hours, now)
-            Pair(periods, transitions)
+            millisUntilNextWake(now, periods, transitions)
         } catch (e: WidgetInfoCacheException) {
-            Log.e(TAG, "cannot schedule widget update without valid info cache", e)
-            cancel(context)
-            return
+            // 캐시 복구는 Flutter가 맡는다. 읽기에 실패해도 재확인 기회를 남겨
+            // 캐시가 복구된 뒤 운영시간 경계 예약으로 돌아갈 수 있게 한다.
+            Log.e(TAG, "invalid info cache; retry widget update in 30 minutes", e)
+            CACHE_RETRY_DELAY_MILLIS
         }
-        val (periods, transitions) = scheduleData
-        val triggerAtMillis = now.timeInMillis + millisUntilNextWake(now, periods, transitions)
+        val triggerAtMillis = now.timeInMillis + delayMillis
         val pi = pendingIntent(context)
 
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pi)

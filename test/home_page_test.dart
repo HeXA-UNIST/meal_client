@@ -81,7 +81,7 @@ void main() {
     final sundayRefreshStarted = Completer<void>();
     final mondayRefreshStarted = Completer<void>();
     final sundayWidgetRefreshStarted = Completer<void>();
-    var widgetRefreshCount = 0;
+    var sundayMealReady = false;
 
     await tester.pumpWidget(
       _buildHomePage(
@@ -103,8 +103,7 @@ void main() {
           return mondayRefresh.future;
         },
         refreshHomeWidgets: () {
-          widgetRefreshCount++;
-          if (widgetRefreshCount == 2) {
+          if (sundayMealReady && !sundayWidgetRefreshStarted.isCompleted) {
             sundayWidgetRefreshStarted.complete();
             return sundayWidgetRefresh.future;
           }
@@ -123,6 +122,7 @@ void main() {
     sundayCache.complete(sundayResponse);
     await sundayRefreshStarted.future;
 
+    sundayMealReady = true;
     sundayRefresh.complete(sundayResponse);
     await sundayWidgetRefreshStarted.future;
 
@@ -146,11 +146,11 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(widgetRefreshCount, 1);
+    expect(widgetRefreshCount, 2);
 
     info.complete(await _loadEmptyAppInfo());
     await tester.pump();
-    expect(widgetRefreshCount, 2);
+    expect(widgetRefreshCount, 3);
   });
 
   testWidgets('info 갱신 실패는 meal cache의 위젯 render를 막지 않는다', (tester) async {
@@ -165,7 +165,44 @@ void main() {
     );
     await tester.pump();
 
+    expect(widgetRefreshCount, 2);
+  });
+
+  testWidgets('실행과 같은 주 복귀는 다운로드를 기다리지 않고 위젯을 복구한다', (tester) async {
+    final info = Completer<AppInfo>();
+    final meal = Completer<MealResponse>();
+    var widgetRefreshCount = 0;
+    var mealDownloadCount = 0;
+
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () => info.future,
+        refreshMeal: () {
+          mealDownloadCount++;
+          return meal.future;
+        },
+        refreshHomeWidgets: () async => widgetRefreshCount++,
+      ),
+    );
+    await tester.pump();
     expect(widgetRefreshCount, 1);
+    expect(mealDownloadCount, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(widgetRefreshCount, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(widgetRefreshCount, 2);
+    expect(mealDownloadCount, 1);
+
+    // 두 다운로드가 실패해도 이미 요청한 캐시 기반 복구에는 영향이 없다.
+    info.completeError(Exception('offline'));
+    meal.completeError(Exception('offline'));
+    await tester.pumpAndSettle();
+    expect(widgetRefreshCount, 2);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('캐시된 info가 있으면 네트워크 응답을 기다리지 않고 먼저 반영한다', (tester) async {
