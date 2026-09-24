@@ -10,7 +10,7 @@ private enum WidgetContract {
   static let mealCacheFile = "meal.json"
   static let nextMealCacheFile = "meal-next.json"
   static let infoCacheFile = "info.json"
-  static let closingSoonMinutes = 45
+  static let closingSoonMinutes = 30
 
   static let kst: TimeZone = TimeZone(identifier: "Asia/Seoul")!
 
@@ -189,7 +189,7 @@ private struct TimeRangeResponse: Decodable, Hashable {
 enum OperatingStatus: Equatable {
   case beforeOpen(startMinutes: Int)
   case open
-  case closingSoon
+  case closingSoon(endMinutes: Int)
   case closed
   case noService
   case unavailable
@@ -201,7 +201,9 @@ enum OperatingStatus: Equatable {
       let time = String(format: "%02d:%02d", minutes / 60, minutes % 60)
       return korean ? "\(time) 운영 시작" : "Opens at \(time)"
     case .open: return korean ? "운영 중" : "Open"
-    case .closingSoon: return korean ? "마감 임박" : "Closing soon"
+    case .closingSoon(let minutes):
+      let time = String(format: "%02d:%02d", minutes / 60, minutes % 60)
+      return korean ? "\(time) 마감" : "Closes at \(time)"
     case .closed: return korean ? "운영 종료" : "Closed"
     case .noService: return korean ? "미운영" : "No service"
     case .unavailable: return korean ? "운영시간 정보 없음" : "Hours unavailable"
@@ -476,7 +478,7 @@ struct WidgetCacheReader {
 
     if now < start { return .beforeOpen(startMinutes: start) }
     if now < end {
-      return end - now <= WidgetContract.closingSoonMinutes ? .closingSoon : .open
+      return end - now <= WidgetContract.closingSoonMinutes ? .closingSoon(endMinutes: end) : .open
     }
     return .closed
   }

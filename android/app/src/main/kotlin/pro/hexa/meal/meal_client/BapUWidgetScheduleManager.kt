@@ -82,7 +82,7 @@ object BapUWidgetScheduleManager {
         )
         for (p in periods) {
             result.add(p.startH * 60 + p.startM)
-            result.add(p.endH * 60 + p.endM - 45)
+            result.add(p.endH * 60 + p.endM - BapUWidgetContract.MealTime.CLOSING_SOON_THRESHOLD_MINUTES)
             result.add(p.endH * 60 + p.endM)
         }
         return result.toList()
