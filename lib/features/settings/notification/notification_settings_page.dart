@@ -1,8 +1,8 @@
 import 'dart:async' show unawaited;
 
-import 'package:flutter/cupertino.dart' show CupertinoSwitch;
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoSwitch;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';

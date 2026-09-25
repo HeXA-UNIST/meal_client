@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
@@ -258,7 +258,10 @@ Future<AppSettings> _pumpPage(
       value: settings,
       child: const MaterialApp(
         locale: Locale('ko'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: MealNotificationPage(),
       ),

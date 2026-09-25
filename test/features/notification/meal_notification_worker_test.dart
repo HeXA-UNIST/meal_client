@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:material_ui/material_ui.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/widget_shared_storage_io.dart';
 import 'package:meal_client/domain/meal.dart';

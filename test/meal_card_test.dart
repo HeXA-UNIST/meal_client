@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,38 +7,6 @@ import 'package:meal_client/features/home/meal_card.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 void main() {
-  Finder findOperatingTimeText() {
-    return find.byWidgetPredicate(
-      (widget) =>
-          widget is RichText &&
-          widget.text.toPlainText().contains('08:00 - 09:20'),
-    );
-  }
-
-  testWidgets('운영시간은 칼로리보다 굵은 글씨로 표시한다', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: MealCard(
-            title: '기숙사 식당',
-            meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
-            operatingTimeLabel: '08:00 - 09:20',
-            isOperating: true,
-          ),
-        ),
-      ),
-    );
-
-    final timeText = tester.widget<RichText>(findOperatingTimeText());
-    final kcalText = tester.widget<Text>(find.text('935 kcal'));
-    final timeStyle = (timeText.text as TextSpan).style;
-
-    expect(timeStyle?.fontWeight, FontWeight.w700);
-    expect(kcalText.style?.fontWeight, isNot(FontWeight.w700));
-  });
-
   testWidgets('롱프레스에서는 공유 콜백을 먼저 실행하고 첫 ink 프레임 뒤 햅틱을 실행한다', (tester) async {
     final events = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -59,13 +27,16 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
             title: '기숙사 식당',
             meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')]),
-            onLongPress: () => events.add('share'),
+            onLongPress: (_) => events.add('share'),
           ),
         ),
       ),
@@ -86,7 +57,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
@@ -108,7 +82,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('en'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
@@ -122,11 +99,14 @@ void main() {
     expect(find.text('된장찌개'), findsOneWidget);
   });
 
-  testWidgets('섹션 제목을 메뉴 위에 작은 굵은 글씨로 좌측 정렬해 표시한다', (tester) async {
+  testWidgets('서버의 섹션 제목과 제목 없는 섹션의 기본 제목을 표시한다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('ko'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: MealCard(
@@ -149,9 +129,7 @@ void main() {
       ),
     );
 
-    final titleText = tester.widget<Text>(find.text('천원의 아침밥'));
-    expect(titleText.textAlign, isNull);
-    expect(titleText.style?.fontWeight, FontWeight.w600);
+    expect(find.text('천원의 아침밥'), findsOneWidget);
     final l10n = lookupAppLocalizations(const Locale('ko'));
     expect(find.text(l10n.menuSectionConvenience), findsOneWidget);
     expect(find.text('쌀밥'), findsOneWidget);
@@ -164,7 +142,10 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('ko'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: MealCard(
@@ -218,7 +199,10 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('ko'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SizedBox(

@@ -1,7 +1,7 @@
 import 'package:app_settings/app_settings.dart' show AppSettingsType;
 import 'package:app_settings/app_settings_platform_interface.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/settings/app_settings.dart';
@@ -88,7 +88,10 @@ Future<AppSettings> _pumpSettingsPage(
       value: settings,
       child: MaterialApp(
         locale: locale,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: const SettingsPage(),
       ),

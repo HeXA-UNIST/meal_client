@@ -1,4 +1,4 @@
-import 'notification_platform_type.dart';
-
-MealNotificationPlatform get mealNotificationPlatform =>
-    MealNotificationPlatform.unsupported;
+abstract final class Platform {
+  static const bool isIOS = false;
+  static const bool isAndroid = false;
+}

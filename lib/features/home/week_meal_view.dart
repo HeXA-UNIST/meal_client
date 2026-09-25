@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -201,7 +201,7 @@ class WeekMealTabBarView extends StatelessWidget {
                                 isOperating: isOperating,
                                 onLongPress: kIsWeb
                                     ? null
-                                    : () {
+                                    : (sharePositionOrigin) {
                                         // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
                                         // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
                                         final languageCode =
@@ -210,6 +210,8 @@ class WeekMealTabBarView extends StatelessWidget {
                                             ).languageCode;
                                         SharePlus.instance.share(
                                           ShareParams(
+                                            sharePositionOrigin:
+                                                sharePositionOrigin,
                                             text: buildMealShareText(
                                               cardTitle: title,
                                               meal: meal,

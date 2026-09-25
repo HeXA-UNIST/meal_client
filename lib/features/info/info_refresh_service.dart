@@ -27,7 +27,7 @@ class InfoRefreshService {
     RawInfoFetcher? fetchRaw,
     DateTime Function()? clock,
     InfoCacheWriteLock? lockCache,
-    bool throwOnCacheWriteFailure = false,
+    this._throwOnCacheWriteFailure = false,
   }) : _cache = cache ?? InfoCache(),
        _fetchRaw = fetchRaw ?? fetchRawConditional,
        _clock = clock ?? DateTime.now,
@@ -36,8 +36,7 @@ class InfoRefreshService {
            (cache == null
                ? (action) =>
                      withSharedWidgetFileLock(StorageKeys.infoCacheFile, action)
-               : (action) => action()),
-       _throwOnCacheWriteFailure = throwOnCacheWriteFailure;
+               : (action) => action());
 
   final InfoCache _cache;
   final RawInfoFetcher _fetchRaw;

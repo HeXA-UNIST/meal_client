@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'package:meal_client/domain/meal.dart';
@@ -155,7 +155,7 @@ class MealCardMetadataScaleScope extends InheritedWidget {
 class _LongPressSplash extends StatefulWidget {
   const _LongPressSplash({required this.onLongPress, required this.child});
 
-  final VoidCallback? onLongPress;
+  final ValueChanged<Rect>? onLongPress;
   final Widget child;
 
   @override
@@ -168,9 +168,11 @@ class _LongPressSplashState extends State<_LongPressSplash> {
   void _handleLongPressStart(LongPressStartDetails details) {
     // 공유 시트는 플랫폼에서 준비하는 시간이 필요하므로 다른 피드백보다 먼저
     // 요청한다. 이 콜백은 Future를 기다리지 않아 이후 ink 생성은 즉시 이어진다.
-    widget.onLongPress!();
-
     final referenceBox = context.findRenderObject()! as RenderBox;
+    widget.onLongPress!(
+      referenceBox.localToGlobal(Offset.zero) & referenceBox.size,
+    );
+
     final theme = Theme.of(context);
     _splash = theme.splashFactory.create(
       controller: Material.of(context),
@@ -231,7 +233,7 @@ class MealCard extends StatelessWidget {
   final Meal meal;
   final String? operatingTimeLabel;
   final bool isOperating;
-  final VoidCallback? onLongPress;
+  final ValueChanged<Rect>? onLongPress;
   final EdgeInsetsGeometry margin;
 
   @override

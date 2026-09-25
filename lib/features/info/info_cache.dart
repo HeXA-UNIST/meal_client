@@ -8,12 +8,11 @@ typedef InfoCacheLastModifiedReader =
 
 class InfoCache {
   InfoCache({
-    String fileName = StorageKeys.infoCacheFile,
+    this._fileName = StorageKeys.infoCacheFile,
     InfoCacheWriter? writeFile,
     InfoCacheReader? readFile,
     InfoCacheLastModifiedReader? readLastModified,
-  }) : _fileName = fileName,
-       _writeFile = writeFile ?? saveSharedWidgetFileAsString,
+  }) : _writeFile = writeFile ?? saveSharedWidgetFileAsString,
        _readFile = readFile ?? readSharedWidgetFileAsString,
        _readLastModified =
            readLastModified ?? getLastModifiedOfSharedWidgetFile;

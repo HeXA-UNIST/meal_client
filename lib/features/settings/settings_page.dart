@@ -1,6 +1,6 @@
 import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -222,8 +222,9 @@ class _LicenseTile extends StatelessWidget {
         if (!context.mounted) return;
         showLicensePage(
           context: context,
-          applicationLegalese:
-              'GPL-2.0 license. Source code: https://github.com/HeXA-UNIST/meal_client',
+          applicationName: l10n.title,
+          applicationVersion: 'Version: $appBuildName+$appBuildNumber',
+          applicationLegalese: 'GPL-2.0 license.\nSource code: https://github.com/HeXA-UNIST/meal_client',
         );
       },
     );
