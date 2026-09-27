@@ -1,7 +1,8 @@
 import 'package:meal_client/core/widget_shared_storage.dart';
 
-typedef MealNotificationMutationSection =
-    Future<void> Function(Future<void> Function() action);
+typedef MealNotificationMutationSection = Future<void> Function(
+  Future<void> Function() action,
+);
 
 const _mealNotificationLockFile = 'meal-notification-pending';
 

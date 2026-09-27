@@ -2,7 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
-import '../app_settings.dart';
+
+import '../bapu_settings.dart';
 
 class AllergySettingsPage extends StatelessWidget {
   const AllergySettingsPage({super.key});
@@ -33,7 +34,7 @@ class AllergySettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final enabledIds = context.watch<AppSettings>().allergy.enabledIds;
+    final enabledIds = context.watch<BapuSettings>().allergy.enabledIds;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.manageAllergies)),
@@ -45,7 +46,7 @@ class AllergySettingsPage extends StatelessWidget {
             title: Text('$id. ${_allergenNames[id]!}'),
             value: enabledIds.contains(id),
             activeColor: Theme.of(context).colorScheme.primary,
-            onChanged: (_) => context.read<AppSettings>().toggleAllergen(id),
+            onChanged: (_) => context.read<BapuSettings>().toggleAllergen(id),
           );
         },
       ),

@@ -1,6 +1,7 @@
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+
 import 'meal_notification_period.dart';
 
 typedef MealNotificationContent = ({int id, String title, String body});

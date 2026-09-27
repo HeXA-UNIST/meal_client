@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
-import 'app_settings.dart';
+
+import 'bapu_settings.dart';
 import 'allergy/allergy_settings_page.dart';
 import 'notification/notification_settings_page.dart';
 
@@ -106,7 +107,7 @@ class _AllergyTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final count = context.watch<AppSettings>().allergy.enabledIds.length;
+    final count = context.watch<BapuSettings>().allergy.enabledIds.length;
     return ListTile(
       title: Text(l10n.manageAllergies),
       subtitle: Text(
@@ -161,7 +162,7 @@ class _ThemeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final themeMode = context.watch<AppSettings>().themeMode;
+    final themeMode = context.watch<BapuSettings>().themeMode;
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -196,7 +197,7 @@ class _ThemeTile extends StatelessWidget {
         ],
         selected: {themeMode},
         onSelectionChanged: (v) =>
-            context.read<AppSettings>().setThemeMode(v.first),
+            context.read<BapuSettings>().setThemeMode(v.first),
       ),
     );
   }

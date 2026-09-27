@@ -12,6 +12,7 @@ import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings_store.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
+
 import 'meal_notification_mutation_lock.dart';
 import 'notification_platform.dart';
 import 'notification_service.dart';
@@ -54,9 +55,8 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   final mealRefresh =
       refreshMealCache ??
       () async {
-        await MealRefreshService(
-          throwOnCacheWriteFailure: true,
-        ).refreshMealData(waitForNextWeekPrefetch: true);
+        await MealRefreshService(throwOnCacheWriteFailure: true)
+            .refreshMealData(waitForNextWeekPrefetch: true);
       };
   final infoRefresh =
       refreshInfoCache ??
