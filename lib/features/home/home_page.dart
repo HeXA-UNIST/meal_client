@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
@@ -13,7 +13,8 @@ import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
-import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
+
 import 'home_drawer.dart';
 import 'week_menu_scaffold.dart';
 
@@ -72,6 +73,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 다운로드와 무관하게 기존 캐시로 위젯 표시와 다음 갱신 예약을 복구한다.
+    unawaited(_refreshHomeWidgetsFromCache());
     _initializeModelAndDate();
     _initializeDataLoading();
     _freshAppInfo = _fetchFreshAppInfo();
@@ -108,7 +111,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final info = await (widget.loadAppInfo ?? fetchAppInfo)();
     // 식단과 안내 정보는 독립적으로 갱신된다. info.json이 늦게 저장돼도
     // 위젯이 오류 화면에 머물지 않도록 각 cache 성공 뒤 따로 다시 그린다.
-    unawaited(_refreshHomeWidgetsAfterInfoCache());
+    unawaited(_refreshHomeWidgetsFromCache());
     return info;
   }
 
@@ -125,12 +128,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _refreshHomeWidgetsAfterInfoCache() async {
+  Future<void> _refreshHomeWidgetsFromCache() async {
     try {
       await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
     } catch (e) {
       assert(() {
-        debugPrint('[BapU] widget refresh after info cache failed: $e');
+        debugPrint('[BapU] widget refresh from cache failed: $e');
         return true;
       }());
     }
@@ -157,6 +160,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return;
     }
 
+    // 같은 주의 복귀나 오프라인 상태에서도 위젯 갱신을 다시 요청한다.
+    unawaited(_refreshHomeWidgetsFromCache());
     final now = _now();
     if (_weekId == MealTimeConfig.kstWeekId(now)) {
       return;
@@ -219,7 +224,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final meal = await refreshMeal();
       await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
       if (mounted) {
-        Provider.of<AppSettings?>(
+        Provider.of<BapuSettings?>(
           context,
           listen: false,
         )?.reconcileMealNotificationsAfterForegroundRefresh();

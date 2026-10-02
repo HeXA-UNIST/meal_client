@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -10,6 +10,7 @@ import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/settings/settings_page.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+
 import 'next_week_preview_page.dart';
 
 class HomeAnnouncementDialog extends StatelessWidget {
@@ -399,9 +400,8 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
               announcement ??= (await _infoFuture).announcement;
               if (announcement != null && rootContext.mounted) {
                 final dialogL10n = AppLocalizations.of(rootContext)!;
-                final languageCode = Localizations.localeOf(
-                  rootContext,
-                ).languageCode;
+                final languageCode = Localizations.localeOf(rootContext)
+                    .languageCode;
                 showDialog(
                   context: rootContext,
                   barrierDismissible: false,
@@ -475,8 +475,10 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
           _DrawerItem(
             icon: Icons.help_outline_outlined,
             title: l10n.contactDeveloper,
-            onTap: () async =>
-                await launchUrl(Uri.parse("https://pf.kakao.com/_xcaYlxj")),
+            onTap: () async => await launchUrl(
+              Uri.parse("https://pf.kakao.com/_xcaYlxj"),
+              mode: LaunchMode.externalApplication,
+            ),
           ),
           const SafeArea(top: false, child: SizedBox(height: 12)),
         ],

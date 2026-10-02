@@ -29,7 +29,7 @@ object BapUWidgetContract {
     }
 
     object MealTime {
-        const val CLOSING_SOON_THRESHOLD_MINUTES = 45
+        const val CLOSING_SOON_THRESHOLD_MINUTES = 30
     }
 }
 

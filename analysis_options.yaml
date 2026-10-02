@@ -32,3 +32,7 @@ analyzer:
     dead_code: info
   exclude:
     - "**/*.md"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**

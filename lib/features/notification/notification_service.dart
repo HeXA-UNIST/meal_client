@@ -140,15 +140,14 @@ Future<void> scheduleIosMealNotification({
   );
 }
 
-typedef AndroidZonedSchedule =
-    Future<void> Function({
-      required int id,
-      required String? title,
-      required String? body,
-      required tz.TZDateTime scheduledDate,
-      required AndroidNotificationDetails? notificationDetails,
-      required AndroidScheduleMode scheduleMode,
-    });
+typedef AndroidZonedSchedule = Future<void> Function({
+  required int id,
+  required String? title,
+  required String? body,
+  required tz.TZDateTime scheduledDate,
+  required AndroidNotificationDetails? notificationDetails,
+  required AndroidScheduleMode scheduleMode,
+});
 
 Future<void> scheduleAndroidMealNotification({
   required int id,

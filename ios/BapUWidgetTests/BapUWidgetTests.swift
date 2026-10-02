@@ -189,7 +189,7 @@ final class BapUWidgetTests: XCTestCase {
 
     XCTAssertTrue(minuteValues.contains(8 * 60 + 20))
     XCTAssertTrue(minuteValues.contains(9 * 60 + 21))
-    XCTAssertTrue(minuteValues.contains(12 * 60 + 45))
+    XCTAssertTrue(minuteValues.contains(13 * 60))
     XCTAssertTrue(minuteValues.contains(13 * 60 + 30))
     XCTAssertFalse(minuteValues.contains(14 * 60 + 1))
   }
@@ -197,21 +197,21 @@ final class BapUWidgetTests: XCTestCase {
   func testClosingSoonStartsAtExactBoundaryAndEndsAtClosingTime() throws {
     try writeInfoCache()
     try writeMealCache(
-      modifiedAt: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 44)
+      modifiedAt: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 59)
     )
     let reader = WidgetCacheReader(containerURL: cacheDirectory)
 
     XCTAssertEqual(
       reader.snapshot(
-        at: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 44)
+        at: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 59)
       ).status,
       .open
     )
     XCTAssertEqual(
       reader.snapshot(
-        at: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 45)
+        at: try kstDate(year: 2026, month: 8, day: 3, hour: 13, minute: 0)
       ).status,
-      .closingSoon
+      .closingSoon(endMinutes: 13 * 60 + 30)
     )
     XCTAssertEqual(
       reader.snapshot(

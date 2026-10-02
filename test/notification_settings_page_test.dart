@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
-import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings_page.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -229,7 +229,7 @@ void main() {
   });
 }
 
-Future<AppSettings> _pumpPage(
+Future<BapuSettings> _pumpPage(
   WidgetTester tester, {
   required MealNotificationPlatform platform,
   Map<String, Object> initialValues = const {},
@@ -240,7 +240,7 @@ Future<AppSettings> _pumpPage(
 }) async {
   SharedPreferences.setMockInitialValues(initialValues);
   final prefs = await SharedPreferences.getInstance();
-  final settings = AppSettings(
+  final settings = BapuSettings(
     prefs,
     notificationPlatform: platform,
     resumeListenerRegistrar: (_) => () {},
@@ -258,7 +258,10 @@ Future<AppSettings> _pumpPage(
       value: settings,
       child: const MaterialApp(
         locale: Locale('ko'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: MealNotificationPage(),
       ),

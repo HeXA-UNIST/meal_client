@@ -26,20 +26,20 @@ class BapUWidgetScheduleManagerTest {
         )
 
         assertEquals(
-            listOf(0, 10 * 60 + 1, 11 * 60 + 30, 12 * 60 + 45, 13 * 60 + 30, 14 * 60 + 1),
+            listOf(0, 10 * 60 + 1, 11 * 60 + 30, 13 * 60, 13 * 60 + 30, 14 * 60 + 1),
             boundaries,
         )
     }
 
     @Test
-    fun `마감 임박 구간에서도 분 단위 반복 없이 운영 종료 경계를 예약한다`() {
+    fun `마감 시각 표시 구간에서도 분 단위 반복 없이 운영 종료 경계를 예약한다`() {
         val now = Calendar.getInstance(BapUWidgetTime.kstTimeZone).apply {
-            set(2026, Calendar.JUNE, 15, 12, 50, 10)
+            set(2026, Calendar.JUNE, 15, 13, 10, 10)
             set(Calendar.MILLISECOND, 500)
         }
 
         assertEquals(
-            (39 * 60 + 49) * 1000L + 500L,
+            (19 * 60 + 49) * 1000L + 500L,
             BapUWidgetScheduleManager.millisUntilNextWake(
                 now,
                 listOf(OperatingPeriod(11, 30, 13, 30)),

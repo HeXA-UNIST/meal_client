@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/info/app_info.dart';
@@ -22,7 +22,10 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
           nextWeekStartFuture: completer.future,
@@ -47,7 +50,10 @@ void main() {
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
           nextWeekStartFuture: Future.value('2026-06-22'),
@@ -67,7 +73,10 @@ void main() {
   testWidgets('nextWeekStart가 null이면 준비되지 않음 메시지를 보여준다', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
           nextWeekStartFuture: Future.value(null),
@@ -133,7 +142,10 @@ void main() {
         // 실패한다. 다음 주 미리보기도 앱의 실제 언어 설정(한국어 기준
         // 문구)을 그대로 반영해야 하므로 한국어 로케일을 명시한다.
         locale: const Locale('ko'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
           nextWeekStartFuture: Future.value('2026-06-22'),
@@ -168,7 +180,10 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
           nextWeekStartFuture: Future.value(null),

@@ -3,17 +3,17 @@ import 'package:meal_client/core/widget_shared_storage.dart';
 
 typedef InfoCacheWriter = Future<void> Function(String fileName, String data);
 typedef InfoCacheReader = Future<String> Function(String fileName);
-typedef InfoCacheLastModifiedReader =
-    Future<DateTime> Function(String fileName);
+typedef InfoCacheLastModifiedReader = Future<DateTime> Function(
+  String fileName,
+);
 
 class InfoCache {
   InfoCache({
-    String fileName = StorageKeys.infoCacheFile,
+    this._fileName = StorageKeys.infoCacheFile,
     InfoCacheWriter? writeFile,
     InfoCacheReader? readFile,
     InfoCacheLastModifiedReader? readLastModified,
-  }) : _fileName = fileName,
-       _writeFile = writeFile ?? saveSharedWidgetFileAsString,
+  }) : _writeFile = writeFile ?? saveSharedWidgetFileAsString,
        _readFile = readFile ?? readSharedWidgetFileAsString,
        _readLastModified =
            readLastModified ?? getLastModifiedOfSharedWidgetFile;

@@ -21,17 +21,33 @@ class BapUWidgetOperatingHoursTest {
     }
 
     @Test
-    fun `종료 정확히 45분 전부터 마감 임박 상태다`() {
+    fun `종료 정확히 30분 전부터 마감 시각을 제공하고 종료 시각에는 닫힌다`() {
         val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())
 
         val status = BapUWidgetOperatingHours.statusFor(
             hours,
             CAFE_FACULTY,
             WidgetMealOfDay.LUNCH.index,
-            kstCalendar(Calendar.MONDAY, 11, 45),
+            kstCalendar(Calendar.MONDAY, 12, 0),
         )
 
         assertEquals(OperatingStatus.CLOSING_SOON, status?.status)
+        assertEquals(12, status?.endH)
+        assertEquals(30, status?.endM)
+        assertEquals(
+            OperatingStatus.OPEN,
+            BapUWidgetOperatingHours.statusFor(
+                hours, CAFE_FACULTY, WidgetMealOfDay.LUNCH.index,
+                kstCalendar(Calendar.MONDAY, 11, 59),
+            )?.status,
+        )
+        assertEquals(
+            OperatingStatus.CLOSED,
+            BapUWidgetOperatingHours.statusFor(
+                hours, CAFE_FACULTY, WidgetMealOfDay.LUNCH.index,
+                kstCalendar(Calendar.MONDAY, 12, 30),
+            )?.status,
+        )
     }
 
     @Test

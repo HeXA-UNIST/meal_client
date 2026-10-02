@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show setEquals;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -10,7 +10,7 @@ import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/settings/allergy/allergy_settings.dart';
-import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,10 +86,10 @@ void main() {
     });
   });
   group('AppSettings', () {
-    late List<AppSettings> settingsToDispose;
+    late List<BapuSettings> settingsToDispose;
 
-    AppSettings createSettings(SharedPreferences prefs) {
-      final settings = AppSettings(
+    BapuSettings createSettings(SharedPreferences prefs) {
+      final settings = BapuSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule: (settings, {required isCurrent}) async {},
@@ -160,7 +160,7 @@ void main() {
       var requestCount = 0;
       var authorization = MealNotificationAuthorizationStatus.notAuthorized;
       VoidCallback? onResume;
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.ios,
         resumeListenerRegistrar: (listener) {
@@ -203,7 +203,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       var cancelCount = 0;
       var scheduledEnabled = false;
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           debounce: Duration.zero,
@@ -230,7 +230,7 @@ void main() {
 
     test('알림 저장 실패는 인메모리 설정을 이전 스냅샷으로 돌린다', () async {
       final prefs = await SharedPreferences.getInstance();
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule: (settings, {required isCurrent}) async {},
@@ -273,7 +273,7 @@ void main() {
     test('첫 활성화 예약이 일부 실패하면 pending을 정리하고 꺼진 상태로 돌린다', () async {
       final prefs = await SharedPreferences.getInstance();
       var cancelCount = 0;
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (_) => () {},
@@ -303,7 +303,7 @@ void main() {
       });
       final prefs = await SharedPreferences.getInstance();
       final authorization = Completer<MealNotificationAuthorizationStatus>();
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationScheduleCoordinator: NotificationScheduleCoordinator(
           schedule: (settings, {required isCurrent}) async {},
@@ -328,7 +328,7 @@ void main() {
       });
       final prefs = await SharedPreferences.getInstance();
       var shouldFail = true;
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (_) => () {},
@@ -360,7 +360,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final scheduledDays = <Set<DayOfWeek>>[];
       final scheduled = Completer<void>();
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (_) => () {},
@@ -407,7 +407,7 @@ void main() {
         rawMeal: _rawWeek('2026-08-17'),
         updatedAt: now.subtract(const Duration(minutes: 10)),
       );
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (listener) {
@@ -483,7 +483,7 @@ void main() {
         ),
       );
       final refreshCompleted = Completer<void>();
-      final settings = AppSettings(
+      final settings = BapuSettings(
         prefs,
         notificationPlatform: MealNotificationPlatform.android,
         resumeListenerRegistrar: (listener) {

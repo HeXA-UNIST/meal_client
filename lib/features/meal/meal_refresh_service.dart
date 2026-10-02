@@ -9,8 +9,9 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 
 typedef RawStringFetcher = Future<String> Function(String url);
-typedef MealCacheWriteLock =
-    Future<void> Function(Future<void> Function() action);
+typedef MealCacheWriteLock = Future<void> Function(
+  Future<void> Function() action,
+);
 typedef NextWeekCacheWriteLock = MealCacheWriteLock;
 
 class MealRefreshService {
@@ -22,7 +23,7 @@ class MealRefreshService {
     MealCacheWriteLock? lockCanonicalCache,
     NextWeekCacheWriteLock? lockNextWeekCache,
     bool? supportsSharedCache,
-    bool throwOnCacheWriteFailure = false,
+    this._throwOnCacheWriteFailure = false,
   }) : _cache = cache ?? MealCache(),
        _nextWeekCache =
            nextWeekCache ?? MealCache(fileName: StorageKeys.nextMealCacheFile),
@@ -38,8 +39,7 @@ class MealRefreshService {
            lockNextWeekCache ??
            ((action) =>
                withSharedWidgetFileLock(StorageKeys.nextMealCacheFile, action)),
-       _supportsSharedCache = supportsSharedCache ?? supportsSharedWidgetCache,
-       _throwOnCacheWriteFailure = throwOnCacheWriteFailure;
+       _supportsSharedCache = supportsSharedCache ?? supportsSharedWidgetCache;
 
   final MealCache _cache;
   final MealCache _nextWeekCache;

@@ -1,10 +1,10 @@
 import 'package:app_settings/app_settings.dart' show AppSettingsType;
 import 'package:app_settings/app_settings_platform_interface.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
-import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/features/settings/settings_page.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -73,13 +73,13 @@ void main() {
   }, skip: !kIsWeb);
 }
 
-Future<AppSettings> _pumpSettingsPage(
+Future<BapuSettings> _pumpSettingsPage(
   WidgetTester tester,
   Locale locale,
 ) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
-  final settings = AppSettings(
+  final settings = BapuSettings(
     prefs,
     notificationPlatform: MealNotificationPlatform.unsupported,
   );
@@ -88,7 +88,10 @@ Future<AppSettings> _pumpSettingsPage(
       value: settings,
       child: MaterialApp(
         locale: locale,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: const SettingsPage(),
       ),

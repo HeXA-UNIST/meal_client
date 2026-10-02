@@ -216,11 +216,14 @@ enum class OperatingStatus {
 /**
  * @param nextStartH/[nextStartM] BEFORE_OPEN일 때 다음 운영 시작 시각 ("17:30부터 운영" 등에 사용).
  *        BEFORE_OPEN 외 상태에서는 의미 없음(0).
+ * @param endH/[endM] CLOSING_SOON일 때 표시할 운영 종료 시각.
  */
 data class OperatingResult(
     val status: OperatingStatus,
     val nextStartH: Int = 0,
     val nextStartM: Int = 0,
+    val endH: Int = 0,
+    val endM: Int = 0,
 )
 
 // ─── 위젯 인스턴스별 식당 설정 ───────────────────────────────────────────────
@@ -340,7 +343,7 @@ fun operatingStatusDisplay(context: Context, result: OperatingResult?): Pair<Int
         )
         OperatingStatus.CLOSING_SOON -> Pair(
             context.getColor(R.color.widget_status_closing),
-            context.getString(R.string.status_closing_soon)
+            context.getString(R.string.status_closing_soon, result.endH, result.endM)
         )
         OperatingStatus.CLOSED       -> Pair(
             context.getColor(R.color.widget_status_closed),

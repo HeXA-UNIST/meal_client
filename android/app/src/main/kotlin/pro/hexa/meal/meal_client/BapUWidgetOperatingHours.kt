@@ -60,7 +60,7 @@ object BapUWidgetOperatingHours {
                 if (left > BapUWidgetContract.MealTime.CLOSING_SOON_THRESHOLD_MINUTES) {
                     OperatingResult(OperatingStatus.OPEN)
                 } else {
-                    OperatingResult(OperatingStatus.CLOSING_SOON)
+                    OperatingResult(OperatingStatus.CLOSING_SOON, endH = period.endH, endM = period.endM)
                 }
             }
             // 현재 끼니는 모든 식당의 가장 늦은 종료 시각으로 전환한다. 선택 식당이

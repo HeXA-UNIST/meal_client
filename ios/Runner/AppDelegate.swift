@@ -21,7 +21,7 @@ import workmanager_apple
     }
     WorkmanagerPlugin.registerPeriodicTask(
       withIdentifier: "bapu_meal_refresh",
-      frequency: NSNumber(value: 15 * 60) // 15 minutes (minimum)
+      earliestBeginInSeconds: NSNumber(value: 60 * 60)
     )
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

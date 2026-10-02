@@ -1,9 +1,14 @@
-import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:material_ui/material_ui.dart' show TimeOfDay;
 
 import 'meal_notification_period.dart';
 
-typedef LocalDateTimeFactory =
-    DateTime Function(int year, int month, int day, int hour, int minute);
+typedef LocalDateTimeFactory = DateTime Function(
+  int year,
+  int month,
+  int day,
+  int hour,
+  int minute,
+);
 
 /// KST 메뉴 대상 날짜를 기기 현지 알림 시각으로 역변환한다.
 DateTime fireInstantForTarget({
