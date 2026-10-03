@@ -549,8 +549,6 @@ struct BapUWidgetConfigurationIntent: WidgetConfigurationIntent {
 }
 
 private struct BapUWidgetProvider: AppIntentTimelineProvider {
-  private let cache = WidgetCacheReader()
-
   func placeholder(in context: Context) -> BapUWidgetEntry {
     .placeholder
   }
@@ -572,7 +570,8 @@ private struct BapUWidgetProvider: AppIntentTimelineProvider {
     in context: Context
   ) async -> Timeline<BapUWidgetEntry> {
     let now = Date()
-    let entries = cache.timelineEntries(
+    // Provider가 재사용되어도 요청마다 공유 파일의 최신 언어를 읽는다.
+    let entries = WidgetCacheReader().timelineEntries(
       from: now,
       selection: configuration.cafeteria
     )
@@ -584,7 +583,7 @@ private struct BapUWidgetProvider: AppIntentTimelineProvider {
   private func entry(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
     BapUWidgetEntry(
       date: date,
-      snapshot: cache.snapshot(at: date, selection: selection)
+      snapshot: WidgetCacheReader().snapshot(at: date, selection: selection)
     )
   }
 }
