@@ -10,11 +10,25 @@ jobs:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v6
 
+      - name: Resolve Flutter version
+        id: flutter-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          constraint=$(yq -r '.environment.flutter' pubspec.yaml)
+
+          version=$(python3 .github/scripts/resolve_flutter_version.py \
+            "$constraint" "$RUNNER_OS")
+
+          echo "Flutter constraint: $constraint; selected: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Setup Flutter environment
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.44.9
+          flutter-version: ${{ steps.flutter-version.outputs.version }}
 
       - run: flutter --version
         shell: bash
