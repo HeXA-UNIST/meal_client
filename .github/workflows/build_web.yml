@@ -1,5 +1,4 @@
-name: Build Android (release)
-
+name: Build Web
 on:
   workflow_dispatch:
 
@@ -10,16 +9,33 @@ jobs:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v7
 
+      - name: Resolve Flutter version
+        id: flutter-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          constraint=$(yq -r '.environment.flutter' pubspec.yaml)
+
+          version=$(python3 .github/scripts/resolve_flutter_version.py \
+            "$constraint" "$RUNNER_OS")
+
+          echo "Flutter constraint: $constraint; selected: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Setup Flutter environment
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.47.x
+          flutter-version: ${{ steps.flutter-version.outputs.version }}
 
       - run: flutter --version
         shell: bash
 
-
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "value=$(yq -r '.version' pubspec.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: Web Build
         run: flutter build web --release --wasm
@@ -29,8 +45,6 @@ jobs:
       - name: Upload Web Build
         uses: actions/upload-artifact@v7
         with:
-          name: web-build-$VERSION
+          name: web-build-${{ steps.version.outputs.value }}
           path: ./build/web
           if-no-files-found: error
-        env:
-          VERSION: $(yq -r '.version' pubspec.yaml)
