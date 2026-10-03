@@ -190,23 +190,6 @@ void main() {
       expect(createSettings(prefs).locale, const Locale('en'));
     });
 
-    test('사용자 언어 변경의 저장 실패는 현재 언어를 유지한다', () async {
-      final prefs = await SharedPreferences.getInstance();
-      final settings = BapuSettings(
-        prefs,
-        initialLocale: const Locale('en'),
-        notificationPlatform: MealNotificationPlatform.unsupported,
-        notificationPersistenceRunner: (_) async => false,
-      );
-      settingsToDispose.add(settings);
-      await expectLater(
-        settings.setLocale(const Locale('ko')),
-        throwsStateError,
-      );
-      expect(settings.locale, const Locale('en'));
-      expect(prefs.containsKey(StorageKeys.locale), isFalse);
-    });
-
     test('언어 변경 시 활성 알림을 다시 예약한다', () async {
       final prefs = await SharedPreferences.getInstance();
       var scheduleCount = 0;

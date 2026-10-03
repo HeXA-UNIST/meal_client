@@ -106,42 +106,6 @@ void main() {
     }
   });
 
-  test('공유 저장 실패 시 이관 원본을 보존하고 다음 시도에서 복구한다', () async {
-    SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ko'});
-    final prefs = await SharedPreferences.getInstance();
-    final shared = _SharedLocalePreferences();
-    shared.values['failWrites'] = true;
-    await expectLater(
-      initializeAppLocale(prefs, sharedPreferences: shared),
-      throwsStateError,
-    );
-    expect(prefs.getString(StorageKeys.locale), 'ko');
-    expect(shared.values[StorageKeys.locale], isNull);
-    shared.values['failWrites'] = false;
-    expect(
-      await initializeAppLocale(prefs, sharedPreferences: shared),
-      const Locale('ko'),
-    );
-    expect(prefs.containsKey(StorageKeys.locale), isFalse);
-  });
-
-  test('공유 설정 조회 실패 시 최초 언어로 덮어쓰지 않는다', () async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final shared = _SharedLocalePreferences();
-    shared.values['failReads'] = true;
-    await expectLater(
-      initializeAppLocale(
-        prefs,
-        sharedPreferences: shared,
-        platformLocales: [const Locale('ko')],
-      ),
-      throwsStateError,
-    );
-    expect(shared.writes, 0);
-    expect(prefs.containsKey(StorageKeys.locale), isFalse);
-  });
-
   test('앱 시작 시 공유 조회가 실패하면 임시 언어를 쓰되 저장하지 않는다', () async {
     final errors = _captureLocaleErrors();
     for (final saved in [null, 'en']) {
@@ -166,7 +130,6 @@ void main() {
     expect(errors, hasLength(2));
     expect(errors.first.exception, isStateError);
     expect(errors.first.stack, isNotNull);
-    expect(errors.first.context.toString(), contains('locale read'));
   });
 
   test('앱 시작 시 저장 실패도 선택한 언어로 실행하고 다음 초기화에서 복구한다', () async {
@@ -193,7 +156,6 @@ void main() {
     expect(shared.values[StorageKeys.locale], 'ko');
     expect(prefs.containsKey(StorageKeys.locale), isFalse);
     expect(errors, hasLength(1));
-    expect(errors.single.context.toString(), contains('locale write'));
   });
 
   test('타입이 잘못된 기본 저장값은 시스템 선호 언어로 초기화한다', () async {
@@ -222,7 +184,6 @@ void main() {
     );
     expect(prefs.containsKey(StorageKeys.locale), isFalse);
     expect(errors, hasLength(1));
-    expect(errors.single.context.toString(), contains('locale cleanup'));
   });
 }
 

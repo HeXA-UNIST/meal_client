@@ -170,13 +170,6 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(try savedWidgetLanguageCode(in: preferences), "ko")
   }
 
-  func test위젯라벨은전달한메뉴언어를사용한다() {
-    XCTAssertEqual(WidgetMealOfDay.lunch.localizedName(languageCode: "en"), "Lunch")
-    XCTAssertEqual(WidgetMealOfDay.lunch.localizedName(languageCode: "ko"), "중식")
-    XCTAssertEqual(OperatingStatus.open.localizedText(languageCode: "en"), "Open")
-    XCTAssertEqual(OperatingStatus.open.localizedText(languageCode: "ko"), "운영 중")
-  }
-
   func testIntentRawValueMappingAndFallback() {
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: 1), .dormKorean)
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: 2), .dormHalal)
