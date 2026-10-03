@@ -266,6 +266,24 @@ abstract class AppLocalizations {
   /// **'앱 언어 설정'**
   String get appLanguageSettings;
 
+  /// No description provided for @languageKorean.
+  ///
+  /// In ko, this message translates to:
+  /// **'한국어'**
+  String get languageKorean;
+
+  /// No description provided for @languageEnglish.
+  ///
+  /// In ko, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @languageSaveFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'언어 설정을 저장하지 못했습니다. 다시 시도해 주세요.'**
+  String get languageSaveFailed;
+
   /// No description provided for @dormitoryCafeteria.
   ///
   /// In ko, this message translates to:

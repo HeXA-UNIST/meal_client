@@ -12,6 +12,16 @@ private enum WidgetContract {
   static let infoCacheFile = "info.json"
   static let closingSoonMinutes = 30
 
+  // 앱이 원자적으로 저장한 언어를 위젯도 사용한다.
+  static var languageCode: String {
+    guard let group = appGroupIdentifier,
+          let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group),
+          let code = try? String(contentsOf: container.appendingPathComponent("locale.txt"), encoding: .utf8),
+          code == "ko" || code == "en"
+    else { return Locale.current.language.languageCode?.identifier == "ko" ? "ko" : "en" }
+    return code
+  }
+
   static let kst: TimeZone = TimeZone(identifier: "Asia/Seoul")!
 
   static var appGroupIdentifier: String? {
@@ -25,7 +35,7 @@ enum WidgetMealOfDay: String, CaseIterable {
   case dinner = "DINNER"
 
   var localizedName: String {
-    let korean = Locale.current.language.languageCode?.identifier != "en"
+    let korean = WidgetContract.languageCode == "ko"
     switch self {
     case .breakfast: return korean ? "조식" : "Breakfast"
     case .lunch: return korean ? "중식" : "Lunch"
@@ -62,7 +72,7 @@ enum WidgetMenuSelection: String, Equatable, CaseIterable {
   }
 
   var localizedCafeteriaName: String {
-    let korean = Locale.current.language.languageCode?.identifier != "en"
+    let korean = WidgetContract.languageCode == "ko"
     switch self {
     case .dormKorean, .dormHalal: return korean ? "기숙사식당" : "Dormitory Cafeteria"
     case .student: return korean ? "학생식당" : "Student Cafeteria"
@@ -71,7 +81,7 @@ enum WidgetMenuSelection: String, Equatable, CaseIterable {
   }
 
   var localizedFoodTypeName: String? {
-    let korean = Locale.current.language.languageCode?.identifier != "en"
+    let korean = WidgetContract.languageCode == "ko"
     switch self {
     case .dormKorean: return korean ? "한식" : "Korean"
     case .dormHalal: return korean ? "할랄" : "Halal"
@@ -195,7 +205,7 @@ enum OperatingStatus: Equatable {
   case unavailable
 
   var localizedText: String {
-    let korean = Locale.current.language.languageCode?.identifier != "en"
+    let korean = WidgetContract.languageCode == "ko"
     switch self {
     case .beforeOpen(let minutes):
       let time = String(format: "%02d:%02d", minutes / 60, minutes % 60)
@@ -256,7 +266,7 @@ private struct WidgetTimelineInput {
 func displayMenuItems(
   _ items: [String],
   limit: Int,
-  languageCode: String = Locale.current.language.languageCode?.identifier ?? "ko"
+  languageCode: String = WidgetContract.languageCode
 ) -> [String] {
   guard limit > 0 else { return [] }
   guard items.count > limit else { return items }
@@ -289,7 +299,7 @@ struct WidgetCacheReader {
 
   init(
     containerURL: URL? = WidgetCacheReader.defaultContainerURL(),
-    languageCode: String = Locale.current.language.languageCode?.identifier ?? "ko"
+    languageCode: String = WidgetContract.languageCode
   ) {
     self.containerURL = containerURL
     self.languageCode = languageCode
@@ -596,7 +606,7 @@ private struct BapUWidgetView: View {
   private let menuItemSpacing: CGFloat = 4
 
   private var displayedMenu: [String] {
-    let languageCode = Locale.current.language.languageCode?.identifier ?? "ko"
+    let languageCode = WidgetContract.languageCode
     let limit = languageCode.hasPrefix("en") ? 5 : 7
     return displayMenuItems(
       entry.snapshot.menu,
@@ -664,7 +674,7 @@ private struct BapUWidgetView: View {
     Group {
       if entry.snapshot.menu.isEmpty {
         Text(
-          Locale.current.language.languageCode?.identifier == "en"
+          WidgetContract.languageCode == "en"
             ? "No menu"
             : "메뉴 정보 없음"
         )

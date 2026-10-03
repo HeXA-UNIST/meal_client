@@ -3,6 +3,7 @@ package pro.hexa.meal.meal_client
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -28,6 +29,10 @@ class BapUWidgetSingleConfigActivity : Activity() {
 
     private lateinit var items: List<LinearLayout>
     private lateinit var dots: List<View>
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(BapUWidgetMealRepository.localizedContext(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

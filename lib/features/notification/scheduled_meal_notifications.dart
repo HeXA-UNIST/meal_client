@@ -227,7 +227,7 @@ Future<void> reconcileScheduledMealNotifications({
     return;
   }
 
-  final localizations = l10n ?? notificationLocalizations();
+  final localizations = l10n ?? await notificationLocalizations();
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
   final retainedIds = <int>{
     if (next == null)

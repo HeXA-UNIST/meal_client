@@ -2,8 +2,11 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('Android 예약은 항상 inexactAllowWhileIdle을 사용한다', () async {
     AndroidScheduleMode? capturedMode;
     tz.TZDateTime? capturedDate;

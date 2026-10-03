@@ -94,6 +94,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLanguageSettings => 'App Language Settings';
 
   @override
+  String get languageKorean => '한국어';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageSaveFailed =>
+      'Couldn\'t save the language setting. Please try again.';
+
+  @override
   String get dormitoryCafeteria => 'Dormitory';
 
   @override

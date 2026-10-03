@@ -1,6 +1,7 @@
 package pro.hexa.meal.meal_client
 
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Build
 import java.io.File
 import java.util.Calendar
@@ -58,13 +59,28 @@ object BapUWidgetMealRepository {
     }
 
     private fun currentLanguageCode(context: Context): String {
-        val config = context.resources.configuration
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val locales = config.locales
-            if (locales.size() > 0) locales.get(0).language else Locale.getDefault().language
-        } else {
-            @Suppress("DEPRECATION")
-            config.locale?.language ?: Locale.getDefault().language
+        val saved = runCatching {
+            File(context.filesDir, BapUWidgetContract.LOCALE_FILE).readText(Charsets.UTF_8)
+        }.getOrNull()
+        return when (saved) {
+            "ko", "en" -> saved
+            else -> {
+                val config = context.resources.configuration
+                val language = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    if (config.locales.size() > 0) config.locales[0].language else Locale.getDefault().language
+                } else {
+                    @Suppress("DEPRECATION")
+                    config.locale?.language ?: Locale.getDefault().language
+                }
+                if (language == "ko") "ko" else "en"
+            }
         }
+    }
+
+    // 앱 언어에 맞춘 리소스 컨텍스트로 위젯 제목과 상태도 번역한다.
+    internal fun localizedContext(context: Context): Context {
+        val configuration = Configuration(context.resources.configuration)
+        configuration.setLocale(Locale.forLanguageTag(currentLanguageCode(context)))
+        return context.createConfigurationContext(configuration)
     }
 }

@@ -7,8 +7,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
-        android:enableOnBackInvokedCallback="false"
-        android:localeConfig="@xml/locales_config">
+        android:enableOnBackInvokedCallback="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

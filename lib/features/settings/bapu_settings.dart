@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/core/widget_shared_storage.dart';
+import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
@@ -15,6 +17,7 @@ import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'allergy/allergy_settings.dart';
 import 'notification/notification_settings.dart';
 import 'notification/notification_settings_store.dart';
+import 'locale_settings.dart';
 
 typedef NotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
@@ -45,6 +48,7 @@ class BapuSettings extends ChangeNotifier {
   AllergySettings _allergy;
   NotificationSettings _notification;
   ThemeMode _themeMode;
+  Locale _locale;
   final NotificationScheduleCoordinator _notificationScheduleCoordinator;
   final Future<bool> Function() _requestNotificationPermission;
   final NotificationAuthorizationStatusReader _readAuthorizationStatus;
@@ -64,6 +68,7 @@ class BapuSettings extends ChangeNotifier {
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
   ThemeMode get themeMode => _themeMode;
+  Locale get locale => _locale;
   MealNotificationAuthorizationStatus? get notificationAuthorizationStatus =>
       _notificationAuthorizationStatus;
   bool get notificationSyncFailed => _notificationSyncFailed;
@@ -99,7 +104,8 @@ class BapuSettings extends ChangeNotifier {
            notificationPersistenceRunner ?? _defaultNotificationPersistence,
        _allergy = _loadAllergy(_prefs),
        _notification = loadNotificationSettings(_prefs),
-       _themeMode = _loadThemeMode(_prefs) {
+       _themeMode = _loadThemeMode(_prefs),
+       _locale = loadAppLocale(_prefs) {
     if (_notificationPlatform != MealNotificationPlatform.unsupported) {
       _disposeResumeListener =
           (resumeListenerRegistrar ?? _registerResumeListener)(
@@ -632,6 +638,44 @@ class BapuSettings extends ChangeNotifier {
       }),
     );
   }
+  // --- 언어 ---
+
+  Future<void> setLocale(Locale locale) =>
+      _enqueueNotificationMutation(() async {
+        if (_disposed || _locale == locale) return;
+        if (locale != const Locale('ko') && locale != const Locale('en')) {
+          throw ArgumentError.value(locale, 'locale');
+        }
+        final persisted = await _runNotificationPersistence(
+          () => _prefs.setString(StorageKeys.locale, locale.languageCode),
+        );
+        if (!persisted) throw StateError('App locale write failed');
+        if (_disposed) return;
+        _locale = locale;
+        notifyListeners();
+        if (_notificationPlatform != MealNotificationPlatform.unsupported) {
+          try {
+            await saveSharedWidgetFileAsString(
+              StorageKeys.widgetLocaleFile,
+              locale.languageCode,
+            );
+            await refreshWidgets();
+          } catch (error, stackTrace) {
+            debugPrint('[BapU] locale widget refresh failed: $error');
+            debugPrintStack(stackTrace: stackTrace);
+          }
+        }
+        if (_notification.enabled) {
+          try {
+            await _runNotificationReschedule(immediately: true);
+          } catch (error, stackTrace) {
+            _setNotificationSyncFailed(true);
+            debugPrint('[BapU] locale notification refresh failed: $error');
+            debugPrintStack(stackTrace: stackTrace);
+          }
+        }
+      });
+
   // --- 테마 ---
 
   void setThemeMode(ThemeMode mode) {

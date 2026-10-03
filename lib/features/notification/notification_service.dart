@@ -1,6 +1,5 @@
-import 'dart:ui' show PlatformDispatcher;
-
-import 'package:flutter/widgets.dart' show Locale, basicLocaleListResolution;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:meal_client/features/settings/locale_settings.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -10,22 +9,16 @@ import 'notification_platform.dart';
 const _channelId = 'meal';
 final _plugin = FlutterLocalNotificationsPlugin();
 
-AppLocalizations notificationLocalizations() {
-  return resolveNotificationLocalizations(PlatformDispatcher.instance.locales);
-}
-
-AppLocalizations resolveNotificationLocalizations(
-  List<Locale> preferredLocales,
-) {
-  final locale = basicLocaleListResolution(
-    preferredLocales.isEmpty ? const [Locale('ko')] : preferredLocales,
-    AppLocalizations.supportedLocales,
-  );
-  return lookupAppLocalizations(locale);
+Future<AppLocalizations> notificationLocalizations() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  // 업데이트 후 앱을 열기 전에 백그라운드 작업이 먼저 실행될 수도 있다.
+  await initializeAppLocale(prefs);
+  return lookupAppLocalizations(loadAppLocale(prefs));
 }
 
 Future<void> initNotifications() async {
-  final channelName = notificationLocalizations().mealNotifications;
+  final channelName = (await notificationLocalizations()).mealNotifications;
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
 
   const iosInit = DarwinInitializationSettings(
@@ -156,7 +149,7 @@ Future<void> scheduleAndroidMealNotification({
   required String body,
   AndroidZonedSchedule? zonedSchedule,
 }) async {
-  final channelName = notificationLocalizations().mealNotifications;
+  final channelName = (await notificationLocalizations()).mealNotifications;
   final schedule =
       zonedSchedule ??
       _plugin

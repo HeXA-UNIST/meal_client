@@ -22,7 +22,8 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
         const val TAG = "BapUWidget2x2"
 
         @Suppress("DEPRECATION")
-        fun updateWidget(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
+        fun updateWidget(baseContext: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
+            val context = BapUWidgetMealRepository.localizedContext(baseContext)
             Log.d(TAG, "updateWidget id=$widgetId data=$data")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val sizes = manager.getAppWidgetOptions(widgetId)
