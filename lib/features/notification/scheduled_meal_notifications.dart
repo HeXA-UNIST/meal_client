@@ -11,6 +11,7 @@ import 'meal_notification_content_builder.dart';
 import 'meal_notification_period.dart';
 import 'meal_notification_time.dart';
 import 'notification_service.dart';
+import 'notification_platform.dart';
 
 const kScheduledMealNotificationIdStart = 100000000;
 const kScheduledMealNotificationIdEnd = 140000000;
@@ -179,6 +180,7 @@ class _NotificationSlot {
 
 Future<void> reconcileScheduledMealNotifications({
   required NotificationSettings settings,
+  MealNotificationPlatform? platform,
   bool Function()? isCurrent,
   ScheduledMealWeek? currentWeek,
   ScheduledMealWeek? nextWeek,
@@ -292,6 +294,8 @@ Future<void> reconcileScheduledMealNotifications({
         fireInstant: notification.fireInstant,
         title: notification.title,
         body: notification.body,
+        channelName: localizations.mealNotifications,
+        platform: platform,
       );
   for (final notification in batch) {
     if (!currentGeneration()) {

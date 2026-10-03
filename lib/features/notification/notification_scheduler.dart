@@ -180,19 +180,13 @@ Future<void> _scheduleNativeMealNotifications(
 }) => withMealNotificationMutationLock(
   () => reconcileScheduledMealNotifications(
     settings: settings,
+    platform: platform,
     isCurrent: isCurrent,
     readAuthorizationStatus: () =>
         mealNotificationAuthorizationStatus(platform: platform),
     readPendingIds: () => pendingMealNotificationIds(platform: platform),
     cancelPending: (id) =>
         cancelPendingMealNotification(id, platform: platform),
-    upsertNotification: (notification) => scheduleMealNotification(
-      id: notification.id,
-      fireInstant: notification.fireInstant,
-      title: notification.title,
-      body: notification.body,
-      platform: platform,
-    ),
   ),
 );
 

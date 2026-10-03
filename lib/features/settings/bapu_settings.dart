@@ -655,10 +655,9 @@ class BapuSettings extends ChangeNotifier {
         notifyListeners();
         if (_notificationPlatform != MealNotificationPlatform.unsupported) {
           try {
-            await refreshWidgets();
+            await refreshWidgets(throwOnFailure: true);
           } catch (error, stackTrace) {
-            debugPrint('[BapU] locale widget refresh failed: $error');
-            debugPrintStack(stackTrace: stackTrace);
+            reportAppLocaleError('widget refresh', error, stackTrace);
           }
         }
         if (_notification.enabled) {
@@ -666,8 +665,7 @@ class BapuSettings extends ChangeNotifier {
             await _runNotificationReschedule(immediately: true);
           } catch (error, stackTrace) {
             _setNotificationSyncFailed(true);
-            debugPrint('[BapU] locale notification refresh failed: $error');
-            debugPrintStack(stackTrace: stackTrace);
+            reportAppLocaleError('notification refresh', error, stackTrace);
           }
         }
         // 알림을 꺼 두어도 OS 설정에 표시되는 채널명은 앱 언어를 따른다.
@@ -675,10 +673,11 @@ class BapuSettings extends ChangeNotifier {
           try {
             await refreshMealNotificationChannel();
           } catch (error, stackTrace) {
-            debugPrint(
-              '[BapU] locale notification channel refresh failed: $error',
+            reportAppLocaleError(
+              'notification channel refresh',
+              error,
+              stackTrace,
             );
-            debugPrintStack(stackTrace: stackTrace);
           }
         }
       });

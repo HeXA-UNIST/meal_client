@@ -61,8 +61,8 @@ final _darkTheme = _buildTheme(Brightness.dark);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final locale = await initializeAppLocale(prefs);
-  await initializeNativeServices();
+  final locale = await initializeAppLocale(prefs, allowFallback: true);
+  await initializeNativeServices(l10n: lookupAppLocalizations(locale));
 
   runApp(
     ChangeNotifierProvider<BapuSettings>(

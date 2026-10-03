@@ -5,6 +5,20 @@ import WidgetKit
 import AppIntents
 #endif
 
+enum WidgetLanguageError: Error {
+  case appGroupUnavailable
+  case preferencesUnavailable
+  case savedLanguageMissingOrInvalid
+}
+
+func savedWidgetLanguageCode(in preferences: UserDefaults?) throws -> String {
+  guard let preferences else { throw WidgetLanguageError.preferencesUnavailable }
+  guard let code = preferences.string(forKey: "settings_locale"),
+        code == "ko" || code == "en"
+  else { throw WidgetLanguageError.savedLanguageMissingOrInvalid }
+  return code
+}
+
 private enum WidgetContract {
   static let kind = "BapUWidget"
   static let mealCacheFile = "meal.json"
@@ -13,12 +27,10 @@ private enum WidgetContract {
   static let closingSoonMinutes = 30
 
   // 앱과 위젯이 같은 App Group 설정 원본을 읽는다.
-  static var languageCode: String {
-    guard let group = appGroupIdentifier,
-          let code = UserDefaults(suiteName: group)?.string(forKey: "settings_locale"),
-          code == "ko" || code == "en"
-    else { return Locale.current.language.languageCode?.identifier == "ko" ? "ko" : "en" }
-    return code
+  static func loadLanguageCode() throws -> String {
+    guard let group = appGroupIdentifier, !group.isEmpty
+    else { throw WidgetLanguageError.appGroupUnavailable }
+    return try savedWidgetLanguageCode(in: UserDefaults(suiteName: group))
   }
 
   static let kst: TimeZone = TimeZone(identifier: "Asia/Seoul")!
@@ -33,8 +45,8 @@ enum WidgetMealOfDay: String, CaseIterable {
   case lunch = "LUNCH"
   case dinner = "DINNER"
 
-  var localizedName: String {
-    let korean = WidgetContract.languageCode == "ko"
+  func localizedName(languageCode: String) -> String {
+    let korean = languageCode == "ko"
     switch self {
     case .breakfast: return korean ? "조식" : "Breakfast"
     case .lunch: return korean ? "중식" : "Lunch"
@@ -70,8 +82,8 @@ enum WidgetMenuSelection: String, Equatable, CaseIterable {
     self == .dormHalal ? "HALAL" : "KOREAN"
   }
 
-  var localizedCafeteriaName: String {
-    let korean = WidgetContract.languageCode == "ko"
+  func localizedCafeteriaName(languageCode: String) -> String {
+    let korean = languageCode == "ko"
     switch self {
     case .dormKorean, .dormHalal: return korean ? "기숙사식당" : "Dormitory Cafeteria"
     case .student: return korean ? "학생식당" : "Student Cafeteria"
@@ -79,8 +91,8 @@ enum WidgetMenuSelection: String, Equatable, CaseIterable {
     }
   }
 
-  var localizedFoodTypeName: String? {
-    let korean = WidgetContract.languageCode == "ko"
+  func localizedFoodTypeName(languageCode: String) -> String? {
+    let korean = languageCode == "ko"
     switch self {
     case .dormKorean: return korean ? "한식" : "Korean"
     case .dormHalal: return korean ? "할랄" : "Halal"
@@ -203,8 +215,8 @@ enum OperatingStatus: Equatable {
   case noService
   case unavailable
 
-  var localizedText: String {
-    let korean = WidgetContract.languageCode == "ko"
+  func localizedText(languageCode: String) -> String {
+    let korean = languageCode == "ko"
     switch self {
     case .beforeOpen(let minutes):
       let time = String(format: "%02d:%02d", minutes / 60, minutes % 60)
@@ -265,7 +277,7 @@ private struct WidgetTimelineInput {
 func displayMenuItems(
   _ items: [String],
   limit: Int,
-  languageCode: String = WidgetContract.languageCode
+  languageCode: String
 ) -> [String] {
   guard limit > 0 else { return [] }
   guard items.count > limit else { return items }
@@ -279,6 +291,7 @@ func displayMenuItems(
 fileprivate struct BapUWidgetEntry: TimelineEntry {
   let date: Date
   let snapshot: WidgetSnapshot
+  let languageCode: String?
 
   static let placeholder = BapUWidgetEntry(
     date: Date(),
@@ -287,8 +300,17 @@ fileprivate struct BapUWidgetEntry: TimelineEntry {
       meal: .lunch,
       menu: ["쌀밥", "된장찌개", "제육볶음", "오늘의 반찬"],
       status: .open
-    )
+    ),
+    languageCode: "ko"
   )
+
+  static func languageUnavailable(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
+    BapUWidgetEntry(
+      date: date,
+      snapshot: WidgetSnapshot(selection: selection, meal: .lunch, menu: [], status: .unavailable),
+      languageCode: nil
+    )
+  }
 }
 
 struct WidgetCacheReader {
@@ -298,7 +320,7 @@ struct WidgetCacheReader {
 
   init(
     containerURL: URL? = WidgetCacheReader.defaultContainerURL(),
-    languageCode: String = WidgetContract.languageCode
+    languageCode: String
   ) {
     self.containerURL = containerURL
     self.languageCode = languageCode
@@ -408,7 +430,8 @@ struct WidgetCacheReader {
     return dates.map {
       BapUWidgetEntry(
         date: $0,
-        snapshot: snapshot(at: $0, selection: selection, input: input)
+        snapshot: snapshot(at: $0, selection: selection, input: input),
+        languageCode: languageCode
       )
     }
   }
@@ -569,21 +592,36 @@ private struct BapUWidgetProvider: AppIntentTimelineProvider {
     in context: Context
   ) async -> Timeline<BapUWidgetEntry> {
     let now = Date()
-    // Provider가 재사용되어도 요청마다 공유 파일의 최신 언어를 읽는다.
-    let entries = WidgetCacheReader().timelineEntries(
-      from: now,
-      selection: configuration.cafeteria
-    )
-    // 캐시가 바뀌면 Flutter bridge가 reload를 요청한다. 여기서는 이미 제공한
-    // 마지막 경계까지 소비한 뒤에만 다음 timeline을 요청해 갱신 예산을 아낀다.
-    return Timeline(entries: entries, policy: .atEnd)
+    do {
+      // 한 timeline의 메뉴와 라벨은 함께 읽은 저장 언어를 사용한다.
+      let languageCode = try WidgetContract.loadLanguageCode()
+      let entries = WidgetCacheReader(languageCode: languageCode).timelineEntries(
+        from: now,
+        selection: configuration.cafeteria
+      )
+      return Timeline(entries: entries, policy: .atEnd)
+    } catch {
+      NSLog("[BapU] widget language read failed: %@", String(describing: error))
+      // WidgetKit은 실패 반환을 지원하지 않으므로 정상 메뉴 대신 준비 상태를 표시한다.
+      return Timeline(
+        entries: [.languageUnavailable(at: now, selection: configuration.cafeteria)],
+        policy: .after(now.addingTimeInterval(30 * 60))
+      )
+    }
   }
 
   private func entry(at date: Date, selection: WidgetMenuSelection) -> BapUWidgetEntry {
-    BapUWidgetEntry(
-      date: date,
-      snapshot: WidgetCacheReader().snapshot(at: date, selection: selection)
-    )
+    do {
+      let languageCode = try WidgetContract.loadLanguageCode()
+      return BapUWidgetEntry(
+        date: date,
+        snapshot: WidgetCacheReader(languageCode: languageCode).snapshot(at: date, selection: selection),
+        languageCode: languageCode
+      )
+    } catch {
+      NSLog("[BapU] widget language read failed: %@", String(describing: error))
+      return .languageUnavailable(at: date, selection: selection)
+    }
   }
 }
 
@@ -604,7 +642,7 @@ private struct BapUWidgetView: View {
   private let menuItemSpacing: CGFloat = 4
 
   private var displayedMenu: [String] {
-    let languageCode = WidgetContract.languageCode
+    guard let languageCode = entry.languageCode else { return [] }
     let limit = languageCode.hasPrefix("en") ? 5 : 7
     return displayMenuItems(
       entry.snapshot.menu,
@@ -621,22 +659,36 @@ private struct BapUWidgetView: View {
     )
   }
 
+  @ViewBuilder
   var body: some View {
+    if let languageCode = entry.languageCode {
+      localizedContent(languageCode: languageCode)
+    } else {
+      Text("앱에서 언어 설정을 완료해 주세요.\nOpen BapU to finish language setup.")
+        .font(.custom("Pretendard-Medium", fixedSize: 12))
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetURL(URL(string: "bapu://home"))
+        .modifier(WidgetBackgroundModifier())
+    }
+  }
+
+  private func localizedContent(languageCode: String) -> some View {
     VStack(spacing: 0) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
-        Text(entry.snapshot.selection.localizedCafeteriaName)
+        Text(entry.snapshot.selection.localizedCafeteriaName(languageCode: languageCode))
           .font(.custom("Pretendard-Bold", fixedSize: 15))
           .foregroundStyle(WidgetTextColor.brand)
           .lineLimit(1)
           .minimumScaleFactor(0.72)
-        if let foodType = entry.snapshot.selection.localizedFoodTypeName {
+        if let foodType = entry.snapshot.selection.localizedFoodTypeName(languageCode: languageCode) {
           Text(foodType)
             .font(.custom("Pretendard-Bold", fixedSize: 15))
             .foregroundStyle(.primary)
             .lineLimit(1)
         }
         Spacer(minLength: 4)
-        Text(entry.snapshot.meal.localizedName)
+        Text(entry.snapshot.meal.localizedName(languageCode: languageCode))
           .font(.custom("Pretendard-Bold", fixedSize: 14))
           .foregroundStyle(.primary)
           .lineLimit(1)
@@ -644,7 +696,7 @@ private struct BapUWidgetView: View {
       .layoutPriority(2)
       .padding(.horizontal, headerHorizontalPadding)
 
-      menuPanel
+      menuPanel(languageCode: languageCode)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .frame(
           minHeight: minimumMenuPanelHeight,
@@ -653,7 +705,7 @@ private struct BapUWidgetView: View {
         )
         .padding(.top, headerToPanelSpacing)
 
-      Text(entry.snapshot.status.localizedText)
+      Text(entry.snapshot.status.localizedText(languageCode: languageCode))
         .font(.custom("Pretendard-Bold", fixedSize: 13))
         .foregroundStyle(entry.snapshot.status.color)
         .lineLimit(1)
@@ -668,11 +720,11 @@ private struct BapUWidgetView: View {
   }
 
   @ViewBuilder
-  private var menuPanel: some View {
+  private func menuPanel(languageCode: String) -> some View {
     Group {
       if entry.snapshot.menu.isEmpty {
         Text(
-          WidgetContract.languageCode == "en"
+          languageCode == "en"
             ? "No menu"
             : "메뉴 정보 없음"
         )

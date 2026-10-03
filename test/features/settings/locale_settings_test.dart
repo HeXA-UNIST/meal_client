@@ -1,5 +1,6 @@
 import 'dart:ui' show Locale;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/settings/locale_settings.dart';
@@ -7,6 +8,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('시스템 목록에서 한국어와 영어의 우선순위를 따르고 미지원 언어는 건너뛴다', () {
+    final cases = <(List<Locale>, Locale)>[
+      ([const Locale('en', 'US'), const Locale('ko')], const Locale('en')),
+      (
+        [const Locale('ja'), const Locale('ko', 'KR'), const Locale('en')],
+        const Locale('ko'),
+      ),
+      (
+        [const Locale('ja'), const Locale('en', 'GB'), const Locale('ko')],
+        const Locale('en'),
+      ),
+      ([const Locale('ko')], const Locale('ko')),
+      ([const Locale('ja')], const Locale('en')),
+      ([], const Locale('en')),
+    ];
+    for (final (locales, expected) in cases) {
+      expect(resolveInitialAppLocale(locales), expected);
+    }
+  });
 
   test('기존 앱 언어를 공유 저장소로 이관한 후 공유 값만 갱신한다', () async {
     SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ko'});
@@ -61,9 +82,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final shared = _SharedLocalePreferences();
-      final expected = locales.isNotEmpty && locales.first.languageCode == 'ko'
-          ? const Locale('ko')
-          : const Locale('en');
+      final expected = resolveInitialAppLocale(locales);
       expect(
         await initializeAppLocale(
           prefs,
@@ -122,6 +141,121 @@ void main() {
     expect(shared.writes, 0);
     expect(prefs.containsKey(StorageKeys.locale), isFalse);
   });
+
+  test('앱 시작 시 공유 조회가 실패하면 임시 언어를 쓰되 저장하지 않는다', () async {
+    final errors = _captureLocaleErrors();
+    for (final saved in [null, 'en']) {
+      SharedPreferences.setMockInitialValues({StorageKeys.locale: ?saved});
+      final prefs = await SharedPreferences.getInstance();
+      final shared = _SharedLocalePreferences();
+      shared.values[StorageKeys.locale] = 'ko';
+      shared.values['failReads'] = true;
+      expect(
+        await initializeAppLocale(
+          prefs,
+          sharedPreferences: shared,
+          platformLocales: [const Locale('ja'), const Locale('ko')],
+          allowFallback: true,
+        ),
+        Locale(saved ?? 'ko'),
+      );
+      expect(shared.writes, 0);
+      expect(shared.values[StorageKeys.locale], 'ko');
+      expect(prefs.get(StorageKeys.locale), saved);
+    }
+    expect(errors, hasLength(2));
+    expect(errors.first.exception, isStateError);
+    expect(errors.first.stack, isNotNull);
+    expect(errors.first.context.toString(), contains('locale read'));
+  });
+
+  test('앱 시작 시 저장 실패도 선택한 언어로 실행하고 다음 초기화에서 복구한다', () async {
+    final errors = _captureLocaleErrors();
+    SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ko'});
+    final prefs = await SharedPreferences.getInstance();
+    final shared = _SharedLocalePreferences();
+    shared.values['failWrites'] = true;
+    expect(
+      await initializeAppLocale(
+        prefs,
+        sharedPreferences: shared,
+        allowFallback: true,
+      ),
+      const Locale('ko'),
+    );
+    expect(prefs.getString(StorageKeys.locale), 'ko');
+    expect(shared.values[StorageKeys.locale], isNull);
+    shared.values['failWrites'] = false;
+    expect(
+      await initializeAppLocale(prefs, sharedPreferences: shared),
+      const Locale('ko'),
+    );
+    expect(shared.values[StorageKeys.locale], 'ko');
+    expect(prefs.containsKey(StorageKeys.locale), isFalse);
+    expect(errors, hasLength(1));
+    expect(errors.single.context.toString(), contains('locale write'));
+  });
+
+  test('타입이 잘못된 기본 저장값은 시스템 선호 언어로 초기화한다', () async {
+    SharedPreferences.setMockInitialValues({StorageKeys.locale: 123});
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      await initializeAppLocale(prefs, platformLocales: [const Locale('ko')]),
+      const Locale('ko'),
+    );
+    expect(prefs.getString(StorageKeys.locale), 'ko');
+  });
+
+  test('공유 언어 저장 뒤 원본 삭제 실패는 적용을 막지 않고 다음에 정리한다', () async {
+    final errors = _captureLocaleErrors();
+    final prefs = _LegacyLocalePreferences();
+    final shared = _SharedLocalePreferences();
+    expect(
+      await saveAppLocale(prefs, const Locale('en'), sharedPreferences: shared),
+      isTrue,
+    );
+    expect(shared.values[StorageKeys.locale], 'en');
+    expect(prefs.containsKey(StorageKeys.locale), isTrue);
+    expect(
+      await initializeAppLocale(prefs, sharedPreferences: shared),
+      const Locale('en'),
+    );
+    expect(prefs.containsKey(StorageKeys.locale), isFalse);
+    expect(errors, hasLength(1));
+    expect(errors.single.context.toString(), contains('locale cleanup'));
+  });
+}
+
+List<FlutterErrorDetails> _captureLocaleErrors() {
+  final previous = FlutterError.onError;
+  final errors = <FlutterErrorDetails>[];
+  FlutterError.onError = errors.add;
+  addTearDown(() => FlutterError.onError = previous);
+  return errors;
+}
+
+class _LegacyLocalePreferences extends Fake implements SharedPreferences {
+  Object? saved = 'ko';
+  bool failRemoval = true;
+
+  @override
+  Future<void> reload() async {}
+
+  @override
+  Object? get(String key) => saved;
+
+  @override
+  bool containsKey(String key) => saved != null;
+
+  @override
+  Future<bool> remove(String key) async {
+    if (failRemoval) {
+      failRemoval = false;
+      return false;
+    }
+    saved = null;
+    return true;
+  }
 }
 
 class _SharedLocalePreferences extends Fake implements SharedPreferencesAsync {

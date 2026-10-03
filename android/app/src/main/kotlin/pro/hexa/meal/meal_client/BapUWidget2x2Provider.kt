@@ -23,7 +23,10 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
 
         @Suppress("DEPRECATION")
         fun updateWidget(baseContext: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
-            val context = BapUWidgetMealRepository.localizedContext(baseContext)
+            // 메뉴와 라벨이 한 번 읽은 같은 언어를 사용한다.
+            val context = BapUWidgetMealRepository.localizedContext(
+                baseContext, requireNotNull(data.languageCode)
+            )
             Log.d(TAG, "updateWidget id=$widgetId data=$data")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val sizes = manager.getAppWidgetOptions(widgetId)

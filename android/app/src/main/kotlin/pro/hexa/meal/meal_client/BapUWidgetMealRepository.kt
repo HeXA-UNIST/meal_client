@@ -2,19 +2,17 @@ package pro.hexa.meal.meal_client
 
 import android.content.Context
 import android.content.res.Configuration
-import android.os.Build
 import java.io.File
 import java.util.Calendar
 import java.util.Locale
 import org.json.JSONObject
 
 object BapUWidgetMealRepository {
-    fun fetch(context: Context): WidgetMealData {
+    fun fetch(context: Context, languageCode: String): WidgetMealData {
         val hours = BapUWidgetOperatingHours.loadRequiredFromCache(context)
         val calendar = Calendar.getInstance(BapUWidgetTime.kstTimeZone)
         val mealOfDay = BapUWidgetOperatingHours.currentMealOfDay(hours, calendar)
         val dayType = BapUWidgetTime.dayOfWeekApiKey(calendar)
-        val languageCode = currentLanguageCode(context)
         val data = selectMealData(
             canonicalFile = File(context.filesDir, BapUWidgetContract.MEAL_CACHE_FILE),
             nextWeekFile = File(context.filesDir, BapUWidgetContract.NEXT_MEAL_CACHE_FILE),
@@ -58,29 +56,22 @@ object BapUWidgetMealRepository {
         }.getOrNull()
     }
 
-    private fun currentLanguageCode(context: Context): String {
+    internal fun currentLanguageCode(context: Context): String {
         // Flutter의 SharedPreferences API와 같은 저장소·접두사를 사용한다.
         val saved = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             .getString("flutter.settings_locale", null)
-        return when (saved) {
-            "ko", "en" -> saved
-            else -> {
-                val config = context.resources.configuration
-                val language = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    if (config.locales.size() > 0) config.locales[0].language else Locale.getDefault().language
-                } else {
-                    @Suppress("DEPRECATION")
-                    config.locale?.language ?: Locale.getDefault().language
-                }
-                if (language == "ko") "ko" else "en"
-            }
-        }
+        return requireSavedLanguageCode(saved)
+    }
+
+    internal fun requireSavedLanguageCode(code: String?): String {
+        check(code == "ko" || code == "en") { "Saved app locale is missing or invalid" }
+        return requireNotNull(code)
     }
 
     // 앱 언어에 맞춘 리소스 컨텍스트로 위젯 제목과 상태도 번역한다.
-    internal fun localizedContext(context: Context): Context {
+    internal fun localizedContext(context: Context, languageCode: String): Context {
         val configuration = Configuration(context.resources.configuration)
-        configuration.setLocale(Locale.forLanguageTag(currentLanguageCode(context)))
+        configuration.setLocale(Locale.forLanguageTag(requireSavedLanguageCode(languageCode)))
         return context.createConfigurationContext(configuration)
     }
 }

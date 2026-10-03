@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 import 'bapu_settings.dart';
+import 'locale_settings.dart';
 import 'allergy/allergy_settings_page.dart';
 import 'notification/notification_settings_page.dart';
 
@@ -167,8 +168,7 @@ class _LanguageTile extends StatelessWidget {
           try {
             await context.read<BapuSettings>().setLocale(values.first);
           } catch (error, stackTrace) {
-            debugPrint('[BapU] locale change failed: $error');
-            debugPrintStack(stackTrace: stackTrace);
+            reportAppLocaleError('change', error, stackTrace);
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

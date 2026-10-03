@@ -12,11 +12,11 @@ final _plugin = FlutterLocalNotificationsPlugin();
 Future<AppLocalizations> notificationLocalizations() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
-  // 업데이트 후 앱을 열기 전에 백그라운드 작업이 먼저 실행될 수도 있다.
-  return lookupAppLocalizations(await initializeAppLocale(prefs));
+  // 초기 언어 선택과 이관은 앱 시작에서만 수행한다.
+  return lookupAppLocalizations(await readAppLocale(prefs));
 }
 
-Future<void> initNotifications() async {
+Future<void> initNotifications({AppLocalizations? l10n}) async {
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
 
   const iosInit = DarwinInitializationSettings(
@@ -28,23 +28,25 @@ Future<void> initNotifications() async {
   await _plugin.initialize(
     settings: const InitializationSettings(android: androidInit, iOS: iosInit),
   );
-  await refreshMealNotificationChannel();
+  await refreshMealNotificationChannel(l10n: l10n);
 }
 
-Future<void> refreshMealNotificationChannel() async {
-  final channelName = (await notificationLocalizations()).mealNotifications;
-  // 같은 ID로 등록하면 이름만 갱신되고 사용자가 정한 채널 설정은 보존된다.
-  await _plugin
+Future<void> refreshMealNotificationChannel({AppLocalizations? l10n}) async {
+  final android = _plugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(
-        AndroidNotificationChannel(
-          _channelId,
-          channelName,
-          importance: Importance.defaultImportance,
-        ),
-      );
+      >();
+  if (android == null) return;
+  final channelName =
+      (l10n ?? await notificationLocalizations()).mealNotifications;
+  // 같은 ID로 등록하면 이름만 갱신되고 사용자가 정한 채널 설정은 보존된다.
+  await android.createNotificationChannel(
+    AndroidNotificationChannel(
+      _channelId,
+      channelName,
+      importance: Importance.defaultImportance,
+    ),
+  );
 }
 
 /// iOS 플러그인은 권한을 아직 묻지 않은 상태와 거부 상태를 구분해 주지 않는다.
@@ -152,8 +154,10 @@ Future<void> scheduleAndroidMealNotification({
   required String title,
   required String body,
   AndroidZonedSchedule? zonedSchedule,
+  String? channelName,
 }) async {
-  final channelName = (await notificationLocalizations()).mealNotifications;
+  final resolvedChannelName =
+      channelName ?? (await notificationLocalizations()).mealNotifications;
   final schedule =
       zonedSchedule ??
       _plugin
@@ -169,7 +173,7 @@ Future<void> scheduleAndroidMealNotification({
     scheduledDate: tz.TZDateTime.from(fireInstant, tz.UTC),
     notificationDetails: AndroidNotificationDetails(
       _channelId,
-      channelName,
+      resolvedChannelName,
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       styleInformation: BigTextStyleInformation(body, contentTitle: title),
@@ -239,12 +243,14 @@ Future<void> scheduleMealNotification({
   required String title,
   required String body,
   MealNotificationPlatform? platform,
+  String? channelName,
 }) => switch (platform ?? mealNotificationPlatform) {
   MealNotificationPlatform.android => scheduleAndroidMealNotification(
     id: id,
     fireInstant: fireInstant,
     title: title,
     body: body,
+    channelName: channelName,
   ),
   MealNotificationPlatform.ios => scheduleIosMealNotification(
     id: id,

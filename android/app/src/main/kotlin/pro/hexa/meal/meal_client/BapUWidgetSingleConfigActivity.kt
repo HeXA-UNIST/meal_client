@@ -15,6 +15,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.TextView
+import android.widget.Toast
 
 /**
  * 위젯의 식당 선택 설정 화면.
@@ -26,17 +27,38 @@ class BapUWidgetSingleConfigActivity : Activity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedCafeteria = CAFE_DORM_KOREAN
     private var previewData: WidgetMealData? = null
+    private var widgetLanguageCode: String? = null
 
     private lateinit var items: List<LinearLayout>
     private lateinit var dots: List<View>
 
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(BapUWidgetMealRepository.localizedContext(newBase))
+        val localized = try {
+            val languageCode = BapUWidgetMealRepository.currentLanguageCode(newBase)
+            val localizedContext = BapUWidgetMealRepository.localizedContext(newBase, languageCode)
+            widgetLanguageCode = languageCode
+            localizedContext
+        } catch (error: Exception) {
+            widgetLanguageCode = null
+            Log.e(TAG, "widget language is not ready", error)
+            newBase
+        }
+        super.attachBaseContext(localized)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED)
+        val languageCode = widgetLanguageCode
+        if (languageCode == null) {
+            Toast.makeText(
+                this,
+                "앱에서 언어 설정을 완료해 주세요.\nOpen BapU to finish language setup.",
+                Toast.LENGTH_LONG,
+            ).show()
+            finish()
+            return
+        }
 
         appWidgetId = intent.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -83,7 +105,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
 
         // 미리보기용 캐시 데이터 로드 (cache-only라 가볍지만 파일 IO는 스레드로)
         BapUWidgetUpdateDispatcher.execute {
-            val data = BapUWidgetFetcher.fetch(applicationContext)
+            val data = BapUWidgetFetcher.fetch(applicationContext, languageCode)
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 previewData = data
