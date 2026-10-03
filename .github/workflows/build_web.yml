@@ -1,4 +1,4 @@
-name: Build Android (release)
+name: Build Web
 
 on:
   workflow_dispatch:
