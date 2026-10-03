@@ -59,9 +59,9 @@ object BapUWidgetMealRepository {
     }
 
     private fun currentLanguageCode(context: Context): String {
-        val saved = runCatching {
-            File(context.filesDir, BapUWidgetContract.LOCALE_FILE).readText(Charsets.UTF_8)
-        }.getOrNull()
+        // Flutter의 SharedPreferences API와 같은 저장소·접두사를 사용한다.
+        val saved = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            .getString("flutter.settings_locale", null)
         return when (saved) {
             "ko", "en" -> saved
             else -> {

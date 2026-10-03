@@ -61,13 +61,13 @@ final _darkTheme = _buildTheme(Brightness.dark);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  await initializeAppLocale(prefs);
+  final locale = await initializeAppLocale(prefs);
   await initializeNativeServices();
 
   runApp(
     ChangeNotifierProvider<BapuSettings>(
       create: (_) {
-        final settings = BapuSettings(prefs);
+        final settings = BapuSettings(prefs, initialLocale: locale);
         // 앱 시작 시 native pending 요청을 현재 설정에 맞춘다.
         settings.rescheduleMealNotifications();
         return settings;

@@ -13,8 +13,7 @@ Future<AppLocalizations> notificationLocalizations() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
   // 업데이트 후 앱을 열기 전에 백그라운드 작업이 먼저 실행될 수도 있다.
-  await initializeAppLocale(prefs);
-  return lookupAppLocalizations(loadAppLocale(prefs));
+  return lookupAppLocalizations(await initializeAppLocale(prefs));
 }
 
 Future<void> initNotifications() async {

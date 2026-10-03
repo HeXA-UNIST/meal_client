@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
-import 'package:meal_client/core/widget_shared_storage.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
@@ -77,6 +76,7 @@ class BapuSettings extends ChangeNotifier {
 
   BapuSettings(
     this._prefs, {
+    Locale? initialLocale,
     NotificationScheduleCoordinator? notificationScheduleCoordinator,
     Future<bool> Function()? notificationPermissionRequester,
     NotificationAuthorizationStatusReader?
@@ -105,7 +105,7 @@ class BapuSettings extends ChangeNotifier {
        _allergy = _loadAllergy(_prefs),
        _notification = loadNotificationSettings(_prefs),
        _themeMode = _loadThemeMode(_prefs),
-       _locale = loadAppLocale(_prefs) {
+       _locale = initialLocale ?? loadAppLocale(_prefs) {
     if (_notificationPlatform != MealNotificationPlatform.unsupported) {
       _disposeResumeListener =
           (resumeListenerRegistrar ?? _registerResumeListener)(
@@ -647,7 +647,7 @@ class BapuSettings extends ChangeNotifier {
           throw ArgumentError.value(locale, 'locale');
         }
         final persisted = await _runNotificationPersistence(
-          () => _prefs.setString(StorageKeys.locale, locale.languageCode),
+          () => saveAppLocale(_prefs, locale),
         );
         if (!persisted) throw StateError('App locale write failed');
         if (_disposed) return;
@@ -655,10 +655,6 @@ class BapuSettings extends ChangeNotifier {
         notifyListeners();
         if (_notificationPlatform != MealNotificationPlatform.unsupported) {
           try {
-            await saveSharedWidgetFileAsString(
-              StorageKeys.widgetLocaleFile,
-              locale.languageCode,
-            );
             await refreshWidgets();
           } catch (error, stackTrace) {
             debugPrint('[BapU] locale widget refresh failed: $error');

@@ -1,7 +1,6 @@
 package pro.hexa.meal.meal_client
 
 object BapUWidgetContract {
-    const val LOCALE_FILE = "locale.txt"
     const val MEAL_CACHE_FILE = "meal.json"
     const val NEXT_MEAL_CACHE_FILE = "meal-next.json"
     const val INFO_CACHE_FILE = "info.json"

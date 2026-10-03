@@ -12,11 +12,10 @@ private enum WidgetContract {
   static let infoCacheFile = "info.json"
   static let closingSoonMinutes = 30
 
-  // 앱이 원자적으로 저장한 언어를 위젯도 사용한다.
+  // 앱과 위젯이 같은 App Group 설정 원본을 읽는다.
   static var languageCode: String {
     guard let group = appGroupIdentifier,
-          let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group),
-          let code = try? String(contentsOf: container.appendingPathComponent("locale.txt"), encoding: .utf8),
+          let code = UserDefaults(suiteName: group)?.string(forKey: "settings_locale"),
           code == "ko" || code == "en"
     else { return Locale.current.language.languageCode?.identifier == "ko" ? "ko" : "en" }
     return code
