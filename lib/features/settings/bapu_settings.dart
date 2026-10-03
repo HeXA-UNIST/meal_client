@@ -674,6 +674,17 @@ class BapuSettings extends ChangeNotifier {
             debugPrintStack(stackTrace: stackTrace);
           }
         }
+        // 알림을 꺼 두어도 OS 설정에 표시되는 채널명은 앱 언어를 따른다.
+        if (_notificationPlatform == MealNotificationPlatform.android) {
+          try {
+            await refreshMealNotificationChannel();
+          } catch (error, stackTrace) {
+            debugPrint(
+              '[BapU] locale notification channel refresh failed: $error',
+            );
+            debugPrintStack(stackTrace: stackTrace);
+          }
+        }
       });
 
   // --- 테마 ---

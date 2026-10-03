@@ -18,7 +18,6 @@ Future<AppLocalizations> notificationLocalizations() async {
 }
 
 Future<void> initNotifications() async {
-  final channelName = (await notificationLocalizations()).mealNotifications;
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
 
   const iosInit = DarwinInitializationSettings(
@@ -30,6 +29,12 @@ Future<void> initNotifications() async {
   await _plugin.initialize(
     settings: const InitializationSettings(android: androidInit, iOS: iosInit),
   );
+  await refreshMealNotificationChannel();
+}
+
+Future<void> refreshMealNotificationChannel() async {
+  final channelName = (await notificationLocalizations()).mealNotifications;
+  // 같은 ID로 등록하면 이름만 갱신되고 사용자가 정한 채널 설정은 보존된다.
   await _plugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin

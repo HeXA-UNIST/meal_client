@@ -229,6 +229,16 @@ Future<void> reconcileScheduledMealNotifications({
 
   final localizations = l10n ?? await notificationLocalizations();
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
+  final awaitingDelivery = _awaitingDeliveryBatch(
+    settings: settings,
+    l10n: localizations,
+    now: instant,
+    currentWeek: current,
+    nextWeek: next,
+    grace: deliveryGrace,
+    maxNotifications: maxNotifications,
+  );
+  final awaitingDeliveryIds = awaitingDelivery.map((item) => item.id).toSet();
   final retainedIds = <int>{
     if (next == null)
       ...pending.where(
@@ -237,26 +247,24 @@ Future<void> reconcileScheduledMealNotifications({
             _matchesCurrentNotificationSettings(id, settings),
       ),
     // 배달 창이 아직 열려 있는 pending은 batch에서 빠지더라도 취소하지 않는다.
-    ...pending.where(
-      _awaitingDeliveryIds(
-        settings: settings,
-        l10n: localizations,
-        now: instant,
-        currentWeek: current,
-        nextWeek: next,
-        grace: deliveryGrace,
-        maxNotifications: maxNotifications,
-      ).contains,
-    ),
+    ...pending.where(awaitingDeliveryIds.contains),
   };
-  final batch = buildMealNotificationBatch(
-    settings: settings,
-    l10n: localizations,
-    now: instant,
-    currentWeek: current,
-    nextWeek: next,
-    maxNotifications: maxNotifications - retainedIds.length,
-  );
+  final batch = <ScheduledMealNotification>[
+    // 임박한 기존 예약부터 같은 ID로 새 언어의 내용을 반영한다. 이미 시각이 지난
+    // 지연 알림은 과거로 재예약하지 않고 기존 배달 유예를 유지한다.
+    ...awaitingDelivery.where(
+      (item) =>
+          retainedIds.contains(item.id) && item.fireInstant.isAfter(instant),
+    ),
+    ...buildMealNotificationBatch(
+      settings: settings,
+      l10n: localizations,
+      now: instant,
+      currentWeek: current,
+      nextWeek: next,
+      maxNotifications: maxNotifications - retainedIds.length,
+    ),
+  ];
   final desiredIds = batch.map((notification) => notification.id).toSet();
 
   Object? firstError;
@@ -365,7 +373,7 @@ Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
       : (startDate: startDate, weekMeal: cached.weekMeal);
 }
 
-/// 예약 시각은 지났지만 OS가 아직 배달하지 않았을 수 있는 알림의 ID 집합.
+/// 배달 유예 중이거나 예약 안전 여유 안에 들어온 알림의 최신 내용.
 ///
 /// [buildMealNotificationBatch]를 유예 구간에 대해 한 번 더 돌려서 구한다. 그래야
 /// 알림 on/off, 시간대, 요일뿐 아니라 대상 식당·기숙사 메뉴 종류·키워드·해당 끼니
@@ -373,7 +381,7 @@ Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
 /// 여기서 빠지므로 유예 없이 취소된다.
 ///
 /// 본 batch는 `now + leadTime` 이후만 담으므로 두 구간은 겹치거나 벌어지지 않는다.
-Set<int> _awaitingDeliveryIds({
+List<ScheduledMealNotification> _awaitingDeliveryBatch({
   required NotificationSettings settings,
   required AppLocalizations l10n,
   required DateTime now,
@@ -394,8 +402,7 @@ Set<int> _awaitingDeliveryIds({
         maxNotifications: maxNotifications,
       )
       .where((notification) => notification.fireInstant.isBefore(deadline))
-      .map((notification) => notification.id)
-      .toSet();
+      .toList(growable: false);
 }
 
 typedef _OwnedNotificationTarget = ({
