@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
+
 import 'meal_notification_mutation_lock.dart';
 import 'notification_platform.dart';
 import 'notification_service.dart';
@@ -9,11 +10,10 @@ import 'scheduled_meal_notifications.dart';
 export 'meal_notification_time.dart'
     show fireInstantForTarget, LocalDateTimeFactory;
 
-typedef MealNotificationScheduler =
-    Future<void> Function(
-      NotificationSettings settings, {
-      required bool Function() isCurrent,
-    });
+typedef MealNotificationScheduler = Future<void> Function(
+  NotificationSettings settings, {
+  required bool Function() isCurrent,
+});
 
 typedef MealNotificationCanceler = Future<void> Function();
 

@@ -11,30 +11,35 @@ import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
+
 import 'allergy/allergy_settings.dart';
 import 'notification/notification_settings.dart';
 import 'notification/notification_settings_store.dart';
 
 typedef NotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
-typedef AppResumeListenerRegistrar =
-    VoidCallback Function(VoidCallback onResume);
-typedef ForegroundMealRefresher =
-    Future<void> Function(DateTime now, bool waitForNextWeekPrefetch);
+typedef AppResumeListenerRegistrar = VoidCallback Function(
+  VoidCallback onResume,
+);
+typedef ForegroundMealRefresher = Future<void> Function(
+  DateTime now,
+  bool waitForNextWeekPrefetch,
+);
 typedef MealCacheRevisionSnapshot = ({
   MealCacheRevision? current,
   MealCacheRevision? next,
 });
 typedef MealCacheRevisionSnapshotReader =
     Future<MealCacheRevisionSnapshot> Function();
-typedef NotificationPersistenceRunner =
-    Future<bool> Function(Future<bool> Function() write);
+typedef NotificationPersistenceRunner = Future<bool> Function(
+  Future<bool> Function() write,
+);
 
 const foregroundMealRefreshInterval = Duration(hours: 1);
 
 enum NotificationEnableResult { enabled, permissionDenied, failed }
 
-class AppSettings extends ChangeNotifier {
+class BapuSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
 
   AllergySettings _allergy;
@@ -65,7 +70,7 @@ class AppSettings extends ChangeNotifier {
   bool get usesInexactNotificationTiming =>
       _notificationPlatform == MealNotificationPlatform.android;
 
-  AppSettings(
+  BapuSettings(
     this._prefs, {
     NotificationScheduleCoordinator? notificationScheduleCoordinator,
     Future<bool> Function()? notificationPermissionRequester,

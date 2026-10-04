@@ -36,7 +36,7 @@ void main() {
           body: MealCard(
             title: '기숙사 식당',
             meal: Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')]),
-            onLongPress: () => events.add('share'),
+            onLongPress: (_) => events.add('share'),
           ),
         ),
       ),

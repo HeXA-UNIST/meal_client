@@ -13,9 +13,7 @@ plugins {
 android {
     namespace = "pro.hexa.meal.meal_client"
     compileSdk = flutter.compileSdkVersion
-    // temporarily change ndk version to ensure 16kb page size support
-    // ndkVersion = flutter.ndkVersion
-    ndkVersion = "28.2.13676358"
+    ndkVersion = flutter.ndkVersion
 
     buildFeatures {
         buildConfig = true
@@ -73,7 +71,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:${rootProject.project(":firebase_core").findProperty("FirebaseSDKVersion")}"))
     implementation("com.google.firebase:firebase-crashlytics")
     implementation("com.google.firebase:firebase-crashlytics-ndk")
-    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.work:work-runtime:2.11.2")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }

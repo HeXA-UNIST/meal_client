@@ -1,20 +1,44 @@
-name: Build Android App Bundle
+name: Build Android (release)
 
 on:
   workflow_dispatch:
+    inputs:
+      format:
+        description: Build format
+        type: choice
+        required: true
+        default: both
+        options:
+          - apk
+          - aab
+          - both
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
+      - name: Resolve Flutter version
+        id: flutter-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          constraint=$(yq -r '.environment.flutter' pubspec.yaml)
+
+          version=$(python3 .github/scripts/resolve_flutter_version.py \
+            "$constraint" "$RUNNER_OS")
+
+          echo "Flutter constraint: $constraint; selected: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup Flutter environment
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.44.9
+          flutter-version: ${{ steps.flutter-version.outputs.version }}
 
       - run: flutter --version
         shell: bash
@@ -82,7 +106,22 @@ jobs:
           with open(file_path, "w") as f:
               f.write(content)
 
-      - name: Build
+      - name: Build APK
+        if: ${{ inputs.format == 'apk' || inputs.format == 'both' }}
+        run: flutter build apk --release
+        shell: bash
+        working-directory: .
+
+      - name: Upload APK
+        if: ${{ inputs.format == 'apk' || inputs.format == 'both' }}
+        uses: actions/upload-artifact@v7
+        with:
+          archive: false
+          path: ./build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Build App Bundle
+        if: ${{ inputs.format == 'aab' || inputs.format == 'both' }}
         run: flutter build appbundle --release
         shell: bash
         working-directory: .
@@ -93,6 +132,7 @@ jobs:
         working-directory: ./android
 
       - name: Upload App Bundle
+        if: ${{ inputs.format == 'aab' || inputs.format == 'both' }}
         uses: actions/upload-artifact@v7
         with:
           archive: false

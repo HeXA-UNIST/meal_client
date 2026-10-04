@@ -11,9 +11,8 @@ Future<void> refreshWidgets({bool throwOnFailure = false}) async {
   if (!Platform.isAndroid && !Platform.isIOS) return;
 
   try {
-    await const MethodChannel(
-      'pro.hexa.meal.meal_client/widget',
-    ).invokeMethod<void>('refresh');
+    await const MethodChannel('pro.hexa.meal.meal_client/widget')
+        .invokeMethod<void>('refresh');
   } catch (e, stackTrace) {
     if (throwOnFailure) {
       Error.throwWithStackTrace(e, stackTrace);

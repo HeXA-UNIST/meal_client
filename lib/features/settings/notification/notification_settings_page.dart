@@ -10,7 +10,8 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
-import '../app_settings.dart';
+
+import '../bapu_settings.dart';
 import 'notification_settings.dart' show DormMenuType, NotificationSettings;
 
 const _selectedCafeteriaChipLabelStyle = TextStyle(fontWeight: FontWeight.w600);
@@ -41,7 +42,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       if (!mounted) return;
       // 알림을 켜지 않았으면 권한이 없는 게 정상이라 확인할 이유가 없다.
       // 사용자가 켜 둔 뒤 OS에서 권한을 회수한 경우만 확인하면 된다.
-      if (!context.read<AppSettings>().notification.enabled) return;
+      if (!context.read<BapuSettings>().notification.enabled) return;
       _refreshAuthorizationAfterTransition();
     });
   }
@@ -86,7 +87,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   void _refreshAuthorization() {
     unawaited(
       context
-          .read<AppSettings>()
+          .read<BapuSettings>()
           .refreshNotificationAuthorizationStatus()
           .catchError((Object error, StackTrace stackTrace) {
             debugPrint(
@@ -101,7 +102,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   void _submitKeyword() {
     final text = _keywordController.text.trim();
     if (text.isEmpty) return;
-    context.read<AppSettings>().addNotificationKeyword(text);
+    context.read<BapuSettings>().addNotificationKeyword(text);
     _keywordController.clear();
   }
 
@@ -126,7 +127,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       );
 
   Future<void> _handleNotificationToggle(bool enable) async {
-    final result = await context.read<AppSettings>().setNotificationEnabled(
+    final result = await context.read<BapuSettings>().setNotificationEnabled(
       enable,
     );
     if (!mounted) return;
@@ -170,7 +171,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final appSettings = context.watch<AppSettings>();
+    final appSettings = context.watch<BapuSettings>();
     final notification = appSettings.notification;
     final authorizationStatus = appSettings.notificationAuthorizationStatus;
     return Scaffold(
@@ -215,7 +216,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
               title: Text(l10n.notificationSyncFailed),
               trailing: TextButton(
                 onPressed: () => unawaited(
-                  context.read<AppSettings>().retryNotificationSync(),
+                  context.read<BapuSettings>().retryNotificationSync(),
                 ),
                 child: Text(l10n.retry),
               ),
@@ -302,7 +303,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                                     // 최소 1개 요일은 유지
                                     if (next.isNotEmpty) {
                                       context
-                                          .read<AppSettings>()
+                                          .read<BapuSettings>()
                                           .setNotificationDays(next);
                                     }
                                   },
@@ -354,7 +355,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                                 if (next.isNotEmpty ||
                                     notification.cafeterias.isNotEmpty) {
                                   context
-                                      .read<AppSettings>()
+                                      .read<BapuSettings>()
                                       .setNotificationDormMenuTypes(next);
                                 }
                               }
@@ -381,7 +382,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                                 if (next.isNotEmpty ||
                                     notification.dormMenuTypes.isNotEmpty) {
                                   context
-                                      .read<AppSettings>()
+                                      .read<BapuSettings>()
                                       .setNotificationCafeterias(next);
                                 }
                               }
@@ -440,7 +441,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                             label: Text(kw),
                             onDeleted: notification.enabled
                                 ? () => context
-                                      .read<AppSettings>()
+                                      .read<BapuSettings>()
                                       .removeNotificationKeyword(kw)
                                 : null,
                           ),
@@ -621,7 +622,7 @@ class _PeriodAlertRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     // AppSettings 전체를 watch하면 권한 상태·동기화 실패 같은 무관한 알림에도
     // 시간대 행 4개가 모두 리빌드된다. 필요한 스냅샷만 구독한다.
-    final notification = context.select<AppSettings, NotificationSettings>(
+    final notification = context.select<BapuSettings, NotificationSettings>(
       (settings) => settings.notification,
     );
     // 선택 상태와 조작 가능 여부는 별개다. 상위 알림이 꺼져도 사용자가 저장해 둔
@@ -663,7 +664,7 @@ class _PeriodAlertRow extends StatelessWidget {
             onChanged: sectionEnabled && periodEnabled
                 ? (slot) {
                     if (slot == null) return;
-                    context.read<AppSettings>().setPeriodAlertTime(
+                    context.read<BapuSettings>().setPeriodAlertTime(
                       period,
                       slot,
                     );
@@ -683,7 +684,7 @@ class _PeriodAlertRow extends StatelessWidget {
             ? (v) {
                 // 켤 때는 마지막으로 선택했던 시각(없으면 기본 슬롯)으로 복원한다.
                 final next = v ? displayTime : null;
-                context.read<AppSettings>().setPeriodAlertTime(period, next);
+                context.read<BapuSettings>().setPeriodAlertTime(period, next);
               }
             : null,
       ),

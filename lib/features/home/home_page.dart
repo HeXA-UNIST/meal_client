@@ -13,7 +13,8 @@ import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
-import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
+
 import 'home_drawer.dart';
 import 'week_menu_scaffold.dart';
 
@@ -223,7 +224,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final meal = await refreshMeal();
       await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
       if (mounted) {
-        Provider.of<AppSettings?>(
+        Provider.of<BapuSettings?>(
           context,
           listen: false,
         )?.reconcileMealNotificationsAfterForegroundRefresh();

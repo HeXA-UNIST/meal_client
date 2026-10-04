@@ -5,8 +5,9 @@ import 'package:meal_client/domain/meal.dart';
 
 typedef MealCacheWriter = Future<void> Function(String fileName, String data);
 typedef MealCacheReader = Future<String> Function(String fileName);
-typedef MealCacheLastModifiedReader =
-    Future<DateTime> Function(String fileName);
+typedef MealCacheLastModifiedReader = Future<DateTime> Function(
+  String fileName,
+);
 
 typedef MealCacheRevision = ({String rawMeal, DateTime updatedAt});
 typedef ValidatedMealCache = ({

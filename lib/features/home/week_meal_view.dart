@@ -6,6 +6,7 @@ import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
+
 import 'meal_card.dart';
 import 'nested_page_scroll.dart';
 
@@ -80,9 +81,8 @@ class WeekMealTabBarView extends StatelessWidget {
             final nowMeal = weekMeal
                 .fromDayOfWeek(DayOfWeek.values[tabIndex])
                 .fromMealOfDay(MealOfDay.values[pageIndex]);
-            final targetDate = DateUtils.dateOnly(
-              mondayOfWeek,
-            ).add(Duration(days: tabIndex));
+            final targetDate = DateUtils.dateOnly(mondayOfWeek)
+                .add(Duration(days: tabIndex));
             return FutureBuilder<AppInfo>(
               future: appInfo,
               builder: (context, infoSnapshot) {
@@ -201,15 +201,16 @@ class WeekMealTabBarView extends StatelessWidget {
                                 isOperating: isOperating,
                                 onLongPress: kIsWeb
                                     ? null
-                                    : () {
+                                    : (sharePositionOrigin) {
                                         // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
                                         // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
                                         final languageCode =
-                                            Localizations.localeOf(
-                                              context,
-                                            ).languageCode;
+                                            Localizations.localeOf(context)
+                                                .languageCode;
                                         SharePlus.instance.share(
                                           ShareParams(
+                                            sharePositionOrigin:
+                                                sharePositionOrigin,
                                             text: buildMealShareText(
                                               cardTitle: title,
                                               meal: meal,

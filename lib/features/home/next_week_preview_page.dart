@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
-import 'package:meal_client/features/settings/app_settings.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+
 import 'week_menu_scaffold.dart';
 
 typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
@@ -140,7 +141,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
       if (callback != null) {
         callback();
       } else if (mounted) {
-        Provider.of<AppSettings?>(
+        Provider.of<BapuSettings?>(
           context,
           listen: false,
         )?.reconcileMealNotificationsAfterForegroundRefresh();

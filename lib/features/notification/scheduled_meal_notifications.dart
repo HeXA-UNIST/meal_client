@@ -6,6 +6,7 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+
 import 'meal_notification_content_builder.dart';
 import 'meal_notification_period.dart';
 import 'meal_notification_time.dart';
@@ -45,8 +46,9 @@ typedef MealNotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
 typedef ScheduledMealPendingIdReader = Future<List<int>> Function();
 typedef ScheduledMealPendingCanceler = Future<void> Function(int id);
-typedef ScheduledMealNotificationUpserter =
-    Future<void> Function(ScheduledMealNotification notification);
+typedef ScheduledMealNotificationUpserter = Future<void> Function(
+  ScheduledMealNotification notification,
+);
 
 bool isScheduledMealNotificationId(int id) =>
     id >= kScheduledMealNotificationIdStart &&
@@ -356,9 +358,8 @@ Future<ScheduledMealWeek?> _loadCachedWeek(DateTime now) async {
 
 Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
   final startDate = kstWeekStartForInstant(now).add(const Duration(days: 7));
-  final cached = await MealCache(
-    fileName: StorageKeys.nextMealCacheFile,
-  ).readValidatedMealForWeek(startDate);
+  final cached = await MealCache(fileName: StorageKeys.nextMealCacheFile)
+      .readValidatedMealForWeek(startDate);
   return cached == null
       ? null
       : (startDate: startDate, weekMeal: cached.weekMeal);

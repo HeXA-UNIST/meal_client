@@ -7,10 +7,13 @@ import 'package:meal_client/core/widget_shared_storage.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_cache.dart';
 
-typedef RawInfoFetcher =
-    Future<ConditionalResponse> Function(String url, {String? ifModifiedSince});
-typedef InfoCacheWriteLock =
-    Future<void> Function(Future<void> Function() action);
+typedef RawInfoFetcher = Future<ConditionalResponse> Function(
+  String url, {
+  String? ifModifiedSince,
+});
+typedef InfoCacheWriteLock = Future<void> Function(
+  Future<void> Function() action,
+);
 
 class InfoCacheWriteException implements Exception {
   const InfoCacheWriteException(this.cause);
