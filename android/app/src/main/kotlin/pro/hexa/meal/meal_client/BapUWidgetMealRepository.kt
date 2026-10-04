@@ -2,6 +2,7 @@ package pro.hexa.meal.meal_client
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import java.io.File
 import java.util.Calendar
 import java.util.Locale
@@ -60,8 +61,20 @@ object BapUWidgetMealRepository {
         // Flutter의 SharedPreferences API와 같은 저장소·접두사를 사용한다.
         val saved = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             .getString("flutter.settings_locale", null)
-        return requireSavedLanguageCode(saved)
+        if (saved != null) return requireSavedLanguageCode(saved)
+        // 업데이트 후 첫 앱 실행 전에도 위젯을 갱신하되 임시 언어는 저장하지 않는다.
+        val configuration = context.resources.configuration
+        val locales = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            (0 until configuration.locales.size()).map { configuration.locales[it] }
+        } else {
+            @Suppress("DEPRECATION")
+            listOfNotNull(configuration.locale)
+        }
+        return resolveInitialLanguageCode(locales)
     }
+
+    internal fun resolveInitialLanguageCode(locales: List<Locale>): String =
+        locales.firstOrNull { it.language == "ko" || it.language == "en" }?.language ?: "en"
 
     internal fun requireSavedLanguageCode(code: String?): String {
         check(code == "ko" || code == "en") { "Saved app locale is missing or invalid" }

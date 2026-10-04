@@ -11,9 +11,18 @@ enum WidgetLanguageError: Error {
   case savedLanguageMissingOrInvalid
 }
 
-func savedWidgetLanguageCode(in preferences: UserDefaults?) throws -> String {
+func savedWidgetLanguageCode(
+  in preferences: UserDefaults?,
+  preferredLanguages: [String] = Locale.preferredLanguages
+) throws -> String {
   guard let preferences else { throw WidgetLanguageError.preferencesUnavailable }
-  guard let code = preferences.string(forKey: "settings_locale"),
+  guard let saved = preferences.object(forKey: "settings_locale") else {
+    // 업데이트 후 첫 앱 실행 전에도 위젯을 갱신하되 임시 언어는 저장하지 않는다.
+    return preferredLanguages.lazy
+      .compactMap { Locale(identifier: $0).language.languageCode?.identifier }
+      .first { $0 == "ko" || $0 == "en" } ?? "en"
+  }
+  guard let code = saved as? String,
         code == "ko" || code == "en"
   else { throw WidgetLanguageError.savedLanguageMissingOrInvalid }
   return code

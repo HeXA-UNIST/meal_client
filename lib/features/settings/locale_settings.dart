@@ -21,15 +21,21 @@ Locale resolveInitialAppLocale(List<Locale> locales) {
   return const Locale('en');
 }
 
-/// 소비자는 저장된 언어만 읽으며 최초 선택이나 이관을 수행하지 않는다.
+/// 최초 앱 실행 전에는 시스템 언어를 임시로 사용하며 저장이나 이관은 하지 않는다.
 Future<Locale> readAppLocale(
   SharedPreferences prefs, {
   SharedPreferencesAsync? sharedPreferences,
+  List<Locale>? platformLocales,
 }) async {
   final shared = sharedPreferences ?? await sharedAppLocalePreferences();
   final code = shared == null
       ? prefs.get(StorageKeys.locale)
       : await shared.getString(StorageKeys.locale);
+  if (code == null) {
+    return resolveInitialAppLocale(
+      platformLocales ?? PlatformDispatcher.instance.locales,
+    );
+  }
   if (code != 'ko' && code != 'en') {
     throw StateError('Saved app locale is missing or invalid');
   }

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/scheduled_meal_notifications.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
@@ -130,8 +131,8 @@ void main() {
       days: const {DayOfWeek.mon},
     );
 
-    test('저장 언어가 없으면 기존 예약을 변경하지 않고 실패한다', () async {
-      SharedPreferences.setMockInitialValues({});
+    test('저장 언어가 잘못되면 기존 예약을 변경하지 않고 실패한다', () async {
+      SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ja'});
       final canceled = <int>[];
       final upserted = <int>[];
       await expectLater(
@@ -153,6 +154,28 @@ void main() {
       );
       expect(canceled, isEmpty);
       expect(upserted, isEmpty);
+    });
+
+    test('업데이트 후 첫 실행 전에도 언어를 저장하지 않고 알림을 예약한다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final upserted = <int>[];
+      await reconcileScheduledMealNotifications(
+        settings: enabledSettings,
+        currentWeek: (
+          startDate: DateTime.utc(2026, 7, 20),
+          weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
+        ),
+        nowProvider: () => DateTime.utc(2026, 7, 19),
+        loadNextWeek: () async => null,
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        readPendingIds: () async => [],
+        cancelPending: (_) async {},
+        upsertNotification: (item) async => upserted.add(item.id),
+      );
+      expect(upserted, [_ownedId(DateTime.utc(2026, 7, 20))]);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey(StorageKeys.locale), isFalse);
     });
 
     test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {

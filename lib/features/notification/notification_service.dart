@@ -12,7 +12,7 @@ final _plugin = FlutterLocalNotificationsPlugin();
 Future<AppLocalizations> notificationLocalizations() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.reload();
-  // 초기 언어 선택과 이관은 앱 시작에서만 수행한다.
+  // 최초 언어 저장과 이관은 앱 시작에서만 수행한다.
   return lookupAppLocalizations(await readAppLocale(prefs));
 }
 

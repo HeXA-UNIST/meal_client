@@ -156,16 +156,31 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertNil(WidgetMenuSelection.faculty.localizedFoodTypeName(languageCode: "ko"))
   }
 
-  func test저장된언어가없거나잘못되면실패한다() throws {
+  func test저장된언어가없으면시스템언어를쓰고잘못된값은실패한다() throws {
     let suiteName = "BapUWidgetTests.\(UUID().uuidString)"
     let preferences = try XCTUnwrap(UserDefaults(suiteName: suiteName))
     defer { preferences.removePersistentDomain(forName: suiteName) }
     XCTAssertThrowsError(try savedWidgetLanguageCode(in: nil))
+    for (languages, expected) in [
+      (["en-US", "ko-KR"], "en"),
+      (["ja-JP", "ko-KR", "en-US"], "ko"),
+      (["ja-JP", "en-GB", "ko-KR"], "en"),
+      (["ja-JP"], "en"),
+      ([], "en"),
+    ] {
+      XCTAssertEqual(
+        try savedWidgetLanguageCode(in: preferences, preferredLanguages: languages), expected
+      )
+    }
+    XCTAssertNil(preferences.object(forKey: "settings_locale"))
+    preferences.set(123, forKey: "settings_locale")
     XCTAssertThrowsError(try savedWidgetLanguageCode(in: preferences))
     preferences.set("ja", forKey: "settings_locale")
     XCTAssertThrowsError(try savedWidgetLanguageCode(in: preferences))
     preferences.set("en", forKey: "settings_locale")
-    XCTAssertEqual(try savedWidgetLanguageCode(in: preferences), "en")
+    XCTAssertEqual(
+      try savedWidgetLanguageCode(in: preferences, preferredLanguages: ["ko-KR"]), "en"
+    )
     preferences.set("ko", forKey: "settings_locale")
     XCTAssertEqual(try savedWidgetLanguageCode(in: preferences), "ko")
   }

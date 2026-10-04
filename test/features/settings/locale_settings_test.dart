@@ -29,6 +29,59 @@ void main() {
     }
   });
 
+  test('소비자는 언어가 없으면 시스템 언어를 사용하고 두 저장소 모두 변경하지 않는다', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final shared = _SharedLocalePreferences();
+    for (final store in [null, shared]) {
+      expect(
+        await readAppLocale(
+          prefs,
+          sharedPreferences: store,
+          platformLocales: [const Locale('ja'), const Locale('ko', 'KR')],
+        ),
+        const Locale('ko'),
+      );
+      expect(
+        await readAppLocale(
+          prefs,
+          sharedPreferences: store,
+          platformLocales: [],
+        ),
+        const Locale('en'),
+      );
+    }
+    expect(prefs.containsKey(StorageKeys.locale), isFalse);
+    expect(shared.values, isEmpty);
+  });
+
+  test('소비자는 잘못된 저장값과 공유 저장소 조회 실패를 시스템 언어로 대체하지 않는다', () async {
+    SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ja'});
+    final prefs = await SharedPreferences.getInstance();
+    await expectLater(readAppLocale(prefs), throwsStateError);
+    final shared = _SharedLocalePreferences();
+    shared.values[StorageKeys.locale] = 'ja';
+    await expectLater(
+      readAppLocale(prefs, sharedPreferences: shared),
+      throwsStateError,
+    );
+    shared.values[StorageKeys.locale] = 'en';
+    expect(
+      await readAppLocale(
+        prefs,
+        sharedPreferences: shared,
+        platformLocales: [const Locale('ko')],
+      ),
+      const Locale('en'),
+    );
+    shared.values['failReads'] = true;
+    await expectLater(
+      readAppLocale(prefs, sharedPreferences: shared),
+      throwsStateError,
+    );
+    expect(shared.writes, 0);
+  });
+
   test('기존 앱 언어를 공유 저장소로 이관한 후 공유 값만 갱신한다', () async {
     SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ko'});
     final prefs = await SharedPreferences.getInstance();
