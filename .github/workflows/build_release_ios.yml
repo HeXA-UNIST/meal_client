@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      # SPM 의존성 해석 시 광고 식별자 없는 Analytics를 선택한다.
+      FIREBASE_ANALYTICS_WITHOUT_ADID: 'true'
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v6
