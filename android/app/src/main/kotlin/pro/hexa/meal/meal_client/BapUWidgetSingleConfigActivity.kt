@@ -14,7 +14,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.TextView
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 /**
  * 위젯의 식당 선택 설정 화면.
@@ -114,7 +113,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
                     BapUWidgetUpdateDispatcher.renderAllWidgets(ctx)
                 } catch (e: Exception) {
                     Log.e(TAG, "widget render failed", e)
-                    FirebaseCrashlytics.getInstance().recordException(e)
+                    reportNativeNonFatal(e)
                 } finally {
                     runOnUiThread {
                         if (isFinishing || isDestroyed) return@runOnUiThread

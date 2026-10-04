@@ -17,6 +17,10 @@ android {
     // ndkVersion = flutter.ndkVersion
     ndkVersion = "28.2.13676358"
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
