@@ -17,6 +17,43 @@ import 'package:meal_client/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('병렬 갱신이 모두 실패해도 원래 오류와 스택을 각각 보고한다', () async {
+    final mealError = StateError('meal');
+    final infoError = StateError('info');
+    final stack = StackTrace.current;
+    final reports = <String, (Object, StackTrace)>{};
+    final result = await refreshBackgroundMealAndInfoCaches(
+      refreshMealCache: () async => Error.throwWithStackTrace(mealError, stack),
+      refreshInfoCache: () async => Error.throwWithStackTrace(infoError, stack),
+      refreshWidget: () async => fail('실패 뒤 위젯 갱신을 실행하면 안 됩니다'),
+      reportError: (stage, error, trace) async {
+        reports[stage] = (error, trace);
+      },
+    );
+    expect(result, isFalse);
+    expect(reports.keys, unorderedEquals(['meal', 'info']));
+    expect(reports['meal']!.$1, same(mealError));
+    expect(reports['info']!.$1, same(infoError));
+    expect(reports['meal']!.$2.toString(), stack.toString());
+  });
+
+  test('선택적 공지 갱신의 보고 실패도 위젯과 알림 갱신을 막지 않는다', () async {
+    final operations = <String>[];
+    final result = await refreshBackgroundMealAndInfoCaches(
+      platform: MealNotificationPlatform.android,
+      refreshMealCache: () async {},
+      refreshInfoCache: () async => throw StateError('info'),
+      refreshWidget: () async => operations.add('widget'),
+      reconcileNotifications: () async => operations.add('notification'),
+      reportError: (stage, error, stack) async {
+        operations.add(stage);
+        throw StateError('reporting');
+      },
+    );
+    expect(result, isTrue);
+    expect(operations, ['info', 'widget', 'notification']);
+  });
+
   test('성공한 background refresh는 네이티브 플랫폼에서 pending을 재조정한다', () async {
     var reconciliations = 0;
     for (final platform in MealNotificationPlatform.values) {
@@ -34,6 +71,7 @@ void main() {
 
   test('알림 재조정 실패와 무관하게 위젯 갱신을 먼저 시도한다', () async {
     final operations = <String>[];
+    final reports = <String>[];
 
     final result = await refreshBackgroundMealAndInfoCaches(
       platform: MealNotificationPlatform.ios,
@@ -44,10 +82,12 @@ void main() {
         throw Exception('notification');
       },
       refreshWidget: () async => operations.add('widget'),
+      reportError: (stage, error, stack) async => reports.add(stage),
     );
 
     expect(result, isFalse);
     expect(operations, ['widget', 'notification']);
+    expect(reports, ['notification']);
   });
 
   test('background refresh는 필수 단계 실패만 task 실패로 반환한다', () async {
@@ -58,6 +98,7 @@ void main() {
             Future<void> Function() info,
             Future<void> Function() widget,
             bool expected,
+            String failureStage,
           })
         >[
           (
@@ -65,12 +106,14 @@ void main() {
             info: () async {},
             widget: () async {},
             expected: false,
+            failureStage: 'meal',
           ),
           (
             meal: () async {},
             info: () async => throw Exception('info unavailable'),
             widget: () async {},
             expected: true,
+            failureStage: 'info',
           ),
           (
             meal: () async {},
@@ -78,24 +121,29 @@ void main() {
                 throw InfoCacheWriteException(Exception('disk full')),
             widget: () async {},
             expected: false,
+            failureStage: 'info',
           ),
           (
             meal: () async {},
             info: () async {},
             widget: () async => throw Exception('widget unavailable'),
             expected: false,
+            failureStage: 'widget',
           ),
         ];
 
     for (final scenario in cases) {
+      final reports = <String>[];
       expect(
         await refreshBackgroundMealAndInfoCaches(
           refreshMealCache: scenario.meal,
           refreshInfoCache: scenario.info,
           refreshWidget: scenario.widget,
+          reportError: (stage, error, stack) async => reports.add(stage),
         ),
         scenario.expected,
       );
+      expect(reports, [scenario.failureStage]);
     }
   });
 

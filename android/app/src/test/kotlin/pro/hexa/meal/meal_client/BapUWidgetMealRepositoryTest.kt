@@ -8,6 +8,22 @@ import org.junit.Test
 
 class BapUWidgetMealRepositoryTest {
     @Test
+    fun `보고가 실패해도 다음 캐시를 사용한다`() {
+        withCaches("{}", rawMeal("2026-08-24", "next")) { canonical, next ->
+            var reports = 0
+            val data = BapUWidgetMealRepository.selectMealData(
+                canonical, next, "2026-08-24", "MON", WidgetMealOfDay.BREAKFAST,
+                onCacheFailure = {
+                    reports++
+                    throw IllegalStateException("report failed")
+                },
+            )
+            assertEquals(listOf("next"), data?.dormKoreanMenu)
+            assertEquals(1, reports)
+        }
+    }
+
+    @Test
     fun `다음 주 payload는 일요일 mtime과 무관하게 월요일에 선택된다`() {
         withCaches(rawMeal("2026-08-17", "previous"), rawMeal("2026-08-24", "next")) { canonical, next ->
             val data = BapUWidgetMealRepository.selectMealData(
@@ -37,22 +53,28 @@ class BapUWidgetMealRepositoryTest {
             ]}]}
         """.trimIndent()
         withCaches(corruptTuesday, rawMeal("2026-08-24", "next", "TUE", "LUNCH")) { canonical, next ->
+            val reports = mutableListOf<Throwable>()
             val data = BapUWidgetMealRepository.selectMealData(
                 canonical, next, "2026-08-24", "TUE", WidgetMealOfDay.LUNCH,
+                onCacheFailure = { reports.add(it) },
             )
 
             assertEquals(listOf("next"), data?.dormKoreanMenu)
+            assertEquals(1, reports.size)
         }
     }
 
     @Test
     fun `일치하는 payload가 없으면 이전 주 메뉴로 폴백하지 않는다`() {
         withCaches(rawMeal("2026-08-17", "previous"), null) { canonical, next ->
+            val reports = mutableListOf<Throwable>()
             assertNull(
                 BapUWidgetMealRepository.selectMealData(
                     canonical, next, "2026-08-24", "MON", WidgetMealOfDay.BREAKFAST,
+                    onCacheFailure = { reports.add(it) },
                 ),
             )
+            assertEquals(0, reports.size)
         }
     }
 

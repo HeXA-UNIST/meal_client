@@ -1,10 +1,14 @@
 import 'dart:ui';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/firebase_options.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
@@ -19,6 +23,8 @@ import 'scheduled_meal_notifications.dart';
 
 typedef BackgroundCacheRefresh = Future<void> Function();
 typedef BackgroundNotificationReconcile = Future<void> Function();
+typedef BackgroundErrorReporter =
+    Future<void> Function(String stage, Object error, StackTrace stackTrace);
 typedef BackgroundNotificationSnapshot = ({
   NotificationSettings settings,
   int generation,
@@ -37,7 +43,30 @@ void callbackDispatcher() {
 
     if (taskName == mealRefreshTaskName ||
         taskName == Workmanager.iOSBackgroundTask) {
-      return refreshBackgroundMealAndInfoCaches();
+      BackgroundErrorReporter? reportError;
+      if (kReleaseMode &&
+          mealNotificationPlatform == MealNotificationPlatform.android) {
+        try {
+          // Workmanager 격리체에는 main의 Firebase 초기화가 적용되지 않는다.
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+          reportError = (stage, error, stack) =>
+              FirebaseCrashlytics.instance.recordError(
+                error,
+                stack,
+                reason: 'background_$stage',
+                fatal: false,
+              );
+        } catch (error, stack) {
+          // 진단 초기화 실패와 무관하게 실제 갱신 작업은 수행한다.
+          debugPrint(
+            '[BapU] background Firebase initialization failed: $error',
+          );
+          debugPrintStack(stackTrace: stack);
+        }
+      }
+      return refreshBackgroundMealAndInfoCaches(reportError: reportError);
     }
 
     return true;
@@ -50,6 +79,7 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   BackgroundCacheRefresh? refreshWidget,
   BackgroundNotificationReconcile? reconcileNotifications,
   MealNotificationPlatform? platform,
+  BackgroundErrorReporter? reportError,
 }) async {
   final mealRefresh =
       refreshMealCache ??
@@ -65,8 +95,8 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
       };
 
   final failures = await Future.wait([
-    _captureBackgroundRefreshFailure('meal', mealRefresh),
-    _captureBackgroundRefreshFailure('info', infoRefresh),
+    _captureBackgroundRefreshFailure('meal', mealRefresh, reportError),
+    _captureBackgroundRefreshFailure('info', infoRefresh, reportError),
   ]);
 
   final mealFailure = failures[0];
@@ -97,6 +127,7 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   final widgetFailure = await _captureBackgroundRefreshFailure(
     'widget',
     refreshWidget ?? () => refreshWidgets(throwOnFailure: true),
+    reportError,
   );
   if (widgetFailure != null) {
     _logBackgroundRefreshFailure(
@@ -112,6 +143,7 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
       ? await _captureBackgroundRefreshFailure(
           'notification',
           reconcileNotifications ?? _reconcileNotificationsFromCache,
+          reportError,
         )
       : null;
 
@@ -206,11 +238,20 @@ String _notificationSettingsFingerprint(NotificationSettings settings) {
 Future<_BackgroundRefreshFailure?> _captureBackgroundRefreshFailure(
   String label,
   BackgroundCacheRefresh refresh,
+  BackgroundErrorReporter? reportError,
 ) async {
   try {
     await refresh();
     return null;
   } catch (e, stackTrace) {
+    try {
+      // 병렬 갱신의 다른 실패나 조기 반환 때문에 보고가 누락되지 않게 한다.
+      await reportError?.call(label, e, stackTrace);
+    } catch (reportingError, reportingStack) {
+      // 보고 실패로 원래 작업의 성공 여부나 재시도 판단을 바꾸지 않는다.
+      debugPrint('[BapU] background error reporting failed: $reportingError');
+      debugPrintStack(stackTrace: reportingStack);
+    }
     return _BackgroundRefreshFailure(label, e, stackTrace);
   }
 }
