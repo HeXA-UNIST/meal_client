@@ -43,6 +43,12 @@ flutter pub get
 flutter run
 ```
 
+iOS에서 광고 식별자를 제거한 Firebase Analytics를 사용하기 위해, 터미널에서 실행/빌드 전 다음 환경변수를 설정하세요.
+
+```bash
+export FIREBASE_ANALYTICS_WITHOUT_ADID=true
+```
+
 ### Test
 
 Flutter 코드를 분석하고 테스트하려면 다음 명령을 실행하세요.
