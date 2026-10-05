@@ -233,4 +233,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get retry => '다시 시도';
+
+  @override
+  String get cafeteriaOperating => '운영 중';
+
+  @override
+  String get cafeteriaNotOperating => '운영 중이 아님';
 }

@@ -237,4 +237,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get cafeteriaOperating => 'Currently open';
+
+  @override
+  String get cafeteriaNotOperating => 'Not currently open';
 }

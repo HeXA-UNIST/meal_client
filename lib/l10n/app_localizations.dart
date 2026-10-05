@@ -523,6 +523,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'다시 시도'**
   String get retry;
+
+  /// No description provided for @cafeteriaOperating.
+  ///
+  /// In ko, this message translates to:
+  /// **'운영 중'**
+  String get cafeteriaOperating;
+
+  /// No description provided for @cafeteriaNotOperating.
+  ///
+  /// In ko, this message translates to:
+  /// **'운영 중이 아님'**
+  String get cafeteriaNotOperating;
 }
 
 class _AppLocalizationsDelegate
