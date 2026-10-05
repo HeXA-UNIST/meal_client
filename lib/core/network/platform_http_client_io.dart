@@ -18,6 +18,26 @@ Future<String> fetchPlatformRawString(Client client, String url) async {
   return response.body;
 }
 
+Future<({int statusCode, String? body})> fetchPlatformRawConditional(
+  Client client,
+  String url, {
+  String? ifModifiedSince,
+}) async {
+  final response = await client.get(
+    Uri.parse(url),
+    headers: ifModifiedSince == null
+        ? null
+        : {'If-Modified-Since': ifModifiedSince},
+  );
+  if (response.statusCode == 304) {
+    return (statusCode: 304, body: null);
+  }
+  if (response.statusCode != 200) {
+    throw createHttpException(response.statusCode);
+  }
+  return (statusCode: 200, body: response.body);
+}
+
 Client createPlatformHttpClient() {
   if (Platform.isIOS || Platform.isMacOS) {
     try {
