@@ -5,16 +5,10 @@ import 'package:meal_client/core/network/platform_http_client.dart';
 
 final Client appHttpClient = createPlatformHttpClient();
 
-Future<String> fetchRawString(String url) async {
-  final response = await appHttpClient
-      .get(Uri.parse(url))
-      .timeout(const Duration(seconds: 10));
-  if (response.statusCode != 200) {
-    throw createHttpException(response.statusCode);
-  }
-
-  return response.body;
-}
+Future<String> fetchRawString(String url) => fetchPlatformRawString(
+  appHttpClient,
+  url,
+).timeout(const Duration(seconds: 10));
 
 /// 조건부 GET 결과. [statusCode]가 304면 [body]는 null이고 호출자는 캐시를 쓴다.
 typedef ConditionalResponse = ({int statusCode, String? body});
