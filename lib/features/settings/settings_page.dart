@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 import 'bapu_settings.dart';
@@ -132,10 +133,16 @@ class _MealNotificationTile extends StatelessWidget {
       title: Text(l10n.notificationSettings),
 
       trailing: const Icon(Icons.chevron_right),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MealNotificationPage()),
-      ),
+      onTap: () {
+        logUiClick(
+          UiClickTarget.notificationSettings,
+          screen: AnalyticsScreen.settings,
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MealNotificationPage()),
+        );
+      },
     );
   }
 }

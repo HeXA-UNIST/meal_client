@@ -57,6 +57,21 @@ fatal 분류가 실제 앱 프로세스 종료를 의미하지는 않습니다.
 업로드 실패는 빌드 실패로 표시되며, Debug/Profile 및 시뮬레이터에서는 업로드하지 않습니다.
 iOS Firebase 앱을 변경할 때는 `ios/scripts/upload_crashlytics_symbols.sh`의 앱 ID도 함께 변경하세요.
 
+### 클릭 분석
+
+주요 클릭은 `ui_click` 이벤트로 기록합니다. `target`은 `day_tab`(요일 탭),
+`meal_switch`(식사 전환), `next_week`(다음 주 식단), `operation_hours`(운영시간),
+`settings`(설정), `notification_settings`(알림 설정) 중 하나입니다.
+`screen`은 `home`, `next_week`, `settings`이며, 요일 탭에는 `day_of_week`(`mon`~`sun`),
+식사 전환에는 `meal_of_day`(`breakfast`, `lunch`, `dinner`)를 추가합니다.
+
+직접 탭한 동작만 기록하고 초기 표시·스와이프·자동 전환은 제외합니다.
+다음 주 식단과 운영시간 이벤트는 조회 시도이며, 표시 성공을 의미하지 않습니다.
+순환 방식의 식사 버튼 클릭 수는 식사 선호도를 나타내지 않습니다.
+앱에서 사용자 ID, 입력값, 식단 본문, 알레르기 정보는 클릭 이벤트에 추가하지 않습니다.
+Firebase 초기화 전이나 전송 실패 시에는 앱 동작을 유지하며 이벤트를 재전송하지 않습니다.
+Web은 기존 설정에 따라 Release 빌드에서만 기록합니다.
+
 ### Test
 
 Flutter 코드를 분석하고 테스트하려면 다음 명령을 실행하세요.
