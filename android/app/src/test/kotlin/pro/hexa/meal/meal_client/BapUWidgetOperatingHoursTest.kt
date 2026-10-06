@@ -4,8 +4,33 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.Calendar
+import java.io.File
+import org.junit.Rule
+import org.junit.rules.TemporaryFolder
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertNotNull
 
 class BapUWidgetOperatingHoursTest {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    @Test
+    fun `캐시 부재와 손상 및 읽기 실패를 구분한다`() {
+        val file = File(temporaryFolder.root, "info.json")
+        assertThrows(WidgetInfoCacheMissingException::class.java) {
+            BapUWidgetOperatingHours.loadRequiredFromCache(file)
+        }
+        file.writeText("{broken")
+        val invalid = assertThrows(WidgetInfoCacheException::class.java) {
+            BapUWidgetOperatingHours.loadRequiredFromCache(file)
+        }
+        assertEquals(false, invalid is WidgetInfoCacheMissingException)
+        val unreadable = assertThrows(WidgetInfoCacheException::class.java) {
+            BapUWidgetOperatingHours.loadRequiredFromCache(temporaryFolder.root)
+        }
+        assertNotNull(unreadable.cause)
+    }
+
     @Test
     fun `info json 운영시간으로 현재 운영 상태를 계산한다`() {
         val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())

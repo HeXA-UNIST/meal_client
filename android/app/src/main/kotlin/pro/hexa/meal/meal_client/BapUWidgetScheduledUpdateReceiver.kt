@@ -17,6 +17,7 @@ class BapUWidgetScheduledUpdateReceiver : BroadcastReceiver() {
                 BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
             } catch (e: Exception) {
                 Log.e(TAG, "scheduled update failed", e)
+                reportNativeNonFatal(e)
             } finally {
                 try {
                     // 위젯이 남아있는 한 계속 다음 호출을 예약한다.
@@ -25,6 +26,7 @@ class BapUWidgetScheduledUpdateReceiver : BroadcastReceiver() {
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "next widget update scheduling failed", e)
+                    reportNativeNonFatal(e)
                 } finally {
                     pending.finish()
                 }

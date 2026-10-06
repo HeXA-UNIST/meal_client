@@ -46,9 +46,10 @@ class MealOfDaySwitchButton extends StatelessWidget {
 }
 
 class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
-  const DayOfWeekTabBar({super.key, required this.tabController});
+  const DayOfWeekTabBar({super.key, required this.tabController, this.onTap});
 
   final TabController tabController;
+  final ValueChanged<int>? onTap;
 
   static const _preferredSize = Size.fromHeight(44.0);
 
@@ -99,6 +100,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
                 // 영역을 그대로 보존한다.
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: TabBar(
+                  onTap: onTap,
                   tabs: [
                     Tab(text: l10n.mon),
                     Tab(text: l10n.tue),

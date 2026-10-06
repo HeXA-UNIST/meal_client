@@ -5,6 +5,31 @@ import org.junit.Test
 
 class BapUWidgetFetcherTest {
     @Test
+    fun `운영시간 캐시 부재는 보고 없이 오류 화면을 유지한다`() {
+        val reports = mutableListOf<Throwable>()
+        val data = BapUWidgetFetcher.fetch(
+            { throw WidgetInfoCacheMissingException() }, { reports.add(it) },
+        )
+        assertEquals(true, data.isError)
+        assertEquals(0, reports.size)
+    }
+
+    @Test
+    fun `캐시 장애는 한 번 보고하고 보고 실패에도 오류 화면을 유지한다`() {
+        val failure = WidgetInfoCacheException("invalid info cache")
+        val reports = mutableListOf<Throwable>()
+        val data = BapUWidgetFetcher.fetch(
+            { throw failure },
+            {
+                reports.add(it)
+                throw IllegalStateException("report failed")
+            },
+        )
+        assertEquals(true, data.isError)
+        assertEquals(listOf(failure), reports)
+    }
+
+    @Test
     fun `v2 JSON에서 선택한 요일과 끼니의 REGULAR 메뉴만 위젯 데이터로 파싱한다`() {
         val json = """
             {

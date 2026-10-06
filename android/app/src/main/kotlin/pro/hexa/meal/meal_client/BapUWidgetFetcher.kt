@@ -25,8 +25,18 @@ data class WidgetMealData(
 
 object BapUWidgetFetcher {
     fun fetch(context: Context): WidgetMealData =
-        runCatching { BapUWidgetMealRepository.fetch(context) }
-            .getOrElse { WidgetMealData.error() }
+        fetch({ BapUWidgetMealRepository.fetch(context) }, ::reportWidgetCacheFailure)
+
+    internal fun fetch(
+        load: () -> WidgetMealData,
+        reportFailure: (Throwable) -> Unit,
+    ): WidgetMealData = runCatching(load).getOrElse { error ->
+        // 첫 갱신 전의 캐시 부재는 장애가 아니며 기존 오류 표시는 유지한다.
+        if (error !is WidgetInfoCacheMissingException) {
+            runCatching { reportFailure(error) }
+        }
+        WidgetMealData.error()
+    }
 
     internal fun parseWidgetMealData(
         json: String,

@@ -21,6 +21,7 @@ class BapUWidgetBootReceiver : BroadcastReceiver() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "boot widget restore failed", e)
+                reportNativeNonFatal(e)
             } finally {
                 pending.finish()
             }

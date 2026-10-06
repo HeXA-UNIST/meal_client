@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
@@ -182,6 +183,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
         }
 
         return WeekMenuScaffold(
+          analyticsScreen: AnalyticsScreen.nextWeek,
           mondayOfWeek: _mondayOfWeek,
           initialDayOfWeek: DayOfWeek.mon,
           initialMealOfDay: MealOfDay.breakfast,

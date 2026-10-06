@@ -21,6 +21,7 @@ object BapUWidgetMealRepository {
             dayType = dayType,
             mealOfDay = mealOfDay,
             languageCode = languageCode,
+            onCacheFailure = ::reportWidgetCacheFailure,
         ) ?: WidgetMealData.empty(mealOfDay)
         // 한 render pass가 같은 시각과 같은 info.json 해석을 공유하도록 여기서 한 번만 계산한다.
         // responsive RemoteViews의 size별 렌더가 다시 파일을 읽지 않게 한다.
@@ -39,12 +40,13 @@ object BapUWidgetMealRepository {
         dayType: String,
         mealOfDay: WidgetMealOfDay,
         languageCode: String = "ko",
+        onCacheFailure: (Throwable) -> Unit = {},
     ): WidgetMealData? = listOf(canonicalFile, nextWeekFile).firstNotNullOfOrNull { file ->
-        if (!file.isFile) return@firstNotNullOfOrNull null
+        if (!file.exists()) return@firstNotNullOfOrNull null
         runCatching {
             val json = file.readText(Charsets.UTF_8)
             val root = JSONObject(json)
-            if (root.optJSONObject("week")?.optString("startDate") != targetWeekStart) {
+            if (root.getJSONObject("week").getString("startDate") != targetWeekStart) {
                 return@runCatching null
             }
             BapUWidgetMealParser.parse(
@@ -54,6 +56,9 @@ object BapUWidgetMealRepository {
                 mealOfDay = mealOfDay,
                 languageCode = languageCode,
             )
+        }.onFailure { error ->
+            // 보고 실패가 다음 캐시 탐색을 중단하지 않도록 한다.
+            runCatching { onCacheFailure(error) }
         }.getOrNull()
     }
 

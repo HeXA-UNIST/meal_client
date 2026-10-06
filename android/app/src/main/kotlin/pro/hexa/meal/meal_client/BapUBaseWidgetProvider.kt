@@ -35,6 +35,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                 BapUWidgetScheduleManager.scheduleNext(context)
             } catch (e: Exception) {
                 Log.e(javaClass.simpleName, "widget update failed", e)
+                reportNativeNonFatal(e)
             }
         }
     }
@@ -52,6 +53,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                 }
             } catch (e: Exception) {
                 Log.e(javaClass.simpleName, "widget options update failed", e)
+                reportNativeNonFatal(e)
             }
         }
     }

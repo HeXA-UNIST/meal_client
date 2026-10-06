@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -24,6 +25,7 @@ class WeekMenuScaffold extends StatefulWidget {
     this.bannerText,
     this.drawer,
     this.titleFontWeight = FontWeight.w700,
+    this.analyticsScreen = AnalyticsScreen.home,
   });
 
   final DateTime mondayOfWeek;
@@ -35,6 +37,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final String? bannerText;
   final Widget? drawer;
   final FontWeight titleFontWeight;
+  final AnalyticsScreen analyticsScreen;
 
   @override
   State<WeekMenuScaffold> createState() => _WeekMenuScaffoldState();
@@ -93,7 +96,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    final dayOfWeekTabBar = DayOfWeekTabBar(tabController: _tabController);
+    final dayOfWeekTabBar = DayOfWeekTabBar(
+      tabController: _tabController,
+      onTap: (index) => logUiClick(
+        UiClickTarget.dayTab,
+        screen: widget.analyticsScreen,
+        dayOfWeek: DayOfWeek.values[index],
+      ),
+    );
     final PreferredSizeWidget? bottom;
     final Widget? flexibleSpace;
     if (MediaQuery.sizeOf(context).width >= 840) {
@@ -144,6 +154,11 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
                   // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
                   // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
                   final nextMeal = _mealOfDayNotifier.value.next;
+                  logUiClick(
+                    UiClickTarget.mealSwitch,
+                    screen: widget.analyticsScreen,
+                    mealOfDay: nextMeal,
+                  );
                   // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
                   _mealOfDayNotifier.value = nextMeal;
                   _isMealOfDayButtonTransition = true;

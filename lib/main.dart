@@ -1,8 +1,18 @@
+import 'dart:async' show unawaited;
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:cupertino_ui/cupertino_ui.dart'
     show CupertinoPageTransitionsBuilder;
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:firebase_core/firebase_core.dart';
+
+import 'firebase_options.dart';
 
 import 'package:meal_client/core/native_startup.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -59,6 +69,39 @@ final _darkTheme = _buildTheme(Brightness.dark);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  if (!kIsWeb && kReleaseMode) {
+    // 프레임워크가 포착해 처리한 오류는 non-fatal로 기록한다.
+    FlutterError.onError = (errorDetails) {
+      unawaited(
+        _observeCrashReport(
+          FirebaseCrashlytics.instance.recordFlutterError(
+            errorDetails,
+            fatal: false,
+          ),
+        ),
+      );
+    };
+
+    // 처리되지 않은 최상위 비동기 오류는 fatal로 분류한다.
+    // 실제 프로세스 종료 여부를 판별하는 것은 아니다.
+    PlatformDispatcher.instance.onError = (error, stack) {
+      unawaited(
+        _observeCrashReport(
+          FirebaseCrashlytics.instance.recordError(error, stack, fatal: true),
+        ),
+      );
+      return true;
+    };
+  }
+
+  // Android/iOS의 백그라운드 식단 갱신 작업을 등록한다.
+  // flutter_local_notifications를 설정하고 Android 알림 채널을 생성한다.
   await initializeNativeServices();
   final prefs = await SharedPreferences.getInstance();
 
@@ -73,6 +116,36 @@ void main() async {
       child: const BapUApp(),
     ),
   );
+  // Web 측정 SDK의 네트워크 로딩을 기다리지 않고 앱을 표시한다.
+  if (kIsWeb && kReleaseMode) unawaited(_initializeWebAnalytics());
+}
+
+Future<void> _initializeWebAnalytics() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    final analytics = FirebaseAnalytics.instance;
+    if (await analytics.isSupported()) {
+      // Web은 Core 초기화만으로 측정이 시작되지 않는다.
+      // 광고 관련 기본값은 SDK가 로드되기 전에 index.html에서 설정한다.
+      await analytics.setAnalyticsCollectionEnabled(true);
+    }
+  } catch (error, stack) {
+    // 측정 차단이나 초기화 실패가 식단 조회까지 막지 않도록 한다.
+    debugPrint('Web Analytics initialization failed: $error');
+    debugPrintStack(stackTrace: stack);
+  }
+}
+
+Future<void> _observeCrashReport(Future<void> report) async {
+  try {
+    await report;
+  } catch (error, stack) {
+    // 보고 실패가 전역 오류 처리기로 재진입하여 보고를 반복하지 않도록 한다.
+    debugPrint('Crashlytics reporting failed: $error');
+    debugPrintStack(stackTrace: stack);
+  }
 }
 
 class BapUApp extends StatelessWidget {

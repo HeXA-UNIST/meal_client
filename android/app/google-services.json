@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "979415511220",
+    "project_id": "bapu-efdc8",
+    "storage_bucket": "bapu-efdc8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979415511220:android:6cb83774d4f326d85d67e1",
+        "android_client_info": {
+          "package_name": "com.wjddnwls7879.unistbab"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqQXUbeQrG9D3EQZBHQncoqGPrAq1mONs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

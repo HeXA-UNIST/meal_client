@@ -113,6 +113,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
                     BapUWidgetUpdateDispatcher.renderAllWidgets(ctx)
                 } catch (e: Exception) {
                     Log.e(TAG, "widget render failed", e)
+                    reportNativeNonFatal(e)
                 } finally {
                     runOnUiThread {
                         if (isFinishing || isDestroyed) return@runOnUiThread

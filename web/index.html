@@ -65,6 +65,14 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script>
+    // Analytics가 처음 로드될 때부터 광고 목적의 저장과 활용을 거부한다.
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
 
     window.addEventListener('flutter-first-frame', function () {
       var splash = document.getElementById('web-splash');

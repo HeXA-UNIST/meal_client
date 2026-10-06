@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    env:
+      # SPM 의존성 해석 시 광고 식별자 없는 Analytics를 선택한다.
+      FIREBASE_ANALYTICS_WITHOUT_ADID: 'true'
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v6
@@ -76,6 +79,10 @@ jobs:
             PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$PROFILE_PLIST")
             cp "$PROFILE_PATH" "$PROFILES_DIRECTORY/$PROFILE_UUID.mobileprovision"
           done
+
+      - name: Install FlutterFire CLI
+        run: dart pub global activate flutterfire_cli 1.4.1
+        shell: bash
 
       - name: Build
         run: flutter build ipa --release --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
