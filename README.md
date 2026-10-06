@@ -49,6 +49,14 @@ iOS에서 광고 식별자를 제거한 Firebase Analytics를 사용하기 위�
 export FIREBASE_ANALYTICS_WITHOUT_ADID=true
 ```
 
+iOS Crashlytics는 Release 빌드에서만 자동 수집과 Flutter 오류 보고를 사용합니다.
+프레임워크가 처리한 Flutter 오류는 non-fatal, 최상위 미처리 비동기 오류는 fatal로 기록합니다.
+fatal 분류가 실제 앱 프로세스 종료를 의미하지는 않습니다.
+
+실제 기기용 Release 빌드의 마지막 단계에서 Runner와 Flutter App dSYM을 Firebase에 업로드합니다.
+업로드 실패는 빌드 실패로 표시되며, Debug/Profile 및 시뮬레이터에서는 업로드하지 않습니다.
+iOS Firebase 앱을 변경할 때는 `ios/scripts/upload_crashlytics_symbols.sh`의 앱 ID도 함께 변경하세요.
+
 ### Test
 
 Flutter 코드를 분석하고 테스트하려면 다음 명령을 실행하세요.

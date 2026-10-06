@@ -5,13 +5,13 @@ import 'package:cupertino_ui/cupertino_ui.dart'
     show CupertinoPageTransitionsBuilder;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, kIsWeb, kReleaseMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
 
 import 'package:meal_client/core/native_startup.dart';
@@ -75,16 +75,14 @@ void main() async {
     );
   }
 
-  if (!kIsWeb &&
-      (defaultTargetPlatform != TargetPlatform.android || kReleaseMode)) {
-    // Android는 프레임워크가 포착한 오류를 non-fatal로 기록한다.
-    // iOS의 기존 분류는 해당 플랫폼에서 검증할 때까지 유지한다.
+  if (!kIsWeb && kReleaseMode) {
+    // 프레임워크가 포착해 처리한 오류는 non-fatal로 기록한다.
     FlutterError.onError = (errorDetails) {
       unawaited(
         _observeCrashReport(
           FirebaseCrashlytics.instance.recordFlutterError(
             errorDetails,
-            fatal: defaultTargetPlatform != TargetPlatform.android,
+            fatal: false,
           ),
         ),
       );

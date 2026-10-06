@@ -285,6 +285,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				A10000000000000000000034 /* Embed App Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				C4A5B6000000000000000001 /* Crashlytics Upload Symbols */,
 			);
 			buildRules = (
 			);
@@ -424,6 +425,19 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		C4A5B6000000000000000001 /* Crashlytics Upload Symbols */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(SRCROOT)/scripts/upload_crashlytics_symbols.sh");
+			name = "Crashlytics Upload Symbols";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$SRCROOT/scripts/upload_crashlytics_symbols.sh\"";
+			showEnvVarsInLog = 0;
+		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -649,6 +663,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
+				CRASHLYTICS_COLLECTION_ENABLED = NO;
 				APP_GROUP_IDENTIFIER = group.com.wjddnwls7879.unistbab;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -840,6 +855,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
+				CRASHLYTICS_COLLECTION_ENABLED = NO;
 				APP_GROUP_IDENTIFIER = group.com.wjddnwls7879.unistbab;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
@@ -869,6 +885,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
+				CRASHLYTICS_COLLECTION_ENABLED = YES;
 				APP_GROUP_IDENTIFIER = group.com.wjddnwls7879.unistbab;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
