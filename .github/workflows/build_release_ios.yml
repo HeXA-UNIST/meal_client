@@ -80,6 +80,10 @@ jobs:
             cp "$PROFILE_PATH" "$PROFILES_DIRECTORY/$PROFILE_UUID.mobileprovision"
           done
 
+      - name: Install FlutterFire CLI
+        run: dart pub global activate flutterfire_cli 1.4.1
+        shell: bash
+
       - name: Build
         run: flutter build ipa --release --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
         shell: bash

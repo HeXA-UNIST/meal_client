@@ -53,11 +53,33 @@ iOS Crashlytics는 Release 빌드에서만 자동 수집과 Flutter 오류 보�
 프레임워크가 처리한 Flutter 오류는 non-fatal, 최상위 미처리 비동기 오류는 fatal로 기록합니다.
 fatal 분류가 실제 앱 프로세스 종료를 의미하지는 않습니다.
 
-실제 기기용 Release 빌드의 마지막 단계에서 Runner와 Flutter App dSYM을 Firebase에 업로드합니다.
-업로드 실패는 빌드 실패로 표시되며, Debug/Profile 및 시뮬레이터에서는 업로드하지 않습니다.
-iOS Firebase 앱을 변경할 때는 `ios/scripts/upload_crashlytics_symbols.sh`의 앱 ID도 함께 변경하세요.
+dSYM 업로드는 FlutterFire CLI가 생성하는 Xcode 빌드 단계에서 처리합니다.
+로컬 iOS 빌드 전에 CLI를 설치하세요. iOS Release CI도 같은 버전을 설치합니다.
+
+```bash
+dart pub global activate flutterfire_cli 1.4.1
+export PATH="$PATH:$HOME/.pub-cache/bin"
+```
+
+Firebase 앱 ID와 빌드별 업로드 여부는 `firebase.json`에서 관리합니다.
+Release만 `uploadDebugSymbols: true`이며 Debug/Profile은 `false`입니다.
+Firebase 연결을 재설정할 때는 macOS에서 `flutterfire configure`를 실행하고,
+이 업로드 여부 설정과 기존 Crashlytics 수집 차단 설정이 유지되는지 확인하세요.
+예를 들어 기존 iOS Release 연결을 다시 구성하는 명령은 다음과 같습니다.
+
+```bash
+flutterfire configure --project=bapu-efdc8 --platforms=ios \
+  --ios-bundle-id=com.wjddnwls7879.unistbab --ios-build-config=Release \
+  --ios-out=ios/Runner/GoogleService-Info.plist
+```
+
+현재 앱의 Dart Firebase 초기화는 유지하며, 같은 앱 정보의 `ios/Runner/GoogleService-Info.plist`도 번들에 포함합니다.
+전체 연결 재설정에는 Firebase CLI 로그인 환경이 필요하지만,
+빌드 중 심볼 업로드는 FlutterFire CLI와 `firebase.json`의 기존 앱 설정을 사용합니다.
 
 ### 클릭 분석
+
+수집 범위와 GA 설정의 점검 기록은 [Analytics 개인정보 수집 점검](docs/analytics_privacy_review.md)을 참고하세요.
 
 주요 클릭은 `ui_click` 이벤트로 기록합니다. `target`은 `day_tab`(요일 탭),
 `meal_switch`(식사 전환), `next_week`(다음 주 식단), `operation_hours`(운영시간),
