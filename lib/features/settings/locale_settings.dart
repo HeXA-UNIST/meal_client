@@ -62,6 +62,9 @@ Future<Locale> initializeAppLocale(
     shared = sharedPreferences ?? await sharedAppLocalePreferences();
     if (shared != null) {
       final code = await shared.getString(StorageKeys.locale);
+      if (code != null && code != 'ko' && code != 'en') {
+        throw StateError('Saved app locale is invalid');
+      }
       if (code == 'ko' || code == 'en') {
         await _removeLegacyLocale(prefs);
         return Locale(code!);
