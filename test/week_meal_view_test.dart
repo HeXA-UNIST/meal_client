@@ -53,19 +53,18 @@ void main() {
 
     final appInfo = AppInfo.fromJson(
       jsonDecode(
-            jsonEncode({
-              'announcement': null,
-              'operatingHours': {
-                'weekday': {
-                  'dormitory': {
-                    'breakfast': {'start': '08:00', 'end': '09:20'},
-                  },
-                },
-                'weekend': {},
+        jsonEncode({
+          'announcement': null,
+          'operatingHours': {
+            'weekday': {
+              'dormitory': {
+                'breakfast': {'start': '08:00', 'end': '09:20'},
               },
-            }),
-          )
-          as Map<String, dynamic>,
+            },
+            'weekend': {},
+          },
+        }),
+      ) as Map<String, dynamic>,
     );
 
     await tester.pumpWidget(
