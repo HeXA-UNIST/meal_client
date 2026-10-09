@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('Android 지연 안내와 요일 선택 의미를 노출한다', (tester) async {
+  testWidgets('Android 요일 선택 의미를 노출한다', (tester) async {
     final settings = await _pumpPage(
       tester,
       platform: MealNotificationPlatform.android,
@@ -20,8 +20,6 @@ void main() {
     );
     addTearDown(settings.dispose);
 
-    final l10n = lookupAppLocalizations(const Locale('ko'));
-    expect(find.text(l10n.androidNotificationTimingNotice), findsOneWidget);
     expect(
       tester.getSemantics(find.bySemanticsLabel('월')),
       matchesSemantics(
@@ -50,6 +48,48 @@ void main() {
         hasTapAction: true,
       ),
     );
+  });
+
+  testWidgets('정확한 알람 권한을 거부하면 스위치를 끈 채 설정 이동 안내를 표시한다', (tester) async {
+    final settings = await _pumpPage(
+      tester,
+      platform: MealNotificationPlatform.android,
+      authorization:
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized,
+    );
+    addTearDown(settings.dispose);
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    expect(settings.notification.enabled, isFalse);
+    expect(
+      find.widgetWithText(SnackBar, l10n.exactAlarmPermissionRequired),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(SnackBarAction, l10n.openExactAlarmSettings),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.notificationPermissionDenied), findsNothing);
+  });
+
+  testWidgets('정확한 알람 권한이 철회되면 설정 진입 시 SnackBar로 복구를 안내한다', (tester) async {
+    final settings = await _pumpPage(
+      tester,
+      platform: MealNotificationPlatform.android,
+      initialValues: {StorageKeys.notificationEnabled: true},
+      authorization:
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized,
+    );
+    addTearDown(settings.dispose);
+    await tester.pumpAndSettle();
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    expect(find.text(l10n.exactAlarmPermissionRequired), findsOneWidget);
+    expect(
+      find.widgetWithText(SnackBarAction, l10n.openExactAlarmSettings),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.notificationPermissionUnavailable), findsNothing);
   });
 
   testWidgets('마스터 스위치가 꺼지면 종속 컨트롤이 선택 상태는 유지한 채 모두 비활성이 된다', (tester) async {
@@ -250,6 +290,7 @@ Future<BapuSettings> _pumpPage(
       cancel: () async {},
     ),
     notificationPermissionRequester: () async => permissionGranted,
+    exactAlarmPermissionRequester: () async => false,
     notificationAuthorizationStatusReader: () async => authorization,
   );
 

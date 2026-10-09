@@ -238,10 +238,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openSystemAppSettings => 'Open Settings';
 
   @override
-  String get androidNotificationTimingNotice =>
-      'Device power restrictions may delay notifications beyond the selected time.';
-
-  @override
   String get notificationSyncFailed =>
       'Notification settings could not be applied.';
 
@@ -253,4 +249,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cafeteriaNotOperating => 'Not currently open';
+
+  @override
+  String get exactAlarmPermissionRequired =>
+      'Allow alarms and reminders to receive meal notifications.';
+
+  @override
+  String get openExactAlarmSettings => 'Alarms & reminders settings';
 }

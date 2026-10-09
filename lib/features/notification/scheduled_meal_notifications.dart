@@ -24,14 +24,9 @@ const _notificationDateModulo = 100000;
 
 /// 예약 시각이 지난 pending을 stale로 판정하기까지 기다리는 시간.
 ///
-/// Android는 `inexactAllowWhileIdle` 알람을 예약 시각이 아니라 지연 창 안에서
-/// 배달한다. 창이 닫히기 전에 reconcile이 돌면 아직 배달되지 않은 알림이 batch에서
-/// 빠지는데, 이때 곧바로 취소하면 사용자는 그 끼니 알림을 영영 받지 못한다.
-/// 그래서 시각이 지난 pending도 이 시간 동안은 배달 대기로 보고 그대로 둔다.
-///
-/// 1시간은 Android 12+ 문서가 말하는 통상 창 상한에 맞춘 값이다. Doze나 절전
-/// 모드에서는 그보다 더 밀릴 수 있으므로 절대 보장이 아니다 — 그 경우 유예가
-/// 끝난 뒤의 reconcile이 아직 pending인 알림을 취소할 수 있다.
+/// Android의 `setExact`도 Doze 중에는 지연될 수 있다. 기존 inexact 예약과
+/// 절전 중 배달 대기 중인 알림을 조정 과정에서 곧바로 취소하지 않도록
+/// 기존 1시간 유예를 유지한다. 절전 지연의 상한을 보장하는 값은 아니다.
 const kMealNotificationDeliveryGrace = Duration(hours: 1);
 
 typedef ScheduledMealNotification = ({
@@ -211,6 +206,15 @@ Future<void> reconcileScheduledMealNotifications({
       .where(isScheduledMealNotificationId)
       .toList(growable: false);
   if (!currentGeneration()) {
+    return;
+  }
+  if (authorization ==
+      MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+    // 업데이트 전 inexact 예약도 특별 접근이 없으면 남기지 않는다.
+    for (final id in pending) {
+      if (!currentGeneration()) return;
+      await canceler(id);
+    }
     return;
   }
   final instant = (nowProvider ?? DateTime.now)();

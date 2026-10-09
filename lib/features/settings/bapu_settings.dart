@@ -39,7 +39,12 @@ typedef NotificationPersistenceRunner = Future<bool> Function(
 
 const foregroundMealRefreshInterval = Duration(hours: 1);
 
-enum NotificationEnableResult { enabled, permissionDenied, failed }
+enum NotificationEnableResult {
+  enabled,
+  permissionDenied,
+  exactAlarmPermissionDenied,
+  failed,
+}
 
 class BapuSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -50,6 +55,7 @@ class BapuSettings extends ChangeNotifier {
   Locale _locale;
   final NotificationScheduleCoordinator _notificationScheduleCoordinator;
   final Future<bool> Function() _requestNotificationPermission;
+  final Future<bool> Function() _requestExactAlarmPermission;
   final NotificationAuthorizationStatusReader _readAuthorizationStatus;
   final MealNotificationPlatform _notificationPlatform;
   final DateTime Function() _clock;
@@ -71,14 +77,13 @@ class BapuSettings extends ChangeNotifier {
   MealNotificationAuthorizationStatus? get notificationAuthorizationStatus =>
       _notificationAuthorizationStatus;
   bool get notificationSyncFailed => _notificationSyncFailed;
-  bool get usesInexactNotificationTiming =>
-      _notificationPlatform == MealNotificationPlatform.android;
 
   BapuSettings(
     this._prefs, {
     Locale? initialLocale,
     NotificationScheduleCoordinator? notificationScheduleCoordinator,
     Future<bool> Function()? notificationPermissionRequester,
+    Future<bool> Function()? exactAlarmPermissionRequester,
     NotificationAuthorizationStatusReader?
     notificationAuthorizationStatusReader,
     MealNotificationPlatform? notificationPlatform,
@@ -91,6 +96,8 @@ class BapuSettings extends ChangeNotifier {
            notificationScheduleCoordinator ?? NotificationScheduleCoordinator(),
        _requestNotificationPermission =
            notificationPermissionRequester ?? requestNotificationPermission,
+       _requestExactAlarmPermission =
+           exactAlarmPermissionRequester ?? requestExactMealAlarmPermission,
        _readAuthorizationStatus =
            notificationAuthorizationStatusReader ??
            mealNotificationAuthorizationStatus,
@@ -150,6 +157,31 @@ class BapuSettings extends ChangeNotifier {
           notifyListeners();
           return NotificationEnableResult.permissionDenied;
         }
+        if (_notificationPlatform == MealNotificationPlatform.android) {
+          // 알림 표시 허용 뒤 정확한 알람 권한도 확보해야 설정을 저장한다.
+          var status = await _readAuthorizationStatus();
+          if (_disposed) return NotificationEnableResult.failed;
+          if (status ==
+              MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+            await _requestExactAlarmPermission();
+            if (_disposed) return NotificationEnableResult.failed;
+            status = await _readAuthorizationStatus();
+            if (_disposed) return NotificationEnableResult.failed;
+          }
+          _notificationAuthorizationStatus = status;
+          if (status ==
+              MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+            notifyListeners();
+            return NotificationEnableResult.exactAlarmPermissionDenied;
+          }
+          if (status == MealNotificationAuthorizationStatus.notAuthorized) {
+            notifyListeners();
+            return NotificationEnableResult.permissionDenied;
+          }
+          if (status != MealNotificationAuthorizationStatus.enabled) {
+            return NotificationEnableResult.failed;
+          }
+        }
       } else {
         _notificationAuthorizationStatus = null;
       }
@@ -202,7 +234,9 @@ class BapuSettings extends ChangeNotifier {
     // 저장된 notAuthorized 상태가 갱신된다.
     if (_notification.enabled ||
         _notificationAuthorizationStatus ==
-            MealNotificationAuthorizationStatus.notAuthorized) {
+            MealNotificationAuthorizationStatus.notAuthorized ||
+        _notificationAuthorizationStatus ==
+            MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
       await refreshNotificationAuthorizationStatus();
     }
     if (_disposed || !_notification.enabled) return;

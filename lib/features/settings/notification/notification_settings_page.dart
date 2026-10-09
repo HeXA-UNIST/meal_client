@@ -89,6 +89,15 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       context
           .read<BapuSettings>()
           .refreshNotificationAuthorizationStatus()
+          .then((_) {
+            if (!mounted) return;
+            if (context.read<BapuSettings>().notificationAuthorizationStatus ==
+                MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+              _showToggleFailureSnackBar(
+                NotificationEnableResult.exactAlarmPermissionDenied,
+              );
+            }
+          })
           .catchError((Object error, StackTrace stackTrace) {
             debugPrint(
               '[BapU] notification settings authorization refresh failed: $error',
@@ -139,13 +148,22 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   void _showToggleFailureSnackBar(NotificationEnableResult result) {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
+    final exactAlarmDenied =
+        result == NotificationEnableResult.exactAlarmPermissionDenied;
     final snackBar = SnackBar(
       content: Text(
-        result == NotificationEnableResult.permissionDenied
+        exactAlarmDenied
+            ? l10n.exactAlarmPermissionRequired
+            : result == NotificationEnableResult.permissionDenied
             ? l10n.notificationPermissionDenied
             : l10n.notificationSyncFailed,
       ),
-      action: result == NotificationEnableResult.permissionDenied
+      action: exactAlarmDenied
+          ? SnackBarAction(
+              label: l10n.openExactAlarmSettings,
+              onPressed: () => unawaited(_handleNotificationToggle(true)),
+            )
+          : result == NotificationEnableResult.permissionDenied
           ? SnackBarAction(
               label: l10n.openSystemAppSettings,
               onPressed: _openNotificationSettings,
@@ -232,22 +250,6 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                 l10n.notificationTimesLabel,
                 enabled: notification.enabled,
               ),
-              if (notification.enabled &&
-                  appSettings.usesInexactNotificationTiming)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 24, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      l10n.androidNotificationTimingNotice,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.brightness == Brightness.dark
-                            ? theme.colorScheme.onSurface
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
               if (notification.enabled && notification.activePeriods.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),

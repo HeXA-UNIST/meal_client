@@ -524,12 +524,6 @@ abstract class AppLocalizations {
   /// **'설정 열기'**
   String get openSystemAppSettings;
 
-  /// No description provided for @androidNotificationTimingNotice.
-  ///
-  /// In ko, this message translates to:
-  /// **'절전 설정에 따라 알림이 예정보다 늦게 도착할 수 있습니다.'**
-  String get androidNotificationTimingNotice;
-
   /// No description provided for @notificationSyncFailed.
   ///
   /// In ko, this message translates to:
@@ -553,6 +547,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'운영 중이 아님'**
   String get cafeteriaNotOperating;
+
+  /// No description provided for @exactAlarmPermissionRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'식단 알림을 받으려면 알람 및 리마인더를 허용해 주세요.'**
+  String get exactAlarmPermissionRequired;
+
+  /// No description provided for @openExactAlarmSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'알람 및 리마인더 설정'**
+  String get openExactAlarmSettings;
 }
 
 class _AppLocalizationsDelegate

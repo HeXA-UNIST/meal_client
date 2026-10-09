@@ -178,6 +178,21 @@ void main() {
       expect(prefs.containsKey(StorageKeys.locale), isFalse);
     });
 
+    test('정확한 알람 권한이 없으면 식단 캐시 조회 없이 기존 식단 예약만 취소한다', () async {
+      final owned = _ownedId(DateTime.utc(2026, 7, 20));
+      final canceled = <int>[];
+      await reconcileScheduledMealNotifications(
+        settings: enabledSettings,
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.exactAlarmNotAuthorized,
+        readPendingIds: () async => [owned, 99],
+        cancelPending: (id) async => canceled.add(id),
+        loadCurrentWeek: () async => throw StateError('캐시를 조회하면 안 된다'),
+        upsertNotification: (_) async => throw StateError('예약하면 안 된다'),
+      );
+      expect(canceled, [owned]);
+    });
+
     test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {
       var touchedData = false;
       await reconcileScheduledMealNotifications(

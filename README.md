@@ -77,6 +77,14 @@ xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner -destination 'p
   - `/v2/menu`에서 다음 주 시작일을 제공할 경우(=다음 주 식단이 업로드되었다는 의미) 앱은 다음 주 식단을 가져와 표시합니다.
 - Android와 iOS 앱은 `workmanager`를 통해 백그라운드 데이터 갱신 작업을 등록하고, 사용자 설정과 식단 캐시를 바탕으로 로컬에서 식단 알림을 예약합니다.
 
+Android 식단 알림은 알림 표시 권한과 정확한 알람 특별 접근이 모두 필요합니다.
+알림을 켜면 필요한 권한을 요청하며, Android 12 이상에서는 시스템의
+‘알람 및 리마인더’ 설정 화면에서 정확한 알람을 허용합니다. 권한이 철회되면
+앱의 알림 설정은 유지하고 예약을 중단하며, 설정 진입 시 SnackBar로 복구를 안내합니다.
+위젯은 정확한 알람 권한이 없을 때 식단 대신 권한 안내를 표시합니다.
+식단 알림과 위젯 운영 상태 전환은 `setExact()`로 예약합니다.
+서버 데이터 갱신은 기존 WorkManager 작업이 맡습니다.
+
 ### Directory Structure
 
 ```text

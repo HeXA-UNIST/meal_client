@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/features/settings/locale_settings.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -53,6 +54,7 @@ Future<void> refreshMealNotificationChannel({AppLocalizations? l10n}) async {
 enum MealNotificationAuthorizationStatus {
   enabled,
   notAuthorized,
+  exactAlarmNotAuthorized,
   notApplicable,
 }
 
@@ -74,10 +76,15 @@ mealNotificationAuthorizationStatus({
       if (!(await android.areNotificationsEnabled() ?? false)) {
         return MealNotificationAuthorizationStatus.notAuthorized;
       }
-      return androidMealNotificationAuthorizationStatus(
+      final status = androidMealNotificationAuthorizationStatus(
         appNotificationsEnabled: true,
         channels: await android.getNotificationChannels(),
       );
+      if (status != MealNotificationAuthorizationStatus.enabled) return status;
+      // 알림 표시 권한과 정확한 알람 특별 접근은 별개다.
+      return await android.canScheduleExactNotifications() ?? false
+          ? MealNotificationAuthorizationStatus.enabled
+          : MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
     case MealNotificationPlatform.ios:
       final permissions = await _plugin
           .resolvePlatformSpecificImplementation<
@@ -155,6 +162,7 @@ Future<void> scheduleAndroidMealNotification({
   required String body,
   AndroidZonedSchedule? zonedSchedule,
   String? channelName,
+  Future<bool> Function()? canScheduleExact,
 }) async {
   final resolvedChannelName =
       channelName ?? (await notificationLocalizations()).mealNotifications;
@@ -166,6 +174,9 @@ Future<void> scheduleAndroidMealNotification({
           >()
           ?.zonedSchedule;
   if (schedule == null) return;
+  if (!await (canScheduleExact ?? canScheduleExactMealNotifications)()) {
+    throw PlatformException(code: 'exact_alarms_not_permitted');
+  }
   await schedule(
     id: id,
     title: title,
@@ -178,7 +189,7 @@ Future<void> scheduleAndroidMealNotification({
       priority: Priority.defaultPriority,
       styleInformation: BigTextStyleInformation(body, contentTitle: title),
     ),
-    scheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    scheduleMode: AndroidScheduleMode.exact,
   );
 }
 
@@ -260,6 +271,23 @@ Future<void> scheduleMealNotification({
   ),
   MealNotificationPlatform.unsupported => Future.value(),
 };
+
+Future<bool> canScheduleExactMealNotifications() async =>
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.canScheduleExactNotifications() ??
+    false;
+
+/// Android 12 이상에서는 시스템의 알람 및 리마인더 화면에서 허용한다.
+Future<bool> requestExactMealAlarmPermission() async =>
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestExactAlarmsPermission() ??
+    false;
 
 Future<bool> requestNotificationPermission() async {
   final androidGranted = await _plugin

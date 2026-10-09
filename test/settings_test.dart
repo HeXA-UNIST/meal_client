@@ -209,6 +209,58 @@ void main() {
       expect(scheduleCount, before + 1);
     });
 
+    test('Android 정확한 알람 권한 거부는 설정을 저장하지 않고 허용 후에만 알림을 켠다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var authorization =
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+      var allowExact = false;
+      var exactRequests = 0;
+      var schedules = 0;
+      final settings = BapuSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.android,
+        resumeListenerRegistrar: (_) => () {},
+        notificationPermissionRequester: () async => true,
+        exactAlarmPermissionRequester: () async {
+          exactRequests++;
+          if (allowExact) {
+            authorization = MealNotificationAuthorizationStatus.enabled;
+          }
+          return allowExact;
+        },
+        notificationAuthorizationStatusReader: () async => authorization,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          debounce: Duration.zero,
+          schedule: (_, {required isCurrent}) async {
+            schedules++;
+          },
+          cancel: () async {},
+        ),
+      );
+      addTearDown(settings.dispose);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.exactAlarmPermissionDenied,
+      );
+      expect(settings.notification.enabled, isFalse);
+      expect(prefs.getBool(StorageKeys.notificationEnabled) ?? false, isFalse);
+      expect(schedules, 0);
+      allowExact = true;
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.enabled,
+      );
+      expect(settings.notification.enabled, isTrue);
+      expect(prefs.getBool(StorageKeys.notificationEnabled), isTrue);
+      expect(exactRequests, 2);
+      expect(schedules, 1);
+      authorization =
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+      await settings.refreshNotificationAuthorizationStatus();
+      expect(settings.notificationAuthorizationStatus, authorization);
+      expect(settings.notification.enabled, isTrue);
+    });
+
     test('알림 권한 거부와 시스템 설정에서의 복구를 관찰한다', () async {
       final prefs = await SharedPreferences.getInstance();
       var requestCount = 0;
@@ -338,6 +390,8 @@ void main() {
           cancel: () async => cancelCount++,
         ),
         notificationPermissionRequester: () async => true,
+        notificationAuthorizationStatusReader: () async =>
+            MealNotificationAuthorizationStatus.enabled,
       );
       settingsToDispose.add(settings);
 
