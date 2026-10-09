@@ -565,7 +565,7 @@ packages:
     source: hosted
     version: "2.4.28"
   shared_preferences_foundation:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: shared_preferences_foundation
       sha256: "2ec3934efa51e46117f23031cc141b8fc878e8525b94ec1ea4f7f586cf1b47ea"

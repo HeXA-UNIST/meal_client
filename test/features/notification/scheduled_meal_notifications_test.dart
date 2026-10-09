@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/scheduled_meal_notifications.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
@@ -8,8 +9,11 @@ import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/l10n/app_localizations_ko.dart';
+import 'package:meal_client/l10n/app_localizations_en.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('기기 시간대와 day/night 경계에서 KST 대상 날짜를 보존한다', () {
     final targetDate = DateTime.utc(2026, 3, 30);
     for (final offsetHours in [-8, 0, 9, 13]) {
@@ -126,6 +130,53 @@ void main() {
       dormMenuTypes: const {},
       days: const {DayOfWeek.mon},
     );
+
+    test('저장 언어가 잘못되면 기존 예약을 변경하지 않고 실패한다', () async {
+      SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ja'});
+      final canceled = <int>[];
+      final upserted = <int>[];
+      await expectLater(
+        reconcileScheduledMealNotifications(
+          settings: enabledSettings,
+          currentWeek: (
+            startDate: DateTime.utc(2026, 7, 20),
+            weekMeal: WeekMeal.empty(),
+          ),
+          nowProvider: () => DateTime.utc(2026, 7, 19),
+          loadNextWeek: () async => null,
+          readAuthorizationStatus: () async =>
+              MealNotificationAuthorizationStatus.enabled,
+          readPendingIds: () async => [_ownedId(DateTime.utc(2026, 7, 20))],
+          cancelPending: (id) async => canceled.add(id),
+          upsertNotification: (item) async => upserted.add(item.id),
+        ),
+        throwsStateError,
+      );
+      expect(canceled, isEmpty);
+      expect(upserted, isEmpty);
+    });
+
+    test('업데이트 후 첫 실행 전에도 언어를 저장하지 않고 알림을 예약한다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final upserted = <int>[];
+      await reconcileScheduledMealNotifications(
+        settings: enabledSettings,
+        currentWeek: (
+          startDate: DateTime.utc(2026, 7, 20),
+          weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
+        ),
+        nowProvider: () => DateTime.utc(2026, 7, 19),
+        loadNextWeek: () async => null,
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        readPendingIds: () async => [],
+        cancelPending: (_) async {},
+        upsertNotification: (item) async => upserted.add(item.id),
+      );
+      expect(upserted, [_ownedId(DateTime.utc(2026, 7, 20))]);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey(StorageKeys.locale), isFalse);
+    });
 
     test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {
       var touchedData = false;
@@ -251,6 +302,48 @@ void main() {
           ),
           isEmpty,
         );
+      });
+
+      test('임박한 pending은 새 언어로 갱신하고 지난 pending은 재예약하지 않는다', () async {
+        final week = (
+          startDate: DateTime.utc(2026, 7, 20),
+          weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
+        );
+        final original = buildMealNotificationBatch(
+          settings: enabledSettings,
+          l10n: AppLocalizationsKo(),
+          now: mondayLunchFireInstant.subtract(const Duration(minutes: 1)),
+          currentWeek: week,
+        ).single;
+        final expected = buildMealNotificationBatch(
+          settings: enabledSettings,
+          l10n: AppLocalizationsEn(),
+          now: mondayLunchFireInstant.subtract(const Duration(minutes: 1)),
+          currentWeek: week,
+        ).single;
+        expect(expected.id, original.id);
+        expect(expected.title, isNot(original.title));
+
+        for (final seconds in [-20, 22]) {
+          final canceled = <int>[];
+          final scheduled = <ScheduledMealNotification>[];
+          await reconcileScheduledMealNotifications(
+            settings: enabledSettings,
+            currentWeek: week,
+            nowProvider: () =>
+                mondayLunchFireInstant.add(Duration(seconds: seconds)),
+            readAuthorizationStatus: () async =>
+                MealNotificationAuthorizationStatus.enabled,
+            readPendingIds: () async => [original.id],
+            cancelPending: (id) async => canceled.add(id),
+            loadNextWeek: () async => null,
+            upsertNotification: (item) async => scheduled.add(item),
+            maxNotifications: 1,
+            l10n: AppLocalizationsEn(),
+          );
+          expect(canceled, isEmpty);
+          expect(scheduled, seconds < 0 ? [expected] : isEmpty);
+        }
       });
 
       test('유예가 끝나면 배달되지 않은 pending을 정리한다', () async {

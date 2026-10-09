@@ -1,4 +1,3 @@
-import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 import 'bapu_settings.dart';
+import 'locale_settings.dart';
 import 'allergy/allergy_settings_page.dart';
 import 'notification/notification_settings_page.dart';
 
@@ -48,10 +48,10 @@ class SettingsPage extends StatelessWidget {
               _SectionHeader(l10n.mealNotifications),
               _MealNotificationTile(),
               const _SectionDivider(),
-              _SectionHeader(l10n.language),
-              _LanguageTile(),
-              const _SectionDivider(),
             ],
+            _SectionHeader(l10n.language),
+            _LanguageTile(),
+            const _SectionDivider(),
             _SectionHeader(l10n.themeMode),
             _ThemeTile(),
             const _SectionDivider(),
@@ -144,14 +144,38 @@ class _LanguageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return ListTile(
-      title: Text(l10n.appLanguageSettings),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => device_settings.AppSettings.openAppSettings(
-        type: switch (defaultTargetPlatform) {
-          TargetPlatform.android => device_settings.AppSettingsType.appLocale,
-          TargetPlatform.iOS => device_settings.AppSettingsType.settings,
-          _ => device_settings.AppSettingsType.settings,
+    final locale = context.select<BapuSettings, Locale>(
+      (settings) => settings.locale,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _settingsHorizontalPadding,
+        vertical: 8,
+      ),
+      child: SegmentedButton<Locale>(
+        segments: [
+          ButtonSegment(
+            value: const Locale('ko'),
+            label: Text(l10n.languageKorean),
+          ),
+          ButtonSegment(
+            value: const Locale('en'),
+            label: Text(l10n.languageEnglish),
+          ),
+        ],
+        selected: {locale},
+        onSelectionChanged: (values) async {
+          try {
+            await context.read<BapuSettings>().setLocale(values.first);
+          } catch (error, stackTrace) {
+            reportAppLocaleError('change', error, stackTrace);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)!.languageSaveFailed),
+              ),
+            );
+          }
         },
       ),
     );

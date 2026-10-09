@@ -11,6 +11,7 @@ import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/settings/allergy/allergy_settings.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
+import 'package:meal_client/features/settings/locale_settings.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -62,8 +63,32 @@ void main() {
     });
   });
 
-  test('플랫폼 locale 목록이 비어 있으면 알림은 한국어를 사용한다', () {
-    expect(resolveNotificationLocalizations(const []).localeName, 'ko');
+  test('알림은 저장한 앱 언어를 읽는다', () async {
+    SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ko'});
+    expect((await notificationLocalizations()).localeName, 'ko');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(StorageKeys.locale, 'en');
+    expect((await notificationLocalizations()).localeName, 'en');
+  });
+
+  test('최초 지원 언어를 저장하고 이후 시스템 언어 변경에도 유지한다', () async {
+    for (final locales in <List<Locale>>[
+      [const Locale('ko', 'KR')],
+      [const Locale('ja'), const Locale('ko')],
+      [const Locale('en')],
+      [],
+    ]) {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await initializeAppLocale(prefs, platformLocales: locales);
+      final expected = resolveInitialAppLocale(locales).languageCode;
+      expect(loadAppLocale(prefs).languageCode, expected);
+      await initializeAppLocale(
+        prefs,
+        platformLocales: [Locale(expected == 'ko' ? 'en' : 'ko')],
+      );
+      expect(loadAppLocale(prefs).languageCode, expected);
+    }
   });
 
   group('MealNotificationPeriod', () {
@@ -153,6 +178,35 @@ void main() {
       settings.setThemeMode(ThemeMode.dark);
       final settings2 = createSettings(prefs);
       expect(settings2.themeMode, ThemeMode.dark);
+    });
+
+    test('앱 언어를 저장하고 재시작 후 복원한다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = createSettings(prefs);
+      await settings.setLocale(const Locale('ko'));
+      expect(settings.locale, const Locale('ko'));
+      expect(createSettings(prefs).locale, const Locale('ko'));
+      await settings.setLocale(const Locale('en'));
+      expect(createSettings(prefs).locale, const Locale('en'));
+    });
+
+    test('언어 변경 시 활성 알림을 다시 예약한다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var scheduleCount = 0;
+      final settings = BapuSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.unsupported,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule: (_, {required isCurrent}) async => scheduleCount++,
+          cancel: () async {},
+        ),
+        notificationPermissionRequester: () async => true,
+      );
+      settingsToDispose.add(settings);
+      await settings.setNotificationEnabled(true);
+      final before = scheduleCount;
+      await settings.setLocale(const Locale('ko'));
+      expect(scheduleCount, before + 1);
     });
 
     test('알림 권한 거부와 시스템 설정에서의 복구를 관찰한다', () async {

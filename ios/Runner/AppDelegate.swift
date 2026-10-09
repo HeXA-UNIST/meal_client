@@ -59,6 +59,21 @@ import workmanager_apple
     )
     sharedStorageChannel.setMethodCallHandler { call, result in
       switch call.method {
+      case "appGroupIdentifier":
+        guard
+          let group = Bundle.main.object(forInfoDictionaryKey: appGroupInfoKey) as? String,
+          !group.isEmpty
+        else {
+          result(
+            FlutterError(
+              code: "APP_GROUP_UNAVAILABLE",
+              message: "App Group identifier is missing",
+              details: nil
+            )
+          )
+          return
+        }
+        result(group)
       case "sharedWidgetCacheDir":
         sharedWidgetCacheDir(result: result)
       case "excludeFileFromBackup":
