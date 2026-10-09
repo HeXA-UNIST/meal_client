@@ -1,8 +1,12 @@
 package pro.hexa.meal.meal_client
 
 import android.appwidget.AppWidgetManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import android.util.SizeF
 import android.util.TypedValue
@@ -28,6 +32,21 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                 baseContext, requireNotNull(data.languageCode)
             )
             Log.d(TAG, "updateWidget id=$widgetId data=$data")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                !BapUWidgetScheduleManager.canScheduleExactAlarms(context)) {
+                val settingsIntent = Intent(
+                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:${context.packageName}"),
+                )
+                val settingsPendingIntent = PendingIntent.getActivity(
+                    context, 5101, settingsIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                val notice = RemoteViews(context.packageName, R.layout.widget_exact_alarm_notice)
+                notice.setOnClickPendingIntent(R.id.widget_root, settingsPendingIntent)
+                manager.updateAppWidget(widgetId, notice)
+                return
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val sizes = manager.getAppWidgetOptions(widgetId)
                     .getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)

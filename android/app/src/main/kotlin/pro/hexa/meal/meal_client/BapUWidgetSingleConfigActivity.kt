@@ -2,10 +2,13 @@ package pro.hexa.meal.meal_client
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -99,7 +102,9 @@ class BapUWidgetSingleConfigActivity : Activity() {
             findViewById(R.id.dot_faculty),
         )
 
-        selectedCafeteria = loadSingleCafeteria(this, appWidgetId)
+        // 시스템 설정을 왕복하며 Activity가 재생성되어도 아직 저장하지 않은 선택을 유지한다.
+        selectedCafeteria = savedInstanceState?.getInt(STATE_CAFETERIA)
+            ?: loadSingleCafeteria(this, appWidgetId)
         stylePreview()
         refreshSelection()
 
@@ -129,29 +134,59 @@ class BapUWidgetSingleConfigActivity : Activity() {
             }
         }
 
+        findViewById<Button>(R.id.btn_exact_alarm_settings).setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    startActivity(Intent(
+                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        Uri.parse("package:$packageName"),
+                    ))
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(this, R.string.widget_exact_alarm_settings_unavailable, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         findViewById<Button>(R.id.btn_confirm).setOnClickListener {
             it.isEnabled = false
             saveSingleCafeteria(this, appWidgetId, selectedCafeteria)
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
             val ctx = applicationContext
-            BapUWidgetUpdateDispatcher.execute {
-                try {
-                    BapUWidgetUpdateDispatcher.renderAllWidgets(ctx)
-                } catch (e: Exception) {
-                    Log.e(TAG, "widget render failed", e)
-                } finally {
-                    runOnUiThread {
-                        if (isFinishing || isDestroyed) return@runOnUiThread
-                        setResult(
-                            RESULT_OK,
-                            Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
-                        )
-                        finish()
-                    }
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(ctx) { failure ->
+                if (failure != null) Log.e(TAG, "widget render failed", failure)
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    setResult(
+                        RESULT_OK,
+                        Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+                    )
+                    finish()
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+        val allowed = BapUWidgetScheduleManager.canScheduleExactAlarms(this)
+        findViewById<TextView>(R.id.tv_exact_alarm_status).setText(
+            if (allowed) R.string.widget_exact_alarm_allowed else R.string.widget_exact_alarm_not_allowed
+        )
+        findViewById<View>(R.id.exact_alarm_section).visibility =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) View.VISIBLE else View.GONE
+        // 허용·거절 후 돌아왔을 때 기존 위젯의 예약을 현재 권한에 맞춘다.
+        if (BapUWidgetUpdateDispatcher.hasAnyWidget(this)) {
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) { failure ->
+                if (failure != null) Log.e(TAG, "widget restore after config resume failed", failure)
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt(STATE_CAFETERIA, selectedCafeteria)
+        super.onSaveInstanceState(outState)
     }
 
     private fun refreshSelection() {
@@ -260,6 +295,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
 
     companion object {
         private const val TAG = "BapUWidgetSingleConfig"
+        private const val STATE_CAFETERIA = "selectedCafeteria"
 
         /** widget_config_single.xml의 preview_widget include 크기(180dp)와 반드시 일치해야 한다. */
         private const val PREVIEW_SIZE_DP = 180f

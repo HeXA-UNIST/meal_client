@@ -170,6 +170,30 @@
                 android:visibility="gone" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/exact_alarm_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_exact_alarm_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/widget_exact_alarm_not_allowed"
+                android:textColor="@color/config_text_primary"
+                android:textSize="14sp"
+                android:fontFamily="@font/pretendard" />
+
+            <Button
+                android:id="@+id/btn_exact_alarm_settings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/widget_exact_alarm_settings"
+                android:fontFamily="@font/pretendard" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btn_confirm"
             android:layout_width="match_parent"

@@ -8,6 +8,13 @@
     <!-- 위젯 설정 -->
     <string name="widget_config_title">식당 선택</string>
     <string name="widget_config_confirm">확인</string>
+    <string name="widget_exact_alarm_allowed">정확한 위젯 갱신이 허용되어 있습니다. 절전 중에는 갱신이 늦을 수 있습니다.</string>
+    <string name="widget_exact_alarm_not_allowed">알람 및 리마인더를 허용하면 위젯 메뉴와 운영 상태를 표시합니다. 허용 전에는 위젯에 권한 안내가 표시됩니다.</string>
+    <string name="widget_exact_alarm_settings">알람 및 리마인더 설정 열기</string>
+    <string name="widget_exact_alarm_settings_unavailable">알람 및 리마인더 설정을 열 수 없습니다.</string>
+    <string name="widget_exact_alarm_notice_title">위젯 갱신 권한</string>
+    <string name="widget_exact_alarm_notice_body">운영 상태를 제때 갱신하려면 알람 및 리마인더를 허용해 주세요.</string>
+    <string name="widget_exact_alarm_notice_action">탭하여 설정 열기</string>
 
     <!-- 위젯 상태 -->
     <string name="widget_loading">데이터 로딩 중…</string>

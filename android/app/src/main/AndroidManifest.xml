@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 사용자가 허용한 경우 위젯 운영 상태 전환 시각의 정확도를 높인다. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -52,12 +54,22 @@
             android:name=".BapUWidgetScheduledUpdateReceiver"
             android:exported="false" />
 
-        <!-- 재부팅 후 예약 호출 재등록 -->
+        <!-- 정확한 알람 권한 허용 후 기존 위젯 예약 재등록 -->
+        <receiver
+            android:name=".BapUWidgetExactAlarmPermissionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 재부팅·앱 업데이트 후 기존 위젯 예약 재등록 -->
         <receiver
             android:name=".BapUWidgetBootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 
