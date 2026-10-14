@@ -10,10 +10,6 @@ Exception createHttpException(int statusCode) =>
 // 브라우저 환경에 맞는 구현을 자동으로 선택한다.
 Client createPlatformHttpClient() => Client();
 
-// 식단은 브라우저 HTTP 캐시를 읽거나 저장하지 않고 매번 요청한다.
-Future<String> fetchPlatformRawString(Client client, String url) =>
-    _fetchRawString(url, cache: 'no-store');
-
 Future<({int statusCode, String? body})> fetchPlatformRawConditional(
   Client client,
   String url, {

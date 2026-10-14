@@ -10,14 +10,6 @@ Exception createHttpException(int statusCode) =>
 
 Client _createDefaultClient() => Client();
 
-Future<String> fetchPlatformRawString(Client client, String url) async {
-  final response = await client.get(Uri.parse(url));
-  if (response.statusCode != 200) {
-    throw createHttpException(response.statusCode);
-  }
-  return response.body;
-}
-
 Future<({int statusCode, String? body})> fetchPlatformRawConditional(
   Client client,
   String url, {
