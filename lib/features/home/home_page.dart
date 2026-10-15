@@ -259,6 +259,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       key: ValueKey(_mondayOfWeek),
       mondayOfWeek: _mondayOfWeek,
       initialDayOfWeek: _initialDayOfWeek,
+      today: DayOfWeek.values[MealTimeConfig.toKst(_now()).weekday - 1],
       initialMealOfDay: _initialMealOfDay,
       cachedMealFuture: cachedMeal,
       mealFuture: downloadedMeal,

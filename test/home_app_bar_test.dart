@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_app_bar.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
@@ -24,7 +25,10 @@ void main() {
           home: Scaffold(
             body: Column(
               children: [
-                DayOfWeekTabBar(tabController: tabController),
+                DayOfWeekTabBar(
+                  tabController: tabController,
+                  today: DayOfWeek.thu,
+                ),
                 MealOfDaySwitchButton(
                   onPressed: () {},
                   label: '아침',

@@ -17,6 +17,7 @@ class WeekMenuScaffold extends StatefulWidget {
     super.key,
     required this.mondayOfWeek,
     required this.initialDayOfWeek,
+    this.today,
     required this.initialMealOfDay,
     required this.mealFuture,
     this.cachedMealFuture,
@@ -28,6 +29,7 @@ class WeekMenuScaffold extends StatefulWidget {
 
   final DateTime mondayOfWeek;
   final DayOfWeek initialDayOfWeek;
+  final DayOfWeek? today;
   final MealOfDay initialMealOfDay;
   final Future<WeekMeal> mealFuture;
   final Future<WeekMeal>? cachedMealFuture;
@@ -93,7 +95,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    final dayOfWeekTabBar = DayOfWeekTabBar(tabController: _tabController);
+    final dayOfWeekTabBar = DayOfWeekTabBar(
+      tabController: _tabController,
+      today: widget.today,
+    );
     final PreferredSizeWidget? bottom;
     final Widget? flexibleSpace;
     if (MediaQuery.sizeOf(context).width >= 840) {
