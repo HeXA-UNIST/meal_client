@@ -4,11 +4,17 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/core/network/http_client.dart';
+import 'package:meal_client/core/network/platform_http_client.dart'
+    show createHttpException;
 import 'package:meal_client/core/widget_shared_storage.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 
 typedef RawStringFetcher = Future<String> Function(String url);
+typedef ConditionalMealFetcher = Future<ConditionalResponse> Function(
+  String url, {
+  String? ifNoneMatch,
+});
 typedef MealCacheWriteLock = Future<void> Function(
   Future<void> Function() action,
 );
@@ -19,6 +25,7 @@ class MealRefreshService {
     MealCache? cache,
     MealCache? nextWeekCache,
     RawStringFetcher? fetchRaw,
+    ConditionalMealFetcher? fetchConditional,
     DateTime Function()? clock,
     MealCacheWriteLock? lockCanonicalCache,
     NextWeekCacheWriteLock? lockNextWeekCache,
@@ -27,7 +34,8 @@ class MealRefreshService {
   }) : _cache = cache ?? MealCache(),
        _nextWeekCache =
            nextWeekCache ?? MealCache(fileName: StorageKeys.nextMealCacheFile),
-       _fetchRaw = fetchRaw ?? fetchRawString,
+       _fetchRaw = fetchRaw ?? (kIsWeb ? fetchRawString : null),
+       _fetchConditional = fetchConditional ?? fetchRawConditional,
        _clock = clock ?? DateTime.now,
        _lockCanonicalCache =
            lockCanonicalCache ??
@@ -43,7 +51,8 @@ class MealRefreshService {
 
   final MealCache _cache;
   final MealCache _nextWeekCache;
-  final RawStringFetcher _fetchRaw;
+  final RawStringFetcher? _fetchRaw;
+  final ConditionalMealFetcher _fetchConditional;
   final DateTime Function() _clock;
   final MealCacheWriteLock _lockCanonicalCache;
   final NextWeekCacheWriteLock _lockNextWeekCache;
@@ -68,7 +77,11 @@ class MealRefreshService {
     DateTime? now,
   }) async {
     final requestStartedAt = now ?? _clock();
-    final rawMeal = await _fetchRaw(ApiConstants.mealEndpoint);
+    final rawMeal = await _fetchRawMeal(
+      ApiConstants.mealEndpoint,
+      cache: _cache,
+      weekStart: kstWeekStartForInstant(requestStartedAt),
+    );
     final weekMeal = _parseValidRawMeal(rawMeal);
     final weekMeta = parseWeekMeta(rawMeal);
     final canonicalWriteSucceeded = await _commitCanonicalMeal(
@@ -157,13 +170,53 @@ class MealRefreshService {
   Future<({String rawMeal, WeekMeal weekMeal, DateTime weekStart})>
   _fetchValidatedWeekResponse(String weekStart) async {
     final requestedWeekStart = parseWeekStartDate(weekStart);
-    final rawMeal = await _fetchRaw(ApiConstants.mealEndpointFor(weekStart));
+    final rawMeal = await _fetchRawMeal(
+      ApiConstants.mealEndpointFor(weekStart),
+      cache: _nextWeekCache,
+      weekStart: requestedWeekStart,
+    );
     final weekMeal = _parseValidRawMeal(rawMeal);
     final responseWeekStart = parseWeekMeta(rawMeal).startDate;
     if (!_sameCalendarDate(responseWeekStart, requestedWeekStart)) {
       throw FormatException('Dated meal response belongs to another week');
     }
     return (rawMeal: rawMeal, weekMeal: weekMeal, weekStart: responseWeekStart);
+  }
+
+  Future<String> _fetchRawMeal(
+    String url, {
+    required MealCache cache,
+    required DateTime weekStart,
+  }) async {
+    final fetchRaw = _fetchRaw;
+    if (fetchRaw != null) return fetchRaw(url);
+
+    final cached = _supportsSharedCache
+        ? await cache.readValidatedMealForWeek(weekStart)
+        : null;
+    final decoded = cached == null ? null : jsonDecode(cached.rawMeal);
+    final value = decoded?['etag'];
+    final etag = value is String && value.isNotEmpty ? value : null;
+    final response = await _fetchConditional(url, ifNoneMatch: etag);
+    if (response.statusCode == 304) {
+      if (cached != null && etag != null) {
+        // 보낸 ETag와 같은 스냅샷을 재사용한다. 다른 isolate가 파일을 바꿔도
+        // 304와 무관한 본문을 읽지 않으며, 저장은 기존 잠금과 주차 검증을 거친다.
+        // 재검증한 시각도 기록해야 일요일 자동 선반입이 반복되지 않는다.
+        debugPrint('[BapU] meal 304 - 캐시 재사용');
+        return cached.rawMeal;
+      }
+      // 재사용할 본문이 없으면 조건부 헤더 없이 한 번만 복구를 시도한다.
+      final retry = await _fetchConditional(url);
+      if (retry.statusCode != 200 || retry.body == null) {
+        throw createHttpException(retry.statusCode);
+      }
+      return retry.body!;
+    }
+    if (response.statusCode != 200 || response.body == null) {
+      throw createHttpException(response.statusCode);
+    }
+    return response.body!;
   }
 
   Future<void> _enqueueNextWeekCacheWrite(Future<void> Function() write) {

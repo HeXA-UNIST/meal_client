@@ -2,12 +2,91 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/network/http_client.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
 
 void main() {
   group('MealRefreshService', () {
+    test('200으로 저장한 ETag를 그대로 보내고 304에서는 같은 본문을 재사용한다', () async {
+      final files = <String, String>{};
+      final headers = <String?>[];
+      final rawMeal = _rawMealJson('새 메뉴', etag: '"menu-v2"');
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        clock: _testClock,
+        fetchConditional: (_, {ifNoneMatch}) async {
+          headers.add(ifNoneMatch);
+          return headers.length == 1
+              ? (statusCode: 200, body: rawMeal)
+              : (statusCode: 304, body: null);
+        },
+      );
+
+      await service.refreshMealResponse(prefetchNextWeek: false);
+      final response = await service.refreshMealResponse(
+        prefetchNextWeek: false,
+      );
+
+      expect(headers, [null, '"menu-v2"']);
+      expect(_firstDormitoryBreakfastMenu(response.weekMeal), contains('새 메뉴'));
+      expect(files['meal.json'], rawMeal);
+    });
+
+    final unusableCaches = <String, String>{
+      'ETag 없는 이전 형식': _rawMealJson('기존'),
+      '다른 주차': _rawMealJson('이전 주', weekStart: '2026-04-06', etag: '"old"'),
+      '손상된 본문': '{"etag":"\\"broken\\"","week":{"startDate":"2026-04-13","isCurrentWeek":true},"data":false}',
+    };
+    for (final entry in unusableCaches.entries) {
+      test('${entry.key}이면 조건부 헤더 없이 전체 응답을 저장한다', () async {
+        final files = <String, String>{'meal.json': entry.value};
+        final rawMeal = _rawMealJson('복구 메뉴', etag: '"new"');
+        final service = MealRefreshService(
+          cache: _mapMealCache(files, 'meal.json'),
+          clock: _testClock,
+          fetchConditional: (_, {ifNoneMatch}) async {
+            expect(ifNoneMatch, isNull);
+            return (statusCode: 200, body: rawMeal);
+          },
+        );
+
+        await service.refreshMealResponse(prefetchNextWeek: false);
+
+        expect(files['meal.json'], rawMeal);
+      });
+    }
+
+    test('지정 주 요청은 next cache의 ETag와 본문을 사용한다', () async {
+      final next = _rawMealJson(
+        '다음 주',
+        weekStart: '2026-04-20',
+        etag: '"next"',
+      );
+      final current = _rawMealJson('이번 주', etag: '"current"');
+      final files = <String, String>{
+        'meal.json': current,
+        'meal-next.json': next,
+      };
+      final service = MealRefreshService(
+        cache: _mapMealCache(files, 'meal.json'),
+        nextWeekCache: _mapMealCache(files, 'meal-next.json'),
+        clock: _testClock,
+        lockNextWeekCache: _withoutLock,
+        fetchConditional: (url, {ifNoneMatch}) async {
+          expect(url, endsWith('/2026-04-20'));
+          expect(ifNoneMatch, '"next"');
+          return (statusCode: 304, body: null);
+        },
+      );
+
+      final response = await service.refreshAndCacheNextWeekData('2026-04-20');
+
+      expect(_firstDormitoryBreakfastMenu(response), contains('다음 주'));
+      expect(files, {'meal.json': current, 'meal-next.json': next});
+    });
+
     test('fresh cache가 있으면 네트워크 fetch 없이 캐시를 사용', () async {
       var fetchCount = 0;
       final cache = _memoryMealCache(
@@ -336,47 +415,64 @@ void main() {
       expect(files, isEmpty);
     });
 
-    test('늦게 끝난 이전 요청은 최신 canonical cache를 덮지 않는다', () async {
-      final files = <String, String>{};
-      var updatedAt = DateTime.utc(2026, 4, 13);
-      var writeTime = updatedAt;
-      final cache = MealCache(
-        writeFile: (name, data) async {
-          files[name] = data;
-          updatedAt = writeTime;
-        },
-        readFile: (name) async => files[name]!,
-        readLastModified: (_) async => updatedAt,
-      );
-      final olderResponse = Completer<String>();
-      final newerResponse = Completer<String>();
-      var olderNow = DateTime.utc(2026, 4, 14, 1);
-      var newerNow = DateTime.utc(2026, 4, 14, 2);
-      final older = MealRefreshService(
-        cache: cache,
-        clock: () => olderNow,
-        lockCanonicalCache: _withoutLock,
-        fetchRaw: (_) => olderResponse.future,
-      ).refreshMealResponse(prefetchNextWeek: false);
-      final newer = MealRefreshService(
-        cache: cache,
-        clock: () => newerNow,
-        lockCanonicalCache: _withoutLock,
-        fetchRaw: (_) => newerResponse.future,
-      ).refreshMealResponse(prefetchNextWeek: false);
+    for (final olderStatus in [200, 304]) {
+      test('늦게 끝난 $olderStatus 요청은 최신 canonical cache를 덮지 않는다', () async {
+        final files = <String, String>{
+          'meal.json': _rawMealJson('기존', etag: '"cached"'),
+        };
+        var updatedAt = DateTime.utc(2026, 4, 13);
+        var writeTime = updatedAt;
+        final cache = MealCache(
+          writeFile: (name, data) async {
+            files[name] = data;
+            updatedAt = writeTime;
+          },
+          readFile: (name) async => files[name]!,
+          readLastModified: (_) async => updatedAt,
+        );
+        final olderResponse = Completer<ConditionalResponse>();
+        final newerResponse = Completer<ConditionalResponse>();
+        final olderStarted = Completer<void>();
+        final newerStarted = Completer<void>();
+        var olderNow = DateTime.utc(2026, 4, 14, 1);
+        var newerNow = DateTime.utc(2026, 4, 14, 2);
+        final older = MealRefreshService(
+          cache: cache,
+          clock: () => olderNow,
+          lockCanonicalCache: _withoutLock,
+          fetchConditional: (_, {ifNoneMatch}) {
+            olderStarted.complete();
+            return olderResponse.future;
+          },
+        ).refreshMealResponse(prefetchNextWeek: false);
+        final newer = MealRefreshService(
+          cache: cache,
+          clock: () => newerNow,
+          lockCanonicalCache: _withoutLock,
+          fetchConditional: (_, {ifNoneMatch}) {
+            newerStarted.complete();
+            return newerResponse.future;
+          },
+        ).refreshMealResponse(prefetchNextWeek: false);
 
-      newerNow = DateTime.utc(2026, 4, 14, 3);
-      writeTime = newerNow;
-      newerResponse.complete(_rawMealJson('최신 응답'));
-      await newer;
+        await Future.wait([olderStarted.future, newerStarted.future]);
 
-      olderNow = DateTime.utc(2026, 4, 14, 4);
-      writeTime = olderNow;
-      olderResponse.complete(_rawMealJson('늦은 이전 응답'));
-      await older;
+        newerNow = DateTime.utc(2026, 4, 14, 3);
+        writeTime = newerNow;
+        newerResponse.complete((statusCode: 200, body: _rawMealJson('최신 응답')));
+        await newer;
 
-      expect(files['meal.json'], contains('최신 응답'));
-    });
+        olderNow = DateTime.utc(2026, 4, 14, 4);
+        writeTime = olderNow;
+        olderResponse.complete((
+          statusCode: olderStatus,
+          body: olderStatus == 304 ? null : _rawMealJson('늦은 이전 응답'),
+        ));
+        await older;
+
+        expect(files['meal.json'], contains('최신 응답'));
+      });
+    }
 
     test('평일에는 일치하는 next cache를 다시 선반입하지 않는다', () async {
       final files = <String, String>{
@@ -424,9 +520,13 @@ void main() {
       expect(datedFetches, 0);
     });
 
-    test('일요일에는 이전 기록을 한 번만 갱신하고 같은 날 재시도하지 않는다', () async {
+    test('일요일 304 재검증도 기록하여 같은 날 선반입을 반복하지 않는다', () async {
       final files = <String, String>{
-        'meal-next.json': _rawMealJson('이전', weekStart: '2026-04-20'),
+        'meal-next.json': _rawMealJson(
+          '이전',
+          weekStart: '2026-04-20',
+          etag: '"next"',
+        ),
       };
       var updatedAt = DateTime.utc(2026, 4, 18, 3);
       var datedFetches = 0;
@@ -444,12 +544,16 @@ void main() {
         clock: () => DateTime.utc(2026, 4, 19, 3),
         nextWeekCache: nextCache,
         lockNextWeekCache: _withoutLock,
-        fetchRaw: (url) async {
+        fetchConditional: (url, {ifNoneMatch}) async {
           if (url.endsWith('/2026-04-20')) {
             datedFetches++;
-            return _rawMealJson('일요일 갱신', weekStart: '2026-04-20');
+            expect(ifNoneMatch, '"next"');
+            return (statusCode: 304, body: null);
           }
-          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+          return (
+            statusCode: 200,
+            body: _rawMealJson('이번 주', nextWeekStart: '2026-04-20'),
+          );
         },
       );
       final sunday = DateTime.utc(2026, 4, 19, 3);
@@ -826,8 +930,10 @@ String _rawMealJson(
   String menu, {
   String weekStart = '2026-04-13',
   String? nextWeekStart,
+  String? etag,
 }) {
   return jsonEncode({
+    'etag': ?etag,
     'week': {
       'startDate': weekStart,
       'isCurrentWeek': true,

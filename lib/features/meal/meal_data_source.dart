@@ -1,5 +1,4 @@
 import 'package:meal_client/core/constants.dart';
-import 'package:meal_client/core/network/http_client.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
@@ -90,7 +89,7 @@ Future<MealResponse> _readCachedMealForWeek(
 /// 미리보기는 이 한 요청의 결과를 화면 표시와 cache 갱신에 함께 사용한다.
 Future<WeekMeal> fetchAndCacheMealDataForWeek(
   String weekStart, {
-  RawMealFetcher fetch = fetchRawString,
+  RawMealFetcher? fetch,
   MealCache? nextWeekCache,
   NextWeekCacheWriteLock? lockNextWeekCache,
 }) {

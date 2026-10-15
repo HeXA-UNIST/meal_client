@@ -14,6 +14,7 @@ Future<({int statusCode, String? body})> fetchPlatformRawConditional(
   Client client,
   String url, {
   String? ifModifiedSince,
+  String? ifNoneMatch,
 }) async {
   // 웹은 본문과 검증자를 브라우저가 관리한다. 조건부 헤더를 직접 넣지 않아야
   // 서버의 304 응답을 브라우저가 저장된 본문이 있는 200 응답으로 제공한다.
