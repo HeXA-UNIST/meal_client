@@ -10,6 +10,11 @@ UNIST 구내식당 식단표 뷰어
 [![License: GPL 2.0](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-0553B1?logo=flutter&logoColor=fff)](https://flutter.dev)
 
+## Requirements
+
+- Android 앱: Android 9(SDK 28) 이상
+- iOS 홈 화면 위젯: iOS 17 이상
+
 ## 주요 기능
 
 | 기능 | Android | iOS | Web |

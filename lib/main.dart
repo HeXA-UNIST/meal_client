@@ -12,6 +12,20 @@ import 'package:meal_client/features/settings/locale_settings.dart';
 
 const mainColor = Color(0xFF00CD80);
 
+// 기존 기본 폰트가 Medium이었으므로 가변 폰트에서도 기본 텍스트는 500을 쓴다.
+const _pretendardTextTheme = TextTheme(
+  displayLarge: TextStyle(fontWeight: FontWeight.w500),
+  displayMedium: TextStyle(fontWeight: FontWeight.w500),
+  displaySmall: TextStyle(fontWeight: FontWeight.w500),
+  headlineLarge: TextStyle(fontWeight: FontWeight.w500),
+  headlineMedium: TextStyle(fontWeight: FontWeight.w500),
+  headlineSmall: TextStyle(fontWeight: FontWeight.w500),
+  titleLarge: TextStyle(fontWeight: FontWeight.w500),
+  bodyLarge: TextStyle(fontWeight: FontWeight.w500),
+  bodyMedium: TextStyle(fontWeight: FontWeight.w500),
+  bodySmall: TextStyle(fontWeight: FontWeight.w500),
+);
+
 const _defaultPageTransitionsTheme = PageTransitionsTheme();
 
 // Flutter 기본 플랫폼 전환은 유지하고 Android만 Cupertino 슬라이드로 교체한다.
@@ -41,6 +55,8 @@ ThemeData _buildTheme(Brightness brightness) {
       );
   final theme = ThemeData(
     fontFamily: 'Pretendard',
+    textTheme: _pretendardTextTheme,
+    primaryTextTheme: _pretendardTextTheme,
     brightness: brightness,
     pageTransitionsTheme: _pageTransitionsTheme,
     colorScheme: colorScheme,

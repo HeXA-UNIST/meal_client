@@ -119,8 +119,4 @@ flutter:
   fonts:
     - family: Pretendard
       fonts:
-        - asset: assets/fonts/Pretendard-Medium.otf
-        - asset: assets/fonts/Pretendard-SemiBold.otf
-          weight: 600
-        - asset: assets/fonts/Pretendard-Bold.otf
-          weight: 700
+        - asset: assets/fonts/PretendardVariable.ttf

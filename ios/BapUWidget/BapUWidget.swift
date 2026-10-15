@@ -674,7 +674,7 @@ private struct BapUWidgetView: View {
       localizedContent(languageCode: languageCode)
     } else {
       Text("앱에서 언어 설정을 완료해 주세요.\nOpen BapU to finish language setup.")
-        .font(.custom("Pretendard-Medium", fixedSize: 12))
+        .font(.custom("PretendardVariable-Regular", fixedSize: 12).weight(.medium))
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .widgetURL(URL(string: "bapu://home"))
@@ -686,19 +686,19 @@ private struct BapUWidgetView: View {
     VStack(spacing: 0) {
       HStack(alignment: .firstTextBaseline, spacing: 4) {
         Text(entry.snapshot.selection.localizedCafeteriaName(languageCode: languageCode))
-          .font(.custom("Pretendard-Bold", fixedSize: 15))
+          .font(.custom("PretendardVariable-Regular", fixedSize: 15).weight(.bold))
           .foregroundStyle(WidgetTextColor.brand)
           .lineLimit(1)
           .minimumScaleFactor(0.72)
         if let foodType = entry.snapshot.selection.localizedFoodTypeName(languageCode: languageCode) {
           Text(foodType)
-            .font(.custom("Pretendard-Bold", fixedSize: 15))
+            .font(.custom("PretendardVariable-Regular", fixedSize: 15).weight(.bold))
             .foregroundStyle(.primary)
             .lineLimit(1)
         }
         Spacer(minLength: 4)
         Text(entry.snapshot.meal.localizedName(languageCode: languageCode))
-          .font(.custom("Pretendard-Bold", fixedSize: 14))
+          .font(.custom("PretendardVariable-Regular", fixedSize: 14).weight(.bold))
           .foregroundStyle(.primary)
           .lineLimit(1)
       }
@@ -715,7 +715,7 @@ private struct BapUWidgetView: View {
         .padding(.top, headerToPanelSpacing)
 
       Text(entry.snapshot.status.localizedText(languageCode: languageCode))
-        .font(.custom("Pretendard-Bold", fixedSize: 13))
+        .font(.custom("PretendardVariable-Regular", fixedSize: 13).weight(.bold))
         .foregroundStyle(entry.snapshot.status.color)
         .lineLimit(1)
         .layoutPriority(2)
@@ -737,7 +737,7 @@ private struct BapUWidgetView: View {
             ? "No menu"
             : "메뉴 정보 없음"
         )
-          .font(.custom("Pretendard-Medium", fixedSize: 12))
+          .font(.custom("PretendardVariable-Regular", fixedSize: 12).weight(.medium))
           .foregroundStyle(WidgetTextColor.secondary)
           .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       } else {
@@ -773,7 +773,7 @@ private struct BapUWidgetView: View {
     VStack(alignment: .leading, spacing: menuItemSpacing) {
       ForEach(Array(items.enumerated()), id: \.offset) { _, item in
         Text(item)
-          .font(.custom("Pretendard-Medium", fixedSize: 12))
+          .font(.custom("PretendardVariable-Regular", fixedSize: 12).weight(.medium))
           .foregroundStyle(.primary)
           .fixedSize(horizontal: false, vertical: true)
           .frame(maxWidth: .infinity, alignment: .leading)
