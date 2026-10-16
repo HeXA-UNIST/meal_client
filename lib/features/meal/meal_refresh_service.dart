@@ -11,10 +11,6 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 
 typedef RawStringFetcher = Future<String> Function(String url);
-typedef ConditionalMealFetcher = Future<ConditionalResponse> Function(
-  String url, {
-  String? ifNoneMatch,
-});
 typedef MealCacheWriteLock = Future<void> Function(
   Future<void> Function() action,
 );
@@ -25,7 +21,7 @@ class MealRefreshService {
     MealCache? cache,
     MealCache? nextWeekCache,
     RawStringFetcher? fetchRaw,
-    ConditionalMealFetcher? fetchConditional,
+    ConditionalFetcher? fetchConditional,
     DateTime Function()? clock,
     MealCacheWriteLock? lockCanonicalCache,
     NextWeekCacheWriteLock? lockNextWeekCache,
@@ -52,7 +48,7 @@ class MealRefreshService {
   final MealCache _cache;
   final MealCache _nextWeekCache;
   final RawStringFetcher? _fetchRaw;
-  final ConditionalMealFetcher _fetchConditional;
+  final ConditionalFetcher _fetchConditional;
   final DateTime Function() _clock;
   final MealCacheWriteLock _lockCanonicalCache;
   final NextWeekCacheWriteLock _lockNextWeekCache;

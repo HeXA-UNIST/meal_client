@@ -7,10 +7,6 @@ import 'package:meal_client/core/widget_shared_storage.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_cache.dart';
 
-typedef RawInfoFetcher = Future<ConditionalResponse> Function(
-  String url, {
-  String? ifModifiedSince,
-});
 typedef InfoCacheWriteLock = Future<void> Function(
   Future<void> Function() action,
 );
@@ -27,7 +23,7 @@ class InfoCacheWriteException implements Exception {
 class InfoRefreshService {
   InfoRefreshService({
     InfoCache? cache,
-    RawInfoFetcher? fetchRaw,
+    ConditionalFetcher? fetchRaw,
     DateTime Function()? clock,
     InfoCacheWriteLock? lockCache,
     this._throwOnCacheWriteFailure = false,
@@ -42,7 +38,7 @@ class InfoRefreshService {
                : (action) => action());
 
   final InfoCache _cache;
-  final RawInfoFetcher _fetchRaw;
+  final ConditionalFetcher _fetchRaw;
   final DateTime Function() _clock;
   final InfoCacheWriteLock _lockCache;
   final bool _throwOnCacheWriteFailure;
@@ -51,19 +47,17 @@ class InfoRefreshService {
     final requestStartedAt = _clock();
     final res = await _fetchRaw(
       ApiConstants.infoEndpoint,
-      ifModifiedSince: await _readCachedLastModified(),
+      ifNoneMatch: await _readCachedEtag(),
     );
 
     if (res.statusCode == 304) {
-      // 서버가 방금 "변경 없음"을 확인해줬다. /v2/info의 last_modified는 워커
-      // 배포 버전이고 공지·운영시간은 배포로만 바뀌므로, 캐시된 info.json을
-      // 그대로 파싱해 돌려줘도 안전하다.
+      // 서버가 ETag로 공지·운영시간에 변경이 없음을 확인했으므로 캐시를 쓴다.
       try {
         final info = _parseValidRawInfo(await _cache.readRawInfoJson());
         debugPrint('[BapU] info 304 - 캐시 유지');
         return info;
       } catch (_) {
-        // If-Modified-Since를 보냈는데 그 사이 캐시가 사라졌거나 손상된 드문
+        // If-None-Match를 보냈는데 그 사이 캐시가 사라졌거나 손상된 드문
         // 경우다. 조건부 헤더 없이 한 번 더 받아 캐시를 복구한다.
         final retry = await _fetchRaw(ApiConstants.infoEndpoint);
         final rawInfo = retry.body!;
@@ -79,13 +73,13 @@ class InfoRefreshService {
     return info;
   }
 
-  /// 캐시된 info.json 본문의 last_modified 값. 캐시가 없거나 값이 없으면 null을
+  /// 캐시된 info.json 본문의 etag 값. 캐시가 없거나 값이 없으면 null을
   /// 돌려주고, 그 경우 조건부 요청 없이 전체 응답을 받는다.
-  Future<String?> _readCachedLastModified() async {
+  Future<String?> _readCachedEtag() async {
     try {
       final decoded = jsonDecode(await _cache.readRawInfoJson());
       if (decoded is! Map<String, dynamic>) return null;
-      final value = decoded['last_modified'];
+      final value = decoded['etag'];
       return value is String && value.isNotEmpty ? value : null;
     } catch (_) {
       return null;

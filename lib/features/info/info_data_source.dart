@@ -6,7 +6,7 @@ import 'package:meal_client/features/info/info_cache.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 
 Future<AppInfo> fetchAppInfo({
-  RawInfoFetcher fetch = fetchRawConditional,
+  ConditionalFetcher fetch = fetchRawConditional,
 }) async {
   return InfoRefreshService(
     fetchRaw: fetch,

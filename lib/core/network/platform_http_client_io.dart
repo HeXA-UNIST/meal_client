@@ -13,15 +13,11 @@ Client _createDefaultClient() => Client();
 Future<({int statusCode, String? body})> fetchPlatformRawConditional(
   Client client,
   String url, {
-  String? ifModifiedSince,
   String? ifNoneMatch,
 }) async {
   final response = await client.get(
     Uri.parse(url),
-    headers: {
-      'If-Modified-Since': ?ifModifiedSince,
-      'If-None-Match': ?ifNoneMatch,
-    },
+    headers: {'If-None-Match': ?ifNoneMatch},
   );
   if (response.statusCode == 304) {
     return (statusCode: 304, body: null);

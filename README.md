@@ -78,7 +78,7 @@ xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner -destination 'p
 - `/v2/menu`에서 식단을, `/v2/info`에서 최신 식당 운영 시간과 공지를 가져옵니다.
   - Android와 iOS 앱은 받은 JSON을 캐시에 저장해 홈 화면 위젯과 공유합니다.
   - 요청을 보내기 전 유효한 캐시가 있으면 해당 데이터를 먼저 표시하고, 최신 응답을 받으면 화면을 갱신합니다.
-  - Android와 iOS의 식단 요청은 저장된 JSON의 `etag`로 재검증하고, 304이면 기존 본문을 재사용합니다.
+  - Android와 iOS의 식단·안내 정보 요청은 저장된 JSON의 `etag`로 재검증하고, 304이면 기존 본문을 재사용합니다.
   - 웹에서는 별도의 파일 캐시를 사용하지 않습니다.
   - `/v2/menu`에서 다음 주 시작일을 제공할 경우(=다음 주 식단이 업로드되었다는 의미) 앱은 다음 주 식단을 가져와 표시합니다.
 - Android와 iOS 앱은 `workmanager`를 통해 백그라운드 데이터 갱신 작업을 등록하고, 사용자 설정과 식단 캐시를 바탕으로 로컬에서 식단 알림을 예약합니다.
