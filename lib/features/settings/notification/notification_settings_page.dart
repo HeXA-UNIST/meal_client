@@ -183,6 +183,8 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       if (!mounted) return;
       messenger.showSnackBar(snackBar);
     });
+    // 권한 상태가 같으면 리빌드가 없으므로 콜백이 실행될 프레임도 요청한다.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override

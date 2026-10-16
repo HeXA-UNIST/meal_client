@@ -10,7 +10,10 @@ data class WidgetOperatingHours(
     val weekend: Map<WidgetCafeteria, Map<WidgetMealOfDay, OperatingPeriod>>,
 )
 
-class WidgetInfoCacheException(message: String) : IllegalStateException(message)
+open class WidgetInfoCacheException(message: String, cause: Throwable? = null) :
+    IllegalStateException(message, cause)
+
+class WidgetInfoCacheMissingException : WidgetInfoCacheException("missing info cache")
 
 object BapUWidgetOperatingHours {
     fun loadFromCache(context: Context): WidgetOperatingHours? {
@@ -21,9 +24,9 @@ object BapUWidgetOperatingHours {
 
     fun loadRequiredFromCache(context: Context): WidgetOperatingHours {
         val file = File(context.filesDir, BapUWidgetContract.INFO_CACHE_FILE)
-        if (!file.isFile) throw WidgetInfoCacheException("missing ${BapUWidgetContract.INFO_CACHE_FILE}")
+        if (!file.exists()) throw WidgetInfoCacheMissingException()
         val rawInfo = runCatching { file.readText() }
-            .getOrElse { throw WidgetInfoCacheException("unreadable ${BapUWidgetContract.INFO_CACHE_FILE}") }
+            .getOrElse { throw WidgetInfoCacheException("unreadable ${BapUWidgetContract.INFO_CACHE_FILE}", it) }
         return parseRawInfo(rawInfo)
             ?: throw WidgetInfoCacheException("invalid ${BapUWidgetContract.INFO_CACHE_FILE}")
     }
