@@ -25,7 +25,7 @@ typedef ConditionalFetcher = Future<ConditionalResponse> Function(
 });
 
 /// 네이티브에서는 응답 JSON의 etag를 [ifNoneMatch]로 보내고 304를 처리한다.
-/// 웹의 `/v2/info`는 no-cache로 브라우저에 재검증과 응답 본문 재사용을 맡긴다.
+/// 웹에서는 서버의 Cache-Control에 따라 브라우저가 재검증하고 본문을 재사용한다.
 Future<ConditionalResponse> fetchRawConditional(
   String url, {
   String? ifNoneMatch,
