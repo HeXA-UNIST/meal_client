@@ -253,7 +253,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (announcement == null) return;
       await SchedulerBinding.instance.endOfFrame;
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
-      _showAnnouncementDialog(announcement);
+      await _showAnnouncementDialog(announcement);
     } catch (error) {
       assert(() {
         debugPrint('[BapU] announcement fetch failed: $error');
@@ -320,8 +320,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _showAnnouncementDialog(AppAnnouncement announcement) {
-    showDialog(
+  Future<void> _showAnnouncementDialog(AppAnnouncement announcement) async {
+    final closed = showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
@@ -334,6 +334,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
       },
     );
+    await saveDisplayedAnnouncement(announcement);
+    await closed;
   }
 
   @override

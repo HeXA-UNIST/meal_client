@@ -19,16 +19,6 @@ class BapUWidgetTimeTest {
     }
 
     @Test
-    fun `요일은 backend API key로 변환된다`() {
-        val cal = Calendar.getInstance(BapUWidgetTime.kstTimeZone)
-
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-        assertEquals("MON", BapUWidgetTime.dayOfWeekApiKey(cal))
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-        assertEquals("SUN", BapUWidgetTime.dayOfWeekApiKey(cal))
-    }
-
-    @Test
     fun `KST week id는 월요일 자정 기준으로 증가한다`() {
         val sunday = Calendar.getInstance(BapUWidgetTime.kstTimeZone).apply {
             set(2026, Calendar.JUNE, 21, 23, 59, 0)

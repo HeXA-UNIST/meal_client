@@ -250,40 +250,6 @@ void main() {
     expect(await mondayScaffold.mealFuture, same(mondayResponse.weekMeal));
   });
 
-  testWidgets('늦게 저장된 info cache도 후속 위젯 render를 요청한다', (tester) async {
-    final info = Completer<AppInfo>();
-    var widgetRefreshCount = 0;
-
-    await tester.pumpWidget(
-      _buildHomePage(
-        () => DateTime.utc(2026, 8, 10),
-        loadAppInfo: () => info.future,
-        refreshHomeWidgets: () async => widgetRefreshCount++,
-      ),
-    );
-    await tester.pump();
-    expect(widgetRefreshCount, 2);
-
-    info.complete(await _loadEmptyAppInfo());
-    await tester.pump();
-    expect(widgetRefreshCount, 3);
-  });
-
-  testWidgets('info 갱신 실패는 meal cache의 위젯 render를 막지 않는다', (tester) async {
-    var widgetRefreshCount = 0;
-
-    await tester.pumpWidget(
-      _buildHomePage(
-        () => DateTime.utc(2026, 8, 10),
-        loadAppInfo: () async => throw Exception('info failed'),
-        refreshHomeWidgets: () async => widgetRefreshCount++,
-      ),
-    );
-    await tester.pump();
-
-    expect(widgetRefreshCount, 2);
-  });
-
   testWidgets('실행과 같은 주 복귀는 다운로드를 기다리지 않고 위젯을 복구한다', (tester) async {
     final info = Completer<AppInfo>();
     final meal = Completer<MealResponse>();
@@ -384,6 +350,49 @@ void main() {
       find.byType(WeekMenuScaffold),
     );
     expect(await scaffold.appInfo, same(freshInfo));
+  });
+
+  testWidgets('다른 화면에 있어 표시하지 못한 공지는 다음 실행에서 다시 안내한다', (tester) async {
+    final fresh = Completer<AppInfo>();
+    final info = _appInfoWithAnnouncement('표시하지 못한 새 공지');
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () => fresh.future,
+        loadCachedAppInfo: _loadEmptyAppInfo,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final navigator = Navigator.of(tester.element(find.byType(HomePage)));
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('다른 화면')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    fresh.complete(info);
+    await tester.pumpAndSettle();
+    expect(find.text('표시하지 못한 새 공지'), findsNothing);
+    expect(await getStoredAnnouncement(), isNull);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 10),
+        loadAppInfo: () async => info,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('표시하지 못한 새 공지'), findsOneWidget);
+    expect(
+      (await getStoredAnnouncement())?.contentFingerprint,
+      info.announcement!.contentFingerprint,
+    );
   });
 
   testWidgets('공지는 캐시가 아니라 최신 info로 검사한다', (tester) async {

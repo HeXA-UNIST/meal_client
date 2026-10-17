@@ -10,6 +10,7 @@
     android:padding="16dp">
 
     <TextView
+        android:id="@+id/tv_exact_alarm_notice_body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/widget_exact_alarm_notice_body"
@@ -18,6 +19,7 @@
         android:fontFamily="@font/pretendard" />
 
     <TextView
+        android:id="@+id/tv_exact_alarm_notice_action"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"

@@ -70,6 +70,7 @@ class BapuSettings extends ChangeNotifier {
   MealNotificationAuthorizationStatus? _notificationAuthorizationStatus;
   bool _notificationSyncFailed = false;
   int _authorizationRefreshRevision = 0;
+  bool _continueNotificationRecoveryOnResume = false;
 
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
@@ -104,7 +105,19 @@ class BapuSettings extends ChangeNotifier {
   Future<NotificationEnableResult> restoreNotificationPermission() async {
     final result = await setNotificationEnabled(true);
     if (!_disposed && result == NotificationEnableResult.permissionDenied) {
-      await openNotificationSettings();
+      // 표시 권한을 수동으로 허용한 뒤 남은 정확한 알람 권한까지 이어서 확인한다.
+      // 일반적인 앱 복귀에서는 요청하지 않고 사용자가 시작한 복구에만 적용한다.
+      try {
+        await openNotificationSettings();
+        _continueNotificationRecoveryOnResume =
+            !_disposed &&
+            _notificationPlatform == MealNotificationPlatform.android &&
+            _notification.enabled;
+      } catch (_) {
+        _continueNotificationRecoveryOnResume = false;
+        _setNotificationSyncFailed(true);
+        rethrow;
+      }
     }
     return result;
   }
@@ -202,7 +215,17 @@ class BapuSettings extends ChangeNotifier {
       _authorizationRefreshRevision++;
       final previousAuthorizationStatus = _notificationAuthorizationStatus;
       if (v) {
-        final status = await _requestNotificationAuthorization();
+        final MealNotificationAuthorizationStatus status;
+        try {
+          status = await _requestNotificationAuthorization();
+        } catch (error, stackTrace) {
+          _setNotificationSyncFailed(true);
+          debugPrint(
+            '[BapU] notification authorization request failed: $error',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+          return NotificationEnableResult.failed;
+        }
         if (_disposed) return NotificationEnableResult.failed;
         _notificationAuthorizationStatus = status;
         if (status != MealNotificationAuthorizationStatus.enabled) {
@@ -230,7 +253,8 @@ class BapuSettings extends ChangeNotifier {
         ),
       );
       if (!applied) {
-        _notificationAuthorizationStatus = previousAuthorizationStatus;
+        // 설정 저장·예약 실패가 실제로 허용된 OS 권한까지 되돌리지는 않는다.
+        if (!v) _notificationAuthorizationStatus = previousAuthorizationStatus;
         notifyListeners();
         return NotificationEnableResult.failed;
       }
@@ -271,6 +295,15 @@ class BapuSettings extends ChangeNotifier {
         _notificationAuthorizationStatus ==
             MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
       await refreshNotificationAuthorizationStatus();
+    }
+    if (_continueNotificationRecoveryOnResume) {
+      _continueNotificationRecoveryOnResume = false;
+      if (!_disposed &&
+          _notification.enabled &&
+          _notificationAuthorizationStatus ==
+              MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+        await setNotificationEnabled(true);
+      }
     }
     if (_disposed || !_notification.enabled) return;
     await _enqueueNotificationMutation(
@@ -613,6 +646,7 @@ class BapuSettings extends ChangeNotifier {
             throw StateError('Notification preferences write failed');
           }
           if (_notification.enabled) {
+            await refreshNotificationAuthorizationStatus();
             await _runNotificationReschedule(immediately: true);
           } else {
             await _runCancelAllMealNotifications();

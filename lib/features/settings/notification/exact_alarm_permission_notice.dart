@@ -18,17 +18,12 @@ class ExactAlarmPermissionNotice extends StatefulWidget {
 class _ExactAlarmPermissionNoticeState
     extends State<ExactAlarmPermissionNotice> {
   bool _requesting = false;
-  bool _failed = false;
 
   Future<void> _restore(BapuSettings settings) async {
     setState(() => _requesting = true);
-    var failed = false;
     try {
-      failed =
-          await settings.restoreNotificationPermission() ==
-          NotificationEnableResult.failed;
+      await settings.restoreNotificationPermission();
     } catch (error, stackTrace) {
-      failed = true;
       debugPrint('[BapU] notification permission recovery failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
@@ -37,7 +32,6 @@ class _ExactAlarmPermissionNoticeState
       if (!mounted) return;
       setState(() {
         _requesting = false;
-        _failed = failed;
       });
     });
     WidgetsBinding.instance.ensureVisualUpdate();
@@ -48,7 +42,7 @@ class _ExactAlarmPermissionNoticeState
     final settings = context.watch<BapuSettings?>();
     if (settings == null ||
         !settings.notification.enabled ||
-        (!settings.exactAlarmPermissionRequired && !_failed)) {
+        !settings.exactAlarmPermissionRequired) {
       return const SizedBox.shrink();
     }
     final l10n = AppLocalizations.of(context)!;
@@ -59,20 +53,14 @@ class _ExactAlarmPermissionNoticeState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (settings.exactAlarmPermissionRequired)
-              Text(l10n.exactAlarmNotificationsPaused),
-            if (_failed) Text(l10n.notificationSyncFailed),
+            Text(l10n.exactAlarmNotificationsPaused),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _requesting
                     ? null
                     : () => unawaited(_restore(settings)),
-                child: Text(
-                  settings.exactAlarmPermissionRequired
-                      ? l10n.openExactAlarmSettings
-                      : l10n.retry,
-                ),
+                child: Text(l10n.openExactAlarmSettings),
               ),
             ),
           ],

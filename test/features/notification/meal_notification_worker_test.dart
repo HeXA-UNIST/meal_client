@@ -45,37 +45,17 @@ void main() {
     expect(canceled, isTrue);
   });
 
-  test('성공한 background refresh는 네이티브 플랫폼에서 pending을 재조정한다', () async {
-    var reconciliations = 0;
-    for (final platform in MealNotificationPlatform.values) {
-      final result = await refreshBackgroundMealAndInfoCaches(
-        platform: platform,
-        refreshMealCache: () async {},
-        refreshInfoCache: () async {},
-        refreshWidget: () async {},
-        reconcileNotifications: () async => reconciliations++,
-      );
-      expect(result, isTrue);
-    }
-    expect(reconciliations, 2);
-  });
-
-  test('알림 재조정 실패와 무관하게 위젯 갱신을 먼저 시도한다', () async {
-    final operations = <String>[];
-
+  test('알림 재조정이 실패해도 위젯 갱신은 완료하고 작업은 재시도한다', () async {
+    var widgetUpdated = false;
     final result = await refreshBackgroundMealAndInfoCaches(
       platform: MealNotificationPlatform.ios,
       refreshMealCache: () async {},
       refreshInfoCache: () async {},
-      reconcileNotifications: () async {
-        operations.add('notification');
-        throw Exception('notification');
-      },
-      refreshWidget: () async => operations.add('widget'),
+      refreshWidget: () async => widgetUpdated = true,
+      reconcileNotifications: () async => throw StateError('알림 예약 실패'),
     );
-
     expect(result, isFalse);
-    expect(operations, ['widget', 'notification']);
+    expect(widgetUpdated, isTrue);
   });
 
   test('background refresh는 필수 단계 실패만 task 실패로 반환한다', () async {

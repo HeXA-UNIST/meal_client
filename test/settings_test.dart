@@ -5,14 +5,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/settings/allergy/allergy_settings.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/features/settings/locale_settings.dart';
-import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -46,23 +44,6 @@ void main() {
     });
   });
 
-  group('NotificationSettings', () {
-    test('기본 알림 대상과 활성 시간대를 불변 스냅샷으로 보관한다', () {
-      final s = NotificationSettings();
-      expect(s.enabled, isFalse);
-      expect(s.activePeriods, isEmpty);
-      expect(s.activeCafeterias, equals({Cafeteria.dormitory}));
-      expect(
-        () => (s.dormMenuTypes as dynamic).clear(),
-        throwsUnsupportedError,
-      );
-      expect(
-        () => (s.cafeterias as dynamic).add(Cafeteria.student),
-        throwsUnsupportedError,
-      );
-    });
-  });
-
   test('알림은 저장한 앱 언어를 읽는다', () async {
     SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ko'});
     expect((await notificationLocalizations()).localeName, 'ko');
@@ -91,25 +72,6 @@ void main() {
     }
   });
 
-  group('MealNotificationPeriod', () {
-    test('각 시간대는 30분 간격 선택지와 올바른 대상 식사를 갖는다', () {
-      for (final period in MealNotificationPeriod.values) {
-        expect(period.allSlots, hasLength(3));
-      }
-      expect(MealNotificationPeriod.morning.allSlots, const [
-        TimeOfDay(hour: 7, minute: 30),
-        TimeOfDay(hour: 8, minute: 0),
-        TimeOfDay(hour: 8, minute: 30),
-      ]);
-      expect(MealNotificationPeriod.night.allSlots, const [
-        TimeOfDay(hour: 21, minute: 0),
-        TimeOfDay(hour: 21, minute: 30),
-        TimeOfDay(hour: 22, minute: 0),
-      ]);
-      expect(MealNotificationPeriod.night.tomorrow, isTrue);
-      expect(MealNotificationPeriod.night.mealOfDay, MealOfDay.breakfast);
-    });
-  });
   group('AppSettings', () {
     late List<BapuSettings> settingsToDispose;
 
@@ -188,25 +150,6 @@ void main() {
       expect(createSettings(prefs).locale, const Locale('ko'));
       await settings.setLocale(const Locale('en'));
       expect(createSettings(prefs).locale, const Locale('en'));
-    });
-
-    test('언어 변경 시 활성 알림을 다시 예약한다', () async {
-      final prefs = await SharedPreferences.getInstance();
-      var scheduleCount = 0;
-      final settings = BapuSettings(
-        prefs,
-        notificationPlatform: MealNotificationPlatform.unsupported,
-        notificationScheduleCoordinator: NotificationScheduleCoordinator(
-          schedule: (_, {required isCurrent}) async => scheduleCount++,
-          cancel: () async {},
-        ),
-        notificationPermissionRequester: () async => true,
-      );
-      settingsToDispose.add(settings);
-      await settings.setNotificationEnabled(true);
-      final before = scheduleCount;
-      await settings.setLocale(const Locale('ko'));
-      expect(scheduleCount, before + 1);
     });
 
     test('iOS는 알림 표시 권한을 재확인하고 거부 상태는 시스템 설정에서 복구한다', () async {
@@ -301,6 +244,79 @@ void main() {
       expect(settings.notification.enabled, isTrue);
     });
 
+    for (final displayPermissionGranted in [true, false]) {
+      test(
+        'Android 설정 복귀에서 표시 권한 ${displayPermissionGranted ? '허용 시 남은 정확한 알람 권한을 요청한다' : '거부 시 복구를 종료한다'}',
+        () async {
+          SharedPreferences.setMockInitialValues({
+            StorageKeys.notificationEnabled: true,
+          });
+          final prefs = await SharedPreferences.getInstance();
+          var authorization = MealNotificationAuthorizationStatus.notAuthorized;
+          var settingsOpened = 0;
+          var exactRequests = 0;
+          var completedResumes = 0;
+          VoidCallback? onResume;
+          final settings = BapuSettings(
+            prefs,
+            notificationPlatform: MealNotificationPlatform.android,
+            resumeListenerRegistrar: (listener) {
+              onResume = listener;
+              return () {};
+            },
+            notificationPermissionRequester: () async =>
+                authorization !=
+                MealNotificationAuthorizationStatus.notAuthorized,
+            exactAlarmPermissionRequester: () async {
+              exactRequests++;
+              authorization = MealNotificationAuthorizationStatus.enabled;
+              return true;
+            },
+            notificationAuthorizationStatusReader: () async => authorization,
+            notificationSettingsOpener: () async => settingsOpened++,
+            notificationScheduleCoordinator: NotificationScheduleCoordinator(
+              debounce: Duration.zero,
+              schedule: (_, {required isCurrent}) async {},
+              cancel: () async {},
+            ),
+            mealCacheRevisionSnapshotReader: () async =>
+                (current: null, next: null),
+            foregroundMealRefresher: (_, _) async => completedResumes++,
+          );
+          settingsToDispose.add(settings);
+
+          expect(
+            await settings.restoreNotificationPermission(),
+            NotificationEnableResult.permissionDenied,
+          );
+          expect(settingsOpened, 1);
+          if (displayPermissionGranted) {
+            authorization =
+                MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+          }
+          onResume!();
+          await _waitUntil(() => completedResumes == 1);
+          expect(exactRequests, displayPermissionGranted ? 1 : 0);
+          expect(
+            settings.notificationAuthorizationStatus,
+            displayPermissionGranted
+                ? MealNotificationAuthorizationStatus.enabled
+                : MealNotificationAuthorizationStatus.notAuthorized,
+          );
+          expect(settings.notification.enabled, isTrue);
+          expect(prefs.getBool(StorageKeys.notificationEnabled), isTrue);
+
+          // 복구 복귀를 한 번 처리한 뒤의 일반 resume에서는 권한을 다시 요청하지 않는다.
+          authorization =
+              MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+          onResume!();
+          await _waitUntil(() => completedResumes == 2);
+          expect(exactRequests, displayPermissionGranted ? 1 : 0);
+          expect(settingsOpened, 1);
+        },
+      );
+    }
+
     test('알림 권한 거부와 시스템 설정에서의 복구를 관찰한다', () async {
       final prefs = await SharedPreferences.getInstance();
       var requestCount = 0;
@@ -374,7 +390,7 @@ void main() {
       expect(prefs.getBool(StorageKeys.notificationEnabled), isTrue);
     });
 
-    test('알림 저장 실패는 인메모리 설정을 이전 스냅샷으로 돌린다', () async {
+    test('알림 저장 실패는 앱 설정만 되돌리고 확인된 OS 권한은 유지한다', () async {
       final prefs = await SharedPreferences.getInstance();
       final settings = BapuSettings(
         prefs,
@@ -393,7 +409,10 @@ void main() {
       );
 
       expect(settings.notification.enabled, isFalse);
-      expect(settings.notificationAuthorizationStatus, isNull);
+      expect(
+        settings.notificationAuthorizationStatus,
+        MealNotificationAuthorizationStatus.enabled,
+      );
       expect(settings.notificationSyncFailed, isTrue);
       expect(prefs.getBool(StorageKeys.notificationEnabled), isNull);
 

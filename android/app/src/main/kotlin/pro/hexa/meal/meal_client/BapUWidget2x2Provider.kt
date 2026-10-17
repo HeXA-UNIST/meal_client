@@ -43,6 +43,14 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
                 val notice = RemoteViews(context.packageName, R.layout.widget_exact_alarm_notice)
+                notice.setTextViewText(
+                    R.id.tv_exact_alarm_notice_body,
+                    context.getString(R.string.widget_exact_alarm_notice_body),
+                )
+                notice.setTextViewText(
+                    R.id.tv_exact_alarm_notice_action,
+                    context.getString(R.string.widget_exact_alarm_notice_action),
+                )
                 notice.setOnClickPendingIntent(R.id.widget_root, settingsPendingIntent)
                 manager.updateAppWidget(widgetId, notice)
                 return

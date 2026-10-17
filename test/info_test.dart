@@ -94,9 +94,10 @@ void main() {
       final info = AppInfo.fromJson(infoJson);
 
       final first = await checkForNewAnnouncement(loadInfo: () async => info);
+      await saveDisplayedAnnouncement(first!);
       final second = await checkForNewAnnouncement(loadInfo: () async => info);
 
-      expect(first?.content.textFor('ko'), '공지사항입니다');
+      expect(first.content.textFor('ko'), '공지사항입니다');
       expect(second, isNull);
     });
 
@@ -110,6 +111,7 @@ void main() {
       });
 
       final first = await checkForNewAnnouncement(loadInfo: () async => info);
+      await saveDisplayedAnnouncement(first!);
       final second = await checkForNewAnnouncement(loadInfo: () async => info);
 
       expect(first, isNotNull);
@@ -118,7 +120,7 @@ void main() {
 
     test('저장된 공지 JSON을 다시 읽는다', () async {
       final info = AppInfo.fromJson(infoJson);
-      await checkForNewAnnouncement(loadInfo: () async => info);
+      await saveDisplayedAnnouncement(info.announcement!);
 
       final saved = await getStoredAnnouncement();
 

@@ -73,10 +73,10 @@ void main() {
     expect(find.text(l10n.notificationPermissionDenied), findsNothing);
   });
 
-  testWidgets('기존 알림 권한이 없으면 복구 안내를 유지하고 허용 후 설정을 보존해 다시 예약한다', (tester) async {
+  testWidgets('권한 복구 후 예약이 실패해도 공통 재시도 성공 시 실패 안내가 모두 사라진다', (tester) async {
     var authorization =
         MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
-    var schedules = 0;
+    var failSchedule = true;
     final settings = await _pumpPage(
       tester,
       platform: MealNotificationPlatform.android,
@@ -86,26 +86,36 @@ void main() {
         authorization = MealNotificationAuthorizationStatus.enabled;
         return true;
       },
-      schedule: (_, {required isCurrent}) async => schedules++,
+      schedule: (_, {required isCurrent}) async {
+        if (failSchedule) throw StateError('일시적인 예약 실패');
+      },
     );
     addTearDown(settings.dispose);
     await tester.pumpAndSettle();
     final l10n = lookupAppLocalizations(const Locale('ko'));
-    expect(find.text(l10n.exactAlarmNotificationsPaused), findsOneWidget);
-    await tester.pump(const Duration(seconds: 10));
-    expect(find.text(l10n.exactAlarmNotificationsPaused), findsOneWidget);
-    expect(
-      find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
-      findsOneWidget,
-    );
-    expect(find.text(l10n.notificationPermissionUnavailable), findsNothing);
-    expect(settings.notification.enabled, isTrue);
     await tester.tap(
       find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
     );
     await tester.pumpAndSettle();
+    expect(settings.notificationSyncFailed, isTrue);
+    expect(find.text(l10n.notificationSyncFailed), findsOneWidget);
+
+    failSchedule = false;
+    final retryRow = find.widgetWithText(ListTile, l10n.notificationSyncFailed);
+    await tester.tap(
+      find.descendant(
+        of: retryRow,
+        matching: find.widgetWithText(TextButton, l10n.retry),
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(settings.notification.enabled, isTrue);
-    expect(schedules, 1);
+    expect(
+      settings.notificationAuthorizationStatus,
+      MealNotificationAuthorizationStatus.enabled,
+    );
+    expect(settings.notificationSyncFailed, isFalse);
+    expect(find.text(l10n.notificationSyncFailed), findsNothing);
     expect(find.text(l10n.exactAlarmNotificationsPaused), findsNothing);
   });
 
