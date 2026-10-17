@@ -31,6 +31,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     private var selectedCafeteria = CAFE_DORM_KOREAN
     private var previewData: WidgetMealData? = null
     private var widgetLanguageCode: String? = null
+    private var saving = false
 
     private lateinit var items: List<LinearLayout>
     private lateinit var dots: List<View>
@@ -148,6 +149,8 @@ class BapUWidgetSingleConfigActivity : Activity() {
         }
 
         findViewById<Button>(R.id.btn_confirm).setOnClickListener {
+            if (!refreshExactAlarmPermission() || saving) return@setOnClickListener
+            saving = true
             it.isEnabled = false
             saveSingleCafeteria(this, appWidgetId, selectedCafeteria)
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
@@ -170,12 +173,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
-        val allowed = BapUWidgetScheduleManager.canScheduleExactAlarms(this)
-        findViewById<TextView>(R.id.tv_exact_alarm_status).setText(
-            if (allowed) R.string.widget_exact_alarm_allowed else R.string.widget_exact_alarm_not_allowed
-        )
-        findViewById<View>(R.id.exact_alarm_section).visibility =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) View.VISIBLE else View.GONE
+        refreshExactAlarmPermission()
         // 허용·거절 후 돌아왔을 때 기존 위젯의 예약을 현재 권한에 맞춘다.
         if (BapUWidgetUpdateDispatcher.hasAnyWidget(this)) {
             BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) { failure ->
@@ -187,6 +185,14 @@ class BapUWidgetSingleConfigActivity : Activity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(STATE_CAFETERIA, selectedCafeteria)
         super.onSaveInstanceState(outState)
+    }
+
+    private fun refreshExactAlarmPermission(): Boolean {
+        val allowed = BapUWidgetScheduleManager.canScheduleExactAlarms(this)
+        findViewById<View>(R.id.exact_alarm_section).visibility =
+            if (allowed) View.GONE else View.VISIBLE
+        findViewById<Button>(R.id.btn_confirm).isEnabled = allowed && !saving
+        return allowed
     }
 
     private fun refreshSelection() {

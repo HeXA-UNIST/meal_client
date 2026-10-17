@@ -12,16 +12,6 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/widget_exact_alarm_notice_title"
-        android:textColor="@color/widget_text_meal"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:fontFamily="@font/pretendard" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
         android:text="@string/widget_exact_alarm_notice_body"
         android:textColor="@color/widget_text_menu"
         android:textSize="11sp"

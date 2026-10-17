@@ -8,12 +8,10 @@
     <!-- 위젯 설정 -->
     <string name="widget_config_title">Select Cafeteria</string>
     <string name="widget_config_confirm">Confirm</string>
-    <string name="widget_exact_alarm_allowed">Precise widget updates are enabled.</string>
-    <string name="widget_exact_alarm_not_allowed">Allow Alarms &amp; reminders to show the menu and update operating status on time. Until then, the widget shows an access notice.</string>
+    <string name="widget_exact_alarm_not_allowed">To use the widget, allow Alarms &amp; reminders.</string>
     <string name="widget_exact_alarm_settings">Open Alarms &amp; reminders settings</string>
     <string name="widget_exact_alarm_settings_unavailable">Could not open Alarms &amp; reminders settings.</string>
-    <string name="widget_exact_alarm_notice_title">Widget update access</string>
-    <string name="widget_exact_alarm_notice_body">Allow Alarms &amp; reminders for timely operating status updates.</string>
+    <string name="widget_exact_alarm_notice_body">To use the BapU widget, allow Alarms &amp; reminders in settings.</string>
     <string name="widget_exact_alarm_notice_action">Tap to open settings</string>
 
     <!-- 위젯 미리보기 샘플 (픽커/설정 화면 데모용 — 번역 불필요) -->
