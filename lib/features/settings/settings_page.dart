@@ -147,6 +147,7 @@ class _LanguageTile extends StatelessWidget {
     final locale = context.select<BapuSettings, Locale>(
       (settings) => settings.locale,
     );
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: _settingsHorizontalPadding,
@@ -154,9 +155,14 @@ class _LanguageTile extends StatelessWidget {
       ),
       child: SegmentedButton<Locale>(
         style: ButtonStyle(
-          foregroundColor: WidgetStatePropertyAll(
-            Theme.of(context).colorScheme.onSurface,
-          ),
+          textStyle: WidgetStateProperty.resolveWith((states) {
+            return theme.textTheme.labelLarge?.copyWith(
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.w600
+                  : null,
+            );
+          }),
+          foregroundColor: WidgetStatePropertyAll(theme.colorScheme.onSurface),
         ),
         segments: [
           ButtonSegment(
