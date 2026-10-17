@@ -25,7 +25,7 @@ class _ExactAlarmPermissionNoticeState
     var failed = false;
     try {
       failed =
-          await settings.setNotificationEnabled(true) ==
+          await settings.restoreNotificationPermission() ==
           NotificationEnableResult.failed;
     } catch (error, stackTrace) {
       failed = true;

@@ -560,6 +560,24 @@ abstract class AppLocalizations {
   /// **'식단 알림을 받으려면 알람 및 리마인더를 허용해 주세요.'**
   String get exactAlarmPermissionRequired;
 
+  /// No description provided for @notificationPermissionRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'식단 알림에 필요한 권한이 꺼져 있습니다. 설정에서 권한을 허용해주세요.'**
+  String get notificationPermissionRequired;
+
+  /// No description provided for @mealNotificationPermissionTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 권한 안내'**
+  String get mealNotificationPermissionTitle;
+
+  /// No description provided for @later.
+  ///
+  /// In ko, this message translates to:
+  /// **'나중에'**
+  String get later;
+
   /// No description provided for @openExactAlarmSettings.
   ///
   /// In ko, this message translates to:

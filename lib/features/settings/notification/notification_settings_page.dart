@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 
@@ -123,9 +122,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
   // 권한 거부 시 SnackBar로 안내하고 시스템 설정으로 이동 버튼을 제공한다.
   void _openNotificationSettings() =>
-      device_settings.AppSettings.openAppSettings(
-        type: device_settings.AppSettingsType.notification,
-      );
+      context.read<BapuSettings>().openNotificationSettings();
 
   Future<void> _handleNotificationToggle(bool enable) async {
     final result = await context.read<BapuSettings>().setNotificationEnabled(

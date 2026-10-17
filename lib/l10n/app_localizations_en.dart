@@ -259,5 +259,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Allow alarms and reminders to receive meal notifications.';
 
   @override
+  String get notificationPermissionRequired =>
+      'Permissions required for meal notifications are turned off. Please allow them in settings.';
+
+  @override
+  String get mealNotificationPermissionTitle => 'Notification permissions';
+
+  @override
+  String get later => 'Later';
+
+  @override
   String get openExactAlarmSettings => 'Alarms & reminders settings';
 }

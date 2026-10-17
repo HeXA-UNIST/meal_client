@@ -99,5 +99,8 @@
   "cafeteriaNotOperating": "Not currently open",
   "exactAlarmNotificationsPaused": "Meal notifications are paused because alarms and reminders are not allowed. Your notification preferences are preserved.",
   "exactAlarmPermissionRequired": "Allow alarms and reminders to receive meal notifications.",
+  "notificationPermissionRequired": "Permissions required for meal notifications are turned off. Please allow them in settings.",
+  "mealNotificationPermissionTitle": "Notification permissions",
+  "later": "Later",
   "openExactAlarmSettings": "Alarms & reminders settings"
 }

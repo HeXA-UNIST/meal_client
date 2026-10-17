@@ -209,6 +209,46 @@ void main() {
       expect(scheduleCount, before + 1);
     });
 
+    test('iOS는 알림 표시 권한을 재확인하고 거부 상태는 시스템 설정에서 복구한다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      var authorization = MealNotificationAuthorizationStatus.notAuthorized;
+      var settingsOpened = 0;
+      var schedules = 0;
+      final settings = BapuSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.ios,
+        resumeListenerRegistrar: (_) => () {},
+        notificationPermissionRequester: () async => true,
+        exactAlarmPermissionRequester: () async =>
+            throw StateError('iOS에서는 정확한 알람 권한을 요청하면 안 된다'),
+        notificationAuthorizationStatusReader: () async => authorization,
+        notificationSettingsOpener: () async {
+          settingsOpened++;
+          authorization = MealNotificationAuthorizationStatus.enabled;
+        },
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule: (_, {required isCurrent}) async {
+            schedules++;
+          },
+          cancel: () async {},
+        ),
+      );
+      addTearDown(settings.dispose);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.permissionDenied,
+      );
+      expect(settings.notification.enabled, isFalse);
+      await settings.restoreNotificationPermission();
+      expect(settingsOpened, 1);
+      expect(
+        await settings.setNotificationEnabled(true),
+        NotificationEnableResult.enabled,
+      );
+      expect(settings.notification.enabled, isTrue);
+      expect(schedules, 1);
+    });
+
     test('Android 정확한 알람 권한 거부는 설정을 저장하지 않고 허용 후에만 알림을 켠다', () async {
       final prefs = await SharedPreferences.getInstance();
       var authorization =

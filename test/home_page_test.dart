@@ -23,47 +23,115 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('홈에서 기존 알림의 권한 부족을 알리고 허용 후 안내를 제거한다', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      StorageKeys.notificationEnabled: true,
-    });
-    var authorization =
-        MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
-    final settings = BapuSettings(
-      await SharedPreferences.getInstance(),
-      notificationPlatform: MealNotificationPlatform.android,
-      resumeListenerRegistrar: (_) => () {},
-      mealCacheRevisionSnapshotReader: () async => (current: null, next: null),
-      notificationAuthorizationStatusReader: () async => authorization,
-      notificationPermissionRequester: () async => true,
-      exactAlarmPermissionRequester: () async {
-        authorization = MealNotificationAuthorizationStatus.enabled;
-        return true;
-      },
-      notificationScheduleCoordinator: NotificationScheduleCoordinator(
-        schedule: (_, {required isCurrent}) async {},
-        cancel: () async {},
-      ),
-    );
-    addTearDown(settings.dispose);
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: settings,
-        child: _buildHomePage(() => DateTime.utc(2026, 8, 10)),
-      ),
-    );
-    await settings.refreshNotificationAuthorizationStatus();
-    await tester.pumpAndSettle();
-    final context = tester.element(find.byType(HomePage));
-    final l10n = AppLocalizations.of(context)!;
-    expect(find.text(l10n.exactAlarmNotificationsPaused), findsOneWidget);
-    await tester.tap(
-      find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text(l10n.exactAlarmNotificationsPaused), findsNothing);
-    expect(settings.notification.enabled, isTrue);
-  });
+  for (final platform in [
+    MealNotificationPlatform.android,
+    MealNotificationPlatform.ios,
+  ]) {
+    for (final openSettings in [false, true]) {
+      testWidgets(
+        '${platform.name} 홈 권한 팝업에서 ${openSettings ? '설정을 열어 복구한다' : '나중에를 선택해도 다음 실행에 다시 안내한다'}',
+        (tester) async {
+          SharedPreferences.setMockInitialValues({
+            StorageKeys.notificationEnabled: true,
+          });
+          var authorization = platform == MealNotificationPlatform.android
+              ? MealNotificationAuthorizationStatus.exactAlarmNotAuthorized
+              : MealNotificationAuthorizationStatus.notAuthorized;
+          var exactRequests = 0;
+          var settingsOpened = 0;
+          final settings = BapuSettings(
+            await SharedPreferences.getInstance(),
+            notificationPlatform: platform,
+            resumeListenerRegistrar: (_) => () {},
+            mealCacheRevisionSnapshotReader: () async =>
+                (current: null, next: null),
+            notificationAuthorizationStatusReader: () async => authorization,
+            notificationPermissionRequester: () async =>
+                platform == MealNotificationPlatform.android,
+            exactAlarmPermissionRequester: () async {
+              exactRequests++;
+              authorization = MealNotificationAuthorizationStatus.enabled;
+              return true;
+            },
+            notificationSettingsOpener: () async {
+              settingsOpened++;
+              authorization = MealNotificationAuthorizationStatus.enabled;
+            },
+            notificationScheduleCoordinator: NotificationScheduleCoordinator(
+              schedule: (_, {required isCurrent}) async {},
+              cancel: () async {},
+            ),
+          );
+          addTearDown(settings.dispose);
+          Widget home({bool announcement = false}) =>
+              ChangeNotifierProvider.value(
+                value: settings,
+                child: _buildHomePage(
+                  () => DateTime.utc(2026, 8, 10),
+                  loadAppInfo: announcement
+                      ? () async => _appInfoWithAnnouncement('새 공지')
+                      : null,
+                ),
+              );
+          await tester.pumpWidget(home(announcement: true));
+          await tester.pumpAndSettle();
+          final l10n = AppLocalizations.of(
+            tester.element(find.byType(HomePage)),
+          )!;
+          expect(
+            find.widgetWithText(
+              AlertDialog,
+              l10n.mealNotificationPermissionTitle,
+            ),
+            findsOneWidget,
+          );
+          expect(find.text(l10n.exactAlarmNotificationsPaused), findsNothing);
+          expect(
+            find.text(l10n.notificationPermissionRequired),
+            findsOneWidget,
+          );
+          expect(find.text('새 공지'), findsNothing);
+          await tester.tap(
+            find.widgetWithText(
+              TextButton,
+              openSettings ? l10n.openSystemAppSettings : l10n.later,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            exactRequests,
+            openSettings && platform == MealNotificationPlatform.android
+                ? 1
+                : 0,
+          );
+          expect(
+            settingsOpened,
+            openSettings && platform == MealNotificationPlatform.ios ? 1 : 0,
+          );
+          expect(settings.notification.enabled, isTrue);
+          expect(find.text('새 공지'), findsOneWidget);
+          await tester.tap(find.text(l10n.close));
+          await tester.pumpAndSettle();
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpWidget(home());
+          await tester.pumpAndSettle();
+          expect(
+            find.byType(AlertDialog),
+            openSettings ? findsNothing : findsOneWidget,
+          );
+          if (!openSettings) {
+            await tester.tap(find.text(l10n.later));
+            await tester.pumpAndSettle();
+            await settings.setNotificationEnabled(false);
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpWidget(home());
+            await tester.pumpAndSettle();
+            expect(find.byType(AlertDialog), findsNothing);
+          }
+        },
+      );
+    }
+  }
 
   testWidgets('일요일 세션이 월요일에 재개되면 주간 화면 상태와 Future를 새로 만든다', (tester) async {
     var now = DateTime.utc(2026, 8, 16, 14, 30); // KST 일요일 23:30

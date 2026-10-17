@@ -253,5 +253,15 @@ class AppLocalizationsKo extends AppLocalizations {
   String get exactAlarmPermissionRequired => '식단 알림을 받으려면 알람 및 리마인더를 허용해 주세요.';
 
   @override
+  String get notificationPermissionRequired =>
+      '식단 알림에 필요한 권한이 꺼져 있습니다. 설정에서 권한을 허용해주세요.';
+
+  @override
+  String get mealNotificationPermissionTitle => '알림 권한 안내';
+
+  @override
+  String get later => '나중에';
+
+  @override
   String get openExactAlarmSettings => '알람 및 리마인더 설정';
 }
