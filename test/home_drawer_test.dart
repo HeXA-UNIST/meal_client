@@ -92,7 +92,9 @@ void main() {
       tester.element(find.byType(HomePageDrawer)),
     )!;
     await tester.tap(find.text(l10n.nextWeekPreview));
-    await tester.pumpAndSettle();
+    // 이동만 검증하므로 데이터 조회 중인 로딩 애니메이션의 종료는 기다리지 않는다.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(find.byType(NextWeekPreviewPage), findsOneWidget);
   });
