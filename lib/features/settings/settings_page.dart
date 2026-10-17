@@ -153,6 +153,11 @@ class _LanguageTile extends StatelessWidget {
         vertical: 8,
       ),
       child: SegmentedButton<Locale>(
+        style: ButtonStyle(
+          foregroundColor: WidgetStatePropertyAll(
+            Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
         segments: [
           ButtonSegment(
             value: const Locale('ko'),
@@ -202,11 +207,7 @@ class _ThemeTile extends StatelessWidget {
                   : null,
             );
           }),
-          foregroundColor: WidgetStateProperty.resolveWith((states) {
-            return states.contains(WidgetState.selected)
-                ? theme.colorScheme.onSurface
-                : theme.colorScheme.onSurfaceVariant;
-          }),
+          foregroundColor: WidgetStatePropertyAll(theme.colorScheme.onSurface),
         ),
         segments: [
           ButtonSegment(
