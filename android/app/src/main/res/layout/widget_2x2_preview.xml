@@ -80,7 +80,7 @@
             android:textSize="12sp"
             android:fontFamily="sans-serif"
             android:letterSpacing="-0.01"
-            android:lineSpacingExtra="4sp"
+            android:lineSpacingExtra="2sp"
             android:gravity="top" />
     </FrameLayout>
 
