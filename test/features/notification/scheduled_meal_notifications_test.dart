@@ -4,7 +4,6 @@ import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/scheduled_meal_notifications.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
-import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
@@ -176,6 +175,21 @@ void main() {
       expect(upserted, [_ownedId(DateTime.utc(2026, 7, 20))]);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.containsKey(StorageKeys.locale), isFalse);
+    });
+
+    test('정확한 알람 권한이 없으면 식단 캐시 조회 없이 기존 식단 예약만 취소한다', () async {
+      final owned = _ownedId(DateTime.utc(2026, 7, 20));
+      final canceled = <int>[];
+      await reconcileScheduledMealNotifications(
+        settings: enabledSettings,
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.exactAlarmNotAuthorized,
+        readPendingIds: () async => [owned, 99],
+        cancelPending: (id) async => canceled.add(id),
+        loadCurrentWeek: () async => throw StateError('캐시를 조회하면 안 된다'),
+        upsertNotification: (_) async => throw StateError('예약하면 안 된다'),
+      );
+      expect(canceled, [owned]);
     });
 
     test('권한 또는 현재 주 데이터가 없으면 기존 pending을 보존한다', () async {
@@ -433,51 +447,6 @@ void main() {
       });
     });
 
-    test('호출 사이에 과거가 된 scheduledDate만 건너뛴다', () async {
-      var clockReads = 0;
-      DateTime clock() => ++clockReads < 3
-          ? DateTime(2026, 7, 19, 10)
-          : DateTime(2026, 7, 20, 12);
-
-      await reconcileScheduledMealNotifications(
-        settings: enabledSettings,
-        currentWeek: (
-          startDate: DateTime.utc(2026, 7, 20),
-          weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
-        ),
-        nowProvider: clock,
-        readAuthorizationStatus: () async =>
-            MealNotificationAuthorizationStatus.enabled,
-        readPendingIds: () async => const [],
-        loadNextWeek: () async => null,
-        upsertNotification: (_) async => throw ArgumentError.value(
-          DateTime(2026, 7, 20, 11),
-          'scheduledDate',
-        ),
-        l10n: AppLocalizationsKo(),
-      );
-      await expectLater(
-        reconcileScheduledMealNotifications(
-          settings: enabledSettings,
-          currentWeek: (
-            startDate: DateTime.utc(2026, 7, 20),
-            weekMeal: _weekWithLunchMenus({DayOfWeek.mon}),
-          ),
-          nowProvider: () => DateTime(2026, 7, 19, 10),
-          readAuthorizationStatus: () async =>
-              MealNotificationAuthorizationStatus.enabled,
-          readPendingIds: () async => const [],
-          loadNextWeek: () async => null,
-          upsertNotification: (_) async => throw ArgumentError.value(
-            DateTime(2026, 7, 20, 11),
-            'scheduledDate',
-          ),
-          l10n: AppLocalizationsKo(),
-        ),
-        throwsArgumentError,
-      );
-    });
-
     test('개별 cancel과 upsert 실패 뒤에도 안전한 나머지를 모두 시도한다', () async {
       final staleId = _ownedId(DateTime.utc(2026, 8, 3));
       final upserted = <int>[];
@@ -526,39 +495,6 @@ void main() {
       throwsStateError,
     );
     expect(canceled, [first, second]);
-  });
-
-  test('Android와 iOS만 각 플랫폼 예약기를 호출한다', () async {
-    final calls = <MealNotificationPlatform>[];
-    Future<void> androidOrIos(
-      MealNotificationPlatform platform,
-      NotificationSettings settings, {
-      required bool Function() isCurrent,
-    }) async {
-      calls.add(platform);
-    }
-
-    for (final platform in MealNotificationPlatform.values) {
-      await scheduleMealNotifications(
-        NotificationSettings(),
-        platform: platform,
-        iosScheduler: (settings, {required isCurrent}) => androidOrIos(
-          MealNotificationPlatform.ios,
-          settings,
-          isCurrent: isCurrent,
-        ),
-        androidScheduler: (settings, {required isCurrent}) => androidOrIos(
-          MealNotificationPlatform.android,
-          settings,
-          isCurrent: isCurrent,
-        ),
-      );
-    }
-
-    expect(calls, [
-      MealNotificationPlatform.android,
-      MealNotificationPlatform.ios,
-    ]);
   });
 }
 

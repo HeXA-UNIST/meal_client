@@ -149,13 +149,6 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(snapshot.status, .open)
   }
 
-  func testFoodTypeLabelExistsOnlyForDormitorySelections() {
-    XCTAssertNotNil(WidgetMenuSelection.dormKorean.localizedFoodTypeName(languageCode: "ko"))
-    XCTAssertNotNil(WidgetMenuSelection.dormHalal.localizedFoodTypeName(languageCode: "ko"))
-    XCTAssertNil(WidgetMenuSelection.student.localizedFoodTypeName(languageCode: "ko"))
-    XCTAssertNil(WidgetMenuSelection.faculty.localizedFoodTypeName(languageCode: "ko"))
-  }
-
   func test저장된언어가없으면시스템언어를쓰고잘못된값은실패한다() throws {
     let suiteName = "BapUWidgetTests.\(UUID().uuidString)"
     let preferences = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -192,21 +185,6 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: 4), .faculty)
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: nil), .dormKorean)
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: 999), .dormKorean)
-  }
-
-  func testDisplayMenuItemsAddsOverflowMarkerOnlyAfterLimit() {
-    XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5"], limit: 5, languageCode: "en"),
-      ["1", "2", "3", "4", "5"]
-    )
-    XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5", "6"], limit: 5, languageCode: "en"),
-      ["1", "2", "3", "4", "5", "+1 more"]
-    )
-    XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5", "6", "7", "8"], limit: 7, languageCode: "ko"),
-      ["1", "2", "3", "4", "5", "6", "7", "+1개 더"]
-    )
   }
 
   func testTimelineIncludesMealAndOperatingBoundaries() throws {

@@ -44,17 +44,18 @@ object BapUWidgetUpdateDispatcher {
     fun enqueueRenderAllWidgets(context: Context, completion: Consumer<Throwable?>) {
         val appContext = context.applicationContext
         execute {
-            val failure = runCatching {
-                try {
-                    renderAllWidgets(appContext)
-                } finally {
-                    // 새 운영시간으로 다음 경계를 다시 계산하고, 캐시 오류로 끊긴 예약도 복구한다.
-                    // 일부 화면 갱신이 실패해도 설치된 위젯의 시간 갱신은 계속 시도한다.
-                    if (hasAnyWidget(appContext)) {
-                        BapUWidgetScheduleManager.scheduleNext(appContext)
-                    }
+            var failure = runCatching { renderAllWidgets(appContext) }.exceptionOrNull()
+            val schedulingFailure = runCatching {
+                // 렌더 실패와 무관하게 다음 경계를 예약하고, 두 작업이 모두 실패하면
+                // 렌더 예외를 주 오류로 유지하면서 예약 예외도 함께 전달한다.
+                if (hasAnyWidget(appContext)) {
+                    BapUWidgetScheduleManager.scheduleNext(appContext)
                 }
             }.exceptionOrNull()
+            if (schedulingFailure != null) {
+                if (failure == null) failure = schedulingFailure
+                else failure.addSuppressed(schedulingFailure)
+            }
             completion.accept(failure)
         }
     }

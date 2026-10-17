@@ -93,9 +93,14 @@
   "notificationPermissionDenied": "Notification permission denied. Please allow it in settings.",
   "notificationPermissionUnavailable": "Notifications may not appear. Check the permission in system settings.",
   "openSystemAppSettings": "Open Settings",
-  "androidNotificationTimingNotice": "Device power restrictions may delay notifications beyond the selected time.",
   "notificationSyncFailed": "Notification settings could not be applied.",
   "retry": "Retry",
   "cafeteriaOperating": "Currently open",
-  "cafeteriaNotOperating": "Not currently open"
+  "cafeteriaNotOperating": "Not currently open",
+  "exactAlarmNotificationsPaused": "Meal notifications are paused because alarms and reminders are not allowed. Your notification preferences are preserved.",
+  "exactAlarmPermissionRequired": "Allow alarms and reminders to receive meal notifications.",
+  "notificationPermissionRequired": "Permissions required for meal notifications are turned off. Please allow them in settings.",
+  "mealNotificationPermissionTitle": "Notification permissions",
+  "later": "Later",
+  "openExactAlarmSettings": "Alarms & reminders settings"
 }

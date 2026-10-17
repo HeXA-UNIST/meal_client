@@ -234,10 +234,6 @@ class AppLocalizationsKo extends AppLocalizations {
   String get openSystemAppSettings => '설정 열기';
 
   @override
-  String get androidNotificationTimingNotice =>
-      '절전 설정에 따라 알림이 예정보다 늦게 도착할 수 있습니다.';
-
-  @override
   String get notificationSyncFailed => '알림 설정을 적용하지 못했습니다.';
 
   @override
@@ -248,4 +244,24 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get cafeteriaNotOperating => '운영 중이 아님';
+
+  @override
+  String get exactAlarmNotificationsPaused =>
+      '알람 및 리마인더 권한이 없어 식단 알림이 중단되어 있습니다. 기존 알림 설정은 유지됩니다.';
+
+  @override
+  String get exactAlarmPermissionRequired => '식단 알림을 받으려면 알람 및 리마인더를 허용해 주세요.';
+
+  @override
+  String get notificationPermissionRequired =>
+      '식단 알림에 필요한 권한이 꺼져 있습니다. 설정에서 권한을 허용해주세요.';
+
+  @override
+  String get mealNotificationPermissionTitle => '알림 권한 안내';
+
+  @override
+  String get later => '나중에';
+
+  @override
+  String get openExactAlarmSettings => '알람 및 리마인더 설정';
 }

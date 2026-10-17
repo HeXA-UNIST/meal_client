@@ -82,7 +82,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // 화면의 FutureBuilder가 붙기 전에 실패하면 listener가 없어 unhandled async
     // error가 된다. 오류 표시는 그대로 FutureBuilder가 맡고, 여기서는 관찰만 한다.
     unawaited(appInfo.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
-    _checkAnnouncement();
+    unawaited(_checkStartupDialogs());
   }
 
   /// 캐시된 info.json이 있으면 그것으로 먼저 화면을 채우고, 네트워크 응답이
@@ -235,22 +235,75 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return queuedRefresh;
   }
 
-  void _checkAnnouncement() {
-    checkForNewAnnouncement(loadInfo: () => _freshAppInfo)
-        .then((announcement) {
-          if (announcement != null && mounted) {
-            SchedulerBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              _showAnnouncementDialog(announcement);
-            });
-          }
-        })
-        .catchError((e) {
-          assert(() {
-            debugPrint('[BapU] announcement fetch failed: $e');
-            return true;
-          }());
-        });
+  Future<void> _checkStartupDialogs() async {
+    // 권한 안내를 먼저 닫은 뒤 공지를 표시해 시작 팝업이 겹치지 않게 한다.
+    try {
+      await _showNotificationPermissionDialog();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[BapU] startup notification authorization check failed: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    if (!mounted) return;
+    try {
+      final announcement = await checkForNewAnnouncement(
+        loadInfo: () => _freshAppInfo,
+      );
+      if (announcement == null) return;
+      await SchedulerBinding.instance.endOfFrame;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      await _showAnnouncementDialog(announcement);
+    } catch (error) {
+      assert(() {
+        debugPrint('[BapU] announcement fetch failed: $error');
+        return true;
+      }());
+    }
+  }
+
+  Future<void> _showNotificationPermissionDialog() async {
+    final settings = context.read<BapuSettings?>();
+    if (settings == null) return;
+    final status = await settings.notificationPermissionReminderStatus();
+    if (status == null) return;
+    await SchedulerBinding.instance.endOfFrame;
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        !settings.notification.enabled) {
+      return;
+    }
+    final openSettings = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final l10n = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(l10n.mealNotificationPermissionTitle),
+          content: Text(l10n.notificationPermissionRequired),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(l10n.later),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(l10n.openSystemAppSettings),
+            ),
+          ],
+        );
+      },
+    );
+    if (openSettings != true || !mounted || !settings.notification.enabled) {
+      return;
+    }
+    try {
+      await settings.restoreNotificationPermission();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[BapU] startup notification permission request failed: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   @override
@@ -268,8 +321,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _showAnnouncementDialog(AppAnnouncement announcement) {
-    showDialog(
+  Future<void> _showAnnouncementDialog(AppAnnouncement announcement) async {
+    final closed = showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
@@ -282,6 +335,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
       },
     );
+    await saveDisplayedAnnouncement(announcement);
+    await closed;
   }
 
   @override
