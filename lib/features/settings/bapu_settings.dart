@@ -77,6 +77,11 @@ class BapuSettings extends ChangeNotifier {
   MealNotificationAuthorizationStatus? get notificationAuthorizationStatus =>
       _notificationAuthorizationStatus;
   bool get notificationSyncFailed => _notificationSyncFailed;
+  bool get exactAlarmPermissionRequired =>
+      _notificationPlatform == MealNotificationPlatform.android &&
+      _notification.enabled &&
+      _notificationAuthorizationStatus ==
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
 
   BapuSettings(
     this._prefs, {

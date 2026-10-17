@@ -73,23 +73,40 @@ void main() {
     expect(find.text(l10n.notificationPermissionDenied), findsNothing);
   });
 
-  testWidgets('정확한 알람 권한이 철회되면 설정 진입 시 SnackBar로 복구를 안내한다', (tester) async {
+  testWidgets('기존 알림 권한이 없으면 복구 안내를 유지하고 허용 후 설정을 보존해 다시 예약한다', (tester) async {
+    var authorization =
+        MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+    var schedules = 0;
     final settings = await _pumpPage(
       tester,
       platform: MealNotificationPlatform.android,
       initialValues: {StorageKeys.notificationEnabled: true},
-      authorization:
-          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized,
+      authorizationReader: () async => authorization,
+      exactAlarmRequester: () async {
+        authorization = MealNotificationAuthorizationStatus.enabled;
+        return true;
+      },
+      schedule: (_, {required isCurrent}) async => schedules++,
     );
     addTearDown(settings.dispose);
     await tester.pumpAndSettle();
     final l10n = lookupAppLocalizations(const Locale('ko'));
-    expect(find.text(l10n.exactAlarmPermissionRequired), findsOneWidget);
+    expect(find.text(l10n.exactAlarmNotificationsPaused), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.text(l10n.exactAlarmNotificationsPaused), findsOneWidget);
     expect(
-      find.widgetWithText(SnackBarAction, l10n.openExactAlarmSettings),
+      find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
       findsOneWidget,
     );
     expect(find.text(l10n.notificationPermissionUnavailable), findsNothing);
+    expect(settings.notification.enabled, isTrue);
+    await tester.tap(
+      find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
+    );
+    await tester.pumpAndSettle();
+    expect(settings.notification.enabled, isTrue);
+    expect(schedules, 1);
+    expect(find.text(l10n.exactAlarmNotificationsPaused), findsNothing);
   });
 
   testWidgets('마스터 스위치가 꺼지면 종속 컨트롤이 선택 상태는 유지한 채 모두 비활성이 된다', (tester) async {
@@ -276,6 +293,8 @@ Future<BapuSettings> _pumpPage(
   MealNotificationAuthorizationStatus authorization =
       MealNotificationAuthorizationStatus.enabled,
   bool permissionGranted = true,
+  NotificationAuthorizationStatusReader? authorizationReader,
+  Future<bool> Function()? exactAlarmRequester,
   MealNotificationScheduler? schedule,
 }) async {
   SharedPreferences.setMockInitialValues(initialValues);
@@ -290,8 +309,9 @@ Future<BapuSettings> _pumpPage(
       cancel: () async {},
     ),
     notificationPermissionRequester: () async => permissionGranted,
-    exactAlarmPermissionRequester: () async => false,
-    notificationAuthorizationStatusReader: () async => authorization,
+    exactAlarmPermissionRequester: exactAlarmRequester ?? () async => false,
+    notificationAuthorizationStatusReader:
+        authorizationReader ?? () async => authorization,
   );
 
   await tester.pumpWidget(

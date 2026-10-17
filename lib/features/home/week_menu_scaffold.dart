@@ -22,6 +22,7 @@ class WeekMenuScaffold extends StatefulWidget {
     this.cachedMealFuture,
     required this.appInfo,
     this.bannerText,
+    this.notice,
     this.drawer,
     this.titleFontWeight = FontWeight.w700,
   });
@@ -33,6 +34,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final Future<WeekMeal>? cachedMealFuture;
   final Future<AppInfo> appInfo;
   final String? bannerText;
+  final Widget? notice;
   final Widget? drawer;
   final FontWeight titleFontWeight;
 
@@ -109,6 +111,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     final colorScheme = Theme.of(context).colorScheme;
 
     Widget body = _buildBody(l10n);
+    if (widget.notice != null) {
+      body = Column(
+        children: [
+          widget.notice!,
+          Expanded(child: body),
+        ],
+      );
+    }
     final bannerText = widget.bannerText;
     if (bannerText != null) {
       body = Column(

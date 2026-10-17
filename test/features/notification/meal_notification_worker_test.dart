@@ -17,6 +17,34 @@ import 'package:meal_client/l10n/app_localizations_ko.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('권한 복구 작업은 캐시 재조정 실패 시 재시도를 요청한다', () async {
+    expect(
+      await recoverBackgroundMealNotifications(
+        reconcileNotifications: () async => throw StateError('캐시 잠금 실패'),
+      ),
+      isFalse,
+    );
+  });
+
+  test('권한 복구 실행 전에 알림을 끄면 저장된 설정을 존중해 예약만 취소한다', () async {
+    var canceled = false;
+    final result = await recoverBackgroundMealNotifications(
+      reconcileNotifications: () => reconcileBackgroundMealNotifications(
+        mutationSection: (action) => action(),
+        loadSnapshot: () async => (
+          settings: NotificationSettings(enabled: false),
+          generation: 1,
+          currentRevision: null,
+          nextRevision: null,
+        ),
+        reconcile: (_) async => fail('꺼진 알림을 재예약하면 안 된다'),
+        cancelPending: () async => canceled = true,
+      ),
+    );
+    expect(result, isTrue);
+    expect(canceled, isTrue);
+  });
+
   test('성공한 background refresh는 네이티브 플랫폼에서 pending을 재조정한다', () async {
     var reconciliations = 0;
     for (final platform in MealNotificationPlatform.values) {

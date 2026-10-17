@@ -13,6 +13,7 @@ import 'package:meal_client/features/notification/notification_service.dart';
 
 import '../bapu_settings.dart';
 import 'notification_settings.dart' show DormMenuType, NotificationSettings;
+import 'exact_alarm_permission_notice.dart';
 
 const _selectedCafeteriaChipLabelStyle = TextStyle(fontWeight: FontWeight.w600);
 
@@ -89,15 +90,6 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       context
           .read<BapuSettings>()
           .refreshNotificationAuthorizationStatus()
-          .then((_) {
-            if (!mounted) return;
-            if (context.read<BapuSettings>().notificationAuthorizationStatus ==
-                MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
-              _showToggleFailureSnackBar(
-                NotificationEnableResult.exactAlarmPermissionDenied,
-              );
-            }
-          })
           .catchError((Object error, StackTrace stackTrace) {
             debugPrint(
               '[BapU] notification settings authorization refresh failed: $error',
@@ -217,6 +209,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
           // 별도 안내를 띄우지 않는다. 권한 거부는 토글 시 SnackBar로 안내한다.
           // 여기서는 앱 안에서는 켜 두었는데 시스템에서 권한이 꺼진, 알림이
           // 조용히 오지 않는 상태만 노출한다.
+          const ExactAlarmPermissionNotice(),
           if (notification.enabled &&
               authorizationStatus ==
                   MealNotificationAuthorizationStatus.notAuthorized)

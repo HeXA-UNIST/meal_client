@@ -251,6 +251,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cafeteriaNotOperating => 'Not currently open';
 
   @override
+  String get exactAlarmNotificationsPaused =>
+      'Meal notifications are paused because alarms and reminders are not allowed. Your notification preferences are preserved.';
+
+  @override
   String get exactAlarmPermissionRequired =>
       'Allow alarms and reminders to receive meal notifications.';
 

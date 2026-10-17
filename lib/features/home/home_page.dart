@@ -14,6 +14,7 @@ import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
+import 'package:meal_client/features/settings/notification/exact_alarm_permission_notice.dart';
 
 import 'home_drawer.dart';
 import 'week_menu_scaffold.dart';
@@ -263,6 +264,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       cachedMealFuture: cachedMeal,
       mealFuture: downloadedMeal,
       appInfo: appInfo,
+      notice: const ExactAlarmPermissionNotice(),
       drawer: HomePageDrawer(infoFuture: appInfo, nextWeekStart: nextWeekStart),
     );
   }

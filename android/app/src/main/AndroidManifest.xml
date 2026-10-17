@@ -54,7 +54,7 @@
             android:name=".BapUWidgetScheduledUpdateReceiver"
             android:exported="false" />
 
-        <!-- 정확한 알람 권한 허용 후 기존 위젯 예약 재등록 -->
+        <!-- 정확한 알람 권한 허용 후 위젯·식단 알림을 캐시에서 복구 -->
         <receiver
             android:name=".BapUWidgetExactAlarmPermissionReceiver"
             android:exported="false">

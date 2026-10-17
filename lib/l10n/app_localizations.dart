@@ -548,6 +548,12 @@ abstract class AppLocalizations {
   /// **'운영 중이 아님'**
   String get cafeteriaNotOperating;
 
+  /// No description provided for @exactAlarmNotificationsPaused.
+  ///
+  /// In ko, this message translates to:
+  /// **'알람 및 리마인더 권한이 없어 식단 알림이 중단되어 있습니다. 기존 알림 설정은 유지됩니다.'**
+  String get exactAlarmNotificationsPaused;
+
   /// No description provided for @exactAlarmPermissionRequired.
   ///
   /// In ko, this message translates to:

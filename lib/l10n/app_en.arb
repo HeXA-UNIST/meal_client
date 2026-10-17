@@ -97,6 +97,7 @@
   "retry": "Retry",
   "cafeteriaOperating": "Currently open",
   "cafeteriaNotOperating": "Not currently open",
+  "exactAlarmNotificationsPaused": "Meal notifications are paused because alarms and reminders are not allowed. Your notification preferences are preserved.",
   "exactAlarmPermissionRequired": "Allow alarms and reminders to receive meal notifications.",
   "openExactAlarmSettings": "Alarms & reminders settings"
 }

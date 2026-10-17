@@ -246,6 +246,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get cafeteriaNotOperating => '운영 중이 아님';
 
   @override
+  String get exactAlarmNotificationsPaused =>
+      '알람 및 리마인더 권한이 없어 식단 알림이 중단되어 있습니다. 기존 알림 설정은 유지됩니다.';
+
+  @override
   String get exactAlarmPermissionRequired => '식단 알림을 받으려면 알람 및 리마인더를 허용해 주세요.';
 
   @override

@@ -2,6 +2,11 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/features/notification/notification_platform.dart';
+import 'package:meal_client/features/notification/notification_scheduler.dart';
+import 'package:meal_client/features/notification/notification_service.dart';
+import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
 import 'package:meal_client/features/home/home_page.dart';
@@ -11,10 +16,53 @@ import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('홈에서 기존 알림의 권한 부족을 알리고 허용 후 안내를 제거한다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      StorageKeys.notificationEnabled: true,
+    });
+    var authorization =
+        MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+    final settings = BapuSettings(
+      await SharedPreferences.getInstance(),
+      notificationPlatform: MealNotificationPlatform.android,
+      resumeListenerRegistrar: (_) => () {},
+      mealCacheRevisionSnapshotReader: () async => (current: null, next: null),
+      notificationAuthorizationStatusReader: () async => authorization,
+      notificationPermissionRequester: () async => true,
+      exactAlarmPermissionRequester: () async {
+        authorization = MealNotificationAuthorizationStatus.enabled;
+        return true;
+      },
+      notificationScheduleCoordinator: NotificationScheduleCoordinator(
+        schedule: (_, {required isCurrent}) async {},
+        cancel: () async {},
+      ),
+    );
+    addTearDown(settings.dispose);
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: settings,
+        child: _buildHomePage(() => DateTime.utc(2026, 8, 10)),
+      ),
+    );
+    await settings.refreshNotificationAuthorizationStatus();
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(HomePage));
+    final l10n = AppLocalizations.of(context)!;
+    expect(find.text(l10n.exactAlarmNotificationsPaused), findsOneWidget);
+    await tester.tap(
+      find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(l10n.exactAlarmNotificationsPaused), findsNothing);
+    expect(settings.notification.enabled, isTrue);
   });
 
   testWidgets('일요일 세션이 월요일에 재개되면 주간 화면 상태와 Future를 새로 만든다', (tester) async {

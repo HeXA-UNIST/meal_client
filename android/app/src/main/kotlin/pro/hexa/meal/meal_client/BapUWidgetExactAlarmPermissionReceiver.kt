@@ -6,11 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 
-/** 권한 허용 뒤 기존 위젯 표시와 다음 예약을 현재 권한에 맞춰 복구한다. */
+/** 권한 허용 뒤 위젯과 식단 알림을 기존 캐시에서 복구한다. */
 class BapUWidgetExactAlarmPermissionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) return
         if (!BapUWidgetScheduleManager.canScheduleExactAlarms(context)) return
+        // 위젯이 없는 알림 사용자도 복구한다. 서버 갱신 성공과 무관한 별도 작업이다.
+        BapUNotificationPermissionRecovery.enqueue(context)
         if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) return
 
         val pending = goAsync()
