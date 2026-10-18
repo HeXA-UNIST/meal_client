@@ -415,63 +415,75 @@ void main() {
       expect(files, isEmpty);
     });
 
-    for (final olderStatus in [200, 304]) {
-      test('늦게 끝난 $olderStatus 요청은 최신 canonical cache를 덮지 않는다', () async {
-        final files = <String, String>{
-          'meal.json': _rawMealJson('기존', etag: '"cached"'),
-        };
-        var updatedAt = DateTime.utc(2026, 4, 13);
-        var writeTime = updatedAt;
-        final cache = MealCache(
-          writeFile: (name, data) async {
-            files[name] = data;
-            updatedAt = writeTime;
+    for (final newerFinishesFirst in [false, true]) {
+      for (final olderStatus in [200, 304]) {
+        test(
+          '겹친 $olderStatus 요청은 완료 순서 $newerFinishesFirst에서도 캐시와 반환값이 일치한다',
+          () async {
+            final latest = _rawMealJson('최신 응답', etag: '"new"');
+            final files = <String, String>{
+              'meal.json': _rawMealJson('기존', etag: '"cached"'),
+            };
+            final cache = _mapMealCache(files, 'meal.json');
+            final olderResponse = Completer<ConditionalResponse>();
+            final newerResponse = Completer<ConditionalResponse>();
+            final olderStarted = Completer<void>();
+            final newerStarted = Completer<void>();
+            MealRefreshService service(
+              Completer<ConditionalResponse> response,
+              Completer<void> started,
+            ) {
+              var first = true;
+              return MealRefreshService(
+                cache: cache,
+                clock: _testClock,
+                lockCanonicalCache: _withoutLock,
+                fetchConditional: (_, {ifNoneMatch}) async {
+                  if (first) {
+                    first = false;
+                    started.complete();
+                    return response.future;
+                  }
+                  // 충돌 후에는 현재 서버 응답으로 재검증한다.
+                  return ifNoneMatch == '"new"'
+                      ? (statusCode: 304, body: null)
+                      : (statusCode: 200, body: latest);
+                },
+              );
+            }
+
+            final older = service(
+              olderResponse,
+              olderStarted,
+            ).refreshMealResponse(prefetchNextWeek: false);
+            await olderStarted.future;
+            final newer = service(
+              newerResponse,
+              newerStarted,
+            ).refreshMealResponse(prefetchNextWeek: false);
+            await newerStarted.future;
+            final old = (
+              statusCode: olderStatus,
+              body: olderStatus == 304 ? null : _rawMealJson('이전 응답'),
+            );
+            if (newerFinishesFirst) {
+              newerResponse.complete((statusCode: 200, body: latest));
+              await newer;
+              olderResponse.complete(old);
+            } else {
+              olderResponse.complete(old);
+              await older;
+              newerResponse.complete((statusCode: 200, body: latest));
+            }
+            final last = await (newerFinishesFirst ? older : newer);
+            expect(files['meal.json'], latest);
+            expect(
+              _firstDormitoryBreakfastMenu(last.weekMeal),
+              contains('최신 응답'),
+            );
           },
-          readFile: (name) async => files[name]!,
-          readLastModified: (_) async => updatedAt,
         );
-        final olderResponse = Completer<ConditionalResponse>();
-        final newerResponse = Completer<ConditionalResponse>();
-        final olderStarted = Completer<void>();
-        final newerStarted = Completer<void>();
-        var olderNow = DateTime.utc(2026, 4, 14, 1);
-        var newerNow = DateTime.utc(2026, 4, 14, 2);
-        final older = MealRefreshService(
-          cache: cache,
-          clock: () => olderNow,
-          lockCanonicalCache: _withoutLock,
-          fetchConditional: (_, {ifNoneMatch}) {
-            olderStarted.complete();
-            return olderResponse.future;
-          },
-        ).refreshMealResponse(prefetchNextWeek: false);
-        final newer = MealRefreshService(
-          cache: cache,
-          clock: () => newerNow,
-          lockCanonicalCache: _withoutLock,
-          fetchConditional: (_, {ifNoneMatch}) {
-            newerStarted.complete();
-            return newerResponse.future;
-          },
-        ).refreshMealResponse(prefetchNextWeek: false);
-
-        await Future.wait([olderStarted.future, newerStarted.future]);
-
-        newerNow = DateTime.utc(2026, 4, 14, 3);
-        writeTime = newerNow;
-        newerResponse.complete((statusCode: 200, body: _rawMealJson('최신 응답')));
-        await newer;
-
-        olderNow = DateTime.utc(2026, 4, 14, 4);
-        writeTime = olderNow;
-        olderResponse.complete((
-          statusCode: olderStatus,
-          body: olderStatus == 304 ? null : _rawMealJson('늦은 이전 응답'),
-        ));
-        await older;
-
-        expect(files['meal.json'], contains('최신 응답'));
-      });
+      }
     }
 
     test('평일에는 일치하는 next cache를 다시 선반입하지 않는다', () async {

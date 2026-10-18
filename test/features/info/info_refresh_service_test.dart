@@ -96,48 +96,55 @@ void main() {
       expect(jsonDecode(rawInfo)['announcement']['content']['ko'], '복구된 공지');
     });
 
-    test('늦게 끝난 이전 요청은 최신 info cache를 덮지 않는다', () async {
-      var rawInfo = _rawInfoJson('기존');
-      var updatedAt = DateTime.utc(2026, 4, 13);
-      var writeTime = updatedAt;
-      final cache = InfoCache(
-        writeFile: (_, data) async {
-          rawInfo = data;
-          updatedAt = writeTime;
-        },
-        readFile: (_) async => rawInfo,
-        readLastModified: (_) async => updatedAt,
-      );
-      final olderResponse = Completer<ConditionalResponse>();
-      final newerResponse = Completer<ConditionalResponse>();
-      var olderNow = DateTime.utc(2026, 4, 14, 1);
-      var newerNow = DateTime.utc(2026, 4, 14, 2);
-      final older = InfoRefreshService(
-        cache: cache,
-        clock: () => olderNow,
-        fetchRaw: (_, {ifNoneMatch}) => olderResponse.future,
-      ).refreshInfo();
-      final newer = InfoRefreshService(
-        cache: cache,
-        clock: () => newerNow,
-        fetchRaw: (_, {ifNoneMatch}) => newerResponse.future,
-      ).refreshInfo();
+    for (final newerFinishesFirst in [false, true]) {
+      test('겹친 안내 요청은 완료 순서 $newerFinishesFirst에서도 같은 스냅샷을 반환한다', () async {
+        var stored = _rawInfoJson('기존', '"old"');
+        final latest = _rawInfoJson('최신', '"new"');
+        final cache = InfoCache(
+          readFile: (_) async => stored,
+          writeFile: (_, data) async => stored = data,
+          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
+        );
+        final responses = List.generate(
+          2,
+          (_) => Completer<ConditionalResponse>(),
+        );
+        final started = List.generate(2, (_) => Completer<void>());
+        Future<AppInfo> request(int index) {
+          var first = true;
+          return InfoRefreshService(
+            cache: cache,
+            fetchRaw: (_, {ifNoneMatch}) async {
+              if (first) {
+                first = false;
+                started[index].complete();
+                return responses[index].future;
+              }
+              return ifNoneMatch == '"new"'
+                  ? (statusCode: 304, body: null)
+                  : _ok(latest);
+            },
+          ).refreshInfo();
+        }
 
-      newerNow = DateTime.utc(2026, 4, 14, 3);
-      writeTime = newerNow;
-      newerResponse.complete(_ok(_rawInfoJson('최신')));
-      await newer;
-
-      olderNow = DateTime.utc(2026, 4, 14, 4);
-      writeTime = olderNow;
-      olderResponse.complete(_ok(_rawInfoJson('늦은 이전')));
-      await older;
-
-      expect(
-        AppInfo.fromJson(jsonDecode(rawInfo)).announcement?.content.ko,
-        '최신',
-      );
-    });
+        final older = request(0);
+        await started[0].future;
+        final newer = request(1);
+        await started[1].future;
+        if (newerFinishesFirst) {
+          responses[1].complete(_ok(latest));
+          await newer;
+          responses[0].complete(_ok(_rawInfoJson('이전 응답')));
+        } else {
+          responses[0].complete(_ok(_rawInfoJson('이전 응답')));
+          await older;
+          responses[1].complete(_ok(latest));
+        }
+        final last = await (newerFinishesFirst ? older : newer);
+        expect(stored, latest);
+        expect(last.announcement?.content.ko, '최신');
+      });
+    }
   });
 }
 
