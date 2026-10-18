@@ -3,7 +3,6 @@ package pro.hexa.meal.meal_client
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 
 /**
  * 재부팅 또는 앱 업데이트 뒤 기존 위젯을 캐시로 다시 그리고 다음 호출을 예약한다.
@@ -20,14 +19,10 @@ class BapUWidgetBootReceiver : BroadcastReceiver() {
                     BapUWidgetScheduleManager.scheduleNext(context)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "widget restore after boot/update failed", e)
+                logWidgetFailure("restore", e)
             } finally {
                 pending.finish()
             }
         }
-    }
-
-    companion object {
-        private const val TAG = "BapUWidgetBootReceiver"
     }
 }

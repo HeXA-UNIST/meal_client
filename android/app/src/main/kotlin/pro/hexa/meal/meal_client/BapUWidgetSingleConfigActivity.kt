@@ -156,8 +156,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
             val ctx = applicationContext
-            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(ctx) { failure ->
-                if (failure != null) Log.e(TAG, "widget render failed", failure)
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(ctx) {
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     setResult(
@@ -176,9 +175,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
         refreshExactAlarmPermission()
         // 허용·거절 후 돌아왔을 때 기존 위젯의 예약을 현재 권한에 맞춘다.
         if (BapUWidgetUpdateDispatcher.hasAnyWidget(this)) {
-            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) { failure ->
-                if (failure != null) Log.e(TAG, "widget restore after config resume failed", failure)
-            }
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) {}
         }
     }
 

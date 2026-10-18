@@ -149,6 +149,13 @@ Android에서 갱신 요청의 완료는 broadcast 전송 완료를 뜻합니다
 네이티브 로그에 남으며 Flutter의 `throwOnFailure`로 전달되지 않습니다.
 따라서 Workmanager는 요청 실패는 재시도할 수 있지만, 이후의 렌더 실패는 감지하지 못합니다.
 
+Android 렌더·예약 오류는 처리한 경계에서 `logWidgetFailure(stage, error)`로 한 번 기록합니다.
+dispatcher가 기록한 오류를 설정 화면·권한 복구 완료 콜백에서 다시 기록하지 않습니다.
+여러 위젯의 실패와 렌더·예약 동시 실패는 원인 예외와 `suppressed`로 보존하며,
+오류가 나도 다음 예약과 완료 처리는 계속 시도합니다.
+Firebase 통합 시 이 함수에 non-fatal 보고를 연결하고, 기존 브랜치의 보고 호출과 중복되지 않게 정리합니다.
+정상적인 메뉴 생략이나 최초 실행 전 캐시 부재는 표시·복구 정책에 따라 처리할 상태입니다.
+
 ## 오픈소스 라이선스
 
 이 프로젝트는 [GNU General Public License v2.0](LICENSE)에 따라 배포됩니다.

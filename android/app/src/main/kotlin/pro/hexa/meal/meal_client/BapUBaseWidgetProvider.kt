@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -32,14 +31,14 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                     performUpdate(context, appWidgetManager, id, data)
                 }
             } catch (e: Exception) {
-                Log.e(javaClass.simpleName, "widget update failed", e)
+                logWidgetFailure("render", e)
             } finally {
                 // home_widget과 시스템 갱신 모두 다음 경계를 보정한다. 렌더 실패 시에도
                 // 예약을 시도해 캐시 복구 뒤 다시 갱신할 기회를 남긴다.
                 try {
                     BapUWidgetScheduleManager.scheduleNext(context)
                 } catch (e: Exception) {
-                    Log.e(javaClass.simpleName, "widget scheduling failed", e)
+                    logWidgetFailure("schedule", e)
                 }
             }
         }
@@ -57,7 +56,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                     performUpdate(context, appWidgetManager, id, data)
                 }
             } catch (e: Exception) {
-                Log.e(javaClass.simpleName, "widget options update failed", e)
+                logWidgetFailure("resize", e)
             }
         }
     }
@@ -65,7 +64,11 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
     override fun onEnabled(context: Context) {
         enqueueBroadcastWork {
             BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
-            BapUWidgetScheduleManager.scheduleNext(context)
+            try {
+                BapUWidgetScheduleManager.scheduleNext(context)
+            } catch (e: Exception) {
+                logWidgetFailure("schedule", e)
+            }
         }
     }
 
