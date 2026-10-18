@@ -448,6 +448,8 @@ class NestedPageScrollControllerGroup {
     // 불필요한 애니메이션 ticker 생성을 방지한다.
     int? activeIndex,
   }) async {
+    // 로딩 중 아직 연결된 뷰가 없어도 이후 onAttach가 마지막 선택을 복원한다.
+    _page = page;
     final futures = <Future<void>>[];
 
     // 비활성 탭의 jumpToPage가 리스너를 통해 활성 탭의 애니메이션을

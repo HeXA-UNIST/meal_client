@@ -16,6 +16,44 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
+  testWidgets('로딩 중 선택한 끼니를 데이터 도착 후에도 유지한다', (tester) async {
+    final response = Completer<WeekMeal>();
+    final week = WeekMeal.empty();
+    for (final (meal, text) in [
+      (MealOfDay.breakfast, '아침 데이터'),
+      (MealOfDay.lunch, '점심 데이터'),
+    ]) {
+      week[DayOfWeek.mon][meal][Cafeteria.dormitory].add(
+        Meal.regular(menu: [MealMenuItem(ko: text)]),
+      );
+    }
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: WeekMenuScaffold(
+          mondayOfWeek: DateTime(2026, 6, 22),
+          initialDayOfWeek: DayOfWeek.mon,
+          initialMealOfDay: MealOfDay.breakfast,
+          mealFuture: response.future,
+          appInfo: Future.value(_emptyAppInfo()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('아침'));
+    await tester.pump();
+    response.complete(week);
+    await tester.pumpAndSettle();
+    expect(find.text('점심'), findsOneWidget);
+    expect(find.text('점심 데이터'), findsOneWidget);
+    expect(find.text('아침 데이터'), findsNothing);
+  });
+
   testWidgets('cachedMealFuture 없이 mealFuture만으로 데이터를 렌더링한다', (tester) async {
     final weekMeal = WeekMeal.empty();
     weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(

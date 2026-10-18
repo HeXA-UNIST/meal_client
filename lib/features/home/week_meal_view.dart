@@ -110,13 +110,16 @@ class WeekMealTabBarView extends StatelessWidget {
                       {
                         var divided = (constraints.maxWidth / _cardMaxWidth)
                             .toInt();
+                        if (divided < 1) divided = 1;
                         if (divided < 2) {
                           final halfCardWidth = constraints.maxWidth / 2;
                           if (halfCardWidth > _cardMinWidth) {
                             divided = 2;
                             cardWidth = halfCardWidth;
                           } else {
-                            cardWidth = _cardMaxWidth.toDouble();
+                            cardWidth = constraints.maxWidth < _cardMaxWidth
+                                ? constraints.maxWidth
+                                : _cardMaxWidth.toDouble();
                           }
                         } else {
                           cardWidth = _cardMaxWidth.toDouble();

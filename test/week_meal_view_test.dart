@@ -37,68 +37,74 @@ void main() {
     );
   });
 
-  testWidgets('식단 카드에 선택한 요일과 끼니의 운영시간을 전달한다', (tester) async {
-    final weekMeal = WeekMeal.empty();
-    weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
-      Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
-    );
+  for (final width in [200.0, 208.0, 800.0]) {
+    testWidgets('가용 폭 $width에서도 식단과 운영시간을 표시한다', (tester) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final weekMeal = WeekMeal.empty();
+      weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
+        Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 935),
+      );
 
-    final tabController = TabController(length: 7, vsync: tester);
-    final pageControllerGroup = NestedPageScrollControllerGroup(
-      count: DayOfWeek.values.length,
-      pageCount: MealOfDay.values.length,
-    );
-    addTearDown(tabController.dispose);
-    addTearDown(pageControllerGroup.dispose);
+      final tabController = TabController(length: 7, vsync: tester);
+      final pageControllerGroup = NestedPageScrollControllerGroup(
+        count: DayOfWeek.values.length,
+        pageCount: MealOfDay.values.length,
+      );
+      addTearDown(tabController.dispose);
+      addTearDown(pageControllerGroup.dispose);
 
-    final appInfo = AppInfo.fromJson(
-      jsonDecode(
-        jsonEncode({
-          'announcement': null,
-          'operatingHours': {
-            'weekday': {
-              'dormitory': {
-                'breakfast': {'start': '08:00', 'end': '09:20'},
+      final appInfo = AppInfo.fromJson(
+        jsonDecode(
+          jsonEncode({
+            'announcement': null,
+            'operatingHours': {
+              'weekday': {
+                'dormitory': {
+                  'breakfast': {'start': '08:00', 'end': '09:20'},
+                },
               },
+              'weekend': {},
             },
-            'weekend': {},
-          },
-        }),
-      ) as Map<String, dynamic>,
-    );
+          }),
+        ) as Map<String, dynamic>,
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: WeekMealTabBarView(
-            weekMeal: weekMeal,
-            tabController: tabController,
-            pageControllerGroup: pageControllerGroup,
-            pageCount: MealOfDay.values.length,
-            onPageChanged: (_) {},
-            appInfo: Future.value(appInfo),
-            mondayOfWeek: DateTime(2026, 6, 15),
-            currentKstDateTime: DateTime(2026, 6, 15, 8, 30),
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: WeekMealTabBarView(
+              weekMeal: weekMeal,
+              tabController: tabController,
+              pageControllerGroup: pageControllerGroup,
+              pageCount: MealOfDay.values.length,
+              onPageChanged: (_) {},
+              appInfo: Future.value(appInfo),
+              mondayOfWeek: DateTime(2026, 6, 15),
+              currentKstDateTime: DateTime(2026, 6, 15, 8, 30),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is RichText &&
-            widget.text.toPlainText().contains('08:00 - 09:20'),
-      ),
-      findsOneWidget,
-    );
-  });
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is RichText &&
+              widget.text.toPlainText().contains('08:00 - 09:20'),
+        ),
+        findsOneWidget,
+      );
+    });
+  }
 
   testWidgets('운영시간과 칼로리 유무가 달라도 모든 카드에 같은 메타데이터 배율을 적용한다', (tester) async {
     tester.view.physicalSize = const Size(330, 800);
