@@ -1,7 +1,6 @@
 package pro.hexa.meal.meal_client
 
 import android.app.PendingIntent
-import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences  // getWidgetConfigPrefs 에서 사용
@@ -378,24 +377,6 @@ fun mealOfDayResId(mealOfDay: Int): Int = when (mealOfDay) {
 }
 
 // ─── 기기별 동적 텍스트 크기 계산 ─────────────────────────────────────────────
-
-/** AppWidget 옵션에서 세로 모드 최소 너비(dp)를 읽는다. */
-fun widgetWidthDp(manager: AppWidgetManager, widgetId: Int): Int {
-    val min = manager.getAppWidgetOptions(widgetId)
-        .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
-    return if (min > 0) min else 160
-}
-
-/**
- * AppWidget 옵션에서 세로 모드 실제 높이(dp)를 읽는다.
- * MIN_HEIGHT = 가로 모드(더 좁은 방향) 높이, MAX_HEIGHT = 세로 모드(더 큰 방향) 높이.
- * 줄 수 계산은 세로 모드 기준이므로 MAX_HEIGHT 를 사용한다.
- */
-fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
-    val max = manager.getAppWidgetOptions(widgetId)
-        .getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
-    return if (max > 0) max else 150
-}
 
 /** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (시안 비율: 메뉴보다 1sp 작게, 최소 8sp). */
 fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 1f).coerceAtLeast(8f)

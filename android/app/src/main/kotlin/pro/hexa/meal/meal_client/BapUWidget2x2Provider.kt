@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.util.SizeF
@@ -71,11 +72,27 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                 }
             }
 
-            val widthDp = widgetWidthDp(manager, widgetId).toFloat()
-            val heightDp = widgetHeightDp(manager, widgetId).toFloat()
             manager.updateAppWidget(
                 widgetId,
-                createRemoteViews(context, widgetId, data, widthDp, heightDp)
+                createFallbackRemoteViews(context, widgetId, data, manager.getAppWidgetOptions(widgetId))
+            )
+        }
+
+        /** 크기 목록이 없는 런처에도 각 방향의 실제 영역으로 측정한 뷰를 제공한다. */
+        private fun createFallbackRemoteViews(
+            context: Context, widgetId: Int, data: WidgetMealData, options: Bundle,
+        ): RemoteViews {
+            val portraitWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+                .takeIf { it > 0 }?.toFloat() ?: 160f
+            val portraitHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+                .takeIf { it > 0 }?.toFloat() ?: 150f
+            val landscapeWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0)
+                .takeIf { it > 0 }?.toFloat() ?: portraitWidth
+            val landscapeHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+                .takeIf { it > 0 }?.toFloat() ?: portraitHeight
+            return RemoteViews(
+                createRemoteViews(context, widgetId, data, landscapeWidth, landscapeHeight),
+                createRemoteViews(context, widgetId, data, portraitWidth, portraitHeight),
             )
         }
 
