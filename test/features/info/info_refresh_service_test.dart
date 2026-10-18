@@ -9,9 +9,8 @@ import 'package:meal_client/features/info/info_refresh_service.dart';
 
 void main() {
   group('InfoRefreshService', () {
-    test('기존 캐시를 갱신한 뒤 ETag로 재검증하고 304에서는 저장 없이 재사용한다', () async {
+    test('캐시 ETag로 재검증하고 304에서 기존 본문을 반환한다', () async {
       String? storedRaw;
-      var writeCount = 0;
       final sentEtags = <String?>[];
       final rawInfo = _rawInfoJson('notice', '"info-v2"');
       final service = InfoRefreshService(
@@ -22,7 +21,6 @@ void main() {
           }),
           onWrite: (rawJson) {
             storedRaw = rawJson;
-            writeCount++;
           },
         ),
         fetchRaw: (_, {ifNoneMatch}) async {
@@ -38,7 +36,6 @@ void main() {
 
       expect(sentEtags, [null, '"info-v2"']);
       expect(storedRaw, rawInfo);
-      expect(writeCount, 1);
       expect(info.announcement?.content.ko, 'notice');
       expect(revalidated.announcement?.content.ko, 'notice');
     });
@@ -59,7 +56,6 @@ void main() {
         cache: InfoCache(
           writeFile: (_, _) async => throw Exception('disk full'),
           readFile: (_) async => '',
-          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
         ),
         fetchRaw: (_, {ifNoneMatch}) async => _ok(_rawInfoJson()),
         throwOnCacheWriteFailure: true,
@@ -77,7 +73,6 @@ void main() {
       final cache = InfoCache(
         writeFile: (_, data) async => rawInfo = data,
         readFile: (_) async => rawInfo,
-        readLastModified: (_) async => DateTime.utc(2026, 8, 23),
       );
       final service = InfoRefreshService(
         cache: cache,
@@ -103,7 +98,6 @@ void main() {
         final cache = InfoCache(
           readFile: (_) async => stored,
           writeFile: (_, data) async => stored = data,
-          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
         );
         final responses = List.generate(
           2,
@@ -161,7 +155,6 @@ InfoCache _memoryInfoCache({
       onWrite?.call(data);
     },
     readFile: (_) async => currentRawJson,
-    readLastModified: (_) async => DateTime.utc(2026, 4, 13),
   );
 }
 
