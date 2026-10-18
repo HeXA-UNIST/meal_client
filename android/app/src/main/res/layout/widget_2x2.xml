@@ -88,7 +88,7 @@
             android:textSize="10sp"
             android:fontFamily="sans-serif"
             android:letterSpacing="-0.01"
-            android:lineSpacingExtra="2sp"
+            android:lineSpacingExtra="4sp"
             android:gravity="top" />
 
         <LinearLayout
@@ -109,7 +109,7 @@
                 android:textSize="10sp"
                 android:fontFamily="sans-serif"
                 android:letterSpacing="-0.01"
-                android:lineSpacingExtra="2sp"
+                android:lineSpacingExtra="4sp"
                 android:gravity="top" />
 
             <TextView
@@ -123,7 +123,7 @@
                 android:textSize="10sp"
                 android:fontFamily="sans-serif"
                 android:letterSpacing="-0.01"
-                android:lineSpacingExtra="2sp"
+                android:lineSpacingExtra="4sp"
                 android:gravity="top" />
         </LinearLayout>
     </FrameLayout>
