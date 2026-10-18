@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -25,16 +24,22 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        if (appWidgetIds.isEmpty()) return
         enqueueBroadcastWork {
             try {
                 BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, appWidgetIds) { id, data ->
                     performUpdate(context, appWidgetManager, id, data)
                 }
-                // onEnabled는 위젯이 처음 추가될 때만 불리므로, 앱 업데이트로 재설치된 경우
-                // 기존 위젯의 예약 호출 체인이 안 걸려있을 수 있다. 여기서도 매번 보정해준다.
-                BapUWidgetScheduleManager.scheduleNext(context)
             } catch (e: Exception) {
-                Log.e(javaClass.simpleName, "widget update failed", e)
+                logWidgetFailure("render", e)
+            } finally {
+                // home_widget과 시스템 갱신 모두 다음 경계를 보정한다. 렌더 실패 시에도
+                // 예약을 시도해 캐시 복구 뒤 다시 갱신할 기회를 남긴다.
+                try {
+                    BapUWidgetScheduleManager.scheduleNext(context)
+                } catch (e: Exception) {
+                    logWidgetFailure("schedule", e)
+                }
             }
         }
     }
@@ -51,7 +56,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                     performUpdate(context, appWidgetManager, id, data)
                 }
             } catch (e: Exception) {
-                Log.e(javaClass.simpleName, "widget options update failed", e)
+                logWidgetFailure("resize", e)
             }
         }
     }
@@ -59,7 +64,11 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
     override fun onEnabled(context: Context) {
         enqueueBroadcastWork {
             BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
-            BapUWidgetScheduleManager.scheduleNext(context)
+            try {
+                BapUWidgetScheduleManager.scheduleNext(context)
+            } catch (e: Exception) {
+                logWidgetFailure("schedule", e)
+            }
         }
     }
 

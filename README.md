@@ -63,6 +63,12 @@ Android 앱을 한 번 실행하거나 빌드하여 Gradle Wrapper를 준비한 
 ./android/gradlew -p android :app:testDebugUnitTest
 ```
 
+실제 TextView의 본문 크기 선택·2열 공통 크기·말줄임을 검사하려면 Android 실기기를 연결하거나 에뮬레이터를 실행한 뒤 아래 명령을 사용하세요. 이 검증은 위 JVM 테스트와 별도로 실행합니다.
+
+```bash
+./android/gradlew -p android :app:connectedDebugAndroidTest
+```
+
 Windows에서는 `./android/gradlew` 대신 `.\android\gradlew.bat`을 사용하세요.
 
 iOS 네이티브 테스트는 macOS에서 사용 가능한 시뮬레이터를 확인하고, `SIMULATOR_UDID`를 사용할 시뮬레이터의 UDID로 바꿔서 실행하세요.
@@ -111,8 +117,6 @@ meal_client/
 │   └── l10n/                     # 한국어/영어 번역
 ├── android/                      # Android 앱, 홈 화면 위젯
 ├── ios/                          # iOS 앱, WidgetKit 위젯
-├── plugins/
-│   └── bapu_widget_bridge/       # Android 위젯 렌더링 브리지
 └── web/                          # 웹 앱 리소스
 ```
 
@@ -122,9 +126,35 @@ meal_client/
 - **Network:** `http`, Android `cronet_http`, iOS `cupertino_http`
 - **Local Storage:** `shared_preferences`, `path_provider`
 - **Notification & Background task:** `flutter_local_notifications`, `timezone`, `workmanager`
-- **Home Widget:** Android `bapu_widget_bridge`, iOS WidgetKit
+- **Home Widget:** `home_widget` 갱신 요청, Android RemoteViews, iOS WidgetKit
 - **Localization:** `flutter_localizations`, `intl`
 - **Share API:** `share_plus`
+
+### 위젯 갱신 경로
+
+Flutter의 foreground/Workmanager는 공유 JSON 캐시를 저장한 뒤
+`HomeWidget.updateWidget()`으로 갱신을 요청합니다.
+
+- Android: `APPWIDGET_UPDATE` → 기존 provider → 단일 렌더 큐 → RemoteViews.
+  다음 운영 상태 전환은 기존 AlarmManager가 예약합니다.
+- iOS: `BapUWidget` timeline 갱신 요청 → 기존 AppIntentTimelineProvider → SwiftUI.
+- 공유 캐시와 iOS App Group 경로·백업 제외 채널은 기존 구현을 사용합니다.
+  `home_widget`의 별도 데이터 저장소와 generator는 사용하지 않습니다.
+
+자체 Android 플러그인과 iOS 갱신 채널은 제거했지만, 식단 해석·위젯별 식당 설정·
+시간 경계 계산·UI는 네이티브 구현으로 남습니다. `home_widget 0.10.0`은
+Android Glance 의존성을 포함하므로, 자체 코드 감소가 의존성 감소를 뜻하지는 않습니다.
+
+Android에서 갱신 요청의 완료는 broadcast 전송 완료를 뜻합니다. 실제 렌더·예약 실패는
+네이티브 로그에 남으며 Flutter의 `throwOnFailure`로 전달되지 않습니다.
+따라서 Workmanager는 요청 실패는 재시도할 수 있지만, 이후의 렌더 실패는 감지하지 못합니다.
+
+Android 렌더·예약 오류는 처리한 경계에서 `logWidgetFailure(stage, error)`로 한 번 기록합니다.
+dispatcher가 기록한 오류를 설정 화면·권한 복구 완료 콜백에서 다시 기록하지 않습니다.
+여러 위젯의 실패와 렌더·예약 동시 실패는 원인 예외와 `suppressed`로 보존하며,
+오류가 나도 다음 예약과 완료 처리는 계속 시도합니다.
+Firebase 통합 시 이 함수에 non-fatal 보고를 연결하고, 기존 브랜치의 보고 호출과 중복되지 않게 정리합니다.
+정상적인 메뉴 생략이나 최초 실행 전 캐시 부재는 표시·복구 정책에 따라 처리할 상태입니다.
 
 ## 오픈소스 라이선스
 

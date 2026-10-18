@@ -68,6 +68,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// 밀리고, 게다가 캐시 공지의 fingerprint가 저장돼 버린다.
   late final Future<AppInfo> _freshAppInfo;
   Future<void> _mealRefreshQueue = Future.value();
+  Timer? _displayTimer;
+  AppInfo? _displayInfo;
+  bool _displayActive =
+      WidgetsBinding.instance.lifecycleState == null ||
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
 
   @override
   void initState() {
@@ -79,6 +84,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _initializeDataLoading();
     _freshAppInfo = _fetchFreshAppInfo();
     appInfo = _loadAppInfo(_freshAppInfo);
+    // 운영시간을 아직 못 읽어도 자정과 주차 경계는 갱신한다.
+    _scheduleDisplayRefresh();
     // 화면의 FutureBuilder가 붙기 전에 실패하면 listener가 없어 unhandled async
     // error가 된다. 오류 표시는 그대로 FutureBuilder가 맡고, 여기서는 관찰만 한다.
     unawaited(appInfo.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
@@ -102,7 +109,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       },
     );
     final cached = await (widget.loadCachedAppInfo ?? readCachedAppInfo)();
-    if (cached == null) return fresh;
+    if (cached == null) {
+      final info = await fresh;
+      if (mounted) {
+        _displayInfo = info;
+        _scheduleDisplayRefresh();
+      }
+      return info;
+    }
+    if (mounted) {
+      _displayInfo = cached;
+      _scheduleDisplayRefresh();
+    }
     unawaited(_replaceAppInfoWithFresh(fresh, freshFailed));
     return cached;
   }
@@ -126,6 +144,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() {
       appInfo = fresh;
     });
+    _displayInfo = await fresh;
+    if (mounted) _scheduleDisplayRefresh();
   }
 
   Future<void> _refreshHomeWidgetsFromCache() async {
@@ -140,6 +160,48 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   DateTime _now() => widget.now?.call() ?? DateTime.now();
+
+  /// 조작이 없어도 다음 운영시간 경계나 KST 자정에 표시를 다시 계산한다.
+  void _scheduleDisplayRefresh() {
+    _displayTimer?.cancel();
+    if (!_displayActive || !mounted) return;
+    final now = MealTimeConfig.toKst(_now());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    var next = today.add(const Duration(days: 1));
+    final period = _displayInfo?.operatingHours.forDate(now);
+    if (period != null) {
+      for (final cafeteria in period.cafeterias) {
+        for (final range in period.timesFor(cafeteria)) {
+          for (final (time, extraMinute) in [
+            (range.start, 0),
+            (range.end, 1),
+          ]) {
+            final parts = time.split(':').map(int.parse).toList();
+            // contains()가 종료 분 전체를 포함하므로 그 다음 분에 상태를 바꾼다.
+            final boundary = today.add(
+              Duration(hours: parts[0], minutes: parts[1] + extraMinute),
+            );
+            if (boundary.isAfter(now) && boundary.isBefore(next)) {
+              next = boundary;
+            }
+          }
+        }
+      }
+    }
+    _displayTimer = Timer(next.difference(now), _refreshDisplay);
+  }
+
+  void _refreshDisplay() {
+    if (!mounted || !_displayActive) return;
+    final now = _now();
+    setState(() {
+      if (_weekId != MealTimeConfig.kstWeekId(now)) {
+        _initializeModelAndDate(now);
+        _initializeDataLoading();
+      }
+    });
+    _scheduleDisplayRefresh();
+  }
 
   void _initializeModelAndDate([DateTime? now]) {
     final instant = now ?? _now();
@@ -156,21 +218,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _displayActive = state == AppLifecycleState.resumed;
     if (state != AppLifecycleState.resumed) {
+      _displayTimer?.cancel();
       return;
     }
 
     // 같은 주의 복귀나 오프라인 상태에서도 위젯 갱신을 다시 요청한다.
     unawaited(_refreshHomeWidgetsFromCache());
-    final now = _now();
-    if (_weekId == MealTimeConfig.kstWeekId(now)) {
-      return;
-    }
-
-    setState(() {
-      _initializeModelAndDate(now);
-      _initializeDataLoading();
-    });
+    _refreshDisplay();
   }
 
   void _initializeDataLoading() {
@@ -313,6 +369,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       mondayOfWeek: _mondayOfWeek,
       initialDayOfWeek: _initialDayOfWeek,
       today: DayOfWeek.values[MealTimeConfig.toKst(_now()).weekday - 1],
+      currentKstDateTime: MealTimeConfig.toKst(_now()),
       initialMealOfDay: _initialMealOfDay,
       cachedMealFuture: cachedMeal,
       mealFuture: downloadedMeal,
@@ -341,6 +398,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _displayTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

@@ -1,4 +1,3 @@
-import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/features/settings/locale_settings.dart';
@@ -309,7 +308,6 @@ Future<bool> requestNotificationPermission() async {
   return androidGranted ?? iosGranted ?? false;
 }
 
-Future<void> openMealNotificationSettings() =>
-    device_settings.AppSettings.openAppSettings(
-      type: device_settings.AppSettingsType.notification,
-    );
+Future<void> openMealNotificationSettings() async {
+  await _plugin.openAppNotificationSettings();
+}

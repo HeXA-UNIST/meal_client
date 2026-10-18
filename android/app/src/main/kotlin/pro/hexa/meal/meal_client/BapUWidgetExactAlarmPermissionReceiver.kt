@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 
 /** 권한 허용 뒤 위젯과 식단 알림을 기존 캐시에서 복구한다. */
 class BapUWidgetExactAlarmPermissionReceiver : BroadcastReceiver() {
@@ -16,16 +15,9 @@ class BapUWidgetExactAlarmPermissionReceiver : BroadcastReceiver() {
         if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) return
 
         val pending = goAsync()
-        BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(context) { failure ->
-            try {
-                if (failure != null) Log.e(TAG, "widget restore after permission grant failed", failure)
-            } finally {
-                pending.finish()
-            }
+        BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(context) {
+            // 오류 기록은 dispatcher가 맡고, 이 콜백은 수명 종료만 처리한다.
+            pending.finish()
         }
-    }
-
-    companion object {
-        private const val TAG = "BapUWidgetExactAlarm"
     }
 }

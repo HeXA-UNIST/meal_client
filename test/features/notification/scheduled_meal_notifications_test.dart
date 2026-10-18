@@ -221,6 +221,36 @@ void main() {
       expect(canceled, isEmpty);
     });
 
+    test('현재 주를 읽지 못해도 설정에서 해제한 식당 예약은 취소한다', () async {
+      final date = DateTime.utc(2026, 7, 20);
+      final student = _ownedId(date);
+      final faculty = scheduledMealNotificationId(
+        period: MealNotificationPeriod.lunch,
+        contentId: 4,
+        targetDate: date,
+        alertTime: const TimeOfDay(hour: 11, minute: 0),
+      );
+      final canceled = <int>[];
+      await reconcileScheduledMealNotifications(
+        settings: NotificationSettings(
+          enabled: true,
+          alertTimes: const {
+            MealNotificationPeriod.lunch: TimeOfDay(hour: 11, minute: 0),
+          },
+          cafeterias: const {Cafeteria.faculty},
+          dormMenuTypes: const {},
+          days: DayOfWeek.values.toSet(),
+        ),
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        readPendingIds: () async => [student, faculty, 99],
+        loadCurrentWeek: () async => null,
+        cancelPending: (id) async => canceled.add(id),
+        upsertNotification: (_) async => fail('본문 없이 새 예약을 만들면 안 된다'),
+      );
+      expect(canceled, [student]);
+    });
+
     test('다음 주 실패 시 그 범위는 보존하고 다른 stale ID만 제거한다', () async {
       final nextWeekId = _ownedId(DateTime.utc(2026, 7, 27));
       final orphanedId = _ownedId(DateTime.utc(2026, 8, 3));

@@ -18,6 +18,7 @@ class WeekMenuScaffold extends StatefulWidget {
     required this.mondayOfWeek,
     required this.initialDayOfWeek,
     this.today,
+    this.currentKstDateTime,
     required this.initialMealOfDay,
     required this.mealFuture,
     this.cachedMealFuture,
@@ -30,6 +31,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final DateTime mondayOfWeek;
   final DayOfWeek initialDayOfWeek;
   final DayOfWeek? today;
+  final DateTime? currentKstDateTime;
   final MealOfDay initialMealOfDay;
   final Future<WeekMeal> mealFuture;
   final Future<WeekMeal>? cachedMealFuture;
@@ -281,6 +283,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       pageControllerGroup: _mealOfDayPageControllerGroup,
       appInfo: widget.appInfo,
       mondayOfWeek: widget.mondayOfWeek,
+      currentKstDateTime: widget.currentKstDateTime,
       onPageChanged: (page) {
         // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
         // 상단 버튼 상태에 반영하지 않는다.

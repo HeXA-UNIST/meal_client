@@ -156,8 +156,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
             val ctx = applicationContext
-            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(ctx) { failure ->
-                if (failure != null) Log.e(TAG, "widget render failed", failure)
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(ctx) {
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     setResult(
@@ -176,9 +175,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
         refreshExactAlarmPermission()
         // 허용·거절 후 돌아왔을 때 기존 위젯의 예약을 현재 권한에 맞춘다.
         if (BapUWidgetUpdateDispatcher.hasAnyWidget(this)) {
-            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) { failure ->
-                if (failure != null) Log.e(TAG, "widget restore after config resume failed", failure)
-            }
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) {}
         }
     }
 
@@ -212,7 +209,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     }
 
     /**
-     * 미리보기 카드의 텍스트 크기를 실제 위젯 렌더 값(12sp 고정 체계)에 맞춘다.
+     * 헤더·상태 크기를 실제 위젯과 맞추고, 본문은 최소 12sp에서 공간에 따라 확대한다.
      * 그림자는 View.elevation 대신 XML의 backing 사각형으로 대체했다(elevation 그림자가
      * 렌더러/기기에 따라 지저분하게 나오는 문제가 있었음).
      */
@@ -233,7 +230,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     /**
      * 현재 선택된 식당 기준으로 미리보기 카드를 다시 채운다.
      * 카드는 [PREVIEW_SIZE_DP] 고정 크기이므로, 실제 위젯이 쓰는 것과 같은
-     * [truncateMenuByRealLayout]로 정확히 그만큼만 채우고 넘치면 "..."로 표시한다
+     * [layoutWidgetMenu]로 본문 크기를 고르고 넘치면 "…"로 표시한다
      * (전체를 그냥 이어붙이면 고정 카드 밖으로 넘친 마지막 줄이 예고 없이 잘려 보인다).
      */
     private fun bindPreview() {
@@ -286,16 +283,21 @@ class BapUWidgetSingleConfigActivity : Activity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             }
             root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, 11f)
+            root.findViewById<TextView>(R.id.tv_menu)
+                .setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
 
         val previewSizePx = dpToPx(this, PREVIEW_SIZE_DP).toInt()
         val menuView = preview.findViewById<TextView>(R.id.tv_menu)
-        menuView.text = if (menuItems.isEmpty()) {
-            getString(R.string.widget_no_menu)
+        if (menuItems.isEmpty()) {
+            menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, WIDGET_MENU_MIN_TEXT_SP)
+            menuView.text = getString(R.string.widget_no_menu)
         } else {
-            truncateMenuByRealLayout(
-                this, R.layout.widget_2x2, R.id.tv_menu, previewSizePx, previewSizePx, menuItems, ::setupMeasure
+            val menu = layoutWidgetMenu(
+                this, previewSizePx, previewSizePx, menuItems, false, ::setupMeasure,
             )
+            menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, menu.textSizeSp)
+            menuView.text = menu.leftText
         }
     }
 
