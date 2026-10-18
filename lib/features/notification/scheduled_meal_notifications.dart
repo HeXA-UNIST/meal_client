@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart' show TimeOfDay;
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
+import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
@@ -225,6 +226,22 @@ Future<void> reconcileScheduledMealNotifications({
     return;
   }
   if (current == null) {
+    // 본문을 재생성할 수 없어도 사용자가 명시적으로 해제한 예약은 남기지 않는다.
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    for (final id in pending) {
+      if (!currentGeneration()) return;
+      if (_matchesCurrentNotificationSettings(id, settings)) continue;
+      try {
+        await canceler(id);
+      } catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError, firstStackTrace!);
+    }
     return;
   }
   final next =
@@ -366,10 +383,12 @@ Future<void> cancelAllPendingMealNotifications({
 
 Future<ScheduledMealWeek?> _loadCachedWeek(DateTime now) async {
   final startDate = kstWeekStartForInstant(now);
-  final cached = await MealCache().readValidatedMealForWeek(startDate);
-  return cached == null
-      ? null
-      : (startDate: startDate, weekMeal: cached.weekMeal);
+  try {
+    final cached = await getCachedMealData(now: now);
+    return (startDate: startDate, weekMeal: cached.weekMeal);
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
