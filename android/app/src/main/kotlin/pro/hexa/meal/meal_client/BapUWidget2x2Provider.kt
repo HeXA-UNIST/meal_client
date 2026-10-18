@@ -96,7 +96,7 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             views.bindFoodType(context, R.id.tv_food_type, cafeteria)
 
             val twoColumnMenu = usesTwoColumnMenu(widthDp)
-            val menuSp   = calcMenuTextSp(widthDp.toInt(), columns = if (twoColumnMenu) 2 else 1)
+            val menuSp   = WIDGET_MENU_MIN_TEXT_SP
             val statusSp = calcStatusTextSp(menuSp)
             val headerSp = calcHeaderTextSp(menuSp)
             // AppWidgetManager가 보고한 크기를 그대로 측정해야 최소 크기에서도 남는 메뉴
@@ -136,35 +136,30 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             }
 
             val items = data.menuItems(context, cafeteria)
+            val menu = layoutWidgetMenu(context, widthPx, heightPx, items, twoColumnMenu, ::setup)
             if (twoColumnMenu) {
-                val (leftMenu, rightMenu) = truncateMenuTwoColumnsByRealLayout(
-                    context, R.layout.widget_2x2, R.id.tv_menu_left, R.id.tv_menu_right,
-                    widthPx, heightPx, items, ::setup
-                )
                 views.setViewVisibility(R.id.tv_menu, View.GONE)
                 views.setViewVisibility(R.id.menu_columns, View.VISIBLE)
-                views.setTextViewText(R.id.tv_menu_left, leftMenu)
-                views.setTextViewText(R.id.tv_menu_right, rightMenu)
+                views.setTextViewText(R.id.tv_menu_left, menu.leftText)
+                views.setTextViewText(R.id.tv_menu_right, menu.rightText)
                 views.setInt(R.id.tv_menu_left, "setMaxLines", WIDGET_MENU_MAX_LINES_SAFETY_CAP)
                 views.setInt(R.id.tv_menu_right, "setMaxLines", WIDGET_MENU_MAX_LINES_SAFETY_CAP)
             } else {
-                val menuText = truncateMenuByRealLayout(
-                    context, R.layout.widget_2x2, R.id.tv_menu, widthPx, heightPx, items, ::setup
-                )
                 views.setViewVisibility(R.id.tv_menu, View.VISIBLE)
                 views.setViewVisibility(R.id.menu_columns, View.GONE)
-                views.setTextViewText(R.id.tv_menu, menuText)
+                views.setTextViewText(R.id.tv_menu, menu.leftText)
                 views.setInt(R.id.tv_menu, "setMaxLines", WIDGET_MENU_MAX_LINES_SAFETY_CAP)
             }
 
             views.bindOperatingStatus(R.id.tv_status, statusDisplay)
 
             views.applyTextSizes(
-                menuSp, listOf(R.id.tv_menu, R.id.tv_menu_left, R.id.tv_menu_right, R.id.tv_meal_of_day),
+                menu.textSizeSp, listOf(R.id.tv_menu, R.id.tv_menu_left, R.id.tv_menu_right),
                 statusSp, listOf(R.id.tv_status),
                 headerSp = headerSp,
                 headerIds = listOf(R.id.tv_cafeteria_name, R.id.tv_food_type)
             )
+            views.setTextViewTextSize(R.id.tv_meal_of_day, TypedValue.COMPLEX_UNIT_SP, menuSp)
             views.setOnClickPendingIntent(R.id.widget_root, makeLaunchPendingIntent(context))
             return views
         }

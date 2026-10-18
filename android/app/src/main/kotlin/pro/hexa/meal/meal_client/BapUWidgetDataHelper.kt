@@ -11,6 +11,10 @@ import android.view.View
 import android.widget.RemoteViews
 import android.widget.TextView
 
+/** 본문은 이 크기 아래로 축소하지 않고, 여유 공간이 있을 때만 확대한다. */
+const val WIDGET_MENU_MIN_TEXT_SP = 12f
+private val WIDGET_MENU_TEXT_SIZES_SP = floatArrayOf(12f, 12.5f, 13f, 13.5f, 14f)
+
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
 const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
 
@@ -44,6 +48,90 @@ fun cafeteriaConfigNameResId(cafeteria: Int): Int = when (cafeteria) {
 
 fun getWidgetConfigPrefs(context: Context): SharedPreferences =
     context.getSharedPreferences(WIDGET_CONFIG_PREFS, Context.MODE_PRIVATE)
+
+data class WidgetMenuLayout(
+    val textSizeSp: Float,
+    val leftText: String,
+    val rightText: String = "",
+)
+
+/** 전체 메뉴를 보존하는 가장 큰 본문 크기를 고르고, 12sp에서도 넘치면 부분 말줄임한다. */
+fun layoutWidgetMenu(
+    context: Context,
+    widthPx: Int,
+    heightPx: Int,
+    items: List<String>,
+    twoColumns: Boolean,
+    setup: (View) -> Unit,
+): WidgetMenuLayout {
+    val filtered = items.filter { it.isNotEmpty() }
+    if (filtered.isEmpty()) return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, "-")
+
+    if (!twoColumns) {
+        val text = filtered.joinToString("\n")
+        fitMenuTextSizeByRealLayout(context, widthPx, heightPx, listOf(R.id.tv_menu to text), setup)
+            ?.let { return WidgetMenuLayout(it, text) }
+        return WidgetMenuLayout(
+            WIDGET_MENU_MIN_TEXT_SP,
+            truncateMenuByRealLayout(context, R.layout.widget_2x2, R.id.tv_menu, widthPx, heightPx, filtered, setup),
+        )
+    }
+
+    val balancedSplit = (filtered.size + 1) / 2
+    val splits = if (filtered.size == 1) listOf(1) else
+        (1 until filtered.size).sortedBy { kotlin.math.abs(it - balancedSplit) }
+    var best: WidgetMenuLayout? = null
+    for (split in splits) {
+        val left = filtered.take(split).joinToString("\n")
+        val right = filtered.drop(split).joinToString("\n")
+        val size = fitMenuTextSizeByRealLayout(
+            context, widthPx, heightPx,
+            listOf(R.id.tv_menu_left to left, R.id.tv_menu_right to right), setup,
+        ) ?: continue
+        if (best == null || size > best.textSizeSp) best = WidgetMenuLayout(size, left, right)
+        if (size == WIDGET_MENU_TEXT_SIZES_SP.last()) break
+    }
+    best?.let { return it }
+
+    val (left, right) = truncateMenuTwoColumnsByRealLayout(
+        context, R.layout.widget_2x2, R.id.tv_menu_left, R.id.tv_menu_right,
+        widthPx, heightPx, filtered, setup,
+    )
+    return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, left, right)
+}
+
+/** 큰 SP 후보부터 직접 실측하여, 모든 열의 전체 메뉴가 들어가는 공통 크기를 고른다. */
+private fun fitMenuTextSizeByRealLayout(
+    context: Context,
+    widthPx: Int,
+    heightPx: Int,
+    menus: List<Pair<Int, String>>,
+    setup: (View) -> Unit,
+): Float? {
+    val root = LayoutInflater.from(context).inflate(R.layout.widget_2x2, null)
+    setup(root)
+    val menuViews = menus.map { (id, text) ->
+        root.findViewById<TextView>(id).apply {
+            this.text = text
+            maxLines = Int.MAX_VALUE
+        }
+    }
+    val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY)
+    val heightSpec = View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+    for (size in WIDGET_MENU_TEXT_SIZES_SP.reversed()) {
+        menuViews.forEach { it.setTextSize(TypedValue.COMPLEX_UNIT_SP, size) }
+        root.measure(widthSpec, heightSpec)
+        val fits = menuViews.all { menu ->
+            val assignedHeight = menu.measuredHeight
+            val menuWidth = View.MeasureSpec.makeMeasureSpec(menu.measuredWidth, View.MeasureSpec.EXACTLY)
+            menu.measure(menuWidth, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+            menu.lineCount <= WIDGET_MENU_MAX_LINES_SAFETY_CAP &&
+                fitsWithinWidgetMenuHeight(menu.measuredHeight, assignedHeight)
+        }
+        if (fits) return size
+    }
+    return null
+}
 
 /**
  * [layoutResId] 위젯 레이아웃을 오프스크린으로 inflate & measure 해서, [menuViewId] TextView가
@@ -308,13 +396,6 @@ fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
         .getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
     return if (max > 0) max else 150
 }
-
-/**
- * 메뉴 텍스트 크기(sp). 위젯 크기와 무관하게 항상 동일한 크기를 쓴다
- * (2x2와 확대 상태에서 폰트가 달라지지 않도록). 공간이 부족하면 실측 truncate가
- * 항목 수를 줄이는 것으로 대응한다.
- */
-fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float = 12f
 
 /** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (시안 비율: 메뉴보다 1sp 작게, 최소 8sp). */
 fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 1f).coerceAtLeast(8f)

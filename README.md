@@ -63,6 +63,12 @@ Android 앱을 한 번 실행하거나 빌드하여 Gradle Wrapper를 준비한 
 ./android/gradlew -p android :app:testDebugUnitTest
 ```
 
+실제 TextView의 본문 크기 선택·2열 공통 크기·말줄임을 검사하려면 Android 실기기를 연결하거나 에뮬레이터를 실행한 뒤 아래 명령을 사용하세요. 이 검증은 위 JVM 테스트와 별도로 실행합니다.
+
+```bash
+./android/gradlew -p android :app:connectedDebugAndroidTest
+```
+
 Windows에서는 `./android/gradlew` 대신 `.\android\gradlew.bat`을 사용하세요.
 
 iOS 네이티브 테스트는 macOS에서 사용 가능한 시뮬레이터를 확인하고, `SIMULATOR_UDID`를 사용할 시뮬레이터의 UDID로 바꿔서 실행하세요.
