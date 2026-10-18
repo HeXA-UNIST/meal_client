@@ -4,21 +4,18 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
-import androidx.annotation.Keep
 import java.util.concurrent.Executors
-import java.util.function.Consumer
 
 /**
  * 위젯 렌더의 공통 진입점이다. 데이터 갱신은 Dart cache writer가 맡고, native는 cache-only로
  * 다시 그린다. 순수 native 주기 안전망이 필요해지면 provider XML의 updatePeriodMillis
  * (최소 30분, coarse하지만 권한/코드 부담이 작음)를 후속 검토 후보로 쓸 수 있다.
  */
-@Keep
 object BapUWidgetUpdateDispatcher {
     private const val TAG = "BapUWidgetUpdateDispatcher"
 
     /**
-     * provider, receiver, 설정 화면, Flutter bridge에서 들어오는 렌더를 한 줄로 실행한다.
+     * provider, receiver, 설정 화면에서 들어오는 렌더를 한 줄로 실행한다.
      * 캐시 쓰기는 이 큐의 책임이 아니며, 요청 합치기나 우선순위도 두지 않는다. 순서대로
      * 끝까지 실행하는 것만으로 오래된 렌더가 뒤늦게 새 화면을 덮는 일을 막는다.
      */
@@ -38,10 +35,8 @@ object BapUWidgetUpdateDispatcher {
         }
     }
 
-    /** Flutter plugin은 app 모듈을 직접 의존할 수 없어 reflection으로 이 메서드를 호출한다. */
-    @Keep
-    @JvmStatic
-    fun enqueueRenderAllWidgets(context: Context, completion: Consumer<Throwable?>) {
+    /** 설정 화면과 권한 복구 경로에 렌더·예약 완료 결과를 전달한다. */
+    fun enqueueRenderAllWidgets(context: Context, completion: (Throwable?) -> Unit) {
         val appContext = context.applicationContext
         execute {
             var failure = runCatching { renderAllWidgets(appContext) }.exceptionOrNull()
@@ -56,7 +51,7 @@ object BapUWidgetUpdateDispatcher {
                 if (failure == null) failure = schedulingFailure
                 else failure.addSuppressed(schedulingFailure)
             }
-            completion.accept(failure)
+            completion(failure)
         }
     }
 
