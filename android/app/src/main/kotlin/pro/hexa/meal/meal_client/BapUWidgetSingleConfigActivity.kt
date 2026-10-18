@@ -233,7 +233,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     /**
      * 현재 선택된 식당 기준으로 미리보기 카드를 다시 채운다.
      * 카드는 [PREVIEW_SIZE_DP] 고정 크기이므로, 실제 위젯이 쓰는 것과 같은
-     * [truncateMenuByRealLayout]로 정확히 그만큼만 채우고 넘치면 "..."로 표시한다
+     * [truncateMenuByRealLayout]로 정확히 그만큼만 채우고 넘치면 "…"로 표시한다
      * (전체를 그냥 이어붙이면 고정 카드 밖으로 넘친 마지막 줄이 예고 없이 잘려 보인다).
      */
     private fun bindPreview() {
@@ -286,6 +286,8 @@ class BapUWidgetSingleConfigActivity : Activity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             }
             root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, 11f)
+            root.findViewById<TextView>(R.id.tv_menu)
+                .setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
 
         val previewSizePx = dpToPx(this, PREVIEW_SIZE_DP).toInt()

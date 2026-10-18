@@ -15,8 +15,8 @@
         android:layout_height="wrap_content"
         android:text="@string/widget_exact_alarm_notice_body"
         android:textColor="@color/widget_text_menu"
-        android:textSize="11sp"
-        android:fontFamily="@font/pretendard" />
+        android:textSize="12sp"
+        android:fontFamily="sans-serif" />
 
     <TextView
         android:id="@+id/tv_exact_alarm_notice_action"
@@ -25,7 +25,7 @@
         android:layout_marginTop="8dp"
         android:text="@string/widget_exact_alarm_notice_action"
         android:textColor="@color/widget_status_open"
-        android:textSize="11sp"
+        android:textSize="12sp"
         android:textStyle="bold"
-        android:fontFamily="@font/pretendard" />
+        android:fontFamily="sans-serif" />
 </LinearLayout>
