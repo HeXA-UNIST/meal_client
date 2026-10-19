@@ -37,7 +37,6 @@ dependencies:
   # cupertino_icons: ^1.0.8
 
   http: ^1.6.0
-  web: ^1.1.1
   provider: ^6.1.5+1
   path_provider: ^2.1.5
   flutter_svg: ^2.2.4
@@ -48,7 +47,7 @@ dependencies:
   url_launcher: ^6.3.2
   share_plus: ^13.0.0
   cupertino_http: ^3.1.0
-  cronet_http: ^1.8.0
+  cronet_http: ^1.10.0
   intl: any
   flutter_localizations:
     sdk: flutter
