@@ -654,7 +654,9 @@ private struct BapUWidgetView: View {
     guard let languageCode = entry.languageCode else { return [] }
     let limit = languageCode.hasPrefix("en") ? 5 : 7
     return displayMenuItems(
-      entry.snapshot.menu,
+      entry.snapshot.menu.map {
+        $0.replacingOccurrences(of: #"\s+\([^()]*\)"#, with: "", options: .regularExpression)
+      }.filter { !$0.isEmpty },
       limit: limit,
       languageCode: languageCode
     )

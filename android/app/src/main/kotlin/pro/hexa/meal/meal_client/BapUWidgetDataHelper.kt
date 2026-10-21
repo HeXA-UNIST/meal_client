@@ -13,6 +13,7 @@ import android.widget.TextView
 /** 본문은 이 크기 아래로 축소하지 않고, 여유 공간이 있을 때만 확대한다. */
 const val WIDGET_MENU_MIN_TEXT_SP = 12f
 private val WIDGET_MENU_TEXT_SIZES_SP = floatArrayOf(12f, 12.5f, 13f, 13.5f, 14f)
+private val WIDGET_MENU_DESCRIPTION = Regex("\\s+\\([^()]*\\)")
 
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
 const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
@@ -63,7 +64,7 @@ fun layoutWidgetMenu(
     twoColumns: Boolean,
     setup: (View) -> Unit,
 ): WidgetMenuLayout {
-    val filtered = items.filter { it.isNotEmpty() }
+    val filtered = items.map { it.replace(WIDGET_MENU_DESCRIPTION, "") }.filter { it.isNotEmpty() }
     if (filtered.isEmpty()) return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, "-")
 
     if (!twoColumns) {
