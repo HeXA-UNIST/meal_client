@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/settings/settings_page.dart';
@@ -396,8 +395,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
               final rootNavigator = Navigator.of(context, rootNavigator: true);
               final rootContext = rootNavigator.context;
               Navigator.of(context).pop();
-              var announcement = await getStoredAnnouncement();
-              announcement ??= (await _infoFuture).announcement;
+              final announcement = (await _infoFuture).announcement;
               if (announcement != null && rootContext.mounted) {
                 final dialogL10n = AppLocalizations.of(rootContext)!;
                 final languageCode = Localizations.localeOf(rootContext)
@@ -409,7 +407,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
                     return HomeAnnouncementDialog(
                       close: dialogL10n.close,
                       title:
-                          announcement!.title?.textFor(languageCode) ??
+                          announcement.title?.textFor(languageCode) ??
                           dialogL10n.announcement,
                       content: announcement.content.textFor(languageCode),
                     );
