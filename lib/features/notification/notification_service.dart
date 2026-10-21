@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'notification_platform.dart';
 
 const _channelId = 'meal';
+const _androidNotificationIcon = 'ic_stat_bapu';
 final _plugin = FlutterLocalNotificationsPlugin();
 
 Future<AppLocalizations> notificationLocalizations() async {
@@ -18,7 +19,7 @@ Future<AppLocalizations> notificationLocalizations() async {
 }
 
 Future<void> initNotifications({AppLocalizations? l10n}) async {
-  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const androidInit = AndroidInitializationSettings(_androidNotificationIcon);
 
   const iosInit = DarwinInitializationSettings(
     requestAlertPermission: false,
@@ -188,6 +189,7 @@ Future<void> scheduleAndroidMealNotification({
     notificationDetails: AndroidNotificationDetails(
       _channelId,
       resolvedChannelName,
+      icon: _androidNotificationIcon,
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       styleInformation: BigTextStyleInformation(body, contentTitle: title),
