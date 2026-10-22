@@ -53,9 +53,16 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
 
   static const _preferredSize = Size.fromHeight(44.0);
 
-  static const _overlayColor = WidgetStatePropertyAll<Color>(
-    Colors.transparent,
-  );
+  // 눌림 효과는 숨기되 포커스·호버 강조는 테마 기본값을 사용한다.
+  static final _overlayColor = WidgetStateProperty.resolveWith<Color?>((
+    states,
+  ) {
+    if (states.contains(WidgetState.focused) ||
+        states.contains(WidgetState.hovered)) {
+      return null;
+    }
+    return Colors.transparent;
+  });
 
   @override
   Size get preferredSize => _preferredSize;
@@ -87,65 +94,44 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
         height: 44,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Stack(
-            clipBehavior: Clip.none,
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                top: 0,
-                right: 0,
-                bottom: 0,
-                left: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(128.0),
+          child: Material(
+            color: colorScheme.surfaceContainer,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: TabBar(
+              tabs: List.generate(labels.length, (index) {
+                final isToday = DayOfWeek.values[index] == today;
+                return Tab(
+                  child: Text(
+                    labels[index],
+                    // 오늘인 요일은 w800으로 굵게 표시한다.
+                    style: isToday
+                        ? const TextStyle(fontWeight: FontWeight.w800)
+                        : null,
                   ),
-                ),
+                );
+              }),
+              labelColor: colorScheme.onPrimaryContainer,
+              unselectedLabelColor: unselectedLabelColor,
+              indicatorSize: TabBarIndicatorSize.tab,
+              // 터치 영역은 바의 양 끝까지 채우고, 선택 표시는 사방을 같은
+              // 폭으로 줄여 둥근 강조 영역 안에 일정한 여백을 유지한다.
+              indicatorPadding: const EdgeInsets.all(4),
+              indicator: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(128),
               ),
-              Padding(
-                // 기존 요일바의 좌우 4px inset을 유지한다. 세로 방향은
-                // TabBar를 줄이지 않고 indicator만 inset하여 44px 터치
-                // 영역을 그대로 보존한다.
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: TabBar(
-                  tabs: List.generate(labels.length, (index) {
-                    final isToday = DayOfWeek.values[index] == today;
-                    return Tab(
-                      child: Text(
-                        labels[index],
-                        // 오늘인 요일은 w800으로 굵게 표시한다.
-                        style: isToday
-                            ? const TextStyle(fontWeight: FontWeight.w800)
-                            : null,
-                      ),
-                    );
-                  }),
-                  labelColor: colorScheme.onPrimaryContainer,
-                  unselectedLabelColor: unselectedLabelColor,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  // 요일바 외곽과 각 요일의 터치 영역은 44px로 유지하고,
-                  // 선택 필박스만 상하 4px씩 줄여 끼니 전환 버튼의 Material과
-                  // 같은 36px로 그린다.
-                  indicatorPadding: const EdgeInsets.symmetric(vertical: 4),
-                  indicator: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(128),
-                  ),
-                  labelStyle: theme.textTheme.titleSmall!.copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  labelPadding: EdgeInsets.zero,
-                  // resolveWith 대신 all을 사용하여 매 빌드마다
-                  // 새 클로저를 생성하지 않도록 한다.
-                  overlayColor: _overlayColor,
-                  splashFactory: NoSplash.splashFactory,
-                  dividerHeight: 0,
-                  controller: tabController,
-                ),
+              labelStyle: theme.textTheme.titleSmall!.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
-            ],
+              labelPadding: EdgeInsets.zero,
+              overlayColor: _overlayColor,
+              splashFactory: NoSplash.splashFactory,
+              splashBorderRadius: BorderRadius.circular(128),
+              dividerHeight: 0,
+              controller: tabController,
+            ),
           ),
         ),
       ),

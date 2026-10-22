@@ -60,6 +60,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tabController.index, 2);
+
+      final barRect = tester.getRect(find.byType(DayOfWeekTabBar));
+      await tester.tapAt(Offset(barRect.left + 9, barRect.center.dy));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 0, reason: '둥근 바의 왼쪽 끝도 월요일을 선택한다');
+
+      await tester.tapAt(Offset(barRect.right - 9, barRect.center.dy));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 6, reason: '둥근 바의 오른쪽 끝도 일요일을 선택한다');
+
+      await tester.tapAt(Offset(barRect.left + 9, barRect.top + 1));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 6, reason: '둥근 바깥 모서리는 터치 영역에서 제외한다');
     } finally {
       tabController.dispose();
       semanticsHandle.dispose();
