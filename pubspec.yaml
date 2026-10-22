@@ -41,8 +41,7 @@ dependencies:
   path_provider: ^2.1.5
   flutter_svg: ^2.2.4
   shared_preferences: ^2.5.3
-  # 2.5.0의 JNI 전환 후 Android 릴리즈 오류가 발생해 임시 고정한다.
-  shared_preferences_android: 2.4.28
+  shared_preferences_android: ^2.5.3
   shared_preferences_foundation: ^2.5.7
   url_launcher: ^6.3.2
   share_plus: ^13.0.0
