@@ -7,6 +7,8 @@ import 'meal_notification_period.dart';
 typedef MealNotificationContent = ({int id, String title, String body});
 typedef _NotificationMealGroup = ({int id, List<Meal> meals});
 
+final _menuDescription = RegExp(r'\s+\([^()]*\)');
+
 /// 선택된 식당의 전체 메뉴 또는 Debug 키워드 매칭 결과를 알림 콘텐츠로 만든다.
 List<MealNotificationContent> buildMealNotificationContents({
   required WeekMeal weekMeal,
@@ -124,7 +126,10 @@ Iterable<String> _notificationMenuItems(Meal meal, String languageCode) => meal
     .sections
     .where((section) => section.type != MealSectionType.salad)
     .expand((section) => section.menu)
-    .map((item) => item.textFor(languageCode).trim())
+    .map(
+      (item) =>
+          item.textFor(languageCode).replaceAll(_menuDescription, '').trim(),
+    )
     .where((item) => item.isNotEmpty);
 
 /// 주차 조회 결과에서 저장된 메뉴 대상 날짜의 식단만 꺼낸다.
