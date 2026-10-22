@@ -266,6 +266,24 @@ abstract class AppLocalizations {
   /// **'앱 언어 설정'**
   String get appLanguageSettings;
 
+  /// No description provided for @languageKorean.
+  ///
+  /// In ko, this message translates to:
+  /// **'한국어'**
+  String get languageKorean;
+
+  /// No description provided for @languageEnglish.
+  ///
+  /// In ko, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @languageSaveFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'언어 설정을 저장하지 못했습니다. 다시 시도해 주세요.'**
+  String get languageSaveFailed;
+
   /// No description provided for @dormitoryCafeteria.
   ///
   /// In ko, this message translates to:
@@ -506,12 +524,6 @@ abstract class AppLocalizations {
   /// **'설정 열기'**
   String get openSystemAppSettings;
 
-  /// No description provided for @androidNotificationTimingNotice.
-  ///
-  /// In ko, this message translates to:
-  /// **'절전 설정에 따라 알림이 예정보다 늦게 도착할 수 있습니다.'**
-  String get androidNotificationTimingNotice;
-
   /// No description provided for @notificationSyncFailed.
   ///
   /// In ko, this message translates to:
@@ -523,6 +535,54 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'다시 시도'**
   String get retry;
+
+  /// No description provided for @cafeteriaOperating.
+  ///
+  /// In ko, this message translates to:
+  /// **'운영 중'**
+  String get cafeteriaOperating;
+
+  /// No description provided for @cafeteriaNotOperating.
+  ///
+  /// In ko, this message translates to:
+  /// **'운영 중이 아님'**
+  String get cafeteriaNotOperating;
+
+  /// No description provided for @exactAlarmNotificationsPaused.
+  ///
+  /// In ko, this message translates to:
+  /// **'알람 및 리마인더 권한이 없어 식단 알림이 중단되어 있습니다. 기존 알림 설정은 유지됩니다.'**
+  String get exactAlarmNotificationsPaused;
+
+  /// No description provided for @exactAlarmPermissionRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'식단 알림을 받으려면 알람 및 리마인더를 허용해 주세요.'**
+  String get exactAlarmPermissionRequired;
+
+  /// No description provided for @notificationPermissionRequired.
+  ///
+  /// In ko, this message translates to:
+  /// **'식단 알림에 필요한 권한이 꺼져 있습니다. 설정에서 권한을 허용해주세요.'**
+  String get notificationPermissionRequired;
+
+  /// No description provided for @mealNotificationPermissionTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'알림 권한 안내'**
+  String get mealNotificationPermissionTitle;
+
+  /// No description provided for @later.
+  ///
+  /// In ko, this message translates to:
+  /// **'나중에'**
+  String get later;
+
+  /// No description provided for @openExactAlarmSettings.
+  ///
+  /// In ko, this message translates to:
+  /// **'알람 및 리마인더 설정'**
+  String get openExactAlarmSettings;
 }
 
 class _AppLocalizationsDelegate

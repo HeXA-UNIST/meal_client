@@ -27,8 +27,7 @@
 	</dict>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Pretendard-Medium.otf</string>
-		<string>Pretendard-Bold.otf</string>
+		<string>PretendardVariable.ttf</string>
 	</array>
 </dict>
 </plist>

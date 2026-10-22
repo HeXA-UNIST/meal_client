@@ -7,10 +7,6 @@ import 'package:meal_client/core/widget_shared_storage.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_cache.dart';
 
-typedef RawInfoFetcher = Future<ConditionalResponse> Function(
-  String url, {
-  String? ifModifiedSince,
-});
 typedef InfoCacheWriteLock = Future<void> Function(
   Future<void> Function() action,
 );
@@ -27,13 +23,11 @@ class InfoCacheWriteException implements Exception {
 class InfoRefreshService {
   InfoRefreshService({
     InfoCache? cache,
-    RawInfoFetcher? fetchRaw,
-    DateTime Function()? clock,
+    ConditionalFetcher? fetchRaw,
     InfoCacheWriteLock? lockCache,
     this._throwOnCacheWriteFailure = false,
   }) : _cache = cache ?? InfoCache(),
        _fetchRaw = fetchRaw ?? fetchRawConditional,
-       _clock = clock ?? DateTime.now,
        _lockCache =
            lockCache ??
            (cache == null
@@ -42,50 +36,58 @@ class InfoRefreshService {
                : (action) => action());
 
   final InfoCache _cache;
-  final RawInfoFetcher _fetchRaw;
-  final DateTime Function() _clock;
+  final ConditionalFetcher _fetchRaw;
   final InfoCacheWriteLock _lockCache;
   final bool _throwOnCacheWriteFailure;
 
   Future<AppInfo> refreshInfo() async {
-    final requestStartedAt = _clock();
-    final res = await _fetchRaw(
-      ApiConstants.infoEndpoint,
-      ifModifiedSince: await _readCachedLastModified(),
-    );
-
-    if (res.statusCode == 304) {
-      // 서버가 방금 "변경 없음"을 확인해줬다. /v2/info의 last_modified는 워커
-      // 배포 버전이고 공지·운영시간은 배포로만 바뀌므로, 캐시된 info.json을
-      // 그대로 파싱해 돌려줘도 안전하다.
-      try {
-        final info = _parseValidRawInfo(await _cache.readRawInfoJson());
-        debugPrint('[BapU] info 304 - 캐시 유지');
-        return info;
-      } catch (_) {
-        // If-Modified-Since를 보냈는데 그 사이 캐시가 사라졌거나 손상된 드문
-        // 경우다. 조건부 헤더 없이 한 번 더 받아 캐시를 복구한다.
-        final retry = await _fetchRaw(ApiConstants.infoEndpoint);
-        final rawInfo = retry.body!;
-        final info = _parseValidRawInfo(rawInfo);
-        await _commitRawInfoJson(rawInfo, requestStartedAt);
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final before = await _readCachedRaw();
+      final res = await _fetchRaw(
+        ApiConstants.infoEndpoint,
+        ifNoneMatch: _cachedEtag(before),
+      );
+      String raw;
+      var revalidated = false;
+      if (res.statusCode == 304) {
+        try {
+          if (before == null || _cachedEtag(before) == null) {
+            throw const FormatException('Missing info snapshot');
+          }
+          _parseValidRawInfo(before);
+          raw = before;
+          revalidated = true;
+        } catch (_) {
+          // 304는 보낸 ETag의 본문과만 결합한다. 본문이 없으면 한 번 복구한다.
+          raw = (await _fetchRaw(ApiConstants.infoEndpoint)).body!;
+        }
+      } else {
+        raw = res.body!;
+      }
+      final info = _parseValidRawInfo(raw);
+      if (await _commitRawInfoJson(raw, before, revalidated: revalidated)) {
         return info;
       }
     }
-
-    final rawInfo = res.body!;
-    final info = _parseValidRawInfo(rawInfo);
-    await _commitRawInfoJson(rawInfo, requestStartedAt);
-    return info;
+    final current = await _readCachedRaw();
+    if (current == null) throw StateError('Info cache changed during refresh');
+    return _parseValidRawInfo(current);
   }
 
-  /// 캐시된 info.json 본문의 last_modified 값. 캐시가 없거나 값이 없으면 null을
-  /// 돌려주고, 그 경우 조건부 요청 없이 전체 응답을 받는다.
-  Future<String?> _readCachedLastModified() async {
+  Future<String?> _readCachedRaw() async {
     try {
-      final decoded = jsonDecode(await _cache.readRawInfoJson());
+      return await _cache.readRawInfoJson();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _cachedEtag(String? raw) {
+    try {
+      if (raw == null) return null;
+      final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
-      final value = decoded['last_modified'];
+      final value = decoded['etag'];
       return value is String && value.isNotEmpty ? value : null;
     } catch (_) {
       return null;
@@ -101,30 +103,28 @@ class InfoRefreshService {
     return AppInfo.fromJson(decoded);
   }
 
-  /// 먼저 시작한 요청이 늦게 끝나 최신 info cache를 되돌리는 것을 막는다.
-  Future<void> _commitRawInfoJson(
+  /// 스냅샷이 바뀌면 호출자가 잠금 밖에서 다시 재검증한다.
+  Future<bool> _commitRawInfoJson(
     String rawInfo,
-    DateTime requestStartedAt,
-  ) async {
+    String? expectedRaw, {
+    required bool revalidated,
+  }) async {
+    var accepted = false;
     try {
       await _lockCache(() async {
-        try {
-          final currentUpdatedAt = await _cache.getRawInfoUpdatedAt();
-          if (currentUpdatedAt.isAfter(requestStartedAt)) {
-            debugPrint('[BapU] discarded stale info response');
-            return;
-          }
-        } catch (_) {
-          // cache가 아직 없거나 timestamp를 읽지 못하면 검증된 응답으로 복구한다.
-        }
-        await _cache.writeRawInfoJson(rawInfo);
+        if (await _readCachedRaw() != expectedRaw) return;
+        if (!revalidated) await _cache.writeRawInfoJson(rawInfo);
+        accepted = true;
       });
+      return accepted;
     } catch (e, stackTrace) {
       if (_throwOnCacheWriteFailure) {
         Error.throwWithStackTrace(InfoCacheWriteException(e), stackTrace);
       }
       debugPrint('[BapU] info cache write failed: $e');
       debugPrintStack(stackTrace: stackTrace);
+      // 실제 저장 실패 때 응답을 표시하는 기존 비엄격 모드 정책은 유지한다.
+      return true;
     }
   }
 }

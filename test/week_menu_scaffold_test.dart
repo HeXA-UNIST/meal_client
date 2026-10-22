@@ -16,14 +16,20 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
-  testWidgets('cachedMealFuture 없이 mealFuture만으로 데이터를 렌더링한다', (tester) async {
-    final weekMeal = WeekMeal.empty();
-    weekMeal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
-      Meal.regular(menu: const [MealMenuItem(ko: '쌀밥')], kcal: 500),
-    );
-
+  testWidgets('로딩 중 선택한 끼니를 데이터 도착 후에도 유지한다', (tester) async {
+    final response = Completer<WeekMeal>();
+    final week = WeekMeal.empty();
+    for (final (meal, text) in [
+      (MealOfDay.breakfast, '아침 데이터'),
+      (MealOfDay.lunch, '점심 데이터'),
+    ]) {
+      week[DayOfWeek.mon][meal][Cafeteria.dormitory].add(
+        Meal.regular(menu: [MealMenuItem(ko: text)]),
+      );
+    }
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ko'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
@@ -33,62 +39,19 @@ void main() {
           mondayOfWeek: DateTime(2026, 6, 22),
           initialDayOfWeek: DayOfWeek.mon,
           initialMealOfDay: MealOfDay.breakfast,
-          mealFuture: Future.value(weekMeal),
+          mealFuture: response.future,
           appInfo: Future.value(_emptyAppInfo()),
         ),
       ),
     );
-
+    await tester.pump();
+    await tester.tap(find.text('아침'));
+    await tester.pump();
+    response.complete(week);
     await tester.pumpAndSettle();
-
-    expect(find.text('쌀밥'), findsOneWidget);
-  });
-
-  testWidgets('bannerText가 있으면 상단에 배너를 표시한다', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: WeekMenuScaffold(
-          mondayOfWeek: DateTime(2026, 6, 22),
-          initialDayOfWeek: DayOfWeek.mon,
-          initialMealOfDay: MealOfDay.breakfast,
-          mealFuture: Future.value(WeekMeal.empty()),
-          appInfo: Future.value(_emptyAppInfo()),
-          bannerText: '다음 주 미리보기 중',
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('다음 주 미리보기 중'), findsOneWidget);
-  });
-
-  testWidgets('bannerText가 없으면 배너를 표시하지 않는다', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: WeekMenuScaffold(
-          mondayOfWeek: DateTime(2026, 6, 22),
-          initialDayOfWeek: DayOfWeek.mon,
-          initialMealOfDay: MealOfDay.breakfast,
-          mealFuture: Future.value(WeekMeal.empty()),
-          appInfo: Future.value(_emptyAppInfo()),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(find.text('다음 주 미리보기 중'), findsNothing);
+    expect(find.text('점심'), findsOneWidget);
+    expect(find.text('점심 데이터'), findsOneWidget);
+    expect(find.text('아침 데이터'), findsNothing);
   });
 
   testWidgets('cachedMealFuture 데이터를 먼저 보여주고 mealFuture 완료 후 교체한다', (

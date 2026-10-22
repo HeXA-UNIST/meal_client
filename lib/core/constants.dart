@@ -4,7 +4,6 @@ import 'package:meal_client/domain/meal.dart';
 class ApiConstants {
   static const baseUrl = 'https://meal.hexa.pro';
   static const mealEndpoint = '$baseUrl/v2/menu';
-  static const noticeEndpoint = '$baseUrl/notice';
   static const infoEndpoint = '$baseUrl/v2/info';
 
   static String mealEndpointFor(String date) => '$mealEndpoint/$date';
@@ -12,6 +11,7 @@ class ApiConstants {
 
 /// 로컬 저장소 키
 class StorageKeys {
+  static const locale = 'settings_locale';
   static const mealCacheFile = 'meal.json';
   static const nextMealCacheFile = 'meal-next.json';
   static const infoCacheFile = 'info.json';

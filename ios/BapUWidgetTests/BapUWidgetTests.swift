@@ -149,11 +149,33 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(snapshot.status, .open)
   }
 
-  func testFoodTypeLabelExistsOnlyForDormitorySelections() {
-    XCTAssertNotNil(WidgetMenuSelection.dormKorean.localizedFoodTypeName)
-    XCTAssertNotNil(WidgetMenuSelection.dormHalal.localizedFoodTypeName)
-    XCTAssertNil(WidgetMenuSelection.student.localizedFoodTypeName)
-    XCTAssertNil(WidgetMenuSelection.faculty.localizedFoodTypeName)
+  func test저장된언어가없으면시스템언어를쓰고잘못된값은실패한다() throws {
+    let suiteName = "BapUWidgetTests.\(UUID().uuidString)"
+    let preferences = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defer { preferences.removePersistentDomain(forName: suiteName) }
+    XCTAssertThrowsError(try savedWidgetLanguageCode(in: nil))
+    for (languages, expected) in [
+      (["en-US", "ko-KR"], "en"),
+      (["ja-JP", "ko-KR", "en-US"], "ko"),
+      (["ja-JP", "en-GB", "ko-KR"], "en"),
+      (["ja-JP"], "en"),
+      ([], "en"),
+    ] {
+      XCTAssertEqual(
+        try savedWidgetLanguageCode(in: preferences, preferredLanguages: languages), expected
+      )
+    }
+    XCTAssertNil(preferences.object(forKey: "settings_locale"))
+    preferences.set(123, forKey: "settings_locale")
+    XCTAssertThrowsError(try savedWidgetLanguageCode(in: preferences))
+    preferences.set("ja", forKey: "settings_locale")
+    XCTAssertThrowsError(try savedWidgetLanguageCode(in: preferences))
+    preferences.set("en", forKey: "settings_locale")
+    XCTAssertEqual(
+      try savedWidgetLanguageCode(in: preferences, preferredLanguages: ["ko-KR"]), "en"
+    )
+    preferences.set("ko", forKey: "settings_locale")
+    XCTAssertEqual(try savedWidgetLanguageCode(in: preferences), "ko")
   }
 
   func testIntentRawValueMappingAndFallback() {
@@ -165,26 +187,11 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: 999), .dormKorean)
   }
 
-  func testDisplayMenuItemsAddsOverflowMarkerOnlyAfterLimit() {
-    XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5"], limit: 5, languageCode: "en"),
-      ["1", "2", "3", "4", "5"]
-    )
-    XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5", "6"], limit: 5, languageCode: "en"),
-      ["1", "2", "3", "4", "5", "+1 more"]
-    )
-    XCTAssertEqual(
-      displayMenuItems(["1", "2", "3", "4", "5", "6", "7", "8"], limit: 7, languageCode: "ko"),
-      ["1", "2", "3", "4", "5", "6", "7", "+1개 더"]
-    )
-  }
-
   func testTimelineIncludesMealAndOperatingBoundaries() throws {
     let date = try kstDate(year: 2026, month: 8, day: 3, hour: 8, minute: 0)
     try writeInfoCache()
 
-    let dates = WidgetCacheReader(containerURL: cacheDirectory).timelineDates(after: date)
+    let dates = WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko").timelineDates(after: date)
     let minuteValues = dates.map(kstMinuteOfDay)
 
     XCTAssertTrue(minuteValues.contains(8 * 60 + 20))
@@ -199,7 +206,7 @@ final class BapUWidgetTests: XCTestCase {
     try writeMealCache(
       modifiedAt: try kstDate(year: 2026, month: 8, day: 3, hour: 12, minute: 59)
     )
-    let reader = WidgetCacheReader(containerURL: cacheDirectory)
+    let reader = WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko")
 
     XCTAssertEqual(
       reader.snapshot(
@@ -232,7 +239,7 @@ final class BapUWidgetTests: XCTestCase {
       modifiedAt: sunday
     )
 
-    let snapshot = WidgetCacheReader(containerURL: cacheDirectory).snapshot(at: monday)
+    let snapshot = WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko").snapshot(at: monday)
 
     XCTAssertEqual(snapshot.meal, .lunch)
     XCTAssertEqual(snapshot.menu, ["쌀밥", "된장찌개"])
@@ -250,7 +257,7 @@ final class BapUWidgetTests: XCTestCase {
     )
 
     XCTAssertEqual(
-      WidgetCacheReader(containerURL: cacheDirectory).snapshot(at: date).menu.first,
+      WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko").snapshot(at: date).menu.first,
       "canonical"
     )
   }
@@ -270,7 +277,7 @@ final class BapUWidgetTests: XCTestCase {
     )
 
     XCTAssertEqual(
-      WidgetCacheReader(containerURL: cacheDirectory).snapshot(at: date).menu.first,
+      WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko").snapshot(at: date).menu.first,
       "쌀밥"
     )
   }

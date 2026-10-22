@@ -19,6 +19,9 @@ import 'notification_service.dart';
 import 'scheduled_meal_notifications.dart';
 
 typedef BackgroundCacheRefresh = Future<void> Function();
+// Android BapUNotificationPermissionRecovery.TASK_NAME과 같은 값이어야 한다.
+const notificationPermissionRecoveryTaskName =
+    'bapu_notification_permission_recovery';
 typedef BackgroundNotificationReconcile = Future<void> Function();
 typedef BackgroundNotificationSnapshot = ({
   NotificationSettings settings,
@@ -36,6 +39,9 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
     DartPluginRegistrant.ensureInitialized();
 
+    if (taskName == notificationPermissionRecoveryTaskName) {
+      return recoverBackgroundMealNotifications();
+    }
     if (taskName == mealRefreshTaskName ||
         taskName == Workmanager.iOSBackgroundTask) {
       return refreshBackgroundMealAndInfoCaches();
@@ -43,6 +49,22 @@ void callbackDispatcher() {
 
     return true;
   });
+}
+
+/// 권한 재허용 시 네트워크 요청 없이 저장된 설정과 식단으로 예약을 복구한다.
+Future<bool> recoverBackgroundMealNotifications({
+  BackgroundNotificationReconcile? reconcileNotifications,
+}) async {
+  final failure = await _captureBackgroundRefreshFailure(
+    'notification permission recovery',
+    reconcileNotifications ?? _reconcileNotificationsFromCache,
+  );
+  if (failure == null) return true;
+  _logBackgroundRefreshFailure(
+    'notification permission recovery failed',
+    failure,
+  );
+  return false;
 }
 
 Future<bool> refreshBackgroundMealAndInfoCaches({

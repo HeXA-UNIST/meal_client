@@ -170,13 +170,45 @@
                 android:visibility="gone" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/exact_alarm_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_exact_alarm_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/widget_exact_alarm_not_allowed"
+                android:textColor="@color/config_text_primary"
+                android:textSize="14sp"
+                android:fontFamily="@font/pretendard" />
+
+            <Button
+                android:id="@+id/btn_exact_alarm_settings"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/widget_config_btn"
+                android:text="@string/widget_exact_alarm_settings"
+                android:textAllCaps="false"
+                android:textColor="@color/widget_config_confirm_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/pretendard"
+                android:letterSpacing="-0.02" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btn_confirm"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:background="@drawable/widget_config_btn"
+            android:enabled="false"
             android:text="@string/widget_config_confirm"
-            android:textColor="@color/white"
+            android:textColor="@color/widget_config_confirm_text"
             android:textSize="16sp"
             android:textStyle="bold"
             android:fontFamily="@font/pretendard"

@@ -46,9 +46,10 @@ class MealOfDaySwitchButton extends StatelessWidget {
 }
 
 class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
-  const DayOfWeekTabBar({super.key, required this.tabController});
+  const DayOfWeekTabBar({super.key, required this.tabController, this.today});
 
   final TabController tabController;
+  final DayOfWeek? today;
 
   static const _preferredSize = Size.fromHeight(44.0);
 
@@ -64,6 +65,15 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final labels = [
+      l10n.mon,
+      l10n.tue,
+      l10n.wed,
+      l10n.thu,
+      l10n.fri,
+      l10n.sat,
+      l10n.sun,
+    ];
 
     // APCA 0.0.98G-4g로 실제 surfaceContainer와 계산한 값이다.
     // 라이트: #737373/#FAFAFA = Lc 69.95, 다크: #AAAAAA/#121212 = Lc -55.66.
@@ -99,15 +109,18 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
                 // 영역을 그대로 보존한다.
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: TabBar(
-                  tabs: [
-                    Tab(text: l10n.mon),
-                    Tab(text: l10n.tue),
-                    Tab(text: l10n.wed),
-                    Tab(text: l10n.thu),
-                    Tab(text: l10n.fri),
-                    Tab(text: l10n.sat),
-                    Tab(text: l10n.sun),
-                  ],
+                  tabs: List.generate(labels.length, (index) {
+                    final isToday = DayOfWeek.values[index] == today;
+                    return Tab(
+                      child: Text(
+                        labels[index],
+                        // 오늘인 요일은 w800으로 굵게 표시한다.
+                        style: isToday
+                            ? const TextStyle(fontWeight: FontWeight.w800)
+                            : null,
+                      ),
+                    );
+                  }),
                   labelColor: colorScheme.onPrimaryContainer,
                   unselectedLabelColor: unselectedLabelColor,
                   indicatorSize: TabBarIndicatorSize.tab,

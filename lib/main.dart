@@ -8,8 +8,23 @@ import 'package:meal_client/core/native_startup.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
+import 'package:meal_client/features/settings/locale_settings.dart';
 
 const mainColor = Color(0xFF00CD80);
+
+// 기존 기본 폰트가 Medium이었으므로 가변 폰트에서도 기본 텍스트는 500을 쓴다.
+const _pretendardTextTheme = TextTheme(
+  displayLarge: TextStyle(fontWeight: FontWeight.w500),
+  displayMedium: TextStyle(fontWeight: FontWeight.w500),
+  displaySmall: TextStyle(fontWeight: FontWeight.w500),
+  headlineLarge: TextStyle(fontWeight: FontWeight.w500),
+  headlineMedium: TextStyle(fontWeight: FontWeight.w500),
+  headlineSmall: TextStyle(fontWeight: FontWeight.w500),
+  titleLarge: TextStyle(fontWeight: FontWeight.w500),
+  bodyLarge: TextStyle(fontWeight: FontWeight.w500),
+  bodyMedium: TextStyle(fontWeight: FontWeight.w500),
+  bodySmall: TextStyle(fontWeight: FontWeight.w500),
+);
 
 const _defaultPageTransitionsTheme = PageTransitionsTheme();
 
@@ -30,7 +45,7 @@ ThemeData _buildTheme(Brightness brightness) {
         dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
       ).copyWith(
         onPrimaryContainer: Colors.white,
-        onSurface: isLight ? null : const Color(0xFFE6E6E6),
+        onSurface: isLight ? const Color(0xFF131815) : const Color(0xFFF0F0F0),
         outline: isLight ? null : const Color(0xFF9E9E9E),
         outlineVariant: isLight ? null : const Color(0xFF454545),
         surface: isLight ? Colors.white : Colors.black,
@@ -40,6 +55,8 @@ ThemeData _buildTheme(Brightness brightness) {
       );
   final theme = ThemeData(
     fontFamily: 'Pretendard',
+    textTheme: _pretendardTextTheme,
+    primaryTextTheme: _pretendardTextTheme,
     brightness: brightness,
     pageTransitionsTheme: _pageTransitionsTheme,
     colorScheme: colorScheme,
@@ -59,13 +76,14 @@ final _darkTheme = _buildTheme(Brightness.dark);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeNativeServices();
   final prefs = await SharedPreferences.getInstance();
+  final locale = await initializeAppLocale(prefs, allowFallback: true);
+  await initializeNativeServices(l10n: lookupAppLocalizations(locale));
 
   runApp(
     ChangeNotifierProvider<BapuSettings>(
       create: (_) {
-        final settings = BapuSettings(prefs);
+        final settings = BapuSettings(prefs, initialLocale: locale);
         // 앱 시작 시 native pending 요청을 현재 설정에 맞춘다.
         settings.rescheduleMealNotifications();
         return settings;
@@ -81,9 +99,12 @@ class BapUApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 알림 설정 화면은 탭 한 번에 여러 번 notifyListeners를 호출하므로,
-    // watch로 전체 MaterialApp을 다시 만들지 않고 themeMode 변경만 구독한다.
+    // watch로 전체 MaterialApp을 다시 만들지 않고 테마와 언어 변경만 구독한다.
     final themeMode = context.select<BapuSettings, ThemeMode>(
       (settings) => settings.themeMode,
+    );
+    final locale = context.select<BapuSettings, Locale>(
+      (settings) => settings.locale,
     );
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -93,6 +114,7 @@ class BapUApp extends StatelessWidget {
         ...GlobalMaterialLocalizations.delegates,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale,
       builder: (context, child) {
         final theme = Theme.of(context);
         return AppBarTheme(

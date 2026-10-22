@@ -8,6 +8,11 @@
     <!-- 위젯 설정 -->
     <string name="widget_config_title">Select Cafeteria</string>
     <string name="widget_config_confirm">Confirm</string>
+    <string name="widget_exact_alarm_not_allowed">To use the widget, allow Alarms &amp; reminders permission.</string>
+    <string name="widget_exact_alarm_settings">Open permission settings</string>
+    <string name="widget_exact_alarm_settings_unavailable">Could not open Alarms &amp; reminders settings.</string>
+    <string name="widget_exact_alarm_notice_body">To use the BapU widget, allow Alarms &amp; reminders in settings.</string>
+    <string name="widget_exact_alarm_notice_action">Tap to open settings</string>
 
     <!-- 위젯 상태 -->
     <string name="widget_loading">Loading…</string>
