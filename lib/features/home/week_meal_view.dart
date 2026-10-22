@@ -17,12 +17,16 @@ const _cardInnerMargin = 6.0;
 
 String buildMealShareText({
   required String cardTitle,
+  required DateTime targetDate,
+  required String mealOfDayLabel,
   required Meal meal,
   required String languageCode,
   required String convenienceLabel,
   required String specialLabel,
 }) {
-  final lines = <String>['[$cardTitle]'];
+  final lines = <String>[
+    '[${targetDate.month}/${targetDate.day} $cardTitle $mealOfDayLabel]',
+  ];
   for (final section in meal.sections) {
     final sectionTitle = section.titleFor(
       languageCode,
@@ -31,16 +35,16 @@ String buildMealShareText({
     );
     if (sectionTitle != null) {
       lines.add('');
-      lines.add('[$sectionTitle]');
+      lines.add('〈$sectionTitle〉');
     }
     lines.addAll(
       section.menu.map((menuItem) => '- ${menuItem.textFor(languageCode)}'),
     );
-  }
-  final kcal = meal.kcal;
-  if (kcal != null) {
-    lines.add('');
-    lines.add('$kcal kcal');
+    final kcal = section.kcal;
+    if (kcal != null) {
+      lines.add('');
+      lines.add('$kcal kcal');
+    }
   }
   return lines.join('\n');
 }
@@ -216,6 +220,14 @@ class WeekMealTabBarView extends StatelessWidget {
                                                 sharePositionOrigin,
                                             text: buildMealShareText(
                                               cardTitle: title,
+                                              targetDate: targetDate,
+                                              mealOfDayLabel: switch (MealOfDay
+                                                  .values[pageIndex]) {
+                                                MealOfDay.breakfast =>
+                                                  l10n.breakfast,
+                                                MealOfDay.lunch => l10n.lunch,
+                                                MealOfDay.dinner => l10n.dinner,
+                                              },
                                               meal: meal,
                                               languageCode: languageCode,
                                               convenienceLabel:

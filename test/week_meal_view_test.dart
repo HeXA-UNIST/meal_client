@@ -9,7 +9,7 @@ import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
 void main() {
-  test('공유 텍스트는 카드와 같은 섹션 순서와 제목을 사용한다', () {
+  test('공유 텍스트는 날짜와 끼니를 포함하고 섹션별 제목과 칼로리를 순서대로 표시한다', () {
     const meal = Meal(
       sections: [
         MealSection(
@@ -21,6 +21,7 @@ void main() {
         MealSection(
           type: MealSectionType.convenience,
           menu: [MealMenuItem(ko: '삼각김밥')],
+          kcal: 300,
         ),
       ],
     );
@@ -28,12 +29,14 @@ void main() {
     expect(
       buildMealShareText(
         cardTitle: '기숙사 식당 한식',
+        targetDate: DateTime(2026, 10, 19),
+        mealOfDayLabel: '저녁',
         meal: meal,
         languageCode: 'ko',
         convenienceLabel: '간편식',
         specialLabel: '특별식',
       ),
-      '[기숙사 식당 한식]\n\n[천원의 아침밥]\n- 쌀밥\n\n[간편식]\n- 삼각김밥\n\n700 kcal',
+      '[10/19 기숙사 식당 한식 저녁]\n\n〈천원의 아침밥〉\n- 쌀밥\n\n700 kcal\n\n〈간편식〉\n- 삼각김밥\n\n300 kcal',
     );
   });
 
