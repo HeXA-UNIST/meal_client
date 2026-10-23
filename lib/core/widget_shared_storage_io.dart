@@ -37,14 +37,17 @@ Future<void> saveSharedWidgetFileAsString(String fileName, String data) async {
     '${dir.path}/$fileName.tmp.${DateTime.now().microsecondsSinceEpoch}',
   );
 
-  await tmpFile.writeAsString(data, flush: true);
   try {
+    await tmpFile.writeAsString(data, flush: true);
     await tmpFile.rename(file.path);
-  } on FileSystemException {
-    if (await file.exists()) {
-      await file.delete();
+  } catch (_) {
+    // 교체 실패 시 기존 캐시는 보존하고 이 호출의 임시 파일만 정리한다.
+    try {
+      await tmpFile.delete();
+    } on FileSystemException {
+      // 임시 파일 정리 실패가 원래 저장 오류를 가리지 않게 한다.
     }
-    await tmpFile.rename(file.path);
+    rethrow;
   }
 
   if (Platform.isIOS) {

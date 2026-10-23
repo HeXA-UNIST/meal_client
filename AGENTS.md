@@ -15,18 +15,16 @@ Supported platforms: Android, iOS, and Web.
   remembered architecture or an older document snapshot.
 - Preserve the user's worktree. Do not stash, reset, switch branches, stage,
   commit, delete, or tidy unrelated files unless explicitly asked.
-- Make small change that satisfies the request. Do not add features,
-  refactor adjacent code, or introduce a new abstraction without a demonstrated
-  need.
-- Match the local design. Do not impose a repository pattern or stricter layer
-  boundary merely because it is conventional elsewhere.
+- Make the smallest change that satisfies the request and matches the local
+  design. Avoid unrelated features, refactoring, styling, or new abstractions
+  without a demonstrated need.
 - Ask before making product, policy, compatibility, or Git-history decisions that
   cannot be resolved from current code and tests.
 - Code comments and test descriptions are Korean.
 
 ## Routing
 
-- Use `README.md` for current commands and the documentation index.
+- Use `README.md` for current run and validation commands.
 - Treat `pubspec.yaml`, `analysis_options.yaml`, and `l10n.yaml` as authoritative
   for SDK, dependency, analyzer, and localization configuration.
 - Preserve existing conditional-export boundaries when changing platform code;
@@ -69,15 +67,11 @@ Supported platforms: Android, iOS, and Web.
   is insufficient.
 - App preference and OS authorization are distinct states; do not infer one from
   the other.
-- Feedback after a system permission dialog must wait for a real Flutter frame.
-  Guard deferred callbacks against disposal and remove screen-owned feedback when
-  the route exits.
 
 ### UI changes
 
-- Preserve exact requested labels, spacing, and behavior. Reuse the touched
-  screen's local constants and theme typography; avoid global styling or unrelated
-  visual cleanup.
+- Preserve exact requested labels, spacing, and behavior; reuse the screen's
+  local constants and theme typography.
 - Prefer standard Material selected and disabled states. Add custom styling only
   for the requested distinction and preserve accessibility semantics.
 
@@ -85,6 +79,9 @@ Supported platforms: Android, iOS, and Web.
 
 Validate in proportion to the change and report any unverified boundary.
 
+- Always run `dart` and `flutter` commands outside the sandbox. If a command
+  takes abnormally long, terminate it and retry commands individually in separate
+  invocations; do not chain them sequentially with `;`.
 - Documentation only: inspect the final diff and run `git diff --check`.
 - Dart/Flutter: format changed Dart files, run the narrowest relevant tests, and
   run `flutter analyze` when the change can affect the application broadly.
@@ -96,9 +93,8 @@ Validate in proportion to the change and report any unverified boundary.
 - Platform code: run available platform tests or builds. On Windows, do not claim
   Xcode, WidgetKit, signing, VoiceOver, or iOS-device validation. Treat real-device
   notification timing and launcher-widget behavior as separate QA boundaries.
-- Before handoff, review the diff for correctness, code quality, scope, and
-  overengineering. If a commit was requested, also inspect the staged file list
-  and run `git diff --cached --check` without including unrelated changes.
+- Before handoff, review the diff for correctness and scope. If a commit was
+  requested, also inspect the staged file list and run `git diff --cached --check`.
 
 ## Maintenance
 
