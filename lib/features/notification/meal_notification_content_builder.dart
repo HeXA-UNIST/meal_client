@@ -165,8 +165,8 @@ String _periodLabel(MealNotificationPeriod period, AppLocalizations l10n) =>
 
 String _mealOfDayLabel(MealNotificationPeriod period, AppLocalizations l10n) =>
     switch (period) {
-      MealNotificationPeriod.morning ||
-      MealNotificationPeriod.night => l10n.breakfast,
+      MealNotificationPeriod.morning => l10n.breakfast,
+      MealNotificationPeriod.night => l10n.notificationTomorrowBreakfast,
       MealNotificationPeriod.lunch => l10n.lunch,
       MealNotificationPeriod.dinner => l10n.dinner,
     };
