@@ -98,6 +98,12 @@ Validate in proportion to the change and report any unverified boundary.
 
 ## Maintenance
 
+Keep README additions minimal and essential for understanding or using the project.
+Prioritize context that changes how a newcomer interprets the code over facts
+readily discoverable from individual files; do not aim for equal coverage of modules.
+Put non-obvious implementation context in brief comments near the relevant code;
+do not add detailed execution flows, migration history, or integration plans to README.
+
 Keep root guidance cross-cutting. Put a recurring module-specific landmine in the
 nearest scoped `AGENTS.md` only when source and tests cannot make it obvious.
 Remove rules when the underlying friction is fixed. Do not copy version numbers,

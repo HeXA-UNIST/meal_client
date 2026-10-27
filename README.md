@@ -80,31 +80,20 @@ xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner -destination 'p
 
 ## Architecture
 
-- `AppSettings`는 앱 설정을 관리하고 설정값을 `shared_preferences`에 저장합니다.
-- `/v2/menu`에서 식단을, `/v2/info`에서 최신 식당 운영 시간과 공지를 가져옵니다.
-  - Android와 iOS 앱은 받은 JSON을 캐시에 저장해 홈 화면 위젯과 공유합니다.
-  - 요청을 보내기 전 유효한 캐시가 있으면 해당 데이터를 먼저 표시하고, 최신 응답을 받으면 화면을 갱신합니다.
-  - Android와 iOS의 식단·안내 정보 요청은 저장된 JSON의 `etag`로 재검증하고, 304이면 기존 본문을 재사용합니다.
-  - 웹에서는 별도의 파일 캐시를 사용하지 않습니다.
-  - `/v2/menu`에서 다음 주 시작일을 제공할 경우(=다음 주 식단이 업로드되었다는 의미) 앱은 다음 주 식단을 가져와 표시합니다.
-- Android와 iOS 앱은 `workmanager`를 통해 백그라운드 데이터 갱신 작업을 등록하고, 사용자 설정과 식단 캐시를 바탕으로 로컬에서 식단 알림을 예약합니다.
-
-Android 식단 알림은 알림 표시 권한과 정확한 알람 특별 접근이 모두 필요합니다.
-알림을 켜면 필요한 권한을 요청하며, Android 12 이상에서는 시스템의
-‘알람 및 리마인더’ 설정 화면에서 정확한 알람을 허용합니다. 권한이 철회되면
-앱의 알림 설정은 유지하고 예약을 중단합니다. 알림에 필요한 권한이 없는 동안 Android와 iOS 모두 앱 실행 시 안내 팝업을 표시하며,
-알림 설정 화면에서도 권한을 복구할 수 있습니다.
-권한을 다시 허용하면 네트워크 없이 저장된 식단과 설정으로 알림 예약을 복구합니다.
-위젯은 정확한 알람 권한이 없을 때 식단 대신 권한 안내를 표시합니다.
-식단 알림과 위젯 운영 상태 전환은 `setExact()`로 예약합니다.
-서버 데이터 갱신은 기존 WorkManager 작업이 맡습니다.
+- Android와 iOS에서는 화면에서 데이터를 갱신할 때와 백그라운드 작업에서 데이터를 갱신할 때 같은 로직을 사용합니다. 백그라운드 작업은 화면이 메모리에 보관하는 상태 대신 저장된 설정과 캐시를 읽어 로컬 알림을 예약합니다.
+- 홈 화면 위젯은 네이티브 코드로 구현되어 있으며, Flutter가 저장한 식단과 운영 정보의 JSON 파일을 직접 읽습니다. 공유 캐시의 형식과 저장 방식은 앱과 위젯 모두에 영향을 줍니다.
+- 화면에는 유효한 캐시의 데이터를 먼저 표시하고, 서버 응답을 받으면 내용을 갱신합니다.
+- 식단의 날짜와 주차, 운영시간은 한국 시간(KST)을 기준으로 해석합니다. 사용자가 지정한 알림 시각은 기기의 현지 시간을 기준으로 하므로, 알림을 보낼 시각과 알림 대상 식단의 날짜를 구분합니다.
+- `BapuSettings`는 앱 전역에서 사용하는 테마·언어·알림 설정을 관리합니다. 조회한 식단과 선택한 날짜·끼니 등 홈 화면에 필요한 상태는 해당 화면에서 관리합니다.
+- 앱 화면과 네이티브 위젯은 같은 JSON을 사용하지만, 각 플랫폼의 코드가 데이터를 별도로 해석합니다.
+- 데이터 조회와 로컬 저장의 성공 여부는 각각 판단합니다. 화면에서는 캐시 저장에 실패해도 서버 응답을 표시할 수 있지만, 백그라운드 작업에서는 현재 주 식단이나 안내 정보를 캐시에 저장하지 못하면 작업이 실패한 것으로 처리합니다.
 
 ### Directory Structure
 
 ```text
 meal_client/
 ├── lib/
-│   ├── main.dart                 # 앱 시작점과 테마
+│   ├── main.dart                 # 앱 진입점, 테마
 │   ├── core/                     # API, 네트워크, 공유 저장소
 │   ├── domain/                   # 식단 데이터 모델
 │   ├── features/
@@ -126,35 +115,9 @@ meal_client/
 - **Network:** `http`, Android `cronet_http`, iOS `cupertino_http`
 - **Local Storage:** `shared_preferences`, `path_provider`
 - **Notification & Background task:** `flutter_local_notifications`, `timezone`, `workmanager`
-- **Home Widget:** `home_widget` 갱신 요청, Android RemoteViews, iOS WidgetKit
+- **Home Widget:** `home_widget`, Android RemoteViews, iOS WidgetKit
 - **Localization:** `flutter_localizations`, `intl`
 - **Share API:** `share_plus`
-
-### 위젯 갱신 경로
-
-Flutter의 foreground/Workmanager는 공유 JSON 캐시를 저장한 뒤
-`HomeWidget.updateWidget()`으로 갱신을 요청합니다.
-
-- Android: `APPWIDGET_UPDATE` → 기존 provider → 단일 렌더 큐 → RemoteViews.
-  다음 운영 상태 전환은 기존 AlarmManager가 예약합니다.
-- iOS: `BapUWidget` timeline 갱신 요청 → 기존 AppIntentTimelineProvider → SwiftUI.
-- 공유 캐시와 iOS App Group 경로·백업 제외 채널은 기존 구현을 사용합니다.
-  `home_widget`의 별도 데이터 저장소와 generator는 사용하지 않습니다.
-
-자체 Android 플러그인과 iOS 갱신 채널은 제거했지만, 식단 해석·위젯별 식당 설정·
-시간 경계 계산·UI는 네이티브 구현으로 남습니다. `home_widget 0.10.0`은
-Android Glance 의존성을 포함하므로, 자체 코드 감소가 의존성 감소를 뜻하지는 않습니다.
-
-Android에서 갱신 요청의 완료는 broadcast 전송 완료를 뜻합니다. 실제 렌더·예약 실패는
-네이티브 로그에 남으며 Flutter의 `throwOnFailure`로 전달되지 않습니다.
-따라서 Workmanager는 요청 실패는 재시도할 수 있지만, 이후의 렌더 실패는 감지하지 못합니다.
-
-Android 렌더·예약 오류는 처리한 경계에서 `logWidgetFailure(stage, error)`로 한 번 기록합니다.
-dispatcher가 기록한 오류를 설정 화면·권한 복구 완료 콜백에서 다시 기록하지 않습니다.
-여러 위젯의 실패와 렌더·예약 동시 실패는 원인 예외와 `suppressed`로 보존하며,
-오류가 나도 다음 예약과 완료 처리는 계속 시도합니다.
-Firebase 통합 시 이 함수에 non-fatal 보고를 연결하고, 기존 브랜치의 보고 호출과 중복되지 않게 정리합니다.
-정상적인 메뉴 생략이나 최초 실행 전 캐시 부재는 표시·복구 정책에 따라 처리할 상태입니다.
 
 ## 오픈소스 라이선스
 
