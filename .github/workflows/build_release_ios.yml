@@ -5,10 +5,10 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: xcode-27
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Resolve Flutter version
         id: flutter-version
@@ -38,11 +38,14 @@ jobs:
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.IOS_BUILD_CERTIFICATE_BASE64 }}
           BUILD_CERTIFICATE_PASSWORD: ${{ secrets.IOS_BUILD_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.IOS_GITHUB_KEYCHAIN_PASSWORD }}
           APP_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_APP_PROVISIONING_PROFILE_BASE64 }}
           WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 }}
-          EXPORT_OPTIONS_PLIST_BASE64: ${{ secrets.IOS_EXPORT_OPTIONS_PLIST_BASE64 }}
+          EXPORT_OPTIONS_PLIST: ${{ vars.IOS_EXPORT_OPTIONS_PLIST }}
         run: |
+          set +x
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+          echo "::add-mask::$KEYCHAIN_PASSWORD"
+
           CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           APP_PROFILE_PATH="$RUNNER_TEMP/app.mobileprovision"
@@ -52,7 +55,7 @@ jobs:
           printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
           printf '%s' "$APP_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$APP_PROFILE_PATH"
           printf '%s' "$WIDGET_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$WIDGET_PROFILE_PATH"
-          printf '%s' "$EXPORT_OPTIONS_PLIST_BASE64" | base64 --decode > "$RUNNER_TEMP/ExportOptions.plist"
+          printf '%s' "$EXPORT_OPTIONS_PLIST" > "$RUNNER_TEMP/ExportOptions.plist"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
