@@ -2,6 +2,8 @@ package pro.hexa.meal.meal_client
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -30,7 +32,10 @@ object BapUWidgetScheduleManager {
     fun scheduleNext(context: Context) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val pi = pendingIntent(context)
-        if (!canScheduleExactAlarms(context)) {
+        val widgetIds = AppWidgetManager.getInstance(context).getAppWidgetIds(
+            ComponentName(context, BapUWidget2x2Provider::class.java)
+        )
+        if (widgetIds.isEmpty() || !canScheduleExactAlarms(context)) {
             am.cancel(pi)
             return
         }
@@ -38,7 +43,11 @@ object BapUWidgetScheduleManager {
         var retryingCache = false
         val delayMillis = try {
             val hours = BapUWidgetOperatingHours.loadRequiredFromCache(context)
-            val periods = BapUWidgetOperatingHours.periodsForToday(hours, now)
+            val cafeterias = widgetIds.map {
+                WidgetCafeteria.fromPrefValue(loadSingleCafeteria(context, it))
+            }.toSet()
+            val periods = BapUWidgetOperatingHours.periodsForToday(hours, now, cafeterias)
+            // 표시 식당과 무관하게 메뉴의 끼니 전환은 전체 식당 종료 시각을 따른다.
             val transitions = BapUWidgetOperatingHours.mealTransitionsForToday(hours, now)
             millisUntilNextWake(now, periods, transitions)
         } catch (e: WidgetInfoCacheException) {

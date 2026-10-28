@@ -25,6 +25,15 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             // 렌더 큐와 같은 순서로 정리해 삭제된 ID의 기록이 남지 않게 한다.
             BapUWidgetUpdateDispatcher.execute { renderCache.remove(id) }
         }
+        // 일부 위젯만 지운 경우도 남은 식당에 맞춰 다음 경계를 다시 계산한다.
+        val pending = goAsync()
+        BapUWidgetUpdateDispatcher.execute {
+            try {
+                BapUWidgetScheduleManager.scheduleNext(context)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 
     companion object {

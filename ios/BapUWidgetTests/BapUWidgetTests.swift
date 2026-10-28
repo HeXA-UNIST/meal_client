@@ -187,18 +187,34 @@ final class BapUWidgetTests: XCTestCase {
     XCTAssertEqual(WidgetMenuSelection(intentRawValue: 999), .dormKorean)
   }
 
-  func testTimelineIncludesMealAndOperatingBoundaries() throws {
+  func test타임라인은선택식당경계와공통끼니전환및자정을유지한다() throws {
     let date = try kstDate(year: 2026, month: 8, day: 3, hour: 8, minute: 0)
     try writeInfoCache()
 
-    let dates = WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko").timelineDates(after: date)
-    let minuteValues = dates.map(kstMinuteOfDay)
-
-    XCTAssertTrue(minuteValues.contains(8 * 60 + 20))
-    XCTAssertTrue(minuteValues.contains(9 * 60 + 21))
-    XCTAssertTrue(minuteValues.contains(13 * 60))
-    XCTAssertTrue(minuteValues.contains(13 * 60 + 30))
-    XCTAssertFalse(minuteValues.contains(14 * 60 + 1))
+    let reader = WidgetCacheReader(containerURL: cacheDirectory, languageCode: "ko")
+    let dormMinutes = reader.timelineDates(after: date, selection: .dormKorean).map(kstMinuteOfDay)
+    XCTAssertEqual(
+      dormMinutes,
+      [500, 530, 560, 561, 690, 780, 810, 811, 1050, 1130, 1160, 0]
+    )
+    XCTAssertEqual(
+      reader.timelineDates(after: date, selection: .dormHalal).map(kstMinuteOfDay),
+      dormMinutes
+    )
+    XCTAssertEqual(
+      reader.timelineDates(after: date, selection: .student).map(kstMinuteOfDay),
+      [561, 660, 780, 810, 811, 0]
+    )
+    XCTAssertEqual(
+      reader.timelineDates(after: date, selection: .faculty).map(kstMinuteOfDay),
+      [561, 690, 780, 810, 811, 0]
+    )
+    // 주말에 선택 식당이 미운영이어도 전역 끼니와 날짜 전환은 필요하다.
+    let sunday = try kstDate(year: 2026, month: 8, day: 9, hour: 8, minute: 0)
+    XCTAssertEqual(
+      reader.timelineDates(after: sunday, selection: .student).map(kstMinuteOfDay),
+      [561, 811, 0]
+    )
   }
 
   func testClosingSoonStartsAtExactBoundaryAndEndsAtClosingTime() throws {

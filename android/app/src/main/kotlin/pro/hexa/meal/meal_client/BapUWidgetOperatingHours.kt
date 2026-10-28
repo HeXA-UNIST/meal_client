@@ -82,9 +82,14 @@ object BapUWidgetOperatingHours {
     fun periodsForToday(
         hours: WidgetOperatingHours?,
         now: Calendar = Calendar.getInstance(BapUWidgetTime.kstTimeZone),
+        cafeterias: Set<WidgetCafeteria>? = null,
     ): List<OperatingPeriod> {
         val map = periodMapForDate(hours, now) ?: return emptyList()
-        return map.values
+        // 할랄과 한식은 같은 기숙사 운영시간을 사용한다.
+        val selected = cafeterias?.map {
+            if (it == WidgetCafeteria.DORM_HALAL) WidgetCafeteria.DORM_KOREAN else it
+        }?.toSet()
+        return map.filterKeys { selected == null || it in selected }.values
             .flatMap { it.values }
             .distinct()
             .sortedWith(compareBy<OperatingPeriod> { it.startH }.thenBy { it.startM }.thenBy { it.endH }.thenBy { it.endM })

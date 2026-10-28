@@ -387,31 +387,37 @@ struct WidgetCacheReader {
     )
   }
 
-  func timelineDates(after date: Date) -> [Date] {
-    timelineDates(after: date, input: loadTimelineInput())
+  func timelineDates(
+    after date: Date,
+    selection: WidgetMenuSelection = .dormKorean
+  ) -> [Date] {
+    timelineDates(after: date, selection: selection, input: loadTimelineInput())
   }
 
-  private func timelineDates(after date: Date, input: WidgetTimelineInput) -> [Date] {
+  private func timelineDates(
+    after date: Date,
+    selection: WidgetMenuSelection,
+    input: WidgetTimelineInput
+  ) -> [Date] {
     guard let info = input.info else {
       return [date.addingTimeInterval(30 * 60)]
     }
 
     let period = periodResponse(from: info, at: date)
     var minutes = Set<Int>()
-    for cafeteria in period.allCafeterias {
-      for meal in WidgetMealOfDay.allCases {
-        guard let range = cafeteria.range(for: meal),
-              let start = range.startMinutes,
-              let end = range.endMinutes
-        else {
-          continue
-        }
-        minutes.insert(start)
-        minutes.insert(max(0, end - WidgetContract.closingSoonMinutes))
-        minutes.insert(end)
+    for meal in WidgetMealOfDay.allCases {
+      guard let range = period.hours(for: selection)?.range(for: meal),
+            let start = range.startMinutes,
+            let end = range.endMinutes
+      else {
+        continue
       }
+      minutes.insert(start)
+      minutes.insert(max(0, end - WidgetContract.closingSoonMinutes))
+      minutes.insert(end)
     }
 
+    // 표시 식당과 무관하게 메뉴의 끼니 전환은 전체 식당 종료 시각을 따른다.
     let breakfastEnds = period.allCafeterias.compactMap { $0.breakfast?.endMinutes }
     let lunchEnds = period.allCafeterias.compactMap { $0.lunch?.endMinutes }
     if let breakfastEnd = breakfastEnds.max() { minutes.insert(breakfastEnd + 1) }
@@ -435,7 +441,7 @@ struct WidgetCacheReader {
     selection: WidgetMenuSelection
   ) -> [BapUWidgetEntry] {
     let input = loadTimelineInput()
-    let dates = [date] + timelineDates(after: date, input: input)
+    let dates = [date] + timelineDates(after: date, selection: selection, input: input)
     return dates.map {
       BapUWidgetEntry(
         date: $0,
