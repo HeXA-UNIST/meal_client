@@ -74,7 +74,7 @@ jobs:
           security set-key-partition-list \
             -S apple-tool:,apple: \
             -k "$KEYCHAIN_PASSWORD" \
-            "$KEYCHAIN_PATH"
+            "$KEYCHAIN_PATH" > /dev/null
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
           mkdir -p "$PROFILES_DIRECTORY"
