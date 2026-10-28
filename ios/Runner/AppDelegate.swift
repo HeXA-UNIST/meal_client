@@ -1,11 +1,9 @@
 import Flutter
 import UIKit
-import WidgetKit
 import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
-  private static let widgetChannelName = "pro.hexa.meal.meal_client/widget"
   private static let sharedStorageChannelName =
     "pro.hexa.meal.meal_client/widget_shared_storage"
   private static let appGroupInfoKey = "BAPU_APP_GROUP_IDENTIFIER"
@@ -17,48 +15,49 @@ import workmanager_apple
     UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
     WorkmanagerPlugin.setPluginRegistrantCallback { registry in
       GeneratedPluginRegistrant.register(with: registry)
-      AppDelegate.registerBapUWidgetChannels(with: registry)
+      AppDelegate.registerSharedStorageChannel(with: registry)
     }
     WorkmanagerPlugin.registerPeriodicTask(
       withIdentifier: "bapu_meal_refresh",
-      earliestBeginInSeconds: NSNumber(value: 60 * 60)
+      earliestBeginInSeconds: NSNumber(value: 2 * 60 * 60)
     )
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    Self.registerBapUWidgetChannels(with: engineBridge.pluginRegistry)
+    Self.registerSharedStorageChannel(with: engineBridge.pluginRegistry)
   }
 
-  private static func registerBapUWidgetChannels(with registry: FlutterPluginRegistry) {
-    guard let registrar = registry.registrar(forPlugin: "BapUWidgetBridge") else {
+  private static func registerSharedStorageChannel(with registry: FlutterPluginRegistry) {
+    guard let registrar = registry.registrar(forPlugin: "BapUSharedStorage") else {
       return
     }
-    registerBapUWidgetChannels(binaryMessenger: registrar.messenger())
+    registerSharedStorageChannel(binaryMessenger: registrar.messenger())
   }
 
-  private static func registerBapUWidgetChannels(binaryMessenger: FlutterBinaryMessenger) {
-    let widgetChannel = FlutterMethodChannel(
-      name: widgetChannelName,
-      binaryMessenger: binaryMessenger
-    )
-    widgetChannel.setMethodCallHandler { call, result in
-      switch call.method {
-      case "refresh":
-        WidgetCenter.shared.reloadAllTimelines()
-        result(nil)
-      default:
-        result(FlutterMethodNotImplemented)
-      }
-    }
-
+  private static func registerSharedStorageChannel(binaryMessenger: FlutterBinaryMessenger) {
     let sharedStorageChannel = FlutterMethodChannel(
       name: sharedStorageChannelName,
       binaryMessenger: binaryMessenger
     )
     sharedStorageChannel.setMethodCallHandler { call, result in
       switch call.method {
+      case "appGroupIdentifier":
+        guard
+          let group = Bundle.main.object(forInfoDictionaryKey: appGroupInfoKey) as? String,
+          !group.isEmpty
+        else {
+          result(
+            FlutterError(
+              code: "APP_GROUP_UNAVAILABLE",
+              message: "App Group identifier is missing",
+              details: nil
+            )
+          )
+          return
+        }
+        result(group)
       case "sharedWidgetCacheDir":
         sharedWidgetCacheDir(result: result)
       case "excludeFileFromBackup":

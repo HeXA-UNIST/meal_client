@@ -8,6 +8,11 @@
     <!-- 위젯 설정 -->
     <string name="widget_config_title">Select Cafeteria</string>
     <string name="widget_config_confirm">Confirm</string>
+    <string name="widget_exact_alarm_not_allowed">To use the widget, allow Alarms &amp; reminders.</string>
+    <string name="widget_exact_alarm_settings">Open Alarms &amp; reminders settings</string>
+    <string name="widget_exact_alarm_settings_unavailable">Could not open Alarms &amp; reminders settings.</string>
+    <string name="widget_exact_alarm_notice_body">To use the BapU widget, allow Alarms &amp; reminders in settings.</string>
+    <string name="widget_exact_alarm_notice_action">Tap to open settings</string>
 
     <!-- 위젯 미리보기 샘플 (픽커/설정 화면 데모용 — 번역 불필요) -->
     <string name="widget_preview_menu" translatable="false">쌀밥\n김치찌개\n제육볶음\n계란찜\n오이무침\n배추김치</string>

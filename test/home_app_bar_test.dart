@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_app_bar.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
@@ -24,7 +25,10 @@ void main() {
           home: Scaffold(
             body: Column(
               children: [
-                DayOfWeekTabBar(tabController: tabController),
+                DayOfWeekTabBar(
+                  tabController: tabController,
+                  today: DayOfWeek.thu,
+                ),
                 MealOfDaySwitchButton(
                   onPressed: () {},
                   label: '아침',
@@ -56,6 +60,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tabController.index, 2);
+
+      final barRect = tester.getRect(find.byType(DayOfWeekTabBar));
+      await tester.tapAt(Offset(barRect.left + 9, barRect.center.dy));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 0, reason: '둥근 바의 왼쪽 끝도 월요일을 선택한다');
+
+      await tester.tapAt(Offset(barRect.right - 9, barRect.center.dy));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 6, reason: '둥근 바의 오른쪽 끝도 일요일을 선택한다');
+
+      await tester.tapAt(Offset(barRect.left + 9, barRect.top + 1));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 6, reason: '둥근 바깥 모서리는 터치 영역에서 제외한다');
     } finally {
       tabController.dispose();
       semanticsHandle.dispose();

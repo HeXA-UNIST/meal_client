@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 5.1.1+23
+version: 5.1.2+24
 
 environment:
   sdk: ^3.13.0
@@ -41,18 +41,18 @@ dependencies:
   path_provider: ^2.1.5
   flutter_svg: ^2.2.4
   shared_preferences: ^2.5.3
+  shared_preferences_android: ^2.5.3
+  shared_preferences_foundation: ^2.5.7
   url_launcher: ^6.3.2
   share_plus: ^13.0.0
   cupertino_http: ^3.1.0
-  cronet_http: ^1.8.0
+  cronet_http: ^1.10.0
   intl: any
   flutter_localizations:
     sdk: flutter
-  flutter_local_notifications: ^22.0.1
+  flutter_local_notifications: ^22.3.0
   workmanager: ^0.10.7
-  bapu_widget_bridge:
-    path: plugins/bapu_widget_bridge
-  app_settings: ^9.0.0
+  home_widget: ^0.10.0
   timezone: ^0.11.1
 
   material_ui: any
@@ -117,8 +117,4 @@ flutter:
   fonts:
     - family: Pretendard
       fonts:
-        - asset: assets/fonts/Pretendard-Medium.otf
-        - asset: assets/fonts/Pretendard-SemiBold.otf
-          weight: 600
-        - asset: assets/fonts/Pretendard-Bold.otf
-          weight: 700
+        - asset: assets/fonts/PretendardVariable.ttf

@@ -1,7 +1,6 @@
 package pro.hexa.meal.meal_client
 
 import android.app.PendingIntent
-import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences  // getWidgetConfigPrefs 에서 사용
@@ -10,6 +9,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.TextView
+
+/** 본문은 이 크기 아래로 축소하지 않고, 여유 공간이 있을 때만 확대한다. */
+const val WIDGET_MENU_MIN_TEXT_SP = 12f
+private val WIDGET_MENU_TEXT_SIZES_SP = floatArrayOf(12f, 12.5f, 13f, 13.5f, 14f)
+private val WIDGET_MENU_DESCRIPTION = Regex("\\s+\\([^()]*\\)")
 
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
 const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
@@ -45,16 +49,99 @@ fun cafeteriaConfigNameResId(cafeteria: Int): Int = when (cafeteria) {
 fun getWidgetConfigPrefs(context: Context): SharedPreferences =
     context.getSharedPreferences(WIDGET_CONFIG_PREFS, Context.MODE_PRIVATE)
 
+data class WidgetMenuLayout(
+    val textSizeSp: Float,
+    val leftText: String,
+    val rightText: String = "",
+)
+
+/** 전체 메뉴를 보존하는 가장 큰 본문 크기를 고르고, 12sp에서도 넘치면 부분 말줄임한다. */
+fun layoutWidgetMenu(
+    context: Context,
+    widthPx: Int,
+    heightPx: Int,
+    items: List<String>,
+    twoColumns: Boolean,
+    setup: (View) -> Unit,
+): WidgetMenuLayout {
+    val filtered = items.map { it.replace(WIDGET_MENU_DESCRIPTION, "") }.filter { it.isNotEmpty() }
+    if (filtered.isEmpty()) return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, "-")
+
+    if (!twoColumns) {
+        val text = filtered.joinToString("\n")
+        fitMenuTextSizeByRealLayout(context, widthPx, heightPx, listOf(R.id.tv_menu to text), setup)
+            ?.let { return WidgetMenuLayout(it, text) }
+        return WidgetMenuLayout(
+            WIDGET_MENU_MIN_TEXT_SP,
+            truncateMenuByRealLayout(context, R.layout.widget_2x2, R.id.tv_menu, widthPx, heightPx, filtered, setup),
+        )
+    }
+
+    val balancedSplit = (filtered.size + 1) / 2
+    val splits = if (filtered.size == 1) listOf(1) else
+        (1 until filtered.size).sortedBy { kotlin.math.abs(it - balancedSplit) }
+    var best: WidgetMenuLayout? = null
+    for (split in splits) {
+        val left = filtered.take(split).joinToString("\n")
+        val right = filtered.drop(split).joinToString("\n")
+        val size = fitMenuTextSizeByRealLayout(
+            context, widthPx, heightPx,
+            listOf(R.id.tv_menu_left to left, R.id.tv_menu_right to right), setup,
+        ) ?: continue
+        if (best == null || size > best.textSizeSp) best = WidgetMenuLayout(size, left, right)
+        if (size == WIDGET_MENU_TEXT_SIZES_SP.last()) break
+    }
+    best?.let { return it }
+
+    val (left, right) = truncateMenuTwoColumnsByRealLayout(
+        context, R.layout.widget_2x2, R.id.tv_menu_left, R.id.tv_menu_right,
+        widthPx, heightPx, filtered, setup,
+    )
+    return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, left, right)
+}
+
+/** 큰 SP 후보부터 직접 실측하여, 모든 열의 전체 메뉴가 들어가는 공통 크기를 고른다. */
+private fun fitMenuTextSizeByRealLayout(
+    context: Context,
+    widthPx: Int,
+    heightPx: Int,
+    menus: List<Pair<Int, String>>,
+    setup: (View) -> Unit,
+): Float? {
+    val root = LayoutInflater.from(context).inflate(R.layout.widget_2x2, null)
+    setup(root)
+    val menuViews = menus.map { (id, text) ->
+        root.findViewById<TextView>(id).apply {
+            this.text = text
+            maxLines = Int.MAX_VALUE
+        }
+    }
+    val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY)
+    val heightSpec = View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+    for (size in WIDGET_MENU_TEXT_SIZES_SP.reversed()) {
+        menuViews.forEach { it.setTextSize(TypedValue.COMPLEX_UNIT_SP, size) }
+        root.measure(widthSpec, heightSpec)
+        val fits = menuViews.all { menu ->
+            val assignedHeight = menu.measuredHeight
+            val menuWidth = View.MeasureSpec.makeMeasureSpec(menu.measuredWidth, View.MeasureSpec.EXACTLY)
+            menu.measure(menuWidth, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+            menu.lineCount <= WIDGET_MENU_MAX_LINES_SAFETY_CAP &&
+                fitsWithinWidgetMenuHeight(menu.measuredHeight, assignedHeight)
+        }
+        if (fits) return size
+    }
+    return null
+}
+
 /**
  * [layoutResId] 위젯 레이아웃을 오프스크린으로 inflate & measure 해서, [menuViewId] TextView가
  * 후보 텍스트를 실제로 필요한 만큼 그리려면 배정된 높이를 넘는지(=화면에서 다른 뷰와 겹치게
- * 되는지) 직접 확인한다. 항목을 하나씩 채워보다가 넘치는 시점에 "..."으로 대체하고, 그것도
- * 안 들어가면 마지막으로 채운 항목을 통째로 "..."으로 교체한다.
+ * 되는지) 직접 확인한다. 넘치면 앞 메뉴는 유지하고 마지막 메뉴의 표시 가능한 부분 뒤에
+ * 말줄임표를 붙인다.
  *
- * StaticLayout으로 직접 폭 추정하는 대신 실제 레이아웃을 그대로 inflate하는 이유: 이 앱의
- * 커스텀 폰트를 `ResourcesCompat.getFont()`로 직접 불러오면 일부 기기에서 스레드와 무관하게
- * 예외가 나는데, `LayoutInflater`를 통한 정상적인 inflate는 같은 폰트를 문제없이 해석한다.
- * 그래서 실제 폰트/줄바꿈/여백을 전부 안드로이드의 실제 레이아웃 계산에 맡긴다.
+ * 실제 위젯과 같은 시스템 글꼴·텍스트 크기·여백을 적용한 레이아웃으로 측정한다.
+ * 글자 폭만 따로 추정하지 않고 헤더·운영상태가 차지하는 공간과 메뉴 줄바꿈까지
+ * 안드로이드의 레이아웃 계산에 맡긴다.
  *
  * @param setup 헤더/운영상태/텍스트 크기 등 메뉴를 뺀 나머지를 채우는 콜백. 후보마다 새로
  *              inflate 하므로 매번 호출된다.
@@ -75,7 +162,8 @@ fun truncateMenuByRealLayout(
         val root = LayoutInflater.from(context).inflate(layoutResId, null)
         setup(root)
         val menuView = root.findViewById<TextView>(menuViewId)
-        menuView.maxLines = WIDGET_MENU_MAX_LINES_SAFETY_CAP
+        // 필요한 높이가 표시 상한에 의해 축소되지 않도록 전체 내용을 측정한다.
+        menuView.maxLines = Int.MAX_VALUE
         menuView.text = text
 
         // 1단계: 실제 위젯 크기로 전체 레이아웃을 측정해서 tv_menu에 배정되는 높이를 구한다.
@@ -92,33 +180,51 @@ fun truncateMenuByRealLayout(
         menuView.measure(menuWidthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
         val neededHeight = menuView.measuredHeight
 
-        return fitsWithinWidgetMenuHeight(neededHeight, assignedHeight)
+        return menuView.lineCount <= WIDGET_MENU_MAX_LINES_SAFETY_CAP &&
+            fitsWithinWidgetMenuHeight(neededHeight, assignedHeight)
     }
 
     val fullMenu = filtered.joinToString("\n")
     if (fits(fullMenu)) return fullMenu
 
-    // 말줄임표에 한 줄 전체를 예약하지 않고 마지막으로 표시 가능한 메뉴 뒤에 붙인다.
-    // 따라서 5줄 공간에는 메뉴 5개와 이후 항목이 있음을 함께 표시할 수 있다.
-    for (visibleCount in filtered.lastIndex downTo 1) {
-        val candidate = appendInlineMenuEllipsis(filtered.take(visibleCount)).joinToString("\n")
-        if (fits(candidate)) return candidate
+    for (visibleCount in filtered.size downTo 1) {
+        truncateLastMenuItem(filtered.take(visibleCount)) { candidate ->
+            fits(candidate.joinToString("\n"))
+        }?.let { return it.joinToString("\n") }
     }
-
-    for (visibleCount in filtered.lastIndex downTo 0) {
-        val candidate = (filtered.take(visibleCount) + "...").joinToString("\n")
-        if (fits(candidate)) return candidate
-    }
-    return "..."
+    return "…"
 }
 
 /** 4칸 이상으로 넓힌 위젯에서 메뉴를 2열로 표시할지 결정한다. */
 fun usesTwoColumnMenu(widthDp: Number): Boolean = widthDp.toFloat() >= WIDGET_TWO_COLUMN_MIN_WIDTH_DP
 
-/** 마지막 표시 메뉴와 말줄임표를 같은 줄에 배치한다. */
-fun appendInlineMenuEllipsis(items: List<String>): List<String> = when {
-    items.isEmpty() -> listOf("...")
-    else -> items.dropLast(1) + "${items.last()}…"
+/** 앞 메뉴를 보존하면서 실측 공간에 들어가는 마지막 메뉴의 가장 긴 앞부분을 찾는다. */
+internal fun truncateLastMenuItem(
+    items: List<String>,
+    fits: (List<String>) -> Boolean,
+): List<String>? {
+    val precedingItems = items.dropLast(1)
+    val lastItem = items.last()
+    val ellipsisOnly = precedingItems + "…"
+    // 앞 메뉴만으로 이미 넘치면 문자별 실측을 반복하지 않고 항목 수를 줄인다.
+    if (!fits(ellipsisOnly)) return null
+    // 코드 포인트 경계에서만 잘라 이모지 등의 UTF-16 서로게이트 쌍을 보존한다.
+    val characterCount = lastItem.codePointCount(0, lastItem.length)
+    var low = 1
+    var high = characterCount
+    var best = ellipsisOnly
+    while (low <= high) {
+        val count = (low + high) / 2
+        val end = lastItem.offsetByCodePoints(0, count)
+        val candidate = precedingItems + (lastItem.substring(0, end).trimEnd() + "…")
+        if (fits(candidate)) {
+            best = candidate
+            low = count + 1
+        } else {
+            high = count - 1
+        }
+    }
+    return best
 }
 
 /** 읽는 순서를 유지하면서 앞 절반은 왼쪽, 나머지는 오른쪽 열에 배치한다. */
@@ -153,7 +259,7 @@ fun truncateMenuTwoColumnsByRealLayout(
         )
         menuViews[0].text = left
         menuViews[1].text = right
-        menuViews.forEach { it.maxLines = WIDGET_MENU_MAX_LINES_SAFETY_CAP }
+        menuViews.forEach { it.maxLines = Int.MAX_VALUE }
 
         root.measure(
             View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
@@ -164,7 +270,8 @@ fun truncateMenuTwoColumnsByRealLayout(
             val assignedHeight = menuView.measuredHeight
             val widthSpec = View.MeasureSpec.makeMeasureSpec(menuView.measuredWidth, View.MeasureSpec.EXACTLY)
             menuView.measure(widthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-            fitsWithinWidgetMenuHeight(menuView.measuredHeight, assignedHeight)
+            menuView.lineCount <= WIDGET_MENU_MAX_LINES_SAFETY_CAP &&
+                fitsWithinWidgetMenuHeight(menuView.measuredHeight, assignedHeight)
         }
     }
 
@@ -192,13 +299,13 @@ fun truncateMenuTwoColumnsByRealLayout(
     }
 
     fittingColumns(filtered)?.let { return it }
-    for (visibleCount in filtered.lastIndex downTo 1) {
-        fittingColumns(appendInlineMenuEllipsis(filtered.take(visibleCount)))?.let { return it }
+    for (visibleCount in filtered.size downTo 1) {
+        val displayItems = truncateLastMenuItem(filtered.take(visibleCount)) {
+            fittingColumns(it) != null
+        }
+        if (displayItems != null) return requireNotNull(fittingColumns(displayItems))
     }
-    for (visibleCount in filtered.lastIndex downTo 0) {
-        fittingColumns(filtered.take(visibleCount) + "...")?.let { return it }
-    }
-    return "..." to ""
+    return "…" to ""
 }
 
 /** 실제 레이아웃 측정 과정의 1px 반올림 차이만 허용하고, 내용 한 줄의 초과는 거부한다. */
@@ -271,31 +378,6 @@ fun mealOfDayResId(mealOfDay: Int): Int = when (mealOfDay) {
 }
 
 // ─── 기기별 동적 텍스트 크기 계산 ─────────────────────────────────────────────
-
-/** AppWidget 옵션에서 세로 모드 최소 너비(dp)를 읽는다. */
-fun widgetWidthDp(manager: AppWidgetManager, widgetId: Int): Int {
-    val min = manager.getAppWidgetOptions(widgetId)
-        .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
-    return if (min > 0) min else 160
-}
-
-/**
- * AppWidget 옵션에서 세로 모드 실제 높이(dp)를 읽는다.
- * MIN_HEIGHT = 가로 모드(더 좁은 방향) 높이, MAX_HEIGHT = 세로 모드(더 큰 방향) 높이.
- * 줄 수 계산은 세로 모드 기준이므로 MAX_HEIGHT 를 사용한다.
- */
-fun widgetHeightDp(manager: AppWidgetManager, widgetId: Int): Int {
-    val max = manager.getAppWidgetOptions(widgetId)
-        .getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
-    return if (max > 0) max else 150
-}
-
-/**
- * 메뉴 텍스트 크기(sp). 위젯 크기와 무관하게 항상 동일한 크기를 쓴다
- * (2x2와 확대 상태에서 폰트가 달라지지 않도록). 공간이 부족하면 실측 truncate가
- * 항목 수를 줄이는 것으로 대응한다.
- */
-fun calcMenuTextSp(widthDp: Int, columns: Int = 1): Float = 12f
 
 /** 메뉴 sp 에서 운영 상태 텍스트 sp 를 계산한다 (시안 비율: 메뉴보다 1sp 작게, 최소 8sp). */
 fun calcStatusTextSp(menuSp: Float): Float = (menuSp - 1f).coerceAtLeast(8f)

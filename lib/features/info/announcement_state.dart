@@ -15,17 +15,21 @@ Future<AppAnnouncement?> checkForNewAnnouncement({
     return null;
   }
 
-  final prefs = await SharedPreferences.getInstance();
   final previous = await getStoredAnnouncement();
   if (announcement.showAnnouncementEveryTime ||
       previous?.contentFingerprint != announcement.contentFingerprint) {
-    await prefs.setString(
-      StorageKeys.announcementKey,
-      jsonEncode(announcement.toJson()),
-    );
     return announcement;
   }
   return null;
+}
+
+/// 실제 팝업을 표시한 공지만 다음 시작 안내에서 제외한다.
+Future<void> saveDisplayedAnnouncement(AppAnnouncement announcement) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(
+    StorageKeys.announcementKey,
+    jsonEncode(announcement.toJson()),
+  );
 }
 
 Future<AppAnnouncement?> getStoredAnnouncement() async {

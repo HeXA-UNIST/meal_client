@@ -8,6 +8,10 @@ typedef MealCacheReader = Future<String> Function(String fileName);
 typedef MealCacheLastModifiedReader = Future<DateTime> Function(
   String fileName,
 );
+typedef MealCacheLastModifiedWriter = Future<void> Function(
+  String fileName,
+  DateTime at,
+);
 
 typedef MealCacheRevision = ({String rawMeal, DateTime updatedAt});
 typedef ValidatedMealCache = ({
@@ -22,15 +26,18 @@ class MealCache {
     MealCacheWriter? writeFile,
     MealCacheReader? readFile,
     MealCacheLastModifiedReader? readLastModified,
+    MealCacheLastModifiedWriter? setLastModified,
   }) : _writeFile = writeFile ?? saveSharedWidgetFileAsString,
        _readFile = readFile ?? readSharedWidgetFileAsString,
        _readLastModified =
-           readLastModified ?? getLastModifiedOfSharedWidgetFile;
+           readLastModified ?? getLastModifiedOfSharedWidgetFile,
+       _setLastModified = setLastModified ?? setLastModifiedOfSharedWidgetFile;
 
   final String _fileName;
   final MealCacheWriter _writeFile;
   final MealCacheReader _readFile;
   final MealCacheLastModifiedReader _readLastModified;
+  final MealCacheLastModifiedWriter _setLastModified;
 
   Future<void> writeRawMealJson(String rawJson) {
     return _writeFile(_fileName, rawJson);
@@ -43,6 +50,9 @@ class MealCache {
   Future<DateTime> getRawMealUpdatedAt() {
     return _readLastModified(_fileName);
   }
+
+  /// 현재 본문이 서버에서 재검증된 시각을 파일 메타데이터에 반영한다.
+  Future<void> markRevalidated(DateTime at) => _setLastModified(_fileName, at);
 
   /// [weekStart]에 해당하는 raw 응답인지 payload의 시작일로 판별한다.
   Future<bool> hasCachedWeek(DateTime weekStart) async {
@@ -71,7 +81,7 @@ class MealCache {
     }
   }
 
-  /// 자동 선반입이 시작된 뒤 다른 isolate가 파일을 바꿨는지 판별하는 값.
+  /// 본문과 마지막 저장·재검증 시각. 갱신 제한과 isolate 간 변경 판정에 쓴다.
   Future<MealCacheRevision?> readRevision() async {
     try {
       return (

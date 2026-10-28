@@ -9,14 +9,18 @@ class BapUWidgetUpdateDispatcherTest {
     fun `일부 위젯 갱신이 실패해도 나머지를 모두 시도하고 실패를 반환한다`() {
         val attempted = mutableListOf<Int>()
         val failure = IllegalStateException("launcher failure")
+        val anotherFailure = IllegalArgumentException("another widget failure")
 
         val failures = BapUWidgetUpdateDispatcher.updateBestEffort(intArrayOf(11, 22, 33)) { id ->
             attempted += id
             if (id == 22) throw failure
+            if (id == 33) throw anotherFailure
         }
 
         assertEquals(listOf(11, 22, 33), attempted)
-        assertEquals(listOf(22), failures.map { it.widgetId })
-        assertSame(failure, failures.single().cause)
+        assertEquals(listOf(22, 33), failures.map { it.widgetId })
+        val combined = WidgetRenderException(failures)
+        assertSame(failure, combined.cause)
+        assertSame(anotherFailure, combined.suppressed.single())
     }
 }

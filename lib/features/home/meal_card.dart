@@ -49,13 +49,31 @@ Color _sectionTitleColor(ThemeData theme) {
 
 // 시스템 글자 크기 설정까지 반영한 실제 렌더링 폭을 얻는다. 고정된 글자 수나
 // fontSize만으로 추정하면 접근성 글자 크기에서 계산값과 화면 폭이 달라질 수 있다.
+// Text가 적용하는 접근성 설정을 측정에도 동일하게 반영한다.
+TextStyle _effectiveTextStyle(BuildContext context, TextStyle style) {
+  return DefaultTextStyle.of(context).style
+      .merge(style)
+      .copyWith(
+        fontWeight: MediaQuery.boldTextOf(context) ? FontWeight.bold : null,
+        height: MediaQuery.maybeLineHeightScaleFactorOverrideOf(context),
+        letterSpacing: MediaQuery.maybeLetterSpacingOverrideOf(context),
+        wordSpacing: MediaQuery.maybeWordSpacingOverrideOf(context),
+      );
+}
+
 double _measureTextWidth(BuildContext context, String text, TextStyle style) {
   final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: TextDirection.ltr,
+    text: TextSpan(text: text, style: _effectiveTextStyle(context, style)),
+    textDirection: Directionality.of(context),
+    locale: Localizations.localeOf(context),
     textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  return painter.width;
+  );
+  try {
+    painter.layout();
+    return painter.width;
+  } finally {
+    painter.dispose();
+  }
 }
 
 TextStyle _operatingTimeTextStyle(ThemeData theme, Color color) {
@@ -147,9 +165,128 @@ class MealCardMetadataScaleScope extends InheritedWidget {
   }
 }
 
+// 메뉴는 전체 폭을 사용하고, 칼로리는 마지막 시각적 줄의 남는 공간에 배치한다.
+class _MenuWithKcal extends StatelessWidget {
+  const _MenuWithKcal({
+    required this.menu,
+    required this.kcal,
+    required this.menuStyle,
+    required this.kcalStyle,
+  });
+
+  final String menu;
+  final String kcal;
+  final TextStyle menuStyle;
+  final TextStyle kcalStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final scale =
+            MealCardMetadataScaleScope.maybeOf(context) ??
+            _calculateMetadataScale(context, availableWidth: width);
+        final defaults = DefaultTextStyle.of(context);
+        final effectiveMenuStyle = _effectiveTextStyle(context, menuStyle);
+        final effectiveKcalStyle = _effectiveTextStyle(
+          context,
+          kcalStyle.copyWith(fontSize: kcalStyle.fontSize! * scale),
+        );
+        final direction = Directionality.of(context);
+        final locale = Localizations.localeOf(context);
+        final textScaler = MediaQuery.textScalerOf(context);
+        final heightBehavior =
+            defaults.textHeightBehavior ??
+            DefaultTextHeightBehavior.maybeOf(context);
+        final menuText = Text(
+          menu,
+          style: effectiveMenuStyle,
+          textAlign: TextAlign.start,
+          textWidthBasis: TextWidthBasis.parent,
+          textHeightBehavior: heightBehavior,
+        );
+        final kcalText = Text(
+          kcal,
+          style: effectiveKcalStyle,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.start,
+          textWidthBasis: TextWidthBasis.parent,
+          textHeightBehavior: heightBehavior,
+        );
+        final nextLine = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            menuText,
+            Align(alignment: Alignment.centerRight, child: kcalText),
+          ],
+        );
+        Widget content = nextLine;
+        if (width.isFinite && width > 0) {
+          final menuPainter = TextPainter(
+            text: TextSpan(text: menu, style: effectiveMenuStyle),
+            textDirection: direction,
+            locale: locale,
+            textScaler: textScaler,
+            textHeightBehavior: heightBehavior,
+          );
+          final kcalPainter = TextPainter(
+            text: TextSpan(text: kcal, style: effectiveKcalStyle),
+            textDirection: direction,
+            locale: locale,
+            textScaler: textScaler,
+            maxLines: 1,
+            textHeightBehavior: heightBehavior,
+          );
+          try {
+            menuPainter.layout(minWidth: width, maxWidth: width);
+            kcalPainter.layout();
+            final lines = menuPainter.computeLineMetrics();
+            final kcalLines = kcalPainter.computeLineMetrics();
+            if (lines.isNotEmpty && kcalLines.isNotEmpty) {
+              final lastLine = lines.last;
+              final kcalTop = lastLine.baseline - kcalLines.single.baseline;
+              // 기존 8dp 간격을 유지하고, 공간이 부족하면 다음 줄로 보낸다.
+              final fits =
+                  lastLine.left + lastLine.width + 8 + kcalPainter.width <=
+                  width;
+              if (fits && kcalTop >= 0) {
+                final kcalBottom = kcalTop + kcalPainter.height;
+                content = SizedBox(
+                  width: width,
+                  height: kcalBottom > menuPainter.height
+                      ? kcalBottom
+                      : menuPainter.height,
+                  child: Stack(
+                    children: [
+                      Positioned(left: 0, right: 0, top: 0, child: menuText),
+                      Positioned(right: 0, top: kcalTop, child: kcalText),
+                    ],
+                  ),
+                );
+              }
+            }
+          } finally {
+            menuPainter.dispose();
+            kcalPainter.dispose();
+          }
+        }
+        // 배치 분기와 무관하게 메뉴 다음에 칼로리를 한 번만 읽도록 한다.
+        return Semantics(
+          container: true,
+          label: '$menu, $kcal',
+          child: ExcludeSemantics(child: content),
+        );
+      },
+    );
+  }
+}
+
 // 기본 InkWell은 onLongPress만 넘겨도 손을 대는 즉시(터치 다운) 스플래시가 시작된다.
 // 카드 공유는 롱프레스가 실제로 인식된 순간에만 잉크 이펙트가 보이길 원하므로,
-// Material의 잉크 컨트롤러에 스플래시를 직접 추가/확정/취소하는 방식으로 구현한다.
+// Material의 잉크 컨트롤러에 스플래시를 직접 추가하고 인식 즉시 확정하는 방식으로 구현한다.
 // 공유 요청은 OS 팝업 준비를 최대한 빨리 시작하도록 먼저 호출하고, 햅틱은 ink가
 // 최초로 그려진 프레임 직후 실행해 시각·촉각 피드백이 함께 느껴지도록 한다.
 class _LongPressSplash extends StatefulWidget {
@@ -163,7 +300,7 @@ class _LongPressSplash extends StatefulWidget {
 }
 
 class _LongPressSplashState extends State<_LongPressSplash> {
-  InteractiveInkFeature? _splash;
+  final _splashes = <InteractiveInkFeature>{};
 
   void _handleLongPressStart(LongPressStartDetails details) {
     // 공유 시트는 플랫폼에서 준비하는 시간이 필요하므로 다른 피드백보다 먼저
@@ -174,7 +311,8 @@ class _LongPressSplashState extends State<_LongPressSplash> {
     );
 
     final theme = Theme.of(context);
-    _splash = theme.splashFactory.create(
+    late final InteractiveInkFeature splash;
+    splash = theme.splashFactory.create(
       controller: Material.of(context),
       referenceBox: referenceBox,
       position: details.localPosition,
@@ -182,24 +320,29 @@ class _LongPressSplashState extends State<_LongPressSplash> {
       textDirection: Directionality.of(context),
       containedInkWell: true,
       rectCallback: () => Offset.zero & referenceBox.size,
-      onRemoved: () => _splash = null,
+      onRemoved: () => _splashes.remove(splash),
     );
+    _splashes.add(splash);
+    // 공유 창이 포인터 종료 이벤트를 가져가도 효과가 스스로 사라지도록 한다.
+    splash.confirm();
 
     // ink feature가 등록된 프레임의 페인팅이 끝난 뒤 햅틱을 요청한다. 공유 요청은
     // 이미 시작된 상태이므로 OS 팝업 표시를 인위적으로 늦추지는 않는다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      HapticFeedback.lightImpact();
+      if (mounted) {
+        HapticFeedback.lightImpact();
+      }
     });
   }
 
-  void _handleLongPressEnd(LongPressEndDetails details) {
-    _splash?.confirm();
-    _splash = null;
-  }
-
-  void _handleLongPressCancel() {
-    _splash?.cancel();
-    _splash = null;
+  @override
+  void deactivate() {
+    // dispose의 onRemoved가 목록을 변경하므로 복사본을 순회한다.
+    for (final splash in _splashes.toList()) {
+      splash.dispose();
+    }
+    _splashes.clear();
+    super.deactivate();
   }
 
   @override
@@ -211,8 +354,6 @@ class _LongPressSplashState extends State<_LongPressSplash> {
       // opaque를 사용하므로 카드 전체 영역에서 반응하도록 맞춘다.
       behavior: HitTestBehavior.opaque,
       onLongPressStart: onLongPress == null ? null : _handleLongPressStart,
-      onLongPressEnd: onLongPress == null ? null : _handleLongPressEnd,
-      onLongPressCancel: onLongPress == null ? null : _handleLongPressCancel,
       child: widget.child,
     );
   }
@@ -331,21 +472,11 @@ class MealCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: isLastMenuItem && inlineKcalText != null
-                // Expanded가 칼로리 라벨 폭만큼을 먼저 확보해두므로, 메뉴 텍스트가
-                // 길어 칼로리 라벨과 겹칠 경우 자동으로 줄바꿈되어 서로 침범하지
-                // 않는다.
-                ? Row(
-                    // 메뉴 텍스트와 칼로리 텍스트는 폰트 크기·height가 서로
-                    // 달라 bounding box 하단(end)을 맞추면 실제 글자 baseline이
-                    // 어긋나 보인다. baseline 정렬로 두 텍스트가 같은 줄에 있는
-                    // 것처럼 자연스럽게 맞춘다.
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Expanded(child: menuText),
-                      const SizedBox(width: 8),
-                      Text(inlineKcalText, style: kcalStyle),
-                    ],
+                ? _MenuWithKcal(
+                    menu: menuItem.textFor(languageCode),
+                    kcal: inlineKcalText,
+                    menuStyle: menuTextStyle,
+                    kcalStyle: kcalStyle,
                   )
                 : menuText,
           ),
@@ -446,14 +577,19 @@ class MealCard extends StatelessWidget {
                                       ),
                                       SizedBox(width: _metadataIconGap * scale),
                                       Flexible(
-                                        child: Text(
-                                          operatingTimeLabel!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: operatingTimeStyle.copyWith(
-                                            fontSize:
-                                                operatingTimeStyle.fontSize! *
-                                                scale,
+                                        child: Semantics(
+                                          container: true,
+                                          child: Text(
+                                            operatingTimeLabel!,
+                                            semanticsLabel:
+                                                '$operatingTimeLabel, ${isOperating ? l10n.cafeteriaOperating : l10n.cafeteriaNotOperating}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: operatingTimeStyle.copyWith(
+                                              fontSize:
+                                                  operatingTimeStyle.fontSize! *
+                                                  scale,
+                                            ),
                                           ),
                                         ),
                                       ),

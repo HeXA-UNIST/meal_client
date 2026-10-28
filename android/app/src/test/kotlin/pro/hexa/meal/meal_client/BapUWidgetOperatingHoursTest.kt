@@ -104,6 +104,40 @@ class BapUWidgetOperatingHoursTest {
     }
 
     @Test
+    fun `표시 식당의 운영 경계만 남기고 공통 끼니 전환과 자정은 유지한다`() {
+        val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())!!
+        val now = kstCalendar(Calendar.MONDAY, 12, 0)
+        fun boundaries(cafeterias: Set<WidgetCafeteria>, at: Calendar = now): List<Int> =
+            BapUWidgetScheduleManager.allBoundaryMinutesToday(
+                BapUWidgetOperatingHours.periodsForToday(hours, at, cafeterias),
+                BapUWidgetOperatingHours.mealTransitionsForToday(hours, at),
+            )
+
+        assertEquals(
+            listOf(0, 561, 690, 720, 750, 811, 1050, 1140, 1170),
+            boundaries(setOf(WidgetCafeteria.FACULTY)),
+        )
+        // 식당을 추가하거나 제거하면 해당 운영 경계도 포함되거나 사라진다.
+        assertEquals(
+            listOf(0, 561, 660, 690, 720, 750, 780, 810, 811, 1020, 1050, 1110, 1140, 1170),
+            boundaries(setOf(WidgetCafeteria.FACULTY, WidgetCafeteria.STUDENT)),
+        )
+        assertEquals(
+            boundaries(setOf(WidgetCafeteria.DORM_KOREAN)),
+            boundaries(setOf(WidgetCafeteria.DORM_HALAL)),
+        )
+        assertEquals(
+            boundaries(setOf(WidgetCafeteria.DORM_KOREAN)),
+            boundaries(setOf(WidgetCafeteria.DORM_KOREAN, WidgetCafeteria.DORM_HALAL)),
+        )
+        // 주말에 미운영인 식당도 전역 끼니와 날짜 전환은 필요하다.
+        assertEquals(
+            listOf(0, 661, 781),
+            boundaries(setOf(WidgetCafeteria.STUDENT), kstCalendar(Calendar.SUNDAY, 12, 0)),
+        )
+    }
+
+    @Test
     fun `끼니 전환 경계는 오늘 식당별 가장 늦은 종료 시각으로 계산한다`() {
         val hours = BapUWidgetOperatingHours.parseRawInfo(sampleInfoJson())!!
         val transitions = BapUWidgetOperatingHours.mealTransitionsForToday(

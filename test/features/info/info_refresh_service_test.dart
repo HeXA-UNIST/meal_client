@@ -9,105 +9,83 @@ import 'package:meal_client/features/info/info_refresh_service.dart';
 
 void main() {
   group('InfoRefreshService', () {
-    test('refreshInfo는 가져온 raw JSON을 info cache에 저장', () async {
+    test('캐시 ETag로 재검증하고 304에서 기존 본문을 반환한다', () async {
       String? storedRaw;
+      final sentEtags = <String?>[];
+      final rawInfo = _rawInfoJson('notice', '"info-v2"');
       final service = InfoRefreshService(
-        cache: _memoryInfoCache(onWrite: (rawJson) => storedRaw = rawJson),
-        fetchRaw: (_, {ifModifiedSince}) async => _ok(_rawInfoJson()),
+        cache: _memoryInfoCache(
+          rawJson: jsonEncode({
+            ...jsonDecode(_rawInfoJson()) as Map<String, dynamic>,
+            'last_modified': 'Thu, 15 Oct 2026 01:21:22 GMT',
+          }),
+          onWrite: (rawJson) {
+            storedRaw = rawJson;
+          },
+        ),
+        fetchRaw: (_, {ifNoneMatch}) async {
+          sentEtags.add(ifNoneMatch);
+          return ifNoneMatch == null
+              ? _ok(rawInfo)
+              : (statusCode: 304, body: null);
+        },
       );
 
       final info = await service.refreshInfo();
+      final revalidated = await service.refreshInfoWithStatus();
 
-      expect(storedRaw, _rawInfoJson());
+      expect(sentEtags, [null, '"info-v2"']);
+      expect(storedRaw, rawInfo);
       expect(info.announcement?.content.ko, 'notice');
-      expect(info.operatingHours.weekday.cafeterias, isNotEmpty);
+      expect(revalidated.info.announcement?.content.ko, 'notice');
+      expect(revalidated.cacheReady, isTrue);
     });
 
     test('refreshInfo는 invalid response를 cache에 저장하지 않음', () async {
       String? storedRaw;
       final service = InfoRefreshService(
         cache: _memoryInfoCache(onWrite: (rawJson) => storedRaw = rawJson),
-        fetchRaw: (_, {ifModifiedSince}) async => _ok('[]'),
+        fetchRaw: (_, {ifNoneMatch}) async => _ok('[]'),
       );
 
       await expectLater(service.refreshInfo(), throwsFormatException);
 
       expect(storedRaw, isNull);
     });
-    test('refreshInfo는 strict 모드에서 cache write 실패를 구분 가능한 예외로 throw', () async {
-      final service = InfoRefreshService(
-        cache: InfoCache(
-          writeFile: (_, _) async => throw Exception('disk full'),
-          readFile: (_) async => '',
-          readLastModified: (_) async => DateTime.utc(2026, 4, 13),
-        ),
-        fetchRaw: (_, {ifModifiedSince}) async => _ok(_rawInfoJson()),
-        throwOnCacheWriteFailure: true,
-      );
-
-      await expectLater(
-        service.refreshInfo(),
-        throwsA(isA<InfoCacheWriteException>()),
-      );
-    });
-
-    test('캐시에 last_modified가 있으면 If-Modified-Since로 되돌려 보낸다', () async {
-      String? sentIfModifiedSince;
-      var readCount = 0;
-      final cache = InfoCache(
-        writeFile: (_, _) async {},
-        readFile: (_) async {
-          readCount++;
-          return _rawInfoJson('공지', '2026-08-23T15:00:00.000Z');
-        },
-        readLastModified: (_) async => DateTime.utc(2026, 8, 23),
-      );
-      final service = InfoRefreshService(
-        cache: cache,
-        fetchRaw: (_, {ifModifiedSince}) async {
-          sentIfModifiedSince = ifModifiedSince;
-          return _ok(_rawInfoJson());
-        },
-      );
-
-      await service.refreshInfo();
-
-      expect(sentIfModifiedSince, '2026-08-23T15:00:00.000Z');
-      expect(readCount, greaterThan(0));
-    });
-
-    test('304 응답이면 캐시된 info를 반환하고 다시 쓰지 않는다', () async {
-      var writeCount = 0;
-      final cache = InfoCache(
-        writeFile: (_, _) async => writeCount++,
-        readFile: (_) async =>
-            _rawInfoJson('캐시된 공지', '2026-08-23T15:00:00.000Z'),
-        readLastModified: (_) async => DateTime.utc(2026, 8, 23),
-      );
-      final service = InfoRefreshService(
-        cache: cache,
-        fetchRaw: (_, {ifModifiedSince}) async =>
-            const (statusCode: 304, body: null),
-      );
-
-      final info = await service.refreshInfo();
-
-      expect(info.announcement?.content.ko, '캐시된 공지');
-      expect(writeCount, 0);
+    test('저장 실패 시 화면 응답은 보존하되 연기를 막고 strict 모드는 예외를 반환한다', () async {
+      for (final strict in [false, true]) {
+        final service = InfoRefreshService(
+          cache: InfoCache(
+            writeFile: (_, _) async => throw Exception('disk full'),
+            readFile: (_) async => '',
+          ),
+          fetchRaw: (_, {ifNoneMatch}) async => _ok(_rawInfoJson()),
+          throwOnCacheWriteFailure: strict,
+        );
+        if (strict) {
+          await expectLater(
+            service.refreshInfo(),
+            throwsA(isA<InfoCacheWriteException>()),
+          );
+        } else {
+          final result = await service.refreshInfoWithStatus();
+          expect(result.info.announcement?.content.ko, 'notice');
+          expect(result.cacheReady, isFalse);
+        }
+      }
     });
 
     test('304인데 캐시 본문이 손상됐으면 조건부 없이 재요청한다', () async {
       final sentHeaders = <String?>[];
-      var rawInfo = '{"last_modified":"2026-08-23T15:00:00.000Z"}';
+      var rawInfo = jsonEncode({'etag': '"info-v1"'});
       final cache = InfoCache(
         writeFile: (_, data) async => rawInfo = data,
         readFile: (_) async => rawInfo,
-        readLastModified: (_) async => DateTime.utc(2026, 8, 23),
       );
       final service = InfoRefreshService(
         cache: cache,
-        fetchRaw: (_, {ifModifiedSince}) async {
-          sentHeaders.add(ifModifiedSince);
+        fetchRaw: (_, {ifNoneMatch}) async {
+          sentHeaders.add(ifNoneMatch);
           return sentHeaders.length == 1
               ? const (statusCode: 304, body: null)
               : _ok(_rawInfoJson('복구된 공지'));
@@ -117,72 +95,80 @@ void main() {
       final info = await service.refreshInfo();
 
       expect(info.announcement?.content.ko, '복구된 공지');
-      expect(sentHeaders, ['2026-08-23T15:00:00.000Z', null]);
+      expect(sentHeaders, ['"info-v1"', null]);
       expect(jsonDecode(rawInfo)['announcement']['content']['ko'], '복구된 공지');
     });
 
-    test('늦게 끝난 이전 요청은 최신 info cache를 덮지 않는다', () async {
-      var rawInfo = _rawInfoJson('기존');
-      var updatedAt = DateTime.utc(2026, 4, 13);
-      var writeTime = updatedAt;
-      final cache = InfoCache(
-        writeFile: (_, data) async {
-          rawInfo = data;
-          updatedAt = writeTime;
-        },
-        readFile: (_) async => rawInfo,
-        readLastModified: (_) async => updatedAt,
-      );
-      final olderResponse = Completer<ConditionalResponse>();
-      final newerResponse = Completer<ConditionalResponse>();
-      var olderNow = DateTime.utc(2026, 4, 14, 1);
-      var newerNow = DateTime.utc(2026, 4, 14, 2);
-      final older = InfoRefreshService(
-        cache: cache,
-        clock: () => olderNow,
-        fetchRaw: (_, {ifModifiedSince}) => olderResponse.future,
-      ).refreshInfo();
-      final newer = InfoRefreshService(
-        cache: cache,
-        clock: () => newerNow,
-        fetchRaw: (_, {ifModifiedSince}) => newerResponse.future,
-      ).refreshInfo();
+    for (final newerFinishesFirst in [false, true]) {
+      test('겹친 안내 요청은 완료 순서 $newerFinishesFirst에서도 같은 스냅샷을 반환한다', () async {
+        var stored = _rawInfoJson('기존', '"old"');
+        final latest = _rawInfoJson('최신', '"new"');
+        final cache = InfoCache(
+          readFile: (_) async => stored,
+          writeFile: (_, data) async => stored = data,
+        );
+        final responses = List.generate(
+          2,
+          (_) => Completer<ConditionalResponse>(),
+        );
+        final started = List.generate(2, (_) => Completer<void>());
+        Future<AppInfo> request(int index) {
+          var first = true;
+          return InfoRefreshService(
+            cache: cache,
+            fetchRaw: (_, {ifNoneMatch}) async {
+              if (first) {
+                first = false;
+                started[index].complete();
+                return responses[index].future;
+              }
+              return ifNoneMatch == '"new"'
+                  ? (statusCode: 304, body: null)
+                  : _ok(latest);
+            },
+          ).refreshInfo();
+        }
 
-      newerNow = DateTime.utc(2026, 4, 14, 3);
-      writeTime = newerNow;
-      newerResponse.complete(_ok(_rawInfoJson('최신')));
-      await newer;
-
-      olderNow = DateTime.utc(2026, 4, 14, 4);
-      writeTime = olderNow;
-      olderResponse.complete(_ok(_rawInfoJson('늦은 이전')));
-      await older;
-
-      expect(
-        AppInfo.fromJson(jsonDecode(rawInfo)).announcement?.content.ko,
-        '최신',
-      );
-    });
+        final older = request(0);
+        await started[0].future;
+        final newer = request(1);
+        await started[1].future;
+        if (newerFinishesFirst) {
+          responses[1].complete(_ok(latest));
+          await newer;
+          responses[0].complete(_ok(_rawInfoJson('이전 응답')));
+        } else {
+          responses[0].complete(_ok(_rawInfoJson('이전 응답')));
+          await older;
+          responses[1].complete(_ok(latest));
+        }
+        final last = await (newerFinishesFirst ? older : newer);
+        expect(stored, latest);
+        expect(last.announcement?.content.ko, '최신');
+      });
+    }
   });
 }
 
 ConditionalResponse _ok(String body) => (statusCode: 200, body: body);
 
-InfoCache _memoryInfoCache({void Function(String rawJson)? onWrite}) {
-  var currentRawJson = '';
+InfoCache _memoryInfoCache({
+  String rawJson = '',
+  void Function(String rawJson)? onWrite,
+}) {
+  var currentRawJson = rawJson;
   return InfoCache(
     writeFile: (_, data) async {
       currentRawJson = data;
       onWrite?.call(data);
     },
     readFile: (_) async => currentRawJson,
-    readLastModified: (_) async => DateTime.utc(2026, 4, 13),
   );
 }
 
-String _rawInfoJson([String notice = 'notice', String? lastModified]) {
+String _rawInfoJson([String notice = 'notice', String? etag]) {
   return jsonEncode({
-    'last_modified': ?lastModified,
+    'etag': ?etag,
     'announcement': {
       'title': {'ko': 'title', 'en': 'Title'},
       'content': {'ko': notice, 'en': 'Notice'},

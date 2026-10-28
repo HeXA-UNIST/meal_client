@@ -4,17 +4,20 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:meal_client/core/constants.dart';
+import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
+import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 
 import 'allergy/allergy_settings.dart';
 import 'notification/notification_settings.dart';
 import 'notification/notification_settings_store.dart';
+import 'locale_settings.dart';
 
 typedef NotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
@@ -37,7 +40,12 @@ typedef NotificationPersistenceRunner = Future<bool> Function(
 
 const foregroundMealRefreshInterval = Duration(hours: 1);
 
-enum NotificationEnableResult { enabled, permissionDenied, failed }
+enum NotificationEnableResult {
+  enabled,
+  permissionDenied,
+  exactAlarmPermissionDenied,
+  failed,
+}
 
 class BapuSettings extends ChangeNotifier {
   final SharedPreferences _prefs;
@@ -45,8 +53,11 @@ class BapuSettings extends ChangeNotifier {
   AllergySettings _allergy;
   NotificationSettings _notification;
   ThemeMode _themeMode;
+  Locale _locale;
   final NotificationScheduleCoordinator _notificationScheduleCoordinator;
   final Future<bool> Function() _requestNotificationPermission;
+  final Future<bool> Function() _requestExactAlarmPermission;
+  final Future<void> Function() _openNotificationSettings;
   final NotificationAuthorizationStatusReader _readAuthorizationStatus;
   final MealNotificationPlatform _notificationPlatform;
   final DateTime Function() _clock;
@@ -60,20 +71,85 @@ class BapuSettings extends ChangeNotifier {
   MealNotificationAuthorizationStatus? _notificationAuthorizationStatus;
   bool _notificationSyncFailed = false;
   int _authorizationRefreshRevision = 0;
+  bool _continueNotificationRecoveryOnResume = false;
 
   AllergySettings get allergy => _allergy;
   NotificationSettings get notification => _notification;
   ThemeMode get themeMode => _themeMode;
+  Locale get locale => _locale;
   MealNotificationAuthorizationStatus? get notificationAuthorizationStatus =>
       _notificationAuthorizationStatus;
   bool get notificationSyncFailed => _notificationSyncFailed;
-  bool get usesInexactNotificationTiming =>
-      _notificationPlatform == MealNotificationPlatform.android;
+  bool get exactAlarmPermissionRequired =>
+      _notificationPlatform == MealNotificationPlatform.android &&
+      _notification.enabled &&
+      _notificationAuthorizationStatus ==
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+
+  /// 저장된 활성화 설정과 현재 플랫폼 권한으로 시작 안내 여부를 판단한다.
+  Future<MealNotificationAuthorizationStatus?>
+  notificationPermissionReminderStatus() async {
+    if (_disposed ||
+        !_notification.enabled ||
+        _notificationPlatform == MealNotificationPlatform.unsupported) {
+      return null;
+    }
+    final status = await _readAuthorizationStatus();
+    return !_disposed && _notification.enabled && status.needsPermission
+        ? status
+        : null;
+  }
+
+  Future<void> openNotificationSettings() => _openNotificationSettings();
+
+  /// 권한 요청으로 해결되지 않는 알림 차단은 시스템 설정에서 복구한다.
+  Future<NotificationEnableResult> restoreNotificationPermission() async {
+    final result = await setNotificationEnabled(true);
+    if (!_disposed && result == NotificationEnableResult.permissionDenied) {
+      // 표시 권한을 수동으로 허용한 뒤 남은 정확한 알람 권한까지 이어서 확인한다.
+      // 일반적인 앱 복귀에서는 요청하지 않고 사용자가 시작한 복구에만 적용한다.
+      try {
+        await openNotificationSettings();
+        _continueNotificationRecoveryOnResume =
+            !_disposed &&
+            _notificationPlatform == MealNotificationPlatform.android &&
+            _notification.enabled;
+      } catch (_) {
+        _continueNotificationRecoveryOnResume = false;
+        _setNotificationSyncFailed(true);
+        rethrow;
+      }
+    }
+    return result;
+  }
+
+  Future<MealNotificationAuthorizationStatus>
+  _requestNotificationAuthorization() async {
+    if (!await _requestNotificationPermission()) {
+      return MealNotificationAuthorizationStatus.notAuthorized;
+    }
+    if (_disposed) return MealNotificationAuthorizationStatus.notApplicable;
+    if (_notificationPlatform == MealNotificationPlatform.unsupported) {
+      return MealNotificationAuthorizationStatus.enabled;
+    }
+    var status = await _readAuthorizationStatus();
+    if (_disposed) return MealNotificationAuthorizationStatus.notApplicable;
+    if (_notificationPlatform == MealNotificationPlatform.android &&
+        status == MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+      await _requestExactAlarmPermission();
+      if (_disposed) return MealNotificationAuthorizationStatus.notApplicable;
+      status = await _readAuthorizationStatus();
+    }
+    return status;
+  }
 
   BapuSettings(
     this._prefs, {
+    Locale? initialLocale,
     NotificationScheduleCoordinator? notificationScheduleCoordinator,
     Future<bool> Function()? notificationPermissionRequester,
+    Future<bool> Function()? exactAlarmPermissionRequester,
+    Future<void> Function()? notificationSettingsOpener,
     NotificationAuthorizationStatusReader?
     notificationAuthorizationStatusReader,
     MealNotificationPlatform? notificationPlatform,
@@ -86,6 +162,10 @@ class BapuSettings extends ChangeNotifier {
            notificationScheduleCoordinator ?? NotificationScheduleCoordinator(),
        _requestNotificationPermission =
            notificationPermissionRequester ?? requestNotificationPermission,
+       _requestExactAlarmPermission =
+           exactAlarmPermissionRequester ?? requestExactMealAlarmPermission,
+       _openNotificationSettings =
+           notificationSettingsOpener ?? openMealNotificationSettings,
        _readAuthorizationStatus =
            notificationAuthorizationStatusReader ??
            mealNotificationAuthorizationStatus,
@@ -99,7 +179,8 @@ class BapuSettings extends ChangeNotifier {
            notificationPersistenceRunner ?? _defaultNotificationPersistence,
        _allergy = _loadAllergy(_prefs),
        _notification = loadNotificationSettings(_prefs),
-       _themeMode = _loadThemeMode(_prefs) {
+       _themeMode = _loadThemeMode(_prefs),
+       _locale = initialLocale ?? loadAppLocale(_prefs) {
     if (_notificationPlatform != MealNotificationPlatform.unsupported) {
       _disposeResumeListener =
           (resumeListenerRegistrar ?? _registerResumeListener)(
@@ -135,14 +216,28 @@ class BapuSettings extends ChangeNotifier {
       _authorizationRefreshRevision++;
       final previousAuthorizationStatus = _notificationAuthorizationStatus;
       if (v) {
-        final granted = await _requestNotificationPermission();
+        final MealNotificationAuthorizationStatus status;
+        try {
+          status = await _requestNotificationAuthorization();
+        } catch (error, stackTrace) {
+          _setNotificationSyncFailed(true);
+          debugPrint(
+            '[BapU] notification authorization request failed: $error',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+          return NotificationEnableResult.failed;
+        }
         if (_disposed) return NotificationEnableResult.failed;
-        _notificationAuthorizationStatus = granted
-            ? MealNotificationAuthorizationStatus.enabled
-            : MealNotificationAuthorizationStatus.notAuthorized;
-        if (!granted) {
+        _notificationAuthorizationStatus = status;
+        if (status != MealNotificationAuthorizationStatus.enabled) {
           notifyListeners();
-          return NotificationEnableResult.permissionDenied;
+          return switch (status) {
+            MealNotificationAuthorizationStatus.notAuthorized =>
+              NotificationEnableResult.permissionDenied,
+            MealNotificationAuthorizationStatus.exactAlarmNotAuthorized =>
+              NotificationEnableResult.exactAlarmPermissionDenied,
+            _ => NotificationEnableResult.failed,
+          };
         }
       } else {
         _notificationAuthorizationStatus = null;
@@ -158,8 +253,11 @@ class BapuSettings extends ChangeNotifier {
           _notification.enabled,
         ),
       );
+      // 예약 실패로 설정이 되돌아간 경우도 저장된 최종 상태를 기준으로 판단한다.
+      await syncMealBackgroundRefresh();
       if (!applied) {
-        _notificationAuthorizationStatus = previousAuthorizationStatus;
+        // 설정 저장·예약 실패가 실제로 허용된 OS 권한까지 되돌리지는 않는다.
+        if (!v) _notificationAuthorizationStatus = previousAuthorizationStatus;
         notifyListeners();
         return NotificationEnableResult.failed;
       }
@@ -178,26 +276,52 @@ class BapuSettings extends ChangeNotifier {
   }
 
   /// foreground 식단 갱신이 cache 내용을 바꿨을 때만 네이티브 예약을 다시 만든다.
-  void reconcileMealNotificationsAfterForegroundRefresh() {
-    if (_notificationPlatform == MealNotificationPlatform.unsupported ||
-        !_notification.enabled) {
-      return;
+  Future<bool> reconcileMealNotificationsAfterForegroundRefresh() async {
+    if (_disposed) return false;
+    if (!_notification.enabled) return true;
+    if (_notificationPlatform == MealNotificationPlatform.unsupported) {
+      return false;
     }
-    _runUnawaitedNotificationOperation(
-      _enqueueNotificationMutation(_reconcileChangedForegroundMeal),
-      'foreground cache reconciliation',
-    );
+    try {
+      return await _enqueueNotificationMutation(() async {
+        if (_disposed) return false;
+        await _reconcileChangedForegroundMeal();
+        return !_disposed &&
+            !_notificationSyncFailed &&
+            (!_notification.enabled ||
+                _notificationAuthorizationStatus ==
+                    MealNotificationAuthorizationStatus.enabled);
+      });
+    } catch (error, stackTrace) {
+      _setNotificationSyncFailed(true);
+      debugPrint('[BapU] foreground cache reconciliation failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
   }
 
   Future<void> _handleAppResume() async {
+    if (_disposed) return;
+    await syncMealBackgroundRefresh();
     if (_disposed) return;
     // 알림을 켜지 않았으면 권한이 없는 게 정상이라 확인할 이유가 없다.
     // 단, 권한 거부 안내에서 시스템 설정을 열었다가 돌아온 경우는 확인해야
     // 저장된 notAuthorized 상태가 갱신된다.
     if (_notification.enabled ||
         _notificationAuthorizationStatus ==
-            MealNotificationAuthorizationStatus.notAuthorized) {
+            MealNotificationAuthorizationStatus.notAuthorized ||
+        _notificationAuthorizationStatus ==
+            MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
       await refreshNotificationAuthorizationStatus();
+    }
+    if (_continueNotificationRecoveryOnResume) {
+      _continueNotificationRecoveryOnResume = false;
+      if (!_disposed &&
+          _notification.enabled &&
+          _notificationAuthorizationStatus ==
+              MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+        await setNotificationEnabled(true);
+      }
     }
     if (_disposed || !_notification.enabled) return;
     await _enqueueNotificationMutation(
@@ -540,6 +664,7 @@ class BapuSettings extends ChangeNotifier {
             throw StateError('Notification preferences write failed');
           }
           if (_notification.enabled) {
+            await refreshNotificationAuthorizationStatus();
             await _runNotificationReschedule(immediately: true);
           } else {
             await _runCancelAllMealNotifications();
@@ -632,6 +757,50 @@ class BapuSettings extends ChangeNotifier {
       }),
     );
   }
+  // --- 언어 ---
+
+  Future<void> setLocale(Locale locale) =>
+      _enqueueNotificationMutation(() async {
+        if (_disposed || _locale == locale) return;
+        if (locale != const Locale('ko') && locale != const Locale('en')) {
+          throw ArgumentError.value(locale, 'locale');
+        }
+        final persisted = await _runNotificationPersistence(
+          () => saveAppLocale(_prefs, locale),
+        );
+        if (!persisted) throw StateError('App locale write failed');
+        if (_disposed) return;
+        _locale = locale;
+        notifyListeners();
+        if (_notificationPlatform != MealNotificationPlatform.unsupported) {
+          try {
+            await refreshWidgets(throwOnFailure: true);
+          } catch (error, stackTrace) {
+            reportAppLocaleError('widget refresh', error, stackTrace);
+          }
+        }
+        if (_notification.enabled) {
+          try {
+            await _runNotificationReschedule(immediately: true);
+          } catch (error, stackTrace) {
+            _setNotificationSyncFailed(true);
+            reportAppLocaleError('notification refresh', error, stackTrace);
+          }
+        }
+        // 알림을 꺼 두어도 OS 설정에 표시되는 채널명은 앱 언어를 따른다.
+        if (_notificationPlatform == MealNotificationPlatform.android) {
+          try {
+            await refreshMealNotificationChannel();
+          } catch (error, stackTrace) {
+            reportAppLocaleError(
+              'notification channel refresh',
+              error,
+              stackTrace,
+            );
+          }
+        }
+      });
+
   // --- 테마 ---
 
   void setThemeMode(ThemeMode mode) {

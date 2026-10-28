@@ -2,9 +2,13 @@ package pro.hexa.meal.meal_client
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -14,6 +18,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.TextView
+import android.widget.Toast
 
 /**
  * 위젯의 식당 선택 설정 화면.
@@ -25,13 +30,39 @@ class BapUWidgetSingleConfigActivity : Activity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedCafeteria = CAFE_DORM_KOREAN
     private var previewData: WidgetMealData? = null
+    private var widgetLanguageCode: String? = null
+    private var saving = false
 
     private lateinit var items: List<LinearLayout>
     private lateinit var dots: List<View>
 
+    override fun attachBaseContext(newBase: Context) {
+        val localized = try {
+            val languageCode = BapUWidgetMealRepository.currentLanguageCode(newBase)
+            val localizedContext = BapUWidgetMealRepository.localizedContext(newBase, languageCode)
+            widgetLanguageCode = languageCode
+            localizedContext
+        } catch (error: Exception) {
+            widgetLanguageCode = null
+            Log.e(TAG, "widget language is not ready", error)
+            newBase
+        }
+        super.attachBaseContext(localized)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED)
+        val languageCode = widgetLanguageCode
+        if (languageCode == null) {
+            Toast.makeText(
+                this,
+                "앱에서 언어 설정을 완료해 주세요.\nOpen BapU to finish language setup.",
+                Toast.LENGTH_LONG,
+            ).show()
+            finish()
+            return
+        }
 
         appWidgetId = intent.getIntExtra(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -72,13 +103,15 @@ class BapUWidgetSingleConfigActivity : Activity() {
             findViewById(R.id.dot_faculty),
         )
 
-        selectedCafeteria = loadSingleCafeteria(this, appWidgetId)
+        // 시스템 설정을 왕복하며 Activity가 재생성되어도 아직 저장하지 않은 선택을 유지한다.
+        selectedCafeteria = savedInstanceState?.getInt(STATE_CAFETERIA)
+            ?: loadSingleCafeteria(this, appWidgetId)
         stylePreview()
         refreshSelection()
 
         // 미리보기용 캐시 데이터 로드 (cache-only라 가볍지만 파일 IO는 스레드로)
         BapUWidgetUpdateDispatcher.execute {
-            val data = BapUWidgetFetcher.fetch(applicationContext)
+            val data = BapUWidgetFetcher.fetch(applicationContext, languageCode)
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 previewData = data
@@ -102,29 +135,61 @@ class BapUWidgetSingleConfigActivity : Activity() {
             }
         }
 
+        findViewById<Button>(R.id.btn_exact_alarm_settings).setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    startActivity(Intent(
+                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        Uri.parse("package:$packageName"),
+                    ))
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(this, R.string.widget_exact_alarm_settings_unavailable, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         findViewById<Button>(R.id.btn_confirm).setOnClickListener {
+            if (!refreshExactAlarmPermission() || saving) return@setOnClickListener
+            saving = true
             it.isEnabled = false
             saveSingleCafeteria(this, appWidgetId, selectedCafeteria)
             Log.d(TAG, "saved cafeteria=$selectedCafeteria for widget=$appWidgetId")
 
             val ctx = applicationContext
-            BapUWidgetUpdateDispatcher.execute {
-                try {
-                    BapUWidgetUpdateDispatcher.renderAllWidgets(ctx)
-                } catch (e: Exception) {
-                    Log.e(TAG, "widget render failed", e)
-                } finally {
-                    runOnUiThread {
-                        if (isFinishing || isDestroyed) return@runOnUiThread
-                        setResult(
-                            RESULT_OK,
-                            Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
-                        )
-                        finish()
-                    }
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(ctx) {
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    setResult(
+                        RESULT_OK,
+                        Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId),
+                    )
+                    finish()
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+        refreshExactAlarmPermission()
+        // 허용·거절 후 돌아왔을 때 기존 위젯의 예약을 현재 권한에 맞춘다.
+        if (BapUWidgetUpdateDispatcher.hasAnyWidget(this)) {
+            BapUWidgetUpdateDispatcher.enqueueRenderAllWidgets(applicationContext) {}
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt(STATE_CAFETERIA, selectedCafeteria)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun refreshExactAlarmPermission(): Boolean {
+        val allowed = BapUWidgetScheduleManager.canScheduleExactAlarms(this)
+        findViewById<View>(R.id.exact_alarm_section).visibility =
+            if (allowed) View.GONE else View.VISIBLE
+        findViewById<Button>(R.id.btn_confirm).isEnabled = allowed && !saving
+        return allowed
     }
 
     private fun refreshSelection() {
@@ -144,7 +209,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     }
 
     /**
-     * 미리보기 카드의 텍스트 크기를 실제 위젯 렌더 값(12sp 고정 체계)에 맞춘다.
+     * 헤더·상태 크기를 실제 위젯과 맞추고, 본문은 최소 12sp에서 공간에 따라 확대한다.
      * 그림자는 View.elevation 대신 XML의 backing 사각형으로 대체했다(elevation 그림자가
      * 렌더러/기기에 따라 지저분하게 나오는 문제가 있었음).
      */
@@ -165,7 +230,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
     /**
      * 현재 선택된 식당 기준으로 미리보기 카드를 다시 채운다.
      * 카드는 [PREVIEW_SIZE_DP] 고정 크기이므로, 실제 위젯이 쓰는 것과 같은
-     * [truncateMenuByRealLayout]로 정확히 그만큼만 채우고 넘치면 "..."로 표시한다
+     * [layoutWidgetMenu]로 본문 크기를 고르고 넘치면 "…"로 표시한다
      * (전체를 그냥 이어붙이면 고정 카드 밖으로 넘친 마지막 줄이 예고 없이 잘려 보인다).
      */
     private fun bindPreview() {
@@ -218,21 +283,27 @@ class BapUWidgetSingleConfigActivity : Activity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             }
             root.findViewById<TextView>(R.id.tv_status).bindOperatingStatusForMeasure(statusDisplay, 11f)
+            root.findViewById<TextView>(R.id.tv_menu)
+                .setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
 
         val previewSizePx = dpToPx(this, PREVIEW_SIZE_DP).toInt()
         val menuView = preview.findViewById<TextView>(R.id.tv_menu)
-        menuView.text = if (menuItems.isEmpty()) {
-            getString(R.string.widget_no_menu)
+        if (menuItems.isEmpty()) {
+            menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, WIDGET_MENU_MIN_TEXT_SP)
+            menuView.text = getString(R.string.widget_no_menu)
         } else {
-            truncateMenuByRealLayout(
-                this, R.layout.widget_2x2, R.id.tv_menu, previewSizePx, previewSizePx, menuItems, ::setupMeasure
+            val menu = layoutWidgetMenu(
+                this, previewSizePx, previewSizePx, menuItems, false, ::setupMeasure,
             )
+            menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, menu.textSizeSp)
+            menuView.text = menu.leftText
         }
     }
 
     companion object {
         private const val TAG = "BapUWidgetSingleConfig"
+        private const val STATE_CAFETERIA = "selectedCafeteria"
 
         /** widget_config_single.xml의 preview_widget include 크기(180dp)와 반드시 일치해야 한다. */
         private const val PREVIEW_SIZE_DP = 180f
