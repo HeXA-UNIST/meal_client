@@ -70,6 +70,15 @@ Future<DateTime> getLastModifiedOfSharedWidgetFile(String fileName) async {
   return file.lastModified();
 }
 
+/// 본문과 iOS 백업 제외 속성은 보존하고 재검증 시각만 갱신한다.
+Future<void> setLastModifiedOfSharedWidgetFile(
+  String fileName,
+  DateTime at,
+) async {
+  final dir = await sharedWidgetCacheDir();
+  await File('${dir.path}/$fileName').setLastModified(at);
+}
+
 bool isMissingSharedWidgetFileError(Object error) =>
     error is FileSystemException && error.osError?.errorCode == 2;
 

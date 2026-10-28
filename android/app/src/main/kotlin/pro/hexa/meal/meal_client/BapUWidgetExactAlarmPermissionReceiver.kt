@@ -10,6 +10,7 @@ class BapUWidgetExactAlarmPermissionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED) return
         if (!BapUWidgetScheduleManager.canScheduleExactAlarms(context)) return
+        BapUNotificationPermissionRecovery.invalidateScheduleGeneration(context)
         // 위젯이 없는 알림 사용자도 복구한다. 서버 갱신 성공과 무관한 별도 작업이다.
         BapUNotificationPermissionRecovery.enqueue(context)
         if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) return

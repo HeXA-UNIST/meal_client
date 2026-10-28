@@ -5,6 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
+import 'package:meal_client/features/meal/meal_cache.dart';
+import 'package:meal_client/features/meal/meal_refresh_service.dart';
 import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
@@ -630,6 +632,81 @@ void main() {
         settings.notificationAuthorizationStatus,
         MealNotificationAuthorizationStatus.enabled,
       );
+    });
+
+    test('304 재검증 뒤 resume은 1시간 동안 다시 요청하지 않는다', () async {
+      SharedPreferences.setMockInitialValues({
+        StorageKeys.notificationEnabled: true,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      var now = DateTime.utc(2026, 8, 20, 3);
+      final raw = _rawWeek('2026-08-17')
+          .replaceFirst('{', '{"etag":"menu-v1",');
+      var updatedAt = now.subtract(const Duration(hours: 2));
+      final cache = MealCache(
+        readFile: (_) async => raw,
+        writeFile: (_, _) async => fail('동일 본문을 다시 쓰면 안 된다'),
+        readLastModified: (_) async => updatedAt,
+        setLastModified: (_, at) async => updatedAt = at,
+      );
+      var fetches = 0;
+      final service = MealRefreshService(
+        cache: cache,
+        clock: () => now,
+        fetchConditional: (_, {ifNoneMatch}) async {
+          fetches++;
+          expect(ifNoneMatch, 'menu-v1');
+          return (statusCode: 304, body: null);
+        },
+      );
+      VoidCallback? onResume;
+      var snapshotReads = 0;
+      final settings = BapuSettings(
+        prefs,
+        notificationPlatform: MealNotificationPlatform.android,
+        resumeListenerRegistrar: (listener) {
+          onResume = listener;
+          return () {};
+        },
+        clock: () => now,
+        mealCacheRevisionSnapshotReader: () async {
+          snapshotReads++;
+          return (current: await cache.readRevision(), next: null);
+        },
+        foregroundMealRefresher: (_, _) async {
+          await service.refreshMealResponse(prefetchNextWeek: false);
+        },
+        notificationAuthorizationStatusReader: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        notificationScheduleCoordinator: NotificationScheduleCoordinator(
+          schedule: (_, {required isCurrent}) async {},
+          cancel: () async {},
+        ),
+      );
+      settingsToDispose.add(settings);
+
+      onResume!();
+      await _waitUntil(() => snapshotReads >= 3);
+      expect(fetches, 1);
+      expect(updatedAt, now);
+
+      now = now.add(const Duration(minutes: 5));
+      onResume!();
+      await _waitUntil(() => snapshotReads >= 5);
+      expect(fetches, 1);
+
+      // 같은 서비스는 Workmanager에서도 사용한다. 백그라운드 재검증도
+      // 다음 resume의 제한 시각을 갱신해야 한다.
+      now = now.add(const Duration(hours: 2));
+      await service.refreshMealResponse(prefetchNextWeek: false);
+      onResume!();
+      await _waitUntil(() => snapshotReads >= 7);
+      expect(fetches, 2);
+
+      now = now.add(const Duration(hours: 1, seconds: 1));
+      onResume!();
+      await _waitUntil(() => snapshotReads >= 10);
+      expect(fetches, 3);
     });
 
     test('KST 일요일 next-week top-up은 1시간 제한을 무시하고 완료 후 재조정한다', () async {

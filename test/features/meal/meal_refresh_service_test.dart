@@ -9,13 +9,25 @@ import 'package:meal_client/features/meal/meal_refresh_service.dart';
 
 void main() {
   group('MealRefreshService', () {
-    test('200으로 저장한 ETag를 그대로 보내고 304에서는 같은 본문을 재사용한다', () async {
+    test('304는 본문 재저장 없이 재검증 시각을 갱신한다', () async {
       final files = <String, String>{};
+      var writes = 0;
+      var now = _testClock();
+      var updatedAt = now.subtract(const Duration(hours: 2));
       final headers = <String?>[];
       final rawMeal = _rawMealJson('새 메뉴', etag: '"menu-v2"');
       final service = MealRefreshService(
-        cache: _mapMealCache(files, 'meal.json'),
-        clock: _testClock,
+        cache: MealCache(
+          writeFile: (_, data) async {
+            files['meal.json'] = data;
+            writes++;
+            updatedAt = now;
+          },
+          readFile: (_) async => files['meal.json']!,
+          readLastModified: (_) async => updatedAt,
+          setLastModified: (_, at) async => updatedAt = at,
+        ),
+        clock: () => now,
         fetchConditional: (_, {ifNoneMatch}) async {
           headers.add(ifNoneMatch);
           return headers.length == 1
@@ -25,11 +37,13 @@ void main() {
       );
 
       await service.refreshMealResponse(prefetchNextWeek: false);
+      now = now.add(const Duration(hours: 2));
       final response = await service.refreshMealResponse(
         prefetchNextWeek: false,
       );
-
+      expect(updatedAt, now);
       expect(headers, [null, '"menu-v2"']);
+      expect(writes, 1);
       expect(_firstDormitoryBreakfastMenu(response.weekMeal), contains('새 메뉴'));
       expect(files['meal.json'], rawMeal);
     });
@@ -87,18 +101,32 @@ void main() {
       expect(files, {'meal.json': current, 'meal-next.json': next});
     });
 
-    test('nextWeekStart가 새로 공개되면 dated 응답을 next cache에 저장', () async {
-      final files = <String, String>{};
+    test('현재 주가 304여도 누락된 다음 주 식단은 선반입한다', () async {
+      final files = <String, String>{
+        'meal.json': _rawMealJson(
+          '이번 주',
+          nextWeekStart: '2026-04-20',
+          etag: '"current"',
+        ),
+      };
       final service = MealRefreshService(
         cache: _mapMealCache(files, 'meal.json'),
         clock: _testClock,
         nextWeekCache: _mapMealCache(files, 'meal-next.json'),
         lockNextWeekCache: _withoutLock,
-        fetchRaw: (url) async {
+        fetchConditional: (url, {ifNoneMatch}) async {
           if (url.endsWith('/2026-04-20')) {
-            return _rawMealJson('다음 주', weekStart: '2026-04-20');
+            return (
+              statusCode: 200,
+              body: _rawMealJson(
+                '다음 주',
+                weekStart: '2026-04-20',
+                etag: '"next"',
+              ),
+            );
           }
-          return _rawMealJson('이번 주', nextWeekStart: '2026-04-20');
+          expect(ifNoneMatch, '"current"');
+          return (statusCode: 304, body: null);
         },
       );
 
@@ -818,6 +846,7 @@ MealCache _memoryMealCache({
       onWrite?.call(data);
     },
     readFile: (_) async => currentRawJson,
+    setLastModified: (_, _) async {},
   );
 }
 
@@ -872,6 +901,7 @@ MealCache _mapMealCache(Map<String, String> files, String fileName) =>
       writeFile: (name, data) async => files[name] = data,
       readFile: (name) async => files[name]!,
       readLastModified: (_) async => DateTime.utc(2026, 4, 14),
+      setLastModified: (_, _) async {},
     );
 
 /// 정책 판정만 검증하므로 실제 파일 marker lock은 의도적으로 우회한다.

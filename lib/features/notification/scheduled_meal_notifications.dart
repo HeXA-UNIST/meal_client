@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    show PendingNotificationRequest;
 import 'package:material_ui/material_ui.dart' show TimeOfDay;
 
 import 'package:meal_client/core/constants.dart';
@@ -25,8 +27,8 @@ const _notificationDateModulo = 100000;
 
 /// 예약 시각이 지난 pending을 stale로 판정하기까지 기다리는 시간.
 ///
-/// Android의 `setExact`도 Doze 중에는 지연될 수 있다. 기존 inexact 예약과
-/// 절전 중 배달 대기 중인 알림을 조정 과정에서 곧바로 취소하지 않도록
+/// Android의 `setExactAndAllowWhileIdle`도 시스템 제한으로 지연될 수 있다.
+/// 기존 예약과 배달 대기 중인 알림을 조정 과정에서 곧바로 취소하지 않도록
 /// 기존 1시간 유예를 유지한다. 절전 지연의 상한을 보장하는 값은 아니다.
 const kMealNotificationDeliveryGrace = Duration(hours: 1);
 
@@ -42,6 +44,8 @@ typedef ScheduledMealWeekLoader = Future<ScheduledMealWeek?> Function();
 typedef MealNotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
 typedef ScheduledMealPendingIdReader = Future<List<int>> Function();
+typedef ScheduledMealPendingRequestReader =
+    Future<List<PendingNotificationRequest>> Function();
 typedef ScheduledMealPendingCanceler = Future<void> Function(int id);
 typedef ScheduledMealNotificationUpserter = Future<void> Function(
   ScheduledMealNotification notification,
@@ -178,6 +182,7 @@ Future<void> reconcileScheduledMealNotifications({
   required NotificationSettings settings,
   MealNotificationPlatform? platform,
   bool Function()? isCurrent,
+  bool forceReschedule = false,
   ScheduledMealWeek? currentWeek,
   ScheduledMealWeek? nextWeek,
   DateTime Function()? nowProvider,
@@ -185,6 +190,7 @@ Future<void> reconcileScheduledMealNotifications({
   ScheduledMealWeekLoader? loadNextWeek,
   MealNotificationAuthorizationStatusReader? readAuthorizationStatus,
   ScheduledMealPendingIdReader? readPendingIds,
+  ScheduledMealPendingRequestReader? readAndroidPendingRequests,
   ScheduledMealPendingCanceler? cancelPending,
   ScheduledMealNotificationUpserter? upsertNotification,
   int maxNotifications = kMaxScheduledMealNotifications,
@@ -203,9 +209,24 @@ Future<void> reconcileScheduledMealNotifications({
 
   final pendingReader = readPendingIds ?? pendingMealNotificationIds;
   final canceler = cancelPending ?? cancelPendingMealNotification;
-  final pending = (await pendingReader())
-      .where(isScheduledMealNotificationId)
-      .toList(growable: false);
+  List<PendingNotificationRequest>? androidRequests;
+  if (readAndroidPendingRequests != null) {
+    androidRequests = await readAndroidPendingRequests();
+  } else if (readPendingIds == null &&
+      (platform ?? mealNotificationPlatform) ==
+          MealNotificationPlatform.android) {
+    androidRequests = await androidPendingMealNotificationRequests();
+  }
+  final pendingById = {
+    for (final request in androidRequests ?? <PendingNotificationRequest>[])
+      request.id: request,
+  };
+  final pending =
+      (androidRequests == null
+              ? await pendingReader()
+              : androidRequests.map((request) => request.id))
+          .where(isScheduledMealNotificationId)
+          .toList(growable: false);
   if (!currentGeneration()) {
     return;
   }
@@ -251,6 +272,9 @@ Future<void> reconcileScheduledMealNotifications({
   }
 
   final localizations = l10n ?? await notificationLocalizations();
+  final androidAlarmGeneration = androidRequests == null
+      ? null
+      : await readAndroidMealAlarmGeneration();
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
   final awaitingDelivery = _awaitingDeliveryBatch(
     settings: settings,
@@ -317,12 +341,28 @@ Future<void> reconcileScheduledMealNotifications({
         body: notification.body,
         channelName: localizations.mealNotifications,
         platform: platform,
+        androidAlarmGeneration: androidAlarmGeneration,
       );
   for (final notification in batch) {
     if (!currentGeneration()) {
       return;
     }
     if (notification.fireInstant.isBefore((nowProvider ?? DateTime.now)())) {
+      continue;
+    }
+    // ID가 같아도 본문·시각·예약 모드가 달라지면 다시 등록한다.
+    // 플러그인 목록에서 사라진 예약은 보충하고, 복구 경로는 비교 없이 재등록한다.
+    final previous = pendingById[notification.id];
+    if (!forceReschedule &&
+        previous != null &&
+        previous.title == notification.title &&
+        previous.body == notification.body &&
+        previous.payload ==
+            androidMealNotificationSchedulePayload(
+              fireInstant: notification.fireInstant,
+              channelName: localizations.mealNotifications,
+              alarmGeneration: androidAlarmGeneration!,
+            )) {
       continue;
     }
     try {

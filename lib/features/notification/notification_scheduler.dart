@@ -180,6 +180,8 @@ Future<void> _scheduleNativeMealNotifications(
 }) => withMealNotificationMutationLock(
   () => reconcileScheduledMealNotifications(
     settings: settings,
+    // 앱 시작·복귀에는 강제 종료 등으로 OS 알람만 사라진 경우도 복구한다.
+    forceReschedule: true,
     platform: platform,
     isCurrent: isCurrent,
     readAuthorizationStatus: () =>

@@ -16,25 +16,56 @@ import android.widget.RemoteViews
 import android.widget.TextView
 
 class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
-    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) =
-        Companion.updateWidget(context, manager, widgetId, data)
+    override fun performUpdate(context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData, skipUnchanged: Boolean) =
+        Companion.updateWidget(context, manager, widgetId, data, skipUnchanged)
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        for (id in appWidgetIds) clearWidgetConfig(context, id)
+        for (id in appWidgetIds) {
+            clearWidgetConfig(context, id)
+            // 렌더 큐와 같은 순서로 정리해 삭제된 ID의 기록이 남지 않게 한다.
+            BapUWidgetUpdateDispatcher.execute { renderCache.remove(id) }
+        }
     }
 
     companion object {
         const val TAG = "BapUWidget2x2"
+        private val renderCache = BapUWidgetRenderCache()
 
         @Suppress("DEPRECATION")
-        fun updateWidget(baseContext: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData) {
+        fun updateWidget(baseContext: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData, skipUnchanged: Boolean = false) {
             // 메뉴와 라벨이 한 번 읽은 같은 언어를 사용한다.
             val context = BapUWidgetMealRepository.localizedContext(
                 baseContext, requireNotNull(data.languageCode)
             )
+            val options = manager.getAppWidgetOptions(widgetId)
+            val cafeteria = loadSingleCafeteria(context, widgetId)
+            val allowed = BapUWidgetScheduleManager.canScheduleExactAlarms(context)
+            val sizes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+                    ?.filter { it.width > 0f && it.height > 0f }?.distinct().orEmpty()
+            } else emptyList()
+            val fallbackSizes = listOf(
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).toFloat() to
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).toFloat(),
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH).toFloat() to
+                    options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT).toFloat(),
+            )
+            val inputs = WidgetRenderInputs(
+                data, cafeteria,
+                if (sizes.isEmpty()) fallbackSizes else sizes.map { it.width to it.height },
+                context.resources.configuration.toString(), allowed,
+            )
+            renderCache.update(widgetId, inputs, skipUnchanged) {
+                renderWidget(context, manager, widgetId, data, cafeteria, allowed, options, sizes)
+            }
+        }
+
+        private fun renderWidget(
+            context: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData,
+            cafeteria: Int, allowed: Boolean, options: Bundle, sizes: List<SizeF>,
+        ) {
             Log.d(TAG, "updateWidget id=$widgetId data=$data")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                !BapUWidgetScheduleManager.canScheduleExactAlarms(context)) {
+            if (!allowed) {
                 val settingsIntent = Intent(
                     Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                     Uri.parse("package:${context.packageName}"),
@@ -57,15 +88,10 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                 return
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val sizes = manager.getAppWidgetOptions(widgetId)
-                    .getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
-                    ?.filter { it.width > 0f && it.height > 0f }
-                    ?.distinct()
-                    .orEmpty()
                 if (sizes.isNotEmpty()) {
                     Log.d(TAG, "using size-specific RemoteViews: $sizes")
                     val sizeViews = sizes.associateWith { size ->
-                        createRemoteViews(context, widgetId, data, size.width, size.height)
+                        createRemoteViews(context, cafeteria, data, size.width, size.height)
                     }
                     manager.updateAppWidget(widgetId, RemoteViews(sizeViews))
                     return
@@ -74,13 +100,13 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
 
             manager.updateAppWidget(
                 widgetId,
-                createFallbackRemoteViews(context, widgetId, data, manager.getAppWidgetOptions(widgetId))
+                createFallbackRemoteViews(context, cafeteria, data, options)
             )
         }
 
         /** 크기 목록이 없는 런처에도 각 방향의 실제 영역으로 측정한 뷰를 제공한다. */
         private fun createFallbackRemoteViews(
-            context: Context, widgetId: Int, data: WidgetMealData, options: Bundle,
+            context: Context, cafeteria: Int, data: WidgetMealData, options: Bundle,
         ): RemoteViews {
             val portraitWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
                 .takeIf { it > 0 }?.toFloat() ?: 160f
@@ -91,20 +117,19 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             val landscapeHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
                 .takeIf { it > 0 }?.toFloat() ?: portraitHeight
             return RemoteViews(
-                createRemoteViews(context, widgetId, data, landscapeWidth, landscapeHeight),
-                createRemoteViews(context, widgetId, data, portraitWidth, portraitHeight),
+                createRemoteViews(context, cafeteria, data, landscapeWidth, landscapeHeight),
+                createRemoteViews(context, cafeteria, data, portraitWidth, portraitHeight),
             )
         }
 
         private fun createRemoteViews(
             context: Context,
-            widgetId: Int,
+            cafeteria: Int,
             data: WidgetMealData,
             widthDp: Float,
             heightDp: Float
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_2x2)
-            val cafeteria = loadSingleCafeteria(context, widgetId)
             val cafeteriaName = context.getString(cafeteriaNameResId(cafeteria))
             val mealLabel = data.mealLabel(context)
 

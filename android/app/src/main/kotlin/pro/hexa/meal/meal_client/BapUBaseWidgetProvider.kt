@@ -3,7 +3,9 @@ package pro.hexa.meal.meal_client
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import es.antonborri.home_widget.HomeWidgetPlugin
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -16,19 +18,41 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         context: Context,
         manager: AppWidgetManager,
         widgetId: Int,
-        data: WidgetMealData
+        data: WidgetMealData,
+        skipUnchanged: Boolean = false,
     )
+
+    override fun onReceive(context: Context, intent: Intent) {
+        // 런처의 갱신 요청은 항상 다시 그린다. Flutter가 반복 요청한 경우만 생략한다.
+        if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE &&
+            intent.getBooleanExtra(HomeWidgetPlugin.TRIGGERED_FROM_HOME_WIDGET, false)) {
+            updateWidgets(
+                context, AppWidgetManager.getInstance(context),
+                intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS) ?: return,
+                skipUnchanged = true,
+            )
+            return
+        }
+        super.onReceive(context, intent)
+    }
 
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
+    ) = updateWidgets(context, appWidgetManager, appWidgetIds, skipUnchanged = false)
+
+    private fun updateWidgets(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        skipUnchanged: Boolean,
     ) {
         if (appWidgetIds.isEmpty()) return
         enqueueBroadcastWork {
             try {
                 BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, appWidgetIds) { id, data ->
-                    performUpdate(context, appWidgetManager, id, data)
+                    performUpdate(context, appWidgetManager, id, data, skipUnchanged)
                 }
             } catch (e: Exception) {
                 logWidgetFailure("render", e)

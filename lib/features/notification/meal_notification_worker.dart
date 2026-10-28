@@ -57,7 +57,8 @@ Future<bool> recoverBackgroundMealNotifications({
 }) async {
   final failure = await _captureBackgroundRefreshFailure(
     'notification permission recovery',
-    reconcileNotifications ?? _reconcileNotificationsFromCache,
+    reconcileNotifications ??
+        () => _reconcileNotificationsFromCache(forceReschedule: true),
   );
   if (failure == null) return true;
   _logBackgroundRefreshFailure(
@@ -148,12 +149,15 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   return true;
 }
 
-Future<void> _reconcileNotificationsFromCache() async {
+Future<void> _reconcileNotificationsFromCache({
+  bool forceReschedule = false,
+}) async {
   await initNotifications();
-  await reconcileBackgroundMealNotifications();
+  await reconcileBackgroundMealNotifications(forceReschedule: forceReschedule);
 }
 
 Future<void> reconcileBackgroundMealNotifications({
+  bool forceReschedule = false,
   BackgroundNotificationSnapshotLoader? loadSnapshot,
   Future<void> Function(NotificationSettings settings)? reconcile,
   Future<void> Function()? cancelPending,
@@ -166,6 +170,7 @@ Future<void> reconcileBackgroundMealNotifications({
       await (reconcile ??
           (settings) => reconcileScheduledMealNotifications(
             settings: settings,
+            forceReschedule: forceReschedule,
           ))(snapshot.settings);
     } else {
       await (cancelPending ?? cancelAllPendingMealNotifications)();

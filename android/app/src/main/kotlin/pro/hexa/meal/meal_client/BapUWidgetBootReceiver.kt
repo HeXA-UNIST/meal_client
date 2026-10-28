@@ -11,6 +11,7 @@ class BapUWidgetBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        BapUNotificationPermissionRecovery.invalidateScheduleGeneration(context)
         val pending = goAsync()
         BapUWidgetUpdateDispatcher.execute {
             try {

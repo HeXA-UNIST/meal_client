@@ -22,6 +22,8 @@ class StorageKeys {
   static const notificationEnabled = 'settings_notification_enabled';
   static const notificationMutationGeneration =
       'settings_notification_mutation_generation';
+  // Android의 부팅·정확한 알람 권한 재허용 시 네이티브 수신자가 변경한다.
+  static const androidMealAlarmGeneration = 'android_meal_alarm_generation';
   static const notificationKeywords = 'settings_notification_keywords';
   static const notificationCafeterias = 'settings_notification_cafeterias';
 

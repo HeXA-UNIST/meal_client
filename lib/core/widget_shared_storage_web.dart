@@ -11,6 +11,11 @@ Future<String> readSharedWidgetFileAsString(String fileName) async =>
 Future<DateTime> getLastModifiedOfSharedWidgetFile(String fileName) async =>
     _unsupportedOnWeb();
 
+Future<void> setLastModifiedOfSharedWidgetFile(
+  String fileName,
+  DateTime at,
+) async => _unsupportedOnWeb();
+
 bool isMissingSharedWidgetFileError(Object error) => error is UnsupportedError;
 
 Future<T> withSharedWidgetFileLock<T>(

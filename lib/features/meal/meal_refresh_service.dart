@@ -180,15 +180,17 @@ class MealRefreshService {
     final cached = _supportsSharedCache
         ? await cache.readValidatedMealForWeek(weekStart)
         : null;
-    return _fetchRawMealSnapshot(url, cached);
+    return (await _fetchRawMealSnapshot(url, cached)).rawMeal;
   }
 
-  Future<String> _fetchRawMealSnapshot(
+  Future<({String rawMeal, bool revalidated})> _fetchRawMealSnapshot(
     String url,
     ValidatedMealCache? cached,
   ) async {
     final fetchRaw = _fetchRaw;
-    if (fetchRaw != null) return fetchRaw(url);
+    if (fetchRaw != null) {
+      return (rawMeal: await fetchRaw(url), revalidated: false);
+    }
 
     final decoded = cached == null ? null : jsonDecode(cached.rawMeal);
     final value = decoded?['etag'];
@@ -200,19 +202,19 @@ class MealRefreshService {
         // 304와 무관한 본문을 읽지 않으며, 저장은 기존 잠금과 주차 검증을 거친다.
         // 재검증한 시각도 기록해야 일요일 자동 선반입이 반복되지 않는다.
         debugPrint('[BapU] meal 304 - 캐시 재사용');
-        return cached.rawMeal;
+        return (rawMeal: cached.rawMeal, revalidated: true);
       }
       // 재사용할 본문이 없으면 조건부 헤더 없이 한 번만 복구를 시도한다.
       final retry = await _fetchConditional(url);
       if (retry.statusCode != 200 || retry.body == null) {
         throw createHttpException(retry.statusCode);
       }
-      return retry.body!;
+      return (rawMeal: retry.body!, revalidated: false);
     }
     if (response.statusCode != 200 || response.body == null) {
       throw createHttpException(response.statusCode);
     }
-    return response.body!;
+    return (rawMeal: response.body!, revalidated: false);
   }
 
   Future<void> _enqueueNextWeekCacheWrite(Future<void> Function() write) {
@@ -284,15 +286,17 @@ class MealRefreshService {
   Future<(String, bool)> _refreshCanonicalMeal(DateTime weekStart) async {
     for (var attempt = 0; attempt < 2; attempt++) {
       final before = await _readCanonicalRaw();
-      final raw = await _fetchRawMealSnapshot(
+      final response = await _fetchRawMealSnapshot(
         ApiConstants.mealEndpoint,
         _validatedSnapshot(before, weekStart),
       );
+      final raw = response.rawMeal;
       _parseValidRawMeal(raw);
       final committed = await _commitCanonicalMeal(
         raw,
         responseWeekStart: parseWeekMeta(raw).startDate,
         expectedRaw: before,
+        revalidated: response.revalidated,
       );
       if (!committed.conflict) return (raw, committed.written);
     }
@@ -306,6 +310,7 @@ class MealRefreshService {
     String rawMeal, {
     required DateTime responseWeekStart,
     required String? expectedRaw,
+    required bool revalidated,
   }) async {
     var written = false;
     var conflict = false;
@@ -319,7 +324,14 @@ class MealRefreshService {
           conflict = true;
           return;
         }
-        written = await _writeRawMealJson(rawMeal);
+        if (revalidated) {
+          // resume의 1시간 갱신 제한은 mtime을 사용한다. 304도 재검증
+          // 성공 시각은 반영하되 파일 교체와 본문 쓰기는 생략한다.
+          await _cache.markRevalidated(_clock());
+          written = true;
+        } else {
+          written = await _writeRawMealJson(rawMeal);
+        }
       });
       return (conflict: conflict, written: written);
     } catch (e, stackTrace) {

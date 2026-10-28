@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart' show TimeOfDay;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/notification/scheduled_meal_notifications.dart';
@@ -129,6 +130,160 @@ void main() {
       dormMenuTypes: const {},
       days: const {DayOfWeek.mon},
     );
+
+    test('같은 Android 예약은 유지하고 누락·본문 변경·재부팅 예약만 다시 등록한다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final current = (
+        startDate: DateTime.utc(2026, 7, 20),
+        weekMeal: _fullWeekWithMenus(),
+      );
+      final now = DateTime.utc(2026, 7, 19);
+      final l10n = AppLocalizationsKo();
+      final expected = buildMealNotificationBatch(
+        settings: enabledSettings,
+        l10n: l10n,
+        now: now,
+        currentWeek: current,
+      ).single;
+      PendingNotificationRequest request({String? body, String? payload}) =>
+          PendingNotificationRequest(
+            expected.id,
+            expected.title,
+            body ?? expected.body,
+            payload ??
+                androidMealNotificationSchedulePayload(
+                  fireInstant: expected.fireInstant,
+                  channelName: l10n.mealNotifications,
+                  alarmGeneration: '',
+                ),
+          );
+      var pending = [request()];
+      final upserted = <ScheduledMealNotification>[];
+      Future<void> reconcile({bool force = false}) =>
+          reconcileScheduledMealNotifications(
+            settings: enabledSettings,
+            forceReschedule: force,
+            currentWeek: current,
+            nowProvider: () => now,
+            loadNextWeek: () async => null,
+            l10n: l10n,
+            readAuthorizationStatus: () async =>
+                MealNotificationAuthorizationStatus.enabled,
+            readAndroidPendingRequests: () async => pending,
+            cancelPending: (_) async => fail('현재 예약을 취소하면 안 된다'),
+            upsertNotification: (item) async => upserted.add(item),
+          );
+      await reconcile();
+      expect(upserted, isEmpty);
+
+      await reconcile(force: true);
+      expect(upserted, [expected]);
+      upserted.clear();
+
+      pending = [];
+      await reconcile();
+      expect(upserted, [expected]);
+      upserted.clear();
+
+      for (final changed in [
+        request(body: '이전 식단'),
+        request(payload: '이전 예약 모드'),
+        request(
+          payload: androidMealNotificationSchedulePayload(
+            fireInstant: expected.fireInstant.add(const Duration(hours: 1)),
+            channelName: l10n.mealNotifications,
+            alarmGeneration: '',
+          ),
+        ),
+      ]) {
+        pending = [changed];
+        await reconcile();
+        expect(upserted, [expected]);
+        upserted.clear();
+      }
+
+      pending = [request()];
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        StorageKeys.androidMealAlarmGeneration,
+        '재부팅 또는 권한 재허용',
+      );
+      await reconcile();
+      expect(upserted, [expected]);
+    });
+
+    test('같은 식단도 시간이 지나면 기존 예약을 유지하면서 64개 예약 범위를 보충한다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = enabledSettings.copyWith(
+        alertTimes: {
+          for (final period in MealNotificationPeriod.values)
+            period: period.defaultSlot,
+        },
+        cafeterias: Cafeteria.values.toSet(),
+        dormMenuTypes: DormMenuType.values.toSet(),
+        days: DayOfWeek.values.toSet(),
+      );
+      final current = (
+        startDate: DateTime.utc(2026, 7, 20),
+        weekMeal: _fullWeekWithMenus(),
+      );
+      final next = (
+        startDate: DateTime.utc(2026, 7, 27),
+        weekMeal: _fullWeekWithMenus(),
+      );
+      final l10n = AppLocalizationsKo();
+      List<ScheduledMealNotification> batch(DateTime now) =>
+          buildMealNotificationBatch(
+            settings: settings,
+            l10n: l10n,
+            now: now,
+            currentWeek: current,
+            nextWeek: next,
+          );
+      final before = batch(DateTime.utc(2026, 7, 19));
+      final now = DateTime.utc(2026, 7, 21, 6);
+      final remaining = before
+          .where((item) => item.fireInstant.isAfter(now))
+          .toList();
+      final remainingIds = remaining.map((item) => item.id).toSet();
+      final added = <ScheduledMealNotification>[];
+      expect(before, hasLength(64));
+      expect(remaining.length, lessThan(64));
+      await reconcileScheduledMealNotifications(
+        settings: settings,
+        currentWeek: current,
+        nextWeek: next,
+        nowProvider: () => now,
+        l10n: l10n,
+        readAuthorizationStatus: () async =>
+            MealNotificationAuthorizationStatus.enabled,
+        readAndroidPendingRequests: () async => [
+          for (final item in remaining)
+            PendingNotificationRequest(
+              item.id,
+              item.title,
+              item.body,
+              androidMealNotificationSchedulePayload(
+                fireInstant: item.fireInstant,
+                channelName: l10n.mealNotifications,
+                alarmGeneration: '',
+              ),
+            ),
+        ],
+        cancelPending: (_) async => fail('남은 예약을 취소하면 안 된다'),
+        upsertNotification: (item) async => added.add(item),
+      );
+      expect(added, isNotEmpty);
+      final addedIds = added.map((item) => item.id).toSet();
+      expect(addedIds.intersection(remainingIds), isEmpty);
+      expect({...remainingIds, ...addedIds}, hasLength(64));
+      expect(
+        added.every(
+          (item) => item.fireInstant.isAfter(before.last.fireInstant),
+        ),
+        isTrue,
+      );
+    });
 
     test('저장 언어가 잘못되면 기존 예약을 변경하지 않고 실패한다', () async {
       SharedPreferences.setMockInitialValues({StorageKeys.locale: 'ja'});

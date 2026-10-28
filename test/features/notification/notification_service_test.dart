@@ -14,7 +14,7 @@ void main() {
     () => SharedPreferences.setMockInitialValues({StorageKeys.locale: 'en'}),
   );
 
-  test('Android 예약은 권한이 있으면 setExact 모드를 사용한다', () async {
+  test('Android 예약은 권한이 있으면 exactAllowWhileIdle 모드를 사용한다', () async {
     AndroidScheduleMode? capturedMode;
     tz.TZDateTime? capturedDate;
 
@@ -32,13 +32,14 @@ void main() {
             required scheduledDate,
             required notificationDetails,
             required scheduleMode,
+            payload,
           }) async {
             capturedMode = scheduleMode;
             capturedDate = scheduledDate;
           },
     );
 
-    expect(capturedMode, AndroidScheduleMode.exact);
+    expect(capturedMode, AndroidScheduleMode.exactAllowWhileIdle);
     expect(capturedDate?.location, tz.UTC);
     expect(capturedDate?.toUtc(), DateTime.utc(2026, 7, 20, 2));
   });
@@ -60,6 +61,7 @@ void main() {
               required scheduledDate,
               required notificationDetails,
               required scheduleMode,
+              payload,
             }) async {
               scheduled = true;
             },

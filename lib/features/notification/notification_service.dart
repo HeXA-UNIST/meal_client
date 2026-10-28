@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:meal_client/core/constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/features/settings/locale_settings.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -157,7 +160,28 @@ typedef AndroidZonedSchedule = Future<void> Function({
   required tz.TZDateTime scheduledDate,
   required AndroidNotificationDetails? notificationDetails,
   required AndroidScheduleMode scheduleMode,
+  String? payload,
 });
+
+/// 플러그인에 저장된 pending 본문과 함께 비교할 예약 시각·모드·채널 정보다.
+/// 버전은 예약 모드나 표시 옵션을 바꿀 때 올려 기존 예약도 다시 등록한다.
+String androidMealNotificationSchedulePayload({
+  required DateTime fireInstant,
+  required String channelName,
+  required String alarmGeneration,
+}) => jsonEncode([
+  1,
+  'exactAllowWhileIdle',
+  fireInstant.millisecondsSinceEpoch,
+  channelName,
+  alarmGeneration,
+]);
+
+Future<String> readAndroidMealAlarmGeneration() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  return prefs.getString(StorageKeys.androidMealAlarmGeneration) ?? '';
+}
 
 Future<void> scheduleAndroidMealNotification({
   required int id,
@@ -167,6 +191,7 @@ Future<void> scheduleAndroidMealNotification({
   AndroidZonedSchedule? zonedSchedule,
   String? channelName,
   Future<bool> Function()? canScheduleExact,
+  String? alarmGeneration,
 }) async {
   final resolvedChannelName =
       channelName ?? (await notificationLocalizations()).mealNotifications;
@@ -181,6 +206,7 @@ Future<void> scheduleAndroidMealNotification({
   if (!await (canScheduleExact ?? canScheduleExactMealNotifications)()) {
     throw PlatformException(code: 'exact_alarms_not_permitted');
   }
+  final generation = alarmGeneration ?? await readAndroidMealAlarmGeneration();
   await schedule(
     id: id,
     title: title,
@@ -194,7 +220,12 @@ Future<void> scheduleAndroidMealNotification({
       priority: Priority.defaultPriority,
       styleInformation: BigTextStyleInformation(body, contentTitle: title),
     ),
-    scheduleMode: AndroidScheduleMode.exact,
+    scheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    payload: androidMealNotificationSchedulePayload(
+      fireInstant: fireInstant,
+      channelName: resolvedChannelName,
+      alarmGeneration: generation,
+    ),
   );
 }
 
@@ -210,14 +241,19 @@ Future<List<int>> iosPendingNotificationIds() async {
 }
 
 Future<List<int>> androidPendingNotificationIds() async {
+  return (await androidPendingMealNotificationRequests())
+      .map((request) => request.id)
+      .toList(growable: false);
+}
+
+Future<List<PendingNotificationRequest>>
+androidPendingMealNotificationRequests() async {
   final android = _plugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
       >();
   if (android == null) return const [];
-  return (await android.pendingNotificationRequests())
-      .map((request) => request.id)
-      .toList(growable: false);
+  return android.pendingNotificationRequests();
 }
 
 Future<void> cancelIosPendingNotification(int id) async {
@@ -260,6 +296,7 @@ Future<void> scheduleMealNotification({
   required String body,
   MealNotificationPlatform? platform,
   String? channelName,
+  String? androidAlarmGeneration,
 }) => switch (platform ?? mealNotificationPlatform) {
   MealNotificationPlatform.android => scheduleAndroidMealNotification(
     id: id,
@@ -267,6 +304,7 @@ Future<void> scheduleMealNotification({
     title: title,
     body: body,
     channelName: channelName,
+    alarmGeneration: androidAlarmGeneration,
   ),
   MealNotificationPlatform.ios => scheduleIosMealNotification(
     id: id,
