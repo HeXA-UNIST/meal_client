@@ -33,6 +33,11 @@ jobs:
       - run: flutter --version
         shell: bash
 
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "value=$(yq -r '.version' pubspec.yaml)" >> "$GITHUB_OUTPUT"
+
       - name: Install certificate and provisioning profiles
         shell: bash
         env:
@@ -96,6 +101,9 @@ jobs:
             project.save
           '
 
+          # IPA 내보내기도 수동 서명을 사용하고, 앱·위젯에 설치한 프로파일의 UUID를 지정한다.
+          # 프로파일 갱신으로 UUID가 바뀌어도 IOS_EXPORT_OPTIONS_PLIST를 따로 수정하지 않도록
+          # 변수에서 읽은 plist의 서명 방식과 프로파일 매핑만 교체하고 나머지 설정은 유지한다.
           /usr/libexec/PlistBuddy -c 'Delete :signingStyle' "$RUNNER_TEMP/ExportOptions.plist" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c 'Add :signingStyle string manual' "$RUNNER_TEMP/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c 'Delete :provisioningProfiles' "$RUNNER_TEMP/ExportOptions.plist" 2>/dev/null || true
@@ -104,7 +112,11 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.wjddnwls7879.unistbab.widget string $WIDGET_PROFILE_UUID" "$RUNNER_TEMP/ExportOptions.plist"
 
       - name: Build
-        run: flutter build ipa --release --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+        env:
+          APP_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          flutter build ipa --release --export-options-plist="$RUNNER_TEMP/ExportOptions.plist"
+          mv build/ios/ipa/meal_client.ipa "build/ios/ipa/meal_client-$APP_VERSION.ipa"
         shell: bash
         working-directory: .
 
@@ -112,5 +124,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           archive: false
-          path: ./build/ios/ipa/*.ipa
+          path: ./build/ios/ipa/meal_client-${{ steps.version.outputs.value }}.ipa
           if-no-files-found: error
