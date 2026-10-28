@@ -9,6 +9,7 @@ import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
+import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/widget/widget_service.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -67,6 +68,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// 공지 비교 전용. 캐시된 공지로 판단하면 서버의 새 공지가 다음 실행까지
   /// 밀리고, 게다가 캐시 공지의 fingerprint가 저장돼 버린다.
   late final Future<AppInfo> _freshAppInfo;
+  DateTime? _infoCacheReadyAt;
   Future<void> _mealRefreshQueue = Future.value();
   Timer? _displayTimer;
   AppInfo? _displayInfo;
@@ -126,11 +128,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<AppInfo> _fetchFreshAppInfo() async {
-    final info = await (widget.loadAppInfo ?? fetchAppInfo)();
+    final injectedLoader = widget.loadAppInfo;
+    final result = injectedLoader == null
+        ? await fetchAppInfoWithStatus()
+        : (info: await injectedLoader(), cacheReady: false);
     // 식단과 안내 정보는 독립적으로 갱신된다. info.json이 늦게 저장돼도
     // 위젯이 오류 화면에 머물지 않도록 각 cache 성공 뒤 따로 다시 그린다.
-    unawaited(_refreshHomeWidgetsFromCache());
-    return info;
+    try {
+      await (widget.refreshHomeWidgets ??
+          () => refreshWidgets(throwOnFailure: true))();
+      if (result.cacheReady) _infoCacheReadyAt = _now();
+    } catch (error) {
+      debugPrint('[BapU] widget refresh after info failed: $error');
+    }
+    return result.info;
   }
 
   /// 네트워크 응답이 실패하면 캐시로 그린 화면을 그대로 둔다.
@@ -259,17 +270,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<MealResponse> _enqueueMealRefresh(
     Future<MealResponse> cachedMealRecord,
   ) {
+    final refreshStartedAt = _now();
+    Future<bool> cacheReady = Future.value(false);
     final refreshMeal =
         widget.refreshMeal ??
-        () {
+        () async {
           final now = _now();
-          return fetchAndCacheCanonicalMealData(
+          final result = await fetchAndCacheCanonicalMealDataWithStatus(
             now: now,
             waitForNextWeekPrefetch:
                 mealNotificationPlatform !=
                     MealNotificationPlatform.unsupported &&
                 MealTimeConfig.toKst(now).weekday == DateTime.sunday,
           );
+          cacheReady = result.cacheReady;
+          return (weekMeal: result.weekMeal, weekMeta: result.weekMeta);
         };
     final queuedRefresh = _mealRefreshQueue.then((_) async {
       try {
@@ -278,17 +293,63 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         // 캐시 실패는 기존 동작처럼 네트워크 갱신으로 복구한다.
       }
       final meal = await refreshMeal();
-      await (widget.refreshHomeWidgets ?? updateHomeWidgets)();
+      var widgetReady = true;
+      try {
+        await (widget.refreshHomeWidgets ??
+            () => refreshWidgets(throwOnFailure: true))();
+      } catch (error) {
+        widgetReady = false;
+        debugPrint('[BapU] widget refresh after meal failed: $error');
+      }
       if (mounted) {
-        Provider.of<BapuSettings?>(
-          context,
-          listen: false,
-        )?.reconcileMealNotificationsAfterForegroundRefresh();
+        final settings = Provider.of<BapuSettings?>(context, listen: false);
+        // 선반입이 완료된 스냅샷으로 알림을 맞추되 화면 표시는 기다리지 않는다.
+        final notificationsReady = cacheReady.then(
+          (_) =>
+              settings?.reconcileMealNotificationsAfterForegroundRefresh() ??
+              Future.value(false),
+        );
+        unawaited(
+          _postponeBackgroundRefreshAfterSuccess(
+            refreshStartedAt,
+            widgetReady ? cacheReady : Future.value(false),
+            notificationsReady,
+          ),
+        );
       }
       return meal;
     });
     _mealRefreshQueue = queuedRefresh.then<void>((_) {}, onError: (_, _) {});
     return queuedRefresh;
+  }
+
+  Future<void> _postponeBackgroundRefreshAfterSuccess(
+    DateTime refreshStartedAt,
+    Future<bool> cacheReady,
+    Future<bool> notificationsReady,
+  ) async {
+    try {
+      final results = await Future.wait([
+        cacheReady,
+        notificationsReady,
+        _freshAppInfo.then((_) {
+          final readyAt = _infoCacheReadyAt;
+          // 다른 주 재조회나 식단만 갱신한 복귀에 이전 info 성공을 재사용하지 않는다.
+          return readyAt != null && !readyAt.isBefore(refreshStartedAt);
+        }),
+      ]);
+      if (!mounted ||
+          !results.every((ready) => ready) ||
+          MealTimeConfig.kstWeekId(refreshStartedAt) !=
+              MealTimeConfig.kstWeekId(_now())) {
+        return;
+      }
+      await postponeMealBackgroundRefresh();
+    } catch (error, stackTrace) {
+      // 연기 실패로 화면 표시나 기존 주기 작업을 실패시키지 않는다.
+      debugPrint('[BapU] background refresh postponement skipped: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   Future<void> _checkStartupDialogs() async {

@@ -276,15 +276,28 @@ class BapuSettings extends ChangeNotifier {
   }
 
   /// foreground 식단 갱신이 cache 내용을 바꿨을 때만 네이티브 예약을 다시 만든다.
-  void reconcileMealNotificationsAfterForegroundRefresh() {
-    if (_notificationPlatform == MealNotificationPlatform.unsupported ||
-        !_notification.enabled) {
-      return;
+  Future<bool> reconcileMealNotificationsAfterForegroundRefresh() async {
+    if (_disposed) return false;
+    if (!_notification.enabled) return true;
+    if (_notificationPlatform == MealNotificationPlatform.unsupported) {
+      return false;
     }
-    _runUnawaitedNotificationOperation(
-      _enqueueNotificationMutation(_reconcileChangedForegroundMeal),
-      'foreground cache reconciliation',
-    );
+    try {
+      return await _enqueueNotificationMutation(() async {
+        if (_disposed) return false;
+        await _reconcileChangedForegroundMeal();
+        return !_disposed &&
+            !_notificationSyncFailed &&
+            (!_notification.enabled ||
+                _notificationAuthorizationStatus ==
+                    MealNotificationAuthorizationStatus.enabled);
+      });
+    } catch (error, stackTrace) {
+      _setNotificationSyncFailed(true);
+      debugPrint('[BapU] foreground cache reconciliation failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
   }
 
   Future<void> _handleAppResume() async {

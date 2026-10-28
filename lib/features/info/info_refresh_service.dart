@@ -41,6 +41,10 @@ class InfoRefreshService {
   final bool _throwOnCacheWriteFailure;
 
   Future<AppInfo> refreshInfo() async {
+    return (await refreshInfoWithStatus()).info;
+  }
+
+  Future<({AppInfo info, bool cacheReady})> refreshInfoWithStatus() async {
     for (var attempt = 0; attempt < 2; attempt++) {
       final before = await _readCachedRaw();
       final res = await _fetchRaw(
@@ -65,13 +69,18 @@ class InfoRefreshService {
         raw = res.body!;
       }
       final info = _parseValidRawInfo(raw);
-      if (await _commitRawInfoJson(raw, before, revalidated: revalidated)) {
-        return info;
+      final committed = await _commitRawInfoJson(
+        raw,
+        before,
+        revalidated: revalidated,
+      );
+      if (!committed.conflict) {
+        return (info: info, cacheReady: committed.cacheReady);
       }
     }
     final current = await _readCachedRaw();
     if (current == null) throw StateError('Info cache changed during refresh');
-    return _parseValidRawInfo(current);
+    return (info: _parseValidRawInfo(current), cacheReady: false);
   }
 
   Future<String?> _readCachedRaw() async {
@@ -104,7 +113,7 @@ class InfoRefreshService {
   }
 
   /// 스냅샷이 바뀌면 호출자가 잠금 밖에서 다시 재검증한다.
-  Future<bool> _commitRawInfoJson(
+  Future<({bool conflict, bool cacheReady})> _commitRawInfoJson(
     String rawInfo,
     String? expectedRaw, {
     required bool revalidated,
@@ -116,7 +125,7 @@ class InfoRefreshService {
         if (!revalidated) await _cache.writeRawInfoJson(rawInfo);
         accepted = true;
       });
-      return accepted;
+      return (conflict: !accepted, cacheReady: accepted);
     } catch (e, stackTrace) {
       if (_throwOnCacheWriteFailure) {
         Error.throwWithStackTrace(InfoCacheWriteException(e), stackTrace);
@@ -124,7 +133,7 @@ class InfoRefreshService {
       debugPrint('[BapU] info cache write failed: $e');
       debugPrintStack(stackTrace: stackTrace);
       // 실제 저장 실패 때 응답을 표시하는 기존 비엄격 모드 정책은 유지한다.
-      return true;
+      return (conflict: false, cacheReady: false);
     }
   }
 }

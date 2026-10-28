@@ -17,6 +17,15 @@ internal object BapUMealBackgroundRefresh {
     private const val TASK_NAME = "bapu_meal_refresh"
 
     fun sync(context: Context) {
+        enqueue(context, null)
+    }
+
+    /** UPDATE로 실행 중인 작업을 보존하고 다음 실행만 조정한다. */
+    fun postpone(context: Context, notBeforeMillis: Long) {
+        enqueue(context, notBeforeMillis)
+    }
+
+    private fun enqueue(context: Context, notBeforeMillis: Long?) {
         val notificationsEnabled = context
             .getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             .getBoolean("flutter.settings_notification_enabled", false)
@@ -30,7 +39,13 @@ internal object BapUMealBackgroundRefresh {
         val request = PeriodicWorkRequest.Builder(BackgroundWorker::class.java, 2, TimeUnit.HOURS)
             .setInputData(buildTaskInputData(TASK_NAME, null, uniqueName = TASK_NAME))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .apply {
+                if (notBeforeMillis != null) setNextScheduleTimeOverride(notBeforeMillis)
+            }
             .build()
-        manager.enqueueUniquePeriodicWork(TASK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        val policy = if (notBeforeMillis == null) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.UPDATE
+        val operation = manager.enqueueUniquePeriodicWork(TASK_NAME, policy, request)
+        // MethodChannel은 DB 반영까지 확인하고, 실패하면 기존 작업을 그대로 둔다.
+        if (notBeforeMillis != null) operation.result.get()
     }
 }

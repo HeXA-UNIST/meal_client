@@ -16,6 +16,13 @@ typedef MealCacheWriteLock = Future<void> Function(
 );
 typedef NextWeekCacheWriteLock = MealCacheWriteLock;
 
+/// 화면 표시와 독립적으로 자동 선반입까지 공유 캐시가 준비됐는지 확인한다.
+typedef MealRefreshResult = ({
+  WeekMeal weekMeal,
+  WeekMeta weekMeta,
+  Future<bool> cacheReady,
+});
+
 class MealRefreshService {
   MealRefreshService({
     MealCache? cache,
@@ -72,21 +79,36 @@ class MealRefreshService {
     bool waitForNextWeekPrefetch = false,
     DateTime? now,
   }) async {
+    final result = await refreshMealResponseWithStatus(
+      prefetchNextWeek: prefetchNextWeek,
+      waitForNextWeekPrefetch: waitForNextWeekPrefetch,
+      now: now,
+    );
+    return (weekMeal: result.weekMeal, weekMeta: result.weekMeta);
+  }
+
+  Future<MealRefreshResult> refreshMealResponseWithStatus({
+    bool prefetchNextWeek = true,
+    bool waitForNextWeekPrefetch = false,
+    DateTime? now,
+  }) async {
     final requestStartedAt = now ?? _clock();
     final (rawMeal, canonicalWriteSucceeded) = await _refreshCanonicalMeal(
       kstWeekStartForInstant(requestStartedAt),
     );
     final weekMeal = _parseValidRawMeal(rawMeal);
     final weekMeta = parseWeekMeta(rawMeal);
+    var cacheReady = Future.value(canonicalWriteSucceeded);
     if (prefetchNextWeek && canonicalWriteSucceeded) {
       final prefetch = _prefetchNextWeekIfEligible(weekMeta, _clock());
+      cacheReady = prefetch;
       if (waitForNextWeekPrefetch) {
         await prefetch;
       } else {
         unawaited(prefetch);
       }
     }
-    return (weekMeal: weekMeal, weekMeta: weekMeta);
+    return (weekMeal: weekMeal, weekMeta: weekMeta, cacheReady: cacheReady);
   }
 
   /// 지정 주 응답을 검증한 뒤 next-week cache에 저장한다.
@@ -115,28 +137,29 @@ class MealRefreshService {
     return response.weekMeal;
   }
 
-  Future<void> _prefetchNextWeekIfEligible(
+  Future<bool> _prefetchNextWeekIfEligible(
     WeekMeta weekMeta,
     DateTime now,
   ) async {
-    if (!_supportsSharedCache) return;
-
-    final nextWeekStart = weekMeta.nextWeekStart;
-    if (nextWeekStart == null) return;
-
-    final requestedWeekStart = parseWeekStartDate(nextWeekStart);
-    final revisionBeforeFetch = await _nextWeekCache.readRevision();
-    final hasMatchingWeek = await _nextWeekCache.hasCachedWeek(
-      requestedWeekStart,
-    );
-    final shouldRefresh =
-        !hasMatchingWeek ||
-        (MealTimeConfig.toKst(now).weekday == DateTime.sunday &&
-            !await _nextWeekCache.wasWrittenOnKstSunday(now));
-    if (!shouldRefresh) return;
-
     try {
+      if (!_supportsSharedCache) return false;
+
+      final nextWeekStart = weekMeta.nextWeekStart;
+      if (nextWeekStart == null) return true;
+
+      final requestedWeekStart = parseWeekStartDate(nextWeekStart);
+      final revisionBeforeFetch = await _nextWeekCache.readRevision();
+      final hasMatchingWeek = await _nextWeekCache.hasCachedWeek(
+        requestedWeekStart,
+      );
+      final shouldRefresh =
+          !hasMatchingWeek ||
+          (MealTimeConfig.toKst(now).weekday == DateTime.sunday &&
+              !await _nextWeekCache.wasWrittenOnKstSunday(now));
+      if (!shouldRefresh) return true;
+
       final response = await _fetchValidatedWeekResponse(nextWeekStart);
+      var written = false;
       await _enqueueNextWeekCacheWrite(() async {
         final revisionAtCommit = await _nextWeekCache.readRevision();
         if (!_sameRevision(revisionBeforeFetch, revisionAtCommit)) {
@@ -146,13 +169,15 @@ class MealRefreshService {
             return;
           }
         }
-        await _writeNextWeekRawMealJson(response.rawMeal);
+        written = await _writeNextWeekRawMealJson(response.rawMeal);
       });
+      return written;
     } catch (e, stackTrace) {
       // 현재 주 canonical cache는 이미 정상 갱신됐으므로 선반입 실패가 이를
       // 무효화하지 않는다. 이후 refresh 또는 미리보기에서 다시 시도한다.
       debugPrint('[BapU] next-week meal prefetch failed: $e');
       debugPrintStack(stackTrace: stackTrace);
+      return false;
     }
   }
 
@@ -344,15 +369,17 @@ class MealRefreshService {
     }
   }
 
-  Future<void> _writeNextWeekRawMealJson(String rawMeal) async {
+  Future<bool> _writeNextWeekRawMealJson(String rawMeal) async {
     try {
       await _nextWeekCache.writeRawMealJson(rawMeal);
+      return true;
     } catch (e, stackTrace) {
       if (_throwOnCacheWriteFailure) {
         Error.throwWithStackTrace(e, stackTrace);
       }
       debugPrint('[BapU] next-week meal cache write failed: $e');
       debugPrintStack(stackTrace: stackTrace);
+      return false;
     }
   }
 }

@@ -14,6 +14,9 @@ Future<AppInfo> fetchAppInfo({
   ).refreshInfo();
 }
 
+Future<({AppInfo info, bool cacheReady})> fetchAppInfoWithStatus() =>
+    InfoRefreshService().refreshInfoWithStatus();
+
 /// 마지막으로 저장된 info.json을 읽어 파싱한다.
 ///
 /// 식단 카드의 운영시간이 매 실행마다 네트워크 왕복을 기다리지 않도록,

@@ -3,9 +3,11 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
 import 'package:meal_client/features/meal/meal_refresh_service.dart';
 
+export 'meal_refresh_service.dart' show MealRefreshResult;
+
 final _mealCache = MealCache();
 final _mealRefreshService = MealRefreshService();
-Future<MealResponse>? _foregroundMealRefresh;
+Future<MealRefreshResult>? _foregroundMealRefresh;
 
 typedef RawMealFetcher = Future<String> Function(String url);
 
@@ -32,15 +34,26 @@ Future<MealResponse> fetchAndCacheMealData({
 Future<MealResponse> fetchAndCacheCanonicalMealData({
   bool waitForNextWeekPrefetch = false,
   DateTime? now,
+}) async {
+  final result = await fetchAndCacheCanonicalMealDataWithStatus(
+    waitForNextWeekPrefetch: waitForNextWeekPrefetch,
+    now: now,
+  );
+  return (weekMeal: result.weekMeal, weekMeta: result.weekMeta);
+}
+
+Future<MealRefreshResult> fetchAndCacheCanonicalMealDataWithStatus({
+  bool waitForNextWeekPrefetch = false,
+  DateTime? now,
 }) => runForegroundMealRefresh(
-  () => fetchAndCacheMealData(
+  () => _mealRefreshService.refreshMealResponseWithStatus(
     waitForNextWeekPrefetch: waitForNextWeekPrefetch,
     now: now,
   ),
 );
 
-Future<MealResponse> runForegroundMealRefresh(
-  Future<MealResponse> Function() refresh,
+Future<MealRefreshResult> runForegroundMealRefresh(
+  Future<MealRefreshResult> Function() refresh,
 ) async {
   final running = _foregroundMealRefresh;
   if (running != null) return running;

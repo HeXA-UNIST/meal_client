@@ -32,12 +32,13 @@ void main() {
       );
 
       final info = await service.refreshInfo();
-      final revalidated = await service.refreshInfo();
+      final revalidated = await service.refreshInfoWithStatus();
 
       expect(sentEtags, [null, '"info-v2"']);
       expect(storedRaw, rawInfo);
       expect(info.announcement?.content.ko, 'notice');
-      expect(revalidated.announcement?.content.ko, 'notice');
+      expect(revalidated.info.announcement?.content.ko, 'notice');
+      expect(revalidated.cacheReady, isTrue);
     });
 
     test('refreshInfo는 invalid response를 cache에 저장하지 않음', () async {
@@ -51,20 +52,27 @@ void main() {
 
       expect(storedRaw, isNull);
     });
-    test('refreshInfo는 strict 모드에서 cache write 실패를 구분 가능한 예외로 throw', () async {
-      final service = InfoRefreshService(
-        cache: InfoCache(
-          writeFile: (_, _) async => throw Exception('disk full'),
-          readFile: (_) async => '',
-        ),
-        fetchRaw: (_, {ifNoneMatch}) async => _ok(_rawInfoJson()),
-        throwOnCacheWriteFailure: true,
-      );
-
-      await expectLater(
-        service.refreshInfo(),
-        throwsA(isA<InfoCacheWriteException>()),
-      );
+    test('저장 실패 시 화면 응답은 보존하되 연기를 막고 strict 모드는 예외를 반환한다', () async {
+      for (final strict in [false, true]) {
+        final service = InfoRefreshService(
+          cache: InfoCache(
+            writeFile: (_, _) async => throw Exception('disk full'),
+            readFile: (_) async => '',
+          ),
+          fetchRaw: (_, {ifNoneMatch}) async => _ok(_rawInfoJson()),
+          throwOnCacheWriteFailure: strict,
+        );
+        if (strict) {
+          await expectLater(
+            service.refreshInfo(),
+            throwsA(isA<InfoCacheWriteException>()),
+          );
+        } else {
+          final result = await service.refreshInfoWithStatus();
+          expect(result.info.announcement?.content.ko, 'notice');
+          expect(result.cacheReady, isFalse);
+        }
+      }
     });
 
     test('304인데 캐시 본문이 손상됐으면 조건부 없이 재요청한다', () async {

@@ -38,9 +38,10 @@ void main() {
 
       await service.refreshMealResponse(prefetchNextWeek: false);
       now = now.add(const Duration(hours: 2));
-      final response = await service.refreshMealResponse(
+      final response = await service.refreshMealResponseWithStatus(
         prefetchNextWeek: false,
       );
+      expect(await response.cacheReady, isTrue);
       expect(updatedAt, now);
       expect(headers, [null, '"menu-v2"']);
       expect(writes, 1);
@@ -159,7 +160,7 @@ void main() {
         },
       );
 
-      final response = await service.refreshMealResponse(
+      final response = await service.refreshMealResponseWithStatus(
         now: DateTime.utc(2026, 4, 14),
       );
 
@@ -167,7 +168,7 @@ void main() {
       expect(files['meal.json'], contains('이번 주'));
       await datedFetchStarted.future;
       datedResponse.complete(_rawMealJson('다음 주', weekStart: '2026-04-20'));
-      await Future<void>.delayed(Duration.zero);
+      expect(await response.cacheReady, isTrue);
     });
 
     test('background 대기 모드는 다음 주 선반입 완료까지 기다린다', () async {
@@ -221,12 +222,13 @@ void main() {
         },
       );
 
-      await service.refreshMealResponse(
+      final response = await service.refreshMealResponseWithStatus(
         now: DateTime.utc(2026, 4, 14),
         waitForNextWeekPrefetch: true,
       );
 
       expect(datedFetches, 0);
+      expect(await response.cacheReady, isFalse);
       expect(files['meal-next.json'], contains('월요일 fallback'));
     });
 
@@ -293,12 +295,13 @@ void main() {
         },
       );
 
-      await service.refreshMealResponse(
+      final result = await service.refreshMealResponseWithStatus(
         now: DateTime.utc(2026, 4, 14),
         waitForNextWeekPrefetch: true,
       );
 
       expect(files.containsKey('meal-next.json'), isFalse);
+      expect(await result.cacheReady, isFalse);
     });
 
     test('미리보기 lock timeout은 검증한 식단 표시를 막지 않는다', () async {
