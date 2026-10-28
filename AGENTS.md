@@ -79,7 +79,8 @@ Supported platforms: Android, iOS, and Web.
 
 Validate in proportion to the change and report any unverified boundary.
 
-- Always run `dart` and `flutter` commands outside the sandbox. If a command
+- Always run `dart`, `flutter`, Gradle (including its wrappers), and Xcode CLI
+  commands (including `xcodebuild` and `xcrun`) outside the sandbox. If a command
   takes abnormally long, terminate it and retry commands individually in separate
   invocations; do not chain them sequentially with `;`.
 - Documentation only: inspect the final diff and run `git diff --check`.
