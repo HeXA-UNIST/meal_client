@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:workmanager/workmanager.dart';
 
 const mealRefreshTaskName = 'bapu_meal_refresh';
-const mealRefreshTaskFrequency = Duration(hours: 1);
+const mealRefreshTaskFrequency = Duration(hours: 2);
 
 Future<void> initializeMealBackgroundRefresh() async {
   if (!Platform.isAndroid && !Platform.isIOS) {

@@ -44,6 +44,9 @@ void callbackDispatcher() {
     }
     if (taskName == mealRefreshTaskName ||
         taskName == Workmanager.iOSBackgroundTask) {
+      // 예약은 유지하되 KST 00~07시에는 주기 갱신을 성공 처리해 재시도를 피한다.
+      // 권한 복구와 이미 예약된 알림·위젯의 시간 경계 갱신에는 적용하지 않는다.
+      if (MealTimeConfig.toKst(DateTime.now()).hour < 7) return true;
       return refreshBackgroundMealAndInfoCaches();
     }
 
