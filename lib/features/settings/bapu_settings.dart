@@ -11,6 +11,7 @@ import 'package:meal_client/features/notification/notification_scheduler.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/notification/notification_platform.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
+import 'package:meal_client/features/meal/meal_background_refresh.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
 
 import 'allergy/allergy_settings.dart';
@@ -252,6 +253,8 @@ class BapuSettings extends ChangeNotifier {
           _notification.enabled,
         ),
       );
+      // 예약 실패로 설정이 되돌아간 경우도 저장된 최종 상태를 기준으로 판단한다.
+      await syncMealBackgroundRefresh();
       if (!applied) {
         // 설정 저장·예약 실패가 실제로 허용된 OS 권한까지 되돌리지는 않는다.
         if (!v) _notificationAuthorizationStatus = previousAuthorizationStatus;
@@ -285,6 +288,8 @@ class BapuSettings extends ChangeNotifier {
   }
 
   Future<void> _handleAppResume() async {
+    if (_disposed) return;
+    await syncMealBackgroundRefresh();
     if (_disposed) return;
     // 알림을 켜지 않았으면 권한이 없는 게 정상이라 확인할 이유가 없다.
     // 단, 권한 거부 안내에서 시스템 설정을 열었다가 돌아온 경우는 확인해야

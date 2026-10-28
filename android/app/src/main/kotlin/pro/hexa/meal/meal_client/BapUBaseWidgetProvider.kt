@@ -87,6 +87,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         enqueueBroadcastWork {
+            BapUMealBackgroundRefresh.sync(context)
             BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
             try {
                 BapUWidgetScheduleManager.scheduleNext(context)
@@ -100,6 +101,9 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
             BapUWidgetUpdateWorker.cancelLegacy(context)
             BapUWidgetScheduleManager.cancel(context)
+        }
+        enqueueBroadcastWork {
+            BapUMealBackgroundRefresh.sync(context)
         }
     }
 
