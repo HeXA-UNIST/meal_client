@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
@@ -10,6 +11,7 @@ import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
 import 'package:meal_client/features/home/home_page.dart';
+import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/home/meal_card.dart';
 import 'package:meal_client/features/home/week_menu_scaffold.dart';
 import 'package:meal_client/features/info/announcement_state.dart';
@@ -22,6 +24,34 @@ import 'package:provider/provider.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('홈 일요일 경계 입력은 기존 다음 주 미리보기 화면을 한 번 연다', (tester) async {
+    final refresh = Completer<MealResponse>();
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 16, 3),
+        refreshMeal: () => refresh.future,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
+    final target = tester.getCenter(find.byType(TabBarView));
+    await tester.sendEventToBinding(
+      PointerScrollEvent(position: target, scrollDelta: const Offset(150, 0)),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 400));
+    final preview = tester.widget<NextWeekPreviewPage>(
+      find.byType(NextWeekPreviewPage),
+    );
+    expect(preview.nextWeekStartFuture, same(_nextWeekStart(home)));
+    expect(preview.appInfo, same(home.appInfo));
+    Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('안내 정보가 실패해도 화면을 켜 둔 채 월요일을 지나면 새 주를 읽는다', (tester) async {

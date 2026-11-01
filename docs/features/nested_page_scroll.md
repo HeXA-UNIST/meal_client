@@ -1,223 +1,203 @@
-# `nested_page_scroll.dart` 분석 리포트
+# 요일·끼니 중첩 스크롤
 
----
+현재 소스가 동작의 기준이다. 이 문서는 입력 처리, 조절값과 유지보수 시
+확인해야 할 상태 관계를 설명한다.
 
-## 목차
+## 1. 화면 구조와 방향
 
-1. [개요](#1-개요)
-2. [클래스별 상세 설명](#2-클래스별-상세-설명)
-3. [상태 머신 분석](#3-상태-머신-분석)
-
----
-
-## 1. 개요
-
-`nested_page_scroll.dart`는 BapU 앱의 "아침/점심/저녁" 끼니 전환 스크롤을 담당하는 **커스텀 중첩 스크롤 시스템**이다.
-
-Flutter 기본 `NestedScrollView`는 사용하지 않고, `PageView`와 `SingleChildScrollView`를 **수동으로 조합**하여 다음 두 가지 동작을 하나의 제스처 흐름으로 통합한다:
-
-- **내부 스크롤**: 한 끼니 페이지 안에서 콘텐츠를 위아래로 스크롤
-- **페이지 전환**: 내부 스크롤이 끝에 도달하면 다음/이전 끼니로 전환
-
-핵심 UX 목표는 **방향 연속성**이다. 아래로 스크롤해서 다음 페이지로 넘어가면 그 페이지의 상단이 먼저 보이고, 위로 스크롤해서 이전 페이지로 돌아가면 그 페이지의 하단이 먼저 보여야 한다. 이를 `SingleChildScrollView.reverse` 프로퍼티를 동적으로 제어하여 구현한다.
-
-입력 경로는 두 가지다:
-
-| 경로 | 위젯 | 특징 |
-|------|------|------|
-| 터치 드래그 | `GestureDetector` | 연속 세션, 수동 `Drag` 핸드오버 |
-| 마우스 휠 / 터치패드 | `Listener.onPointerSignal` | 이벤트 단위, 락(`_isAnimatingPage`) 기반 |
-
----
-
-## 2. 클래스별 상세 설명
-
-### 2.1 `NestedPageScrollController`
-
-```dart
-class NestedPageScrollController extends PageController {
-  final int pageCount;
-  final List<bool> _reverseList;
+```text
+WeekMenuScaffold: 날짜·요일 탭·끼니 버튼
+└─ WeekMealTabBarView / TabBarView: 요일 가로 이동
+   └─ NestedPageScrollView / PageView: 끼니 세로 이동
+      └─ SingleChildScrollView: 해당 끼니의 긴 식단
 ```
 
-`PageController`를 확장한 클래스로, 각 페이지의 **`reverse` 상태 테이블**을 관리한다.
+- 요일과 끼니는 각각 별도 페이지다. 끼니를 연속 목록으로 합치지 않는다.
+- 세로 입력은 긴 콘텐츠를 먼저 읽고, 끝에 닿으면 끼니 페이지를 움직인다.
+- 다음 끼니는 상단부터, 이전 끼니는 `reverse: true`로 하단부터 진입한다.
+- 요일을 바꾸면 선택 끼니를 유지한다.
+- 먼 요일 탭 클릭의 한 페이지 거리 전환은 `TabBarView`의 비인접 탭 이동에 맡긴다.
+- 날짜 제목은 탭 클릭 시 목적지를 즉시 표시하고 스와이프 시 절반에서 변경한다.
+  날짜 표시와 실제 활성 요일 확정은 별개다.
 
-#### `_reverseList`란?
+식단은 기존 Flutter 위젯으로 렌더링한다. `TabBarView`, 세로 `PageView`,
+내부 콘텐츠의 `NeverScrollableScrollPhysics`로 자동 입력을 막고,
+조정기가 선택한 `ScrollPosition`만 움직인다. keep-alive와 반응형 여백을 유지한다.
+기본 스크롤 입력을 대신 처리하므로 키보드·보조기술 입력은 별도 실기 검증 대상이다.
 
-`_reverseList[i] == true`이면 페이지 `i`의 `SingleChildScrollView`가 역방향(`reverse: true`)으로 렌더링된다. 즉 콘텐츠를 하단부터 보여주는 상태다.
+## 2. 입력 경로
 
-이것이 방향 연속성의 핵심 트릭이다:
-- 위로 스크롤해서 이전 페이지(인덱스 `i`)로 가면 → `_reverseList[i] = true` → 페이지 하단이 먼저 보임 ✓
-- 아래로 스크롤해서 다음 페이지(인덱스 `i`)로 가면 → `_reverseList[i] = false` → 페이지 상단이 먼저 보임 ✓
+| 입력 | 이동 중 | 종료·정렬 |
+| --- | --- | --- |
+| 터치 / pan/zoom 드래그 | 페이지 사이에서 입력 거리대로 이동 | 손을 놓을 때 실제 속도를 Flutter 페이지 물리에 전달 |
+| 휠 형태 입력 | 콘텐츠 우선, 경계에 저항 적용 | 경계 입력 72px에 도달하면 즉시 300ms 전환 |
+| 기준 미만 휠 | 경계 미리보기 | 세션 종료 후 시작 페이지로 300ms 복귀 |
 
-#### 주요 메서드
+트랙패드는 플랫폼이 보내는 이벤트에 따라 드래그 또는 휠 경로를 사용한다.
+장치 이름으로 어느 경로인지 단정하지 않는다.
 
-| 메서드 | 역할 | `_reverseList` 변화 |
-|--------|------|---------------------|
-| `outerScrollStart(pageIndex)` | 터치 드래그로 페이지 전환 시작 시 호출 | `0..pageIndex-1` → `true`, `pageIndex+1..end` → `false` |
-| `animateToPage(page)` | 프로그래매틱 페이지 이동 (탭 전환 등) | `0..currentPage-1` → `false`, `currentPage+1..end` → `false` |
-| `animateToPageFromScroll(page)` | 마우스 휠로 페이지 전환 시 호출 | `outerScrollStart` 위임 후 `super.animateToPage` |
+### 드래그
 
-#### 초기화 로직
+`GestureDetector`가 축별 제스처 소유권을 정한다. 세로 입력은 `_update`에서
+콘텐츠가 소비할 수 있는 거리만 전달하고 남은 거리를 페이지에 넘긴다.
+페이지 사이의 드래그에는 휠 저항과 72px 자동 전환 기준을 적용하지 않는다.
+손으로 끄는 누적 거리는 한 뷰포트 크기로 제한한다. 정렬 중 다시 잡으면
+실제 현재 픽셀 위치에서 이어받고, 가장 가까운 페이지 위치로 순간 이동하지 않는다.
 
-```dart
-_reverseList = List.generate(
-  pageCount,
-  (page) => page < initialPage,
-);
+종료는 `ScrollPosition.drag`의 `Drag.end`에 실제 속도를 전달한다.
+정렬 목적지와 스프링 감속은 `PageScrollPhysics`가 현재 위치·속도로 결정한다.
+고정 시간 애니메이션이나 별도의 12px/600px/s 플릭 조건을 사용하지 않는다.
+콘텐츠 내부의 관성은 콘텐츠 안에서 끝나며, 관성만으로 부모 끼니를 넘기지 않는다.
+
+### 휠
+
+`pointerSignalResolver`로 입력을 소비할 주체를 정한다.
+공유 `PointerScrollSession`이 첫 이벤트의 주성분으로 축을 선택한다.
+가로 성분이 더 크면 요일, 세로 성분이 더 크거나 같으면 끼니다.
+세션이 끝날 때까지 축을 유지하므로 대각선 입력의 성분 비율이 바뀌어도 축을 전환하지 않는다.
+Shift+휠은 세션 시작 시 가로 입력으로 선택하며, 선택한 변환 규칙도 세션 동안 유지한다.
+
+세로 콘텐츠가 소비한 뒤의 남은 입력만 `ResistantPageMotion`에 전달한다.
+입력 누적 거리와 표시 거리를 분리하고 경계에서 다음 저항을 적용한다.
+
+```text
+표시 거리 = 입력 거리 / (1 + 저항 계수 × |입력 거리| / 저항 길이)
 ```
 
-`initialPage`가 1이면 `[true, false, false]`로 시작한다. 이미 "아래에서" 시작한 페이지들은 역방향 상태로 초기화한다.
+누적 경계 입력이 72 논리 px에 도달하면 입력 종료를 기다리지 않고 전환한다.
+같은 휠 세션의 같은 방향 관성 꼬리는 추가 페이지 전환이나 도착 페이지의
+콘텐츠 이동에 사용하지 않는다. 반대 방향 입력이 72px 누적되면 되돌아간다.
 
----
+휠에는 드래그와 같은 종료 이벤트가 없으므로 추가 입력이 없을 때 세션을 정리한다.
+한 번 입력은 180ms, 연속 입력은 90ms다. 이 타이머는 기준 미만 복귀와
+세션 정리에 쓰며, 기준 이상 전환의 시작 조건은 아니다.
 
-### 2.2 `NestedPageScrollView`
+## 3. 페이지 이동과 정렬 상태
 
-실제 UI와 이벤트 처리를 담당하는 `StatefulWidget`.
+터치 종료는 Flutter 페이지 물리를 사용한다. 휠 전환·복귀는 원 코드와 같은
+`300ms / Curves.easeOutQuad`를 사용한다. 표시 위치에서 속도를 추정하고
+곡선 기울기를 보정하던 코드를 제거했다. 휠 미리보기와 자동 전환의 속도 연속성을
+보장하는 방식은 아니며, 동일한 입력에 대해 일정한 전환을 제공한다.
 
-#### 상태 변수
+`ResistantPageMotion.isInputActive`는 입력 세션, `isSettling`은 세션 종료 뒤에도
+남아 있는 실제 정렬 활동을 나타낸다. `finish()`는 입력만 정리하고 정렬은 계속한다.
+정렬 완료 리스너가 활동 참조를 해제하며, `cancel()`은 남은 정렬도 중단한다.
 
-```dart
-late final List<ScrollController> scrollControllers; // 페이지별 내부 스크롤 컨트롤러
-Drag? drag;                          // 현재 활성 드래그 세션
-int? currentPageIndex;               // 드래그 중인 페이지 인덱스
-double prevPage = 0;                 // 직전 프레임의 PageView 위치
-_CurrentlyScrolling? currentlyScrolling; // 내부/외부 스크롤 모드
-bool _isAnimatingPage = false;       // 마우스 휠 페이지 전환 애니메이션 락
-```
+재입력 시 가장 가까운 페이지 번호는 짧은 휠 복귀 목표로만 사용하고,
+표시 위치는 실제 픽셀 위치에서 시작한다. 전환 목표는 그 위치의 입력 방향에 있는
+인접 페이지다. 따라서 절반 이상 정렬된 상태에서 다시 밀어도 한 페이지를 더 건너뛰지 않는다.
 
-#### 입력 처리 구조
+휠 전환·복귀는 `_InteractivePageActivity`로 실행해 같은 축 반전 입력을 받는다.
+실제 가로 활동과 입력 세션을 함께 확인해 세로 입력을 차단한다.
 
-```
-Listener (PointerScrollEvent)
-  └─ _handlePointerScroll()
+## 4. 조절값
 
-GestureDetector (터치)
-  ├─ onVerticalDragStart  → 스크롤 소유권 결정
-  ├─ onVerticalDragUpdate → 소유권 이전 가능
-  └─ onVerticalDragEnd    → 상태 정리
-```
+[resistant_page_motion.dart](../../lib/features/home/resistant_page_motion.dart)의
+`ResistantPageMotion` 클래스 상단에 가로·세로 휠 공통 값을 모았다.
 
-`PageView`와 `SingleChildScrollView` 모두 `NeverScrollableScrollPhysics`를 사용해 Flutter 기본 스크롤을 **완전히 비활성화**하고, 위 두 경로가 `ScrollPosition.drag()`를 직접 제어한다.
+| 상수 | 현재 값 | 조절 효과 |
+| --- | --- | --- |
+| `resistanceCoefficient` | `0.75` | 작을수록 저항 감소. 0이면 입력 거리대로 표시 |
+| `resistanceLength` | `120.0` 논리 px | 클수록 저항이 천천히 증가. 0보다 커야 함 |
+| `commitDistance` | `72.0` 논리 px | 작을수록 적은 경계 입력으로 전환·반전 |
+| `transitionDuration` | `300ms` | 휠 전환·복귀 시간. 클수록 느려짐 |
 
-#### 핵심: 수동 `Drag` 핸드오버
+저항 계수는 0 이상으로 설정한다. 현재 계수에서 40px 입력은 32px,
+72px 입력은 약 49.7px로 표시된다. 전환 기준은 저항 적용 전의 입력 거리다.
+드래그 정렬과 끼니 버튼 애니메이션은 `transitionDuration`으로 조절되지 않는다.
 
-`onVerticalDragStart`에서 `currentController.position.drag(details, () {})`로 드래그 세션을 수동으로 시작한다. Flutter의 제스처 아레나를 우회하여 어느 `ScrollPosition`이 드래그를 소유할지 강제 결정하는 방식이다.
+휠 종료 시간은 `pointer_scroll_session.dart`의 `singleIdleDuration`(180ms)과
+`burstIdleDuration`(90ms)에서 함께 관리한다.
+다음 주 진입은 `week_meal_view.dart`의 `_weekBoundaryDistance`(120 논리 px)로
+별도 관리하며, 경계 휠은 항상 180ms 무입력을 기다린다.
 
-내부 콘텐츠가 스크롤 끝에 닿으면 `onVerticalDragUpdate` 도중 기존 `drag.cancel()`하고 새 `Drag`를 생성해 소유권을 이전한다.
+## 5. 가로 이동·정렬 중 세로 차단
 
----
+가로 드래그·휠 이동과 손을 놓은 뒤 정렬 중에는 세로 입력을 받지 않는다.
+화면에 도착 요일이 보여도 내부 활성 요일은 아직 이전 요일일 수 있다.
+이때 세로 이동을 허용하면 비활성 요일의 끼니와 그룹 상태가 달라져
+요일 확정 시 끼니 이동이 취소되고 버튼이 되돌아갈 수 있다.
 
-### 2.3 `NestedPageScrollControllerGroup`
+`NestedPageScrollView._horizontalScrolling`은 부모 가로
+`ScrollPosition.isScrollingNotifier`와 부모의 입력 세션·다음 주 진입 상태를 확인한다. 입력 세션이나 타이머가 끝나도
+실제 정렬이 남아 있으면 차단한다.
 
-여러 탭이 존재할 때(예: 요일별 탭) 각 탭의 `NestedPageScrollController`를 **동기화**하는 그룹 컨트롤러.
+- 세로 터치·pan/zoom의 시작/갱신과 세로 휠에 적용한다.
+- 차단한 휠은 resolver에서 소비하여 부모나 브라우저 스크롤로 넘기지 않는다.
+- 차단 중 시작한 세로 드래그는 종료까지 무시한다. 정렬 완료 후 새 입력을 받는다.
+- 가로 재입력과 반전은 계속 허용한다.
+- 끼니 변경 콜백은 활성 요일에서만 전달하여 비활성 요일이 버튼을 덮어쓰지 않게 한다.
 
-```dart
-class NestedPageScrollControllerGroup {
-  late final List<NestedPageScrollController> _controllers;
-  int _page; // 그룹 전체의 현재 페이지
-```
+현재 규칙은 가로 이동 중 세로 차단이다. 모든 버튼·모든 축을 함께 잠그는 규칙은 아니다.
 
-#### `animateToPage` 최적화
+## 6. 레이아웃·취소·동기화
 
-```dart
-if (activeIndex == null || i == activeIndex) {
-  futures.add(controller.animateToPage(...)); // 현재 보이는 탭만 애니메이션
-} else {
-  controller.jumpToPage(page); // 나머지는 즉시 이동 (ticker 낭비 방지)
-}
-```
+사용자 세로 세션 시작 시 주변 끼니의 내부 위치와 진입 방향을 준비한다.
+요일 변경만으로 모든 콘텐츠 위치를 초기화하지 않는다.
+`reverse` 변경이나 컨트롤러 부착을 기다려야 하면 남은 입력을 다음 프레임으로 넘긴다.
+입력 세대 번호 `_inputEpoch`로 취소된 세션의 지연 콜백을 무효화한다.
 
-비활성 탭을 `jumpToPage`로 즉시 동기화하여 불필요한 `AnimationController` 생성을 피한다.
+`NestedPageScrollControllerGroup`은 활성 요일의 끼니 변경만 그룹에 반영한다.
+비활성 요일은 즉시 동기화하고 아직 부착되지 않은 요일도 나중에 현재 끼니로 시작한다.
+그룹 주도 이동 중 리스너 재진입은 `_isSyncing`으로 억제한다.
 
----
+요일 확정 시 `setActiveIndex`가 세로 입력을 취소하고 그룹의 현재 끼니로 맞춘다.
+끼니 버튼은 목표를 즉시 표시하고 활성 요일만 애니메이션으로 이동한다.
+`navigationRevision`은 기존 입력·타이머를 취소하며, 버튼 요청 번호는
+이전 요청 완료가 최신 버튼 표시의 보호 상태를 해제하지 못하게 한다.
 
-## 3. 상태 머신 분석
+컨트롤러 교체·화면 이탈·dispose와 포인터 관성 취소에서도 입력과 타이머를 정리한다.
+인식된 터치 드래그의 `PointerCancelEvent`가 종료 콜백으로 전달되는 경우에 대비하여
+`Listener.onPointerCancel`에서 먼저 취소한다. 취소는 다음 주 진입을 실행하지 않는다.
 
-### 3.1 터치 드래그 상태 머신
+## 7. 검증과 후속 기능
 
-`_NestedPageScrollViewState`의 핵심 상태는 `currentlyScrolling`이 나타낸다:
+| 테스트 | 주요 확인 내용 |
+| --- | --- |
+| `resistant_page_motion_test.dart` | 드래그 중 자동 전환 없음, 종료 위치·속도에 따른 정렬, 정렬 중 재입력 위치 보존, 정렬 상태 분리·취소, 첫/느린 휠 감속 |
+| `nested_page_scroll_test.dart` | 콘텐츠 잔여 거리, 저항, 즉시 전환, 반전·진입 방향, 관성 꼬리, 범위 제한, 지연 레이아웃·취소 |
+| `week_menu_scroll_test.dart` | 탭 클릭·날짜·끼니 동기화, Shift+휠, pan/zoom, 가로 정렬 중 세로 차단과 완료 후 재개, 축 고정, 다음 주 경계 진입·취소·중복 방지 |
 
-```
-┌───────────────────────────────────────────────────────────┐
-│                        IDLE                               │
-│  drag = null, currentlyScrolling = null                   │
-└──────────────┬────────────────────────────────────────────┘
-               │ onVerticalDragStart
-               │
-       ┌───────┴────────────────────────────────┐
-       │ atEdge == true                          │ atEdge == false
-       ▼                                         ▼
-┌──────────────────────┐               ┌──────────────────────┐
-│   SCROLLING_OUTER    │               │   SCROLLING_INNER    │
-│ drag = PageController│               │ drag = innerController│
-│ currentlyScrolling   │               │ currentlyScrolling   │
-│   = .outer           │               │   = .inner           │
-└──────┬───────────────┘               └──────────────────────┘
-       │ onVerticalDragUpdate                    ▲
-       │ (핸드오버 조건 충족)                     │
-       │                                         │
-       │ drag?.cancel()                          │
-       └─────────────────────────────────────────┘
-               (outer → inner 전환)
-               
-               onVerticalDragEnd (양쪽 공통)
-               ──────────────────────────────→ IDLE
-```
+## 8. 다음 주 경계 진입
 
-#### 상태 전이 표
+홈 화면은 `WeekMenuScaffold.onNextWeekRequested`를 통해 기존 `NextWeekPreviewPage`를 연다.
+조회·로딩·실패·미등록 처리는 기존 화면이 맡으며, 입력 이벤트에서 네트워크 요청을 반복하지 않는다.
+미리보기 화면에는 이 콜백을 전달하지 않으므로 연속해서 다음 주 화면이 쌓이지 않는다.
 
-| 현재 상태 | 이벤트 | 전이 조건 | 다음 상태 |
-|-----------|--------|-----------|-----------|
-| `IDLE` | `onVerticalDragStart` | `scrollController.position.atEdge == true` | `SCROLLING_OUTER` |
-| `IDLE` | `onVerticalDragStart` | `scrollController.position.atEdge == false` | `SCROLLING_INNER` |
-| `SCROLLING_OUTER` | `onVerticalDragUpdate` | 페이지 경계 통과 + 스크롤 가능 + 방향 일치 | `SCROLLING_INNER` |
-| `SCROLLING_INNER` | `onVerticalDragUpdate` | (전이 없음) | `SCROLLING_INNER` |
-| `SCROLLING_INNER` | `onVerticalDragEnd` | — | `IDLE` |
-| `SCROLLING_OUTER` | `onVerticalDragEnd` | — | `IDLE` |
+- 일요일에 정렬이 완료된 상태에서 시작한 새 가로 세션만 경계 진입 대상이다.
+- 토요일에서 일요일로 이동한 같은 세션·관성으로는 다음 주를 열지 않는다.
+- 바깥으로 당긴 누적 거리가 120px에 도달하면 진입 가능한 상태가 된다.
+- 터치는 해제 시, 휠은 마지막 이벤트에서 180ms가 지난 뒤 한 번만 연다.
+- 경계에서는 콘텐츠를 저항을 적용한 거리만큼 옮기고 진행 표시를 보여준다.
+- 반대 입력은 경계 당김부터 소비하고 남은 거리만 요일 이동에 전달한다.
+- 기준 미만, 터치 취소, 관성 취소, 탭 클릭, 화면 이탈은 진입을 취소한다.
+- 미리보기 화면이 닫힐 때까지 중복 진입을 막는다.
 
-> **주의**: `SCROLLING_INNER → SCROLLING_OUTER` 전이는 **없다**. 드래그 중에 내부에서 외부로 전환하는 경로가 없다.
+휠 세션 구분은 무입력 시간에 기반한 추정이다. 브라우저가 늦게 보내는 관성을
+완벽히 구별하지는 못하므로 실제 트랙패드에서 확인해야 한다.
+경계 미리보기 복귀는 현재 즉시 원위치로 돌아오며 별도의 스프링 효과는 없다.
 
----
+## 9. 2026-10-29 최신 develop 통합 검증
 
-### 3.2 마우스 휠 결정 트리
+현재 작업은 `develop`의 `8b0a92d` 위에 통합되어 있다.
+운영시간·자정 자동 갱신과 오늘 요일 강조, 좁은 화면 배치,
+날짜·끼니·섹션별 칼로리를 포함한 공유 형식과 로딩 중 끼니 선택 유지를 보존한다.
+새 알림 권한·앱 언어·ETag 캐시·백그라운드 갱신 구현은 최신 develop을 그대로 사용한다.
 
-터치 드래그와 달리 "세션" 개념이 없어 매 이벤트마다 독립 판단한다:
+전체 Flutter 테스트 268개 통과. 기존 develop의 회귀 테스트와 스크롤·경계 진입 테스트를 포함한다.
+`flutter analyze` 통과, 웹 release 빌드 성공.
+홈 화면의 경계 진입은 기존 다음 주 미리보기와 같은 데이터 Future를 사용한다.
+빌드에는 기존 CupertinoIcons 폰트 미포함 경고가 있다.
+실제 트랙패드 체감, iOS 실기 입력과 접근성은 별도 검증 대상이다. Android 실기 결과는 아래와 같다.
 
-```
-PointerScrollEvent 발생 (dy != 0)
-│
-├─ _isAnimatingPage == true → 무시 (early return)
-│
-└─ scrollableRemaining 계산
-    │
-    ├─ remaining > 0
-    │   └─ sc.jumpTo(...) → 내부 스크롤
-    │
-    └─ remaining == 0
-        ├─ _isAnimatingPage = true
-        ├─ animateToPageFromScroll(targetPage)
-        └─ .whenComplete() → _isAnimatingPage = false
-```
+## 10. Galaxy S25 실기 검증
 
-`_isAnimatingPage` 플래그가 이 결정 트리의 유일한 외부 상태다.
+2026-10-29, SM-S931N / Android 17(API 37)의 별도 `.scrollqa` 패키지에
+5.1.2+24 디버그 빌드를 설치해 ADB 터치 입력과 Flutter VM의 실제 위치·상태를 확인했다.
+네 방향, 축 간 간섭, 같은 축 재입력·반전·취소, 첫/마지막 끼니 당김,
+일요일 미리보기 진입·복귀, 긴 콘텐츠 내부 스크롤과 회전을 검사했다.
+반복 재현되는 페이지 정렬 오류·상태 불일치·Flutter 예외는 발견하지 못했다.
 
----
-
-### 3.3 `_reverseList` 상태 머신
-
-`NestedPageScrollController` 내부의 `_reverseList`는 별도의 상태를 가진다:
-
-```
-초기화: page < initialPage → true, 나머지 → false
-
-outerScrollStart(p):
-  [0..p-1] = true   (위에서 내려오는 페이지들)
-  [p+1..end] = false (아래에서 올라오는 페이지들)
-
-animateToPage(targetPage):
-  현재 currentPage 기준으로
-  [0..currentPage-1] = false
-  [currentPage+1..end] = false
-  → currentPage 자신은 변경 없음
-```
+초기 검사 준비 중 요일 탭 선택 누락이 한 번 관찰됐으나 후속 반복에서 재현되지 않아
+미확정 관찰로 남겼다. 가로 화면은 레이아웃 완료와 콘텐츠 위치를 준비한 뒤 재검증했다.
+실제 트랙패드와 다른 OS·기기, 보조기술, release/profile 성능 검증을 대신하지 않는다.

@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,6 +13,8 @@ import 'package:meal_client/features/info/app_info.dart';
 
 import 'meal_card.dart';
 import 'nested_page_scroll.dart';
+import 'resistant_page_motion.dart';
+import 'pointer_scroll_session.dart';
 
 const _cardMinWidth = 160;
 const _cardMaxWidth = 208;
@@ -49,7 +55,7 @@ String buildMealShareText({
   return lines.join('\n');
 }
 
-class WeekMealTabBarView extends StatelessWidget {
+class WeekMealTabBarView extends StatefulWidget {
   const WeekMealTabBarView({
     super.key,
     required this.weekMeal,
@@ -60,6 +66,7 @@ class WeekMealTabBarView extends StatelessWidget {
     required this.appInfo,
     required this.mondayOfWeek,
     this.currentKstDateTime,
+    this.onNextWeekRequested,
   });
 
   final WeekMeal weekMeal;
@@ -70,25 +77,226 @@ class WeekMealTabBarView extends StatelessWidget {
   final Future<AppInfo> appInfo;
   final DateTime mondayOfWeek;
   final DateTime? currentKstDateTime;
+  final Future<void> Function()? onNextWeekRequested;
+
+  @override
+  State<WeekMealTabBarView> createState() => _WeekMealTabBarViewState();
+}
+
+class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
+  // 일반 페이지 이동과 별도로 관리하는 다음 주 진입 기준.
+  static const _weekBoundaryDistance = 120.0;
+  final _horizontalMotion = ResistantPageMotion();
+  final _pointerSession = PointerScrollSession();
+  final _edgeDistance = ValueNotifier<double>(0);
+
+  ScrollPosition? _horizontalPosition;
+  bool _horizontalPointerScrolling = false;
+  bool _edgeEligible = false;
+  bool _openingNextWeek = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (widget.tabController.indexIsChanging) {
+      _finishHorizontal(cancel: true);
+      _pointerSession.reset();
+    }
+  }
+
+  void _finishHorizontal({
+    bool cancel = false,
+    bool allowNextWeek = true,
+    double velocity = 0,
+  }) {
+    final openNextWeek =
+        !cancel &&
+        allowNextWeek &&
+        _edgeEligible &&
+        _edgeDistance.value >= _weekBoundaryDistance;
+    if (_pointerSession.axis == Axis.horizontal) _pointerSession.reset();
+    _horizontalPosition = null;
+    if (cancel) {
+      _horizontalMotion.cancel();
+    } else {
+      _horizontalMotion.finish(velocity: velocity);
+    }
+    _horizontalPointerScrolling = false;
+    _edgeEligible = false;
+    _edgeDistance.value = 0;
+    if (openNextWeek) unawaited(_openNextWeek());
+  }
+
+  Future<void> _openNextWeek() async {
+    final open = widget.onNextWeekRequested;
+    if (!mounted || _openingNextWeek || open == null) return;
+    setState(() => _openingNextWeek = true);
+    try {
+      await open();
+    } finally {
+      if (mounted) {
+        _pointerSession.reset();
+        setState(() => _openingNextWeek = false);
+      }
+    }
+  }
+
+  void _beginHorizontal(ScrollPosition position) {
+    // 일요일로 이동 중 시작된 입력이나 같은 관성으로 다음 주를 열지 않는다.
+    final eligible =
+        widget.onNextWeekRequested != null &&
+        !position.isScrollingNotifier.value &&
+        !widget.tabController.indexIsChanging &&
+        widget.tabController.index == widget.tabController.length - 1 &&
+        (position.pixels - position.maxScrollExtent).abs() < 0.01;
+    _finishHorizontal(cancel: true);
+    _horizontalPosition = position;
+    _edgeEligible = eligible;
+  }
+
+  void _startHorizontal(BuildContext context, DragStartDetails details) {
+    if (_openingNextWeek) return;
+    _pointerSession.reset();
+    final position = Scrollable.maybeOf(
+      context,
+      axis: Axis.horizontal,
+    )?.position;
+    if (position != null) _beginHorizontal(position);
+  }
+
+  void _updateHorizontal(DragUpdateDetails details) {
+    final position = _horizontalPosition;
+    if (position == null || _openingNextWeek) return;
+    final input = axisDirectionIsReversed(position.axisDirection)
+        ? details.delta.dx
+        : -details.delta.dx;
+    var remainingDetails = details;
+    if (_edgeEligible) {
+      final previous = _edgeDistance.value;
+      final distance = (_edgeDistance.value + input)
+          .clamp(0.0, _weekBoundaryDistance * 2)
+          .toDouble();
+      _edgeDistance.value = distance;
+      if (distance > 0) return;
+      // 안쪽으로 돌아간 세션에서는 주 경계를 다시 시작하지 않는다.
+      _edgeEligible = false;
+      final remaining = input + previous;
+      if (remaining == 0) return;
+      final dx = axisDirectionIsReversed(position.axisDirection)
+          ? remaining
+          : -remaining;
+      remainingDetails = DragUpdateDetails(
+        sourceTimeStamp: details.sourceTimeStamp,
+        delta: Offset(dx, 0),
+        primaryDelta: dx,
+        globalPosition: details.globalPosition,
+        localPosition: details.localPosition,
+      );
+    }
+    _horizontalMotion.update(
+      position,
+      remainingDetails,
+      pointerScrolling: _horizontalPointerScrolling,
+    );
+  }
+
+  void _onPointerSignal(BuildContext context, PointerSignalEvent event) {
+    if (event is PointerScrollInertiaCancelEvent) {
+      _finishHorizontal(allowNextWeek: false);
+      return;
+    }
+    if (event is! PointerScrollEvent) return;
+    final delta = event.scrollDelta;
+    if (delta == Offset.zero) return;
+    final shifted = HardwareKeyboard.instance.isShiftPressed;
+    if (_pointerSession.selectAxis(delta, shifted: shifted) !=
+        Axis.horizontal) {
+      return;
+    }
+    final dx = _pointerSession.horizontalDelta(delta);
+    final position = Scrollable.maybeOf(
+      context,
+      axis: Axis.horizontal,
+    )?.position;
+    if (position == null || !position.hasPixels) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      if (!mounted) return;
+      event.respond(allowPlatformDefault: false);
+      if (_openingNextWeek) return;
+      if (_horizontalPosition != position) {
+        _beginHorizontal(position);
+        _pointerSession.selectAxis(delta, shifted: shifted);
+      }
+      _horizontalPointerScrolling = true;
+      _updateHorizontal(
+        DragUpdateDetails(
+          sourceTimeStamp: event.timeStamp,
+          delta: Offset(-dx, 0),
+          primaryDelta: -dx,
+          globalPosition: event.position,
+          localPosition: event.localPosition,
+        ),
+      );
+      _pointerSession.record(_finishHorizontal, boundary: _edgeEligible);
+    });
+  }
+
+  @override
+  void didUpdateWidget(WeekMealTabBarView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tabController != widget.tabController) {
+      _finishHorizontal(cancel: true);
+      oldWidget.tabController.removeListener(_onTabChanged);
+      widget.tabController.addListener(_onTabChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _finishHorizontal(cancel: true);
+    _pointerSession.reset();
+    _edgeDistance.dispose();
+    widget.tabController.removeListener(_onTabChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return TabBarView(
-      controller: tabController,
+    final pages = TabBarView(
+      controller: widget.tabController,
+      physics: const NeverScrollableScrollPhysics(),
       children: List.generate(
-        tabController.length,
+        widget.tabController.length,
         (tabIndex) => NestedPageScrollView(
-          controller: pageControllerGroup.getController(tabIndex),
-          onPageChanged: onPageChanged,
+          pointerSession: _pointerSession,
+          isHorizontalInputActive: () =>
+              _horizontalPosition != null || _openingNextWeek,
+          onHorizontalPointerSignal: _onPointerSignal,
+          onHorizontalDragStart: _startHorizontal,
+          onHorizontalDragUpdate: _updateHorizontal,
+          onHorizontalDragEnd: (details) =>
+              _finishHorizontal(velocity: details.primaryVelocity ?? 0),
+          onHorizontalDragCancel: () => _finishHorizontal(allowNextWeek: false),
+          controller: widget.pageControllerGroup.getController(tabIndex),
+          onPageChanged: (page) {
+            // 비활성 요일의 동기화나 늦은 정렬이 끼니 버튼을 덮어쓰지 않게 한다.
+            if (widget.tabController.index == tabIndex) {
+              widget.onPageChanged(page);
+            }
+          },
           builder: (context, pageIndex) {
-            final nowMeal = weekMeal
+            final nowMeal = widget.weekMeal
                 .fromDayOfWeek(DayOfWeek.values[tabIndex])
                 .fromMealOfDay(MealOfDay.values[pageIndex]);
-            final targetDate = DateUtils.dateOnly(mondayOfWeek)
+            final targetDate = DateUtils.dateOnly(widget.mondayOfWeek)
                 .add(Duration(days: tabIndex));
             return FutureBuilder<AppInfo>(
-              future: appInfo,
+              future: widget.appInfo,
               builder: (context, infoSnapshot) {
                 return SafeArea(
                   child: LayoutBuilder(
@@ -177,7 +385,7 @@ class WeekMealTabBarView extends StatelessWidget {
                                     MealOfDay.values[pageIndex],
                                   );
                               final now =
-                                  currentKstDateTime ??
+                                  widget.currentKstDateTime ??
                                   MealTimeConfig.toKst(DateTime.now());
                               final isOperating =
                                   operatingTime != null &&
@@ -310,6 +518,40 @@ class WeekMealTabBarView extends StatelessWidget {
         ),
         growable: false,
       ),
+    );
+    return ValueListenableBuilder<double>(
+      valueListenable: _edgeDistance,
+      child: pages,
+      builder: (context, distance, child) {
+        final progress = (distance / _weekBoundaryDistance).clamp(0.0, 1.0);
+        final offset = distance / (1 + distance / 80);
+        final direction = Directionality.of(context) == TextDirection.rtl
+            ? 1.0
+            : -1.0;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            if (distance > 0)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Semantics(
+                    label: l10n.nextWeekPreview,
+                    child: SizedBox.square(
+                      dimension: 28,
+                      child: CircularProgressIndicator(value: progress),
+                    ),
+                  ),
+                ),
+              ),
+            Transform.translate(
+              offset: Offset(direction * offset, 0),
+              child: child,
+            ),
+          ],
+        );
+      },
     );
   }
 }

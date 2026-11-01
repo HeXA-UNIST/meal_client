@@ -17,6 +17,7 @@ import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
 
 import 'home_drawer.dart';
+import 'next_week_preview_page.dart';
 import 'week_menu_scaffold.dart';
 
 class HomePage extends StatefulWidget {
@@ -436,6 +437,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       mealFuture: downloadedMeal,
       appInfo: appInfo,
       drawer: HomePageDrawer(infoFuture: appInfo, nextWeekStart: nextWeekStart),
+      onNextWeekRequested: () async {
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => NextWeekPreviewPage(
+              nextWeekStartFuture: nextWeekStart,
+              appInfo: appInfo,
+            ),
+          ),
+        );
+      },
     );
   }
 
