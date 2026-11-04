@@ -85,12 +85,14 @@ class WeekMealTabBarView extends StatefulWidget {
   State<WeekMealTabBarView> createState() => _WeekMealTabBarViewState();
 }
 
-class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
+class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
+    with SingleTickerProviderStateMixin {
   // 일반 페이지 이동과 별도로 관리하는 주 경계 전환 기준.
   static const _weekBoundaryDistance = 120.0;
   final _horizontalMotion = ResistantPageMotion();
   final _pointerSession = PointerScrollSession();
   final _edgeDistance = ValueNotifier<double>(0);
+  late final AnimationController _edgeReturn;
 
   ScrollPosition? _horizontalPosition;
   bool _horizontalPointerScrolling = false;
@@ -101,6 +103,12 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
   @override
   void initState() {
     super.initState();
+    _edgeReturn = AnimationController.unbounded(vsync: this)
+      ..addListener(() {
+        _edgeDistance.value = _edgeReturn.value
+            .clamp(0.0, double.infinity)
+            .toDouble();
+      });
     widget.tabController.addListener(_onTabChanged);
   }
 
@@ -108,6 +116,15 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
     if (widget.tabController.indexIsChanging) {
       _finishHorizontal(cancel: true);
       _pointerSession.reset();
+    } else if (_edgeEligible) {
+      final edgeIndex = _edgeDirection > 0
+          ? widget.tabController.length - 1
+          : 0;
+      // 실제 선택 요일이 바뀐 뒤에는 같은 입력으로 주를 전환하지 않는다.
+      if (widget.tabController.index != edgeIndex) {
+        _edgeEligible = false;
+        _edgeDistance.value = 0;
+      }
     }
   }
 
@@ -124,6 +141,13 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
     final onWeekRequested = _edgeDirection > 0
         ? widget.onNextWeekRequested
         : widget.onPreviousWeekRequested;
+    final position = _horizontalPosition;
+    final edgeVelocity = position == null || _horizontalPointerScrolling
+        ? 0.0
+        : _edgeDirection *
+              (axisDirectionIsReversed(position.axisDirection)
+                  ? velocity
+                  : -velocity);
     if (_pointerSession.axis == Axis.horizontal) _pointerSession.reset();
     _horizontalPosition = null;
     if (cancel) {
@@ -133,7 +157,20 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
     }
     _horizontalPointerScrolling = false;
     _edgeEligible = false;
-    _edgeDistance.value = 0;
+    _edgeReturn.stop();
+    if (cancel || changeWeek) {
+      _edgeDistance.value = 0;
+    } else if (_edgeDistance.value > 0) {
+      // 손을 놓은 위치와 속도에서 스크롤용 스프링으로 복귀한다.
+      _edgeReturn.animateWith(
+        ScrollSpringSimulation(
+          const ScrollPhysics().spring,
+          _edgeDistance.value,
+          0,
+          edgeVelocity,
+        ),
+      );
+    }
     if (changeWeek && onWeekRequested != null) {
       unawaited(_changeWeek(onWeekRequested));
     }
@@ -166,10 +203,16 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
         !position.isScrollingNotifier.value &&
         !widget.tabController.indexIsChanging &&
         (atEnd || atStart);
+    final direction = atStart ? -1.0 : 1.0;
+    // 복귀 중 다시 잡으면 현재 당김 거리에서 이어간다.
+    final remainingDistance = eligible && direction == _edgeDirection
+        ? _edgeDistance.value
+        : 0.0;
     _finishHorizontal(cancel: true);
     _horizontalPosition = position;
     _edgeEligible = eligible;
-    _edgeDirection = atStart ? -1 : 1;
+    _edgeDirection = direction;
+    _edgeDistance.value = remainingDistance;
   }
 
   void _startHorizontal(BuildContext context, DragStartDetails details) {
@@ -188,16 +231,20 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
     final input = axisDirectionIsReversed(position.axisDirection)
         ? details.delta.dx
         : -details.delta.dx;
+    final boundary = _edgeDirection > 0
+        ? position.maxScrollExtent
+        : position.minScrollExtent;
+    final atBoundary = (position.pixels - boundary).abs() < 0.01;
     var remainingDetails = details;
-    if (_edgeEligible) {
+    if (_edgeEligible && (_edgeDistance.value > 0 || atBoundary)) {
+      // 같은 요일의 경계로 돌아오면 일반 이동을 끝내고 다시 당길 수 있다.
+      _horizontalMotion.cancel();
       final previous = _edgeDistance.value;
       final distance = (previous + input * _edgeDirection)
           .clamp(0.0, _weekBoundaryDistance * 2)
           .toDouble();
       _edgeDistance.value = distance;
       if (distance > 0) return;
-      // 안쪽으로 돌아간 세션에서는 주 경계를 다시 시작하지 않는다.
-      _edgeEligible = false;
       final remaining = input + previous * _edgeDirection;
       if (remaining == 0) return;
       final dx = axisDirectionIsReversed(position.axisDirection)
@@ -273,6 +320,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
   void dispose() {
     _finishHorizontal(cancel: true);
     _pointerSession.reset();
+    _edgeReturn.dispose();
     _edgeDistance.dispose();
     widget.tabController.removeListener(_onTabChanged);
     super.dispose();

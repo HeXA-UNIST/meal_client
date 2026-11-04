@@ -130,6 +130,78 @@ void main() {
     expect(opened, 0);
   });
 
+  testWidgets('주 경계는 같은 터치에서 되돌렸다 다시 당길 수 있다', (tester) async {
+    var changed = 0;
+    Future<void> changeWeek() async {
+      changed++;
+    }
+
+    await mount(tester, initialDay: DayOfWeek.sun, onNextWeek: changeWeek);
+    final gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-50, 0));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    // 원위치를 조금 지나도 선택 요일이 바뀌기 전이면 재진입할 수 있다.
+    await gesture.moveBy(const Offset(80, 0));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await gesture.moveBy(const Offset(-80, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-160, 0));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(changed, 0);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(changed, 1);
+  });
+
+  testWidgets('주 경계는 스프링으로 복귀하고 다시 잡으면 현재 위치에서 이어진다', (tester) async {
+    var changed = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sun,
+      onNextWeek: () async {
+        changed++;
+      },
+    );
+    double centerX() => tester.getCenter(find.byType(TabBarView)).dx;
+    final origin = centerX();
+    var gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-80, 0));
+    await tester.pump();
+    final pulled = centerX();
+    expect(pulled, lessThan(origin));
+    // 정지 후 놓아 복귀 속도만 검증한다.
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.up();
+    await tester.pump();
+    expect(centerX(), closeTo(pulled, 0.01));
+    await tester.pump(const Duration(milliseconds: 80));
+    final returning = centerX();
+    expect(returning, greaterThan(pulled));
+    expect(returning, lessThan(origin));
+    gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    expect(centerX(), closeTo(returning, 0.01));
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    final repulled = centerX();
+    expect(repulled, lessThan(returning));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(centerX(), closeTo(repulled, 0.01));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(centerX(), closeTo(origin, 0.01));
+    expect(changed, 0);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
   testWidgets('주 경계 터치는 해제할 때만 열리고 취소하면 열리지 않는다', (tester) async {
     var opened = 0;
     await mount(
