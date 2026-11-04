@@ -10,6 +10,7 @@ import 'package:meal_client/features/notification/notification_service.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
+import 'package:meal_client/features/home/home_app_bar.dart';
 import 'package:meal_client/features/home/home_page.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/home/meal_card.dart';
@@ -37,6 +38,8 @@ void main() {
     await tester.pump();
     await tester.pump();
     final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pump(const Duration(milliseconds: 400));
     final target = tester.getCenter(find.byType(TabBarView));
     await tester.sendEventToBinding(
       PointerScrollEvent(position: target, scrollDelta: const Offset(150, 0)),
@@ -61,6 +64,7 @@ void main() {
     );
     expect(await preview.nextWeekStartFuture, '2026-08-17');
     expect(preview.appInfo, same(home.appInfo));
+    expect(preview.initialMealOfDay, home.initialMealOfDay.next);
     Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();

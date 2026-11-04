@@ -467,11 +467,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       mealFuture: downloadedMeal,
       appInfo: appInfo,
       drawer: HomePageDrawer(infoFuture: appInfo, nextWeekStart: nextWeekStart),
-      onNextWeekRequested: () async {
+      onNextWeekRequested: (mealOfDay) async {
         await openNextWeekPreview(
           context: context,
           nextWeekStartFuture: nextWeekStart,
           appInfo: appInfo,
+          initialMealOfDay: mealOfDay,
         );
       },
     );

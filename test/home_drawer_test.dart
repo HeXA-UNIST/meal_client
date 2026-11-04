@@ -2,6 +2,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
+import 'package:meal_client/features/home/home_app_bar.dart';
+import 'package:meal_client/features/home/week_menu_scaffold.dart';
+import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -126,7 +129,6 @@ void main() {
         'weekend': <String, dynamic>{},
       },
     });
-    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -135,18 +137,24 @@ void main() {
           ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          key: scaffoldKey,
+        home: WeekMenuScaffold(
+          mondayOfWeek: DateTime.utc(2026, 6, 15),
+          initialDayOfWeek: DayOfWeek.sun,
+          initialMealOfDay: MealOfDay.lunch,
+          mealFuture: Future.value(WeekMeal.empty()),
+          appInfo: Future.value(info),
           drawer: HomePageDrawer(
             infoFuture: Future.value(info),
             nextWeekStart: Future.value('2026-06-22'),
           ),
-          body: const SizedBox.shrink(),
         ),
       ),
     );
 
-    scaffoldKey.currentState!.openDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pumpAndSettle();
+    tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
     await tester.pumpAndSettle();
 
     final l10n = AppLocalizations.of(
@@ -158,5 +166,11 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.byType(NextWeekPreviewPage), findsOneWidget);
+    expect(
+      tester
+          .widget<NextWeekPreviewPage>(find.byType(NextWeekPreviewPage))
+          .initialMealOfDay,
+      isNull,
+    );
   });
 }

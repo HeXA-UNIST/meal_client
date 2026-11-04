@@ -37,6 +37,7 @@ Future<void> openNextWeekPreview({
   required BuildContext context,
   required Future<String?> nextWeekStartFuture,
   required Future<AppInfo> appInfo,
+  MealOfDay? initialMealOfDay,
 }) async {
   String? nextWeekStart;
   try {
@@ -64,6 +65,7 @@ Future<void> openNextWeekPreview({
       builder: (_) => NextWeekPreviewPage(
         nextWeekStartFuture: Future.value(nextWeekStart),
         appInfo: appInfo,
+        initialMealOfDay: initialMealOfDay,
       ),
     ),
   );
@@ -74,12 +76,14 @@ class NextWeekPreviewPage extends StatefulWidget {
     super.key,
     required this.nextWeekStartFuture,
     required this.appInfo,
+    this.initialMealOfDay,
     this.loadDatedWeek,
     this.onNextWeekMealRefreshed,
   });
 
   final Future<String?> nextWeekStartFuture;
   final Future<AppInfo> appInfo;
+  final MealOfDay? initialMealOfDay;
   final DatedWeekMealLoader? loadDatedWeek;
   final VoidCallback? onNextWeekMealRefreshed;
 
@@ -136,6 +140,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
         return _NextWeekMenu(
           nextWeekStart: nextWeekStart,
           appInfo: widget.appInfo,
+          initialMealOfDay: widget.initialMealOfDay,
           loadDatedWeek: widget.loadDatedWeek ?? fetchAndCacheMealDataForWeek,
           onMealRefreshed: widget.onNextWeekMealRefreshed,
         );
@@ -164,12 +169,14 @@ class _NextWeekMenu extends StatefulWidget {
     required this.nextWeekStart,
     required this.appInfo,
     required this.loadDatedWeek,
+    required this.initialMealOfDay,
     this.onMealRefreshed,
   });
 
   final String nextWeekStart;
   final Future<AppInfo> appInfo;
   final DatedWeekMealLoader loadDatedWeek;
+  final MealOfDay? initialMealOfDay;
   final VoidCallback? onMealRefreshed;
 
   @override
@@ -232,7 +239,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
         return WeekMenuScaffold(
           mondayOfWeek: _mondayOfWeek,
           initialDayOfWeek: DayOfWeek.mon,
-          initialMealOfDay: MealOfDay.breakfast,
+          initialMealOfDay: widget.initialMealOfDay ?? MealOfDay.breakfast,
           mealFuture: _mealFuture,
           appInfo: widget.appInfo,
           bannerText: l10n.previewingNextWeek,

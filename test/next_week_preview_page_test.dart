@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
+import 'package:meal_client/features/home/home_app_bar.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -42,6 +43,7 @@ void main() {
                     MaterialPageRoute(
                       builder: (_) => NextWeekPreviewPage(
                         nextWeekStartFuture: Future.value('2026-06-22'),
+                        initialMealOfDay: MealOfDay.dinner,
                         appInfo: Future.value(_emptyAppInfo()),
                         loadDatedWeek: (_) async =>
                             parseRawMeal(_emptyWeekRawJson('2026-06-22')),
@@ -57,6 +59,12 @@ void main() {
         );
         await tester.tap(find.text('이번 주'));
         await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+              .label,
+          '저녁',
+        );
         Future<void> overscroll({required bool forward}) async {
           final center = tester.getCenter(find.byType(TabBarView));
           if (useWheel) {

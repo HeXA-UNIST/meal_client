@@ -40,7 +40,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final Future<AppInfo> appInfo;
   final String? bannerText;
   final Widget? drawer;
-  final Future<void> Function()? onNextWeekRequested;
+  final Future<void> Function(MealOfDay mealOfDay)? onNextWeekRequested;
   final Future<void> Function()? onPreviousWeekRequested;
   final FontWeight titleFontWeight;
 
@@ -287,7 +287,9 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
 
   Widget _buildTabBarView(WeekMeal weekMeal) {
     return WeekMealTabBarView(
-      onNextWeekRequested: widget.onNextWeekRequested,
+      onNextWeekRequested: widget.onNextWeekRequested == null
+          ? null
+          : () => widget.onNextWeekRequested!(_mealOfDayNotifier.value),
       onPreviousWeekRequested: widget.onPreviousWeekRequested,
       pageCount: MealOfDay.values.length,
       weekMeal: weekMeal,
