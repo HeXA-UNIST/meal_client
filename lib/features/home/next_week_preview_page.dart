@@ -16,14 +16,20 @@ typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
 
 Future<void> _showPreviewToast(BuildContext context, String message) async {
   final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-  final colors = Theme.of(context).colorScheme;
+  final isLight = Theme.of(context).brightness == Brightness.light;
+  final backgroundColor = isLight
+      ? const Color(0xFFF0F0F0)
+      : const Color(0xFF454545);
+  final textColor = isLight ? const Color(0xFF2E2E2E) : const Color(0xFFF5F5F5);
   await Fluttertoast.showToast(
     msg: message,
     toastLength: Toast.LENGTH_SHORT,
     timeInSecForIosWeb: isIos ? 2 : 1,
     // Android는 색상을 전달하지 않아 기본 네이티브 Toast를 유지한다.
-    backgroundColor: isIos ? colors.inverseSurface : null,
-    textColor: isIos ? colors.onInverseSurface : null,
+    backgroundColor: isIos ? backgroundColor : null,
+    textColor: isIos || kIsWeb ? textColor : null,
+    webBgColor: isLight ? '#F0F0F0' : '#454545',
+    webPosition: 'center',
   );
 }
 
