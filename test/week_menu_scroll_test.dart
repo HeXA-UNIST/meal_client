@@ -422,6 +422,204 @@ void main() {
     }
   });
 
+  testWidgets('끼니 이동 중 요일 탭을 무시하고 애니메이션이 끝나면 다시 선택한다', (tester) async {
+    await mount(tester);
+    final tab = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+    final monday = tester
+        .widget<NestedPageScrollView>(find.byType(NestedPageScrollView).first)
+        .controller;
+
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    final before = monday.page!;
+    expect(before, greaterThan(0));
+    expect(before, lessThan(0.5));
+    await tester.tap(find.text('화'), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 30));
+
+    expect(tab.index, 0);
+    expect(monday.page, greaterThan(before));
+    expect(monday.page, lessThan(1));
+    await tester.pumpAndSettle();
+    expect(monday.page, 1);
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '점심',
+    );
+
+    await tester.tap(find.text('화'));
+    await tester.pumpAndSettle();
+    expect(tab.index, 1);
+    for (final view in tester.widgetList<NestedPageScrollView>(
+      find.byType(NestedPageScrollView, skipOffstage: false),
+    )) {
+      if (view.controller.hasClients) expect(view.controller.page, 1);
+    }
+  });
+
+  for (final input in ['드래그', '휠']) {
+    testWidgets('끼니 이동 중 가로 $input 입력을 무시한다', (tester) async {
+      await mount(tester);
+      final tab = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+      await tester.tap(find.byType(MealOfDaySwitchButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+      if (input == '휠') {
+        await tester.sendEventToBinding(
+          const PointerScrollEvent(
+            position: Offset(200, 300),
+            scrollDelta: Offset(400, 0),
+          ),
+        );
+      } else {
+        final gesture = await tester.startGesture(const Offset(200, 300));
+        await gesture.moveBy(const Offset(-30, 0));
+        await tester.pump();
+        await gesture.moveBy(const Offset(-240, 0));
+        await gesture.up();
+      }
+      await tester.pumpAndSettle();
+      expect(tab.index, 0);
+      expect(
+        tester
+            .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+            .label,
+        '점심',
+      );
+
+      await wheel(tester, const Offset(400, 0));
+      await tester.pumpAndSettle();
+      expect(tab.index, 1);
+    });
+  }
+
+  testWidgets('끼니 버튼을 연속으로 누르면 마지막 이동이 끝날 때까지 요일을 잠근다', (tester) async {
+    await mount(tester);
+    final tab = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.text('화'), warnIfMissed: false);
+    await tester.pump();
+    expect(tab.index, 0);
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '저녁',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('화'));
+    await tester.pumpAndSettle();
+    expect(tab.index, 1);
+    for (final view in tester.widgetList<NestedPageScrollView>(
+      find.byType(NestedPageScrollView, skipOffstage: false),
+    )) {
+      if (view.controller.hasClients) expect(view.controller.page, 2);
+    }
+  });
+
+  testWidgets('요일 탭 전환 중 끼니 버튼을 무시하고 전환 후 다시 사용할 수 있다', (tester) async {
+    await mount(tester);
+    final tab = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+    await tester.tap(find.text('화'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.byType(MealOfDaySwitchButton), warnIfMissed: false);
+    await tester.pump();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '아침',
+    );
+    await tester.pumpAndSettle();
+    expect(tab.index, 1);
+
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '점심',
+    );
+  });
+
+  testWidgets('가로 휠 세션과 정렬 중 끼니 버튼을 무시한다', (tester) async {
+    await mount(tester);
+    await wheel(tester, const Offset(100, 0));
+    await tester.pump(const Duration(milliseconds: 190));
+    final horizontal = tester
+        .widgetList<PageView>(find.byType(PageView))
+        .singleWhere((view) => view.scrollDirection == Axis.horizontal)
+        .controller!;
+    expect(horizontal.page, greaterThan(0));
+    expect(horizontal.page, lessThan(1));
+    await tester.tap(find.byType(MealOfDaySwitchButton), warnIfMissed: false);
+    await tester.pump();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '아침',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '점심',
+    );
+  });
+
+  testWidgets('가로 드래그를 놓기 전에는 끼니 버튼을 무시하고 정렬 후 다시 사용할 수 있다', (tester) async {
+    await mount(tester);
+    final gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-220, 0));
+    await tester.pump();
+
+    await tester.tap(find.byType(MealOfDaySwitchButton), warnIfMissed: false);
+    await tester.pump();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '아침',
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '점심',
+    );
+  });
+
+  testWidgets('끼니 버튼 전환 중 화면이 폐기되어도 예외가 발생하지 않는다', (tester) async {
+    await mount(tester);
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('가로 휠은 요일만 이동하고 세로가 주성분이면 끼니만 이동한다', (tester) async {
     await mount(tester);
     final tabController = tester

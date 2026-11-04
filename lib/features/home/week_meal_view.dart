@@ -68,6 +68,8 @@ class WeekMealTabBarView extends StatefulWidget {
     this.currentKstDateTime,
     this.onNextWeekRequested,
     this.onPreviousWeekRequested,
+    this.isMealTransitionActive,
+    this.onHorizontalActivityChanged,
   });
 
   final WeekMeal weekMeal;
@@ -80,6 +82,8 @@ class WeekMealTabBarView extends StatefulWidget {
   final DateTime? currentKstDateTime;
   final Future<void> Function()? onNextWeekRequested;
   final Future<void> Function()? onPreviousWeekRequested;
+  final bool Function()? isMealTransitionActive;
+  final ValueChanged<bool>? onHorizontalActivityChanged;
 
   @override
   State<WeekMealTabBarView> createState() => _WeekMealTabBarViewState();
@@ -95,6 +99,8 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   late final AnimationController _edgeReturn;
 
   ScrollPosition? _horizontalPosition;
+  ScrollPosition? _trackedHorizontalPosition;
+  bool _horizontalActivity = false;
   bool _horizontalPointerScrolling = false;
   bool _edgeEligible = false;
   double _edgeDirection = 1;
@@ -108,8 +114,29 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         _edgeDistance.value = _edgeReturn.value
             .clamp(0.0, double.infinity)
             .toDouble();
-      });
+      })
+      ..addStatusListener((_) => _updateHorizontalActivity());
     widget.tabController.addListener(_onTabChanged);
+  }
+
+  void _updateHorizontalActivity() {
+    final active =
+        _horizontalPosition != null ||
+        (_trackedHorizontalPosition?.isScrollingNotifier.value ?? false) ||
+        _edgeReturn.isAnimating ||
+        _changingWeek;
+    if (_horizontalActivity == active) return;
+    _horizontalActivity = active;
+    widget.onHorizontalActivityChanged?.call(active);
+  }
+
+  void _trackHorizontalPosition(ScrollPosition position) {
+    if (_trackedHorizontalPosition == position) return;
+    _trackedHorizontalPosition?.isScrollingNotifier.removeListener(
+      _updateHorizontalActivity,
+    );
+    _trackedHorizontalPosition = position;
+    position.isScrollingNotifier.addListener(_updateHorizontalActivity);
   }
 
   void _onTabChanged() {
@@ -174,17 +201,20 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     if (changeWeek && onWeekRequested != null) {
       unawaited(_changeWeek(onWeekRequested));
     }
+    _updateHorizontalActivity();
   }
 
   Future<void> _changeWeek(Future<void> Function() changeWeek) async {
     if (!mounted || _changingWeek) return;
     setState(() => _changingWeek = true);
+    _updateHorizontalActivity();
     try {
       await changeWeek();
     } finally {
       if (mounted) {
         _pointerSession.reset();
         setState(() => _changingWeek = false);
+        _updateHorizontalActivity();
       }
     }
   }
@@ -209,14 +239,18 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         ? _edgeDistance.value
         : 0.0;
     _finishHorizontal(cancel: true);
+    _trackHorizontalPosition(position);
     _horizontalPosition = position;
     _edgeEligible = eligible;
     _edgeDirection = direction;
     _edgeDistance.value = remainingDistance;
+    _updateHorizontalActivity();
   }
 
   void _startHorizontal(BuildContext context, DragStartDetails details) {
-    if (_changingWeek) return;
+    if (_changingWeek || (widget.isMealTransitionActive?.call() ?? false)) {
+      return;
+    }
     _pointerSession.reset();
     final position = Scrollable.maybeOf(
       context,
@@ -227,7 +261,11 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
 
   void _updateHorizontal(DragUpdateDetails details) {
     final position = _horizontalPosition;
-    if (position == null || _changingWeek) return;
+    if (position == null ||
+        _changingWeek ||
+        (widget.isMealTransitionActive?.call() ?? false)) {
+      return;
+    }
     final input = axisDirectionIsReversed(position.axisDirection)
         ? details.delta.dx
         : -details.delta.dx;
@@ -287,7 +325,10 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
       if (!mounted) return;
       event.respond(allowPlatformDefault: false);
-      if (_changingWeek) return;
+      if (_changingWeek || (widget.isMealTransitionActive?.call() ?? false)) {
+        _pointerSession.reset();
+        return;
+      }
       if (_horizontalPosition != position) {
         _beginHorizontal(position);
         _pointerSession.selectAxis(delta, shifted: shifted);
@@ -319,6 +360,10 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   @override
   void dispose() {
     _finishHorizontal(cancel: true);
+    _trackedHorizontalPosition?.isScrollingNotifier.removeListener(
+      _updateHorizontalActivity,
+    );
+    if (_horizontalActivity) widget.onHorizontalActivityChanged?.call(false);
     _pointerSession.reset();
     _edgeReturn.dispose();
     _edgeDistance.dispose();
