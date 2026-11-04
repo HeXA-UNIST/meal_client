@@ -67,6 +67,54 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('같은 주 복귀는 성공 후 1시간에 갱신하고 진행 중 요청을 중복하지 않는다', (tester) async {
+    var now = DateTime.utc(2026, 8, 10, 3);
+    var downloads = 0;
+    final refresh = Completer<MealResponse>();
+    final updated = _mealResponse(
+      DateTime.utc(2026, 8, 10),
+      nextWeekStart: '2026-08-17',
+    );
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => now,
+        refreshMeal: () {
+          downloads++;
+          return downloads == 1
+              ? Future.value(_mealResponse(DateTime.utc(2026, 8, 10)))
+              : refresh.future;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    WeekMenuScaffold scaffold() =>
+        tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
+    final before = scaffold();
+    Future<void> resumeAfter(Duration duration) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      now = now.add(duration);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await resumeAfter(const Duration(minutes: 59));
+    expect(downloads, 1);
+    expect(scaffold().mealFuture, same(before.mealFuture));
+    await resumeAfter(const Duration(minutes: 1));
+    expect(downloads, 2);
+    await resumeAfter(const Duration(minutes: 2));
+    expect(downloads, 2);
+    refresh.complete(updated);
+    await tester.pumpAndSettle();
+    expect(await scaffold().mealFuture, same(updated.weekMeal));
+    expect(await _nextWeekStart(scaffold()), '2026-08-17');
+    expect(scaffold().key, before.key);
+    await resumeAfter(const Duration(minutes: 59));
+    expect(downloads, 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('안내 정보가 실패해도 화면을 켜 둔 채 월요일을 지나면 새 주를 읽는다', (tester) async {
     var now = DateTime.utc(2026, 8, 16, 14, 59, 59);
     var downloads = 0;
@@ -94,7 +142,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('운영시간 경계와 같은 주 복귀에서 표시만 갱신하고 선택과 식단을 유지한다', (tester) async {
+  testWidgets('운영시간 경계에서는 표시만 갱신하고 오래 지난 복귀에서는 식단도 갱신한다', (tester) async {
     var now = DateTime.utc(2026, 8, 9, 22, 59, 59);
     final info = AppInfo.fromJson({
       'announcement': null,
@@ -151,8 +199,9 @@ void main() {
     await tester.pumpAndSettle();
     after = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
     expect(after.today, DayOfWeek.wed);
-    expect(after.mealFuture, same(before.mealFuture));
-    expect(downloads, 1);
+    expect(after.initialDayOfWeek, DayOfWeek.mon);
+    expect(after.mealFuture, isNot(same(before.mealFuture)));
+    expect(downloads, 2);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -533,13 +582,13 @@ Future<AppInfo> _loadEmptyAppInfo() async {
   });
 }
 
-MealResponse _mealResponse(DateTime startDate) {
+MealResponse _mealResponse(DateTime startDate, {String? nextWeekStart}) {
   return (
     weekMeal: WeekMeal.empty(),
     weekMeta: WeekMeta(
       startDate: startDate,
       isCurrentWeek: true,
-      nextWeekStart: null,
+      nextWeekStart: nextWeekStart,
     ),
   );
 }

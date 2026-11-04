@@ -71,6 +71,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final Future<AppInfo> _freshAppInfo;
   DateTime? _infoCacheReadyAt;
   Future<void> _mealRefreshQueue = Future.value();
+  DateTime? _lastSuccessfulMealRefreshAt;
+  bool _mealRefreshInProgress = false;
+  int _mealLoadGeneration = 0;
   Timer? _displayTimer;
   AppInfo? _displayInfo;
   bool _displayActive =
@@ -239,11 +242,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // 같은 주의 복귀나 오프라인 상태에서도 위젯 갱신을 다시 요청한다.
     unawaited(_refreshHomeWidgetsFromCache());
     _refreshDisplay();
+    final lastSuccess = _lastSuccessfulMealRefreshAt;
+    if (!_mealRefreshInProgress &&
+        (lastSuccess == null ||
+            _now().difference(lastSuccess) >= foregroundMealRefreshInterval)) {
+      setState(() {
+        _initializeDataLoading(preserveCurrentMeal: lastSuccess != null);
+      });
+    }
   }
 
-  void _initializeDataLoading() {
+  void _initializeDataLoading({bool preserveCurrentMeal = false}) {
+    final previousMeal = preserveCurrentMeal ? downloadedMeal : null;
+    final previousNextWeekStart = preserveCurrentMeal ? nextWeekStart : null;
+    final generation = ++_mealLoadGeneration;
+    _mealRefreshInProgress = true;
     final cachedMealRecord = (widget.loadCachedMeal ?? getCachedMealData)();
     final downloadedMealRecord = _enqueueMealRefresh(cachedMealRecord)
+        .then((record) {
+          if (generation == _mealLoadGeneration) {
+            _lastSuccessfulMealRefreshAt = _now();
+          }
+          return record;
+        })
+        .whenComplete(() {
+          if (generation == _mealLoadGeneration) {
+            _mealRefreshInProgress = false;
+          }
+        })
         .catchError((e) {
           assert(() {
             debugPrint('[BapU] meal fetch failed: $e');
@@ -252,8 +278,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           throw e;
         });
 
-    cachedMeal = cachedMealRecord.then((r) => r.weekMeal);
+    // 같은 주의 복귀 갱신이 실패해도 마지막으로 표시한 식단과 게시 정보를 유지한다.
+    cachedMeal = previousMeal ?? cachedMealRecord.then((r) => r.weekMeal);
     downloadedMeal = downloadedMealRecord.then((r) => r.weekMeal);
+    if (previousMeal != null) {
+      downloadedMeal = downloadedMeal.catchError((Object _) => previousMeal);
+    }
     // 캐시(getCachedMealData)의 신선도 검증은 주차 번호만 비교하므로,
     // 같은 주 안에서 nextWeekStart가 null → 날짜로 바뀌는 변화를 감지하지
     // 못한다. 반드시 매번 새로 받아오는 downloadedMealRecord 기준으로
@@ -261,7 +291,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // 2026-07-07-next-week-preview-design.md 참고).
     nextWeekStart = downloadedMealRecord
         .then<String?>((r) => r.weekMeta.nextWeekStart)
-        .catchError((e) => null);
+        .catchError((Object _) => previousNextWeekStart);
   }
 
   /// 주차 전환 전후의 갱신이 canonical meal.json을 역순으로 쓰지 않게 한다.
