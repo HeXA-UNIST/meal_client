@@ -26,6 +26,7 @@ class WeekMenuScaffold extends StatefulWidget {
     this.bannerText,
     this.drawer,
     this.onNextWeekRequested,
+    this.onPreviousWeekRequested,
     this.titleFontWeight = FontWeight.w700,
   });
 
@@ -40,6 +41,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final String? bannerText;
   final Widget? drawer;
   final Future<void> Function()? onNextWeekRequested;
+  final Future<void> Function()? onPreviousWeekRequested;
   final FontWeight titleFontWeight;
 
   @override
@@ -286,6 +288,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
   Widget _buildTabBarView(WeekMeal weekMeal) {
     return WeekMealTabBarView(
       onNextWeekRequested: widget.onNextWeekRequested,
+      onPreviousWeekRequested: widget.onPreviousWeekRequested,
       pageCount: MealOfDay.values.length,
       weekMeal: weekMeal,
       tabController: _tabController,

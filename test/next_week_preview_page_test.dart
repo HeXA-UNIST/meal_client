@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -18,6 +19,80 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
+  for (final useWheel in [false, true]) {
+    testWidgets(
+      '미리보기 ${useWheel ? '휠' : '터치'} 경계는 일요일에서 멈추고 월요일에서 이번 주로 돌아온다',
+      (tester) async {
+        tester.view.physicalSize = const Size(400, 600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('ko'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute(
+                      builder: (_) => NextWeekPreviewPage(
+                        nextWeekStartFuture: Future.value('2026-06-22'),
+                        appInfo: Future.value(_emptyAppInfo()),
+                        loadDatedWeek: (_) async =>
+                            parseRawMeal(_emptyWeekRawJson('2026-06-22')),
+                        onNextWeekMealRefreshed: () {},
+                      ),
+                    ),
+                  ),
+                  child: const Text('이번 주'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('이번 주'));
+        await tester.pumpAndSettle();
+        Future<void> overscroll({required bool forward}) async {
+          final center = tester.getCenter(find.byType(TabBarView));
+          if (useWheel) {
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: center,
+                scrollDelta: Offset(forward ? 160 : -160, 0),
+              ),
+            );
+            await tester.pump(const Duration(milliseconds: 200));
+          } else {
+            final gesture = await tester.startGesture(center);
+            await gesture.moveBy(Offset(forward ? -30 : 30, 0));
+            await tester.pump();
+            await gesture.moveBy(Offset(forward ? -160 : 160, 0));
+            await tester.pump();
+            await gesture.up();
+          }
+          await tester.pumpAndSettle();
+        }
+
+        await tester.tap(find.text('일'));
+        await tester.pumpAndSettle();
+        await overscroll(forward: true);
+        expect(find.byType(NextWeekPreviewPage), findsOneWidget);
+        expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 6);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        await tester.tap(find.text('월'));
+        await tester.pumpAndSettle();
+        await overscroll(forward: false);
+        expect(find.byType(NextWeekPreviewPage), findsNothing);
+        expect(find.text('이번 주'), findsOneWidget);
+      },
+    );
+  }
+
   testWidgets('다음 주 미준비 시 화면 전환 없이 안내 Toast를 띄운다', (tester) async {
     final calls = <MethodCall>[];
     const channel = MethodChannel('PonnamKarthik/fluttertoast');

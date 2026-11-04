@@ -237,6 +237,9 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
           appInfo: widget.appInfo,
           bannerText: l10n.previewingNextWeek,
           titleFontWeight: FontWeight.w600,
+          onPreviousWeekRequested: () async {
+            await Navigator.of(context).maybePop();
+          },
         );
       },
     );

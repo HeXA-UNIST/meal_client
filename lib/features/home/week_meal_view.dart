@@ -67,6 +67,7 @@ class WeekMealTabBarView extends StatefulWidget {
     required this.mondayOfWeek,
     this.currentKstDateTime,
     this.onNextWeekRequested,
+    this.onPreviousWeekRequested,
   });
 
   final WeekMeal weekMeal;
@@ -78,13 +79,14 @@ class WeekMealTabBarView extends StatefulWidget {
   final DateTime mondayOfWeek;
   final DateTime? currentKstDateTime;
   final Future<void> Function()? onNextWeekRequested;
+  final Future<void> Function()? onPreviousWeekRequested;
 
   @override
   State<WeekMealTabBarView> createState() => _WeekMealTabBarViewState();
 }
 
 class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
-  // 일반 페이지 이동과 별도로 관리하는 다음 주 진입 기준.
+  // 일반 페이지 이동과 별도로 관리하는 주 경계 전환 기준.
   static const _weekBoundaryDistance = 120.0;
   final _horizontalMotion = ResistantPageMotion();
   final _pointerSession = PointerScrollSession();
@@ -93,7 +95,8 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
   ScrollPosition? _horizontalPosition;
   bool _horizontalPointerScrolling = false;
   bool _edgeEligible = false;
-  bool _openingNextWeek = false;
+  double _edgeDirection = 1;
+  bool _changingWeek = false;
 
   @override
   void initState() {
@@ -110,14 +113,17 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
 
   void _finishHorizontal({
     bool cancel = false,
-    bool allowNextWeek = true,
+    bool allowWeekChange = true,
     double velocity = 0,
   }) {
-    final openNextWeek =
+    final changeWeek =
         !cancel &&
-        allowNextWeek &&
+        allowWeekChange &&
         _edgeEligible &&
         _edgeDistance.value >= _weekBoundaryDistance;
+    final onWeekRequested = _edgeDirection > 0
+        ? widget.onNextWeekRequested
+        : widget.onPreviousWeekRequested;
     if (_pointerSession.axis == Axis.horizontal) _pointerSession.reset();
     _horizontalPosition = null;
     if (cancel) {
@@ -128,38 +134,46 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
     _horizontalPointerScrolling = false;
     _edgeEligible = false;
     _edgeDistance.value = 0;
-    if (openNextWeek) unawaited(_openNextWeek());
+    if (changeWeek && onWeekRequested != null) {
+      unawaited(_changeWeek(onWeekRequested));
+    }
   }
 
-  Future<void> _openNextWeek() async {
-    final open = widget.onNextWeekRequested;
-    if (!mounted || _openingNextWeek || open == null) return;
-    setState(() => _openingNextWeek = true);
+  Future<void> _changeWeek(Future<void> Function() changeWeek) async {
+    if (!mounted || _changingWeek) return;
+    setState(() => _changingWeek = true);
     try {
-      await open();
+      await changeWeek();
     } finally {
       if (mounted) {
         _pointerSession.reset();
-        setState(() => _openingNextWeek = false);
+        setState(() => _changingWeek = false);
       }
     }
   }
 
   void _beginHorizontal(ScrollPosition position) {
-    // 일요일로 이동 중 시작된 입력이나 같은 관성으로 다음 주를 열지 않는다.
-    final eligible =
+    // 경계 요일로 이동 중 시작된 입력이나 같은 관성으로 주를 전환하지 않는다.
+    final atEnd =
         widget.onNextWeekRequested != null &&
-        !position.isScrollingNotifier.value &&
-        !widget.tabController.indexIsChanging &&
         widget.tabController.index == widget.tabController.length - 1 &&
         (position.pixels - position.maxScrollExtent).abs() < 0.01;
+    final atStart =
+        widget.onPreviousWeekRequested != null &&
+        widget.tabController.index == 0 &&
+        (position.pixels - position.minScrollExtent).abs() < 0.01;
+    final eligible =
+        !position.isScrollingNotifier.value &&
+        !widget.tabController.indexIsChanging &&
+        (atEnd || atStart);
     _finishHorizontal(cancel: true);
     _horizontalPosition = position;
     _edgeEligible = eligible;
+    _edgeDirection = atStart ? -1 : 1;
   }
 
   void _startHorizontal(BuildContext context, DragStartDetails details) {
-    if (_openingNextWeek) return;
+    if (_changingWeek) return;
     _pointerSession.reset();
     final position = Scrollable.maybeOf(
       context,
@@ -170,21 +184,21 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
 
   void _updateHorizontal(DragUpdateDetails details) {
     final position = _horizontalPosition;
-    if (position == null || _openingNextWeek) return;
+    if (position == null || _changingWeek) return;
     final input = axisDirectionIsReversed(position.axisDirection)
         ? details.delta.dx
         : -details.delta.dx;
     var remainingDetails = details;
     if (_edgeEligible) {
       final previous = _edgeDistance.value;
-      final distance = (_edgeDistance.value + input)
+      final distance = (previous + input * _edgeDirection)
           .clamp(0.0, _weekBoundaryDistance * 2)
           .toDouble();
       _edgeDistance.value = distance;
       if (distance > 0) return;
       // 안쪽으로 돌아간 세션에서는 주 경계를 다시 시작하지 않는다.
       _edgeEligible = false;
-      final remaining = input + previous;
+      final remaining = input + previous * _edgeDirection;
       if (remaining == 0) return;
       final dx = axisDirectionIsReversed(position.axisDirection)
           ? remaining
@@ -206,7 +220,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
 
   void _onPointerSignal(BuildContext context, PointerSignalEvent event) {
     if (event is PointerScrollInertiaCancelEvent) {
-      _finishHorizontal(allowNextWeek: false);
+      _finishHorizontal(allowWeekChange: false);
       return;
     }
     if (event is! PointerScrollEvent) return;
@@ -226,7 +240,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
       if (!mounted) return;
       event.respond(allowPlatformDefault: false);
-      if (_openingNextWeek) return;
+      if (_changingWeek) return;
       if (_horizontalPosition != position) {
         _beginHorizontal(position);
         _pointerSession.selectAxis(delta, shifted: shifted);
@@ -275,13 +289,14 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
         (tabIndex) => NestedPageScrollView(
           pointerSession: _pointerSession,
           isHorizontalInputActive: () =>
-              _horizontalPosition != null || _openingNextWeek,
+              _horizontalPosition != null || _changingWeek,
           onHorizontalPointerSignal: _onPointerSignal,
           onHorizontalDragStart: _startHorizontal,
           onHorizontalDragUpdate: _updateHorizontal,
           onHorizontalDragEnd: (details) =>
               _finishHorizontal(velocity: details.primaryVelocity ?? 0),
-          onHorizontalDragCancel: () => _finishHorizontal(allowNextWeek: false),
+          onHorizontalDragCancel: () =>
+              _finishHorizontal(allowWeekChange: false),
           controller: widget.pageControllerGroup.getController(tabIndex),
           onPageChanged: (page) {
             // 비활성 요일의 동기화나 늦은 정렬이 끼니 버튼을 덮어쓰지 않게 한다.
@@ -533,11 +548,15 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
           children: [
             if (distance > 0)
               Align(
-                alignment: AlignmentDirectional.centerEnd,
+                alignment: _edgeDirection > 0
+                    ? AlignmentDirectional.centerEnd
+                    : AlignmentDirectional.centerStart,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Semantics(
-                    label: l10n.nextWeekPreview,
+                    label: _edgeDirection > 0
+                        ? l10n.nextWeekPreview
+                        : MaterialLocalizations.of(context).backButtonTooltip,
                     child: SizedBox.square(
                       dimension: 28,
                       child: CircularProgressIndicator(value: progress),
@@ -546,7 +565,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView> {
                 ),
               ),
             Transform.translate(
-              offset: Offset(direction * offset, 0),
+              offset: Offset(direction * _edgeDirection * offset, 0),
               child: child,
             ),
           ],
