@@ -139,7 +139,7 @@ void main() {
           key: scaffoldKey,
           drawer: HomePageDrawer(
             infoFuture: Future.value(info),
-            nextWeekStart: Future.value(null),
+            nextWeekStart: Future.value('2026-06-22'),
           ),
           body: const SizedBox.shrink(),
         ),

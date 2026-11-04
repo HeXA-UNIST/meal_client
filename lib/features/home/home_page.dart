@@ -438,13 +438,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       appInfo: appInfo,
       drawer: HomePageDrawer(infoFuture: appInfo, nextWeekStart: nextWeekStart),
       onNextWeekRequested: () async {
-        await Navigator.of(context).push<void>(
-          MaterialPageRoute(
-            builder: (_) => NextWeekPreviewPage(
-              nextWeekStartFuture: nextWeekStart,
-              appInfo: appInfo,
-            ),
-          ),
+        await openNextWeekPreview(
+          context: context,
+          nextWeekStartFuture: nextWeekStart,
+          appInfo: appInfo,
         );
       },
     );

@@ -43,10 +43,23 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(NextWeekPreviewPage), findsNothing);
+    refresh.complete((
+      weekMeal: WeekMeal.empty(),
+      weekMeta: WeekMeta(
+        startDate: DateTime.utc(2026, 8, 10),
+        isCurrentWeek: true,
+        nextWeekStart: '2026-08-17',
+      ),
+    ));
+    for (var frame = 0; frame < 5; frame++) {
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 400));
     final preview = tester.widget<NextWeekPreviewPage>(
       find.byType(NextWeekPreviewPage),
     );
-    expect(preview.nextWeekStartFuture, same(_nextWeekStart(home)));
+    expect(await preview.nextWeekStartFuture, '2026-08-17');
     expect(preview.appInfo, same(home.appInfo));
     Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
     await tester.pump(const Duration(milliseconds: 400));

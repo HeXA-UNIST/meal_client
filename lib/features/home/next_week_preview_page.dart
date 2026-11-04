@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
@@ -11,19 +14,66 @@ import 'week_menu_scaffold.dart';
 
 typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
 
+Future<void> _showPreviewToast(BuildContext context, String message) async {
+  final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  final colors = Theme.of(context).colorScheme;
+  await Fluttertoast.showToast(
+    msg: message,
+    toastLength: Toast.LENGTH_SHORT,
+    timeInSecForIosWeb: isIos ? 2 : 1,
+    // Android는 색상을 전달하지 않아 기본 네이티브 Toast를 유지한다.
+    backgroundColor: isIos ? colors.inverseSurface : null,
+    textColor: isIos ? colors.onInverseSurface : null,
+  );
+}
+
+Future<void> openNextWeekPreview({
+  required BuildContext context,
+  required Future<String?> nextWeekStartFuture,
+  required Future<AppInfo> appInfo,
+}) async {
+  String? nextWeekStart;
+  try {
+    nextWeekStart = await nextWeekStartFuture;
+  } catch (error, stackTrace) {
+    debugPrint('[BapU] next week metadata fetch failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+    if (!context.mounted) return;
+    await _showPreviewToast(
+      context,
+      AppLocalizations.of(context)!.cannotLoadMeal,
+    );
+    return;
+  }
+  if (!context.mounted) return;
+  if (nextWeekStart == null) {
+    await _showPreviewToast(
+      context,
+      AppLocalizations.of(context)!.nextWeekNotReady,
+    );
+    return;
+  }
+  await Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => NextWeekPreviewPage(
+        nextWeekStartFuture: Future.value(nextWeekStart),
+        appInfo: appInfo,
+      ),
+    ),
+  );
+}
+
 class NextWeekPreviewPage extends StatefulWidget {
   const NextWeekPreviewPage({
     super.key,
     required this.nextWeekStartFuture,
     required this.appInfo,
-    this.refreshNextWeekStart,
     this.loadDatedWeek,
     this.onNextWeekMealRefreshed,
   });
 
   final Future<String?> nextWeekStartFuture;
   final Future<AppInfo> appInfo;
-  final Future<String?> Function()? refreshNextWeekStart;
   final DatedWeekMealLoader? loadDatedWeek;
   final VoidCallback? onNextWeekMealRefreshed;
 
@@ -37,15 +87,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
   @override
   void initState() {
     super.initState();
-    _nextWeekStartFuture = widget.nextWeekStartFuture.then((nextWeekStart) {
-      if (nextWeekStart != null) return nextWeekStart;
-      return (widget.refreshNextWeekStart ?? _refreshNextWeekStart)();
-    });
-  }
-
-  Future<String?> _refreshNextWeekStart() async {
-    final response = await fetchAndCacheMealData(prefetchNextWeek: false);
-    return response.weekMeta.nextWeekStart;
+    _nextWeekStartFuture = widget.nextWeekStartFuture;
   }
 
   @override

@@ -57,6 +57,7 @@ dependencies:
 
   material_ui: any
   cupertino_ui: any
+  fluttertoast: ^10.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
