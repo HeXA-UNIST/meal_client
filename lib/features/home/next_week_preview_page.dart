@@ -208,46 +208,16 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    return FutureBuilder<WeekMeal>(
-      future: _mealFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _MessageScaffold(
-            title: l10n.nextWeekPreview,
-            child: Text(
-              l10n.cannotLoadMeal,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          );
-        }
-        if (!snapshot.hasData) {
-          return _MessageScaffold(
-            title: l10n.nextWeekPreview,
-            child: CircularProgressIndicator.adaptive(
-              // 밝은 surface에서는 더 어두운 primary를 사용해 비텍스트 대비를
-              // 확보하고, 다크 surface에서는 브랜드 primaryContainer를 유지한다.
-              valueColor: AlwaysStoppedAnimation(
-                theme.brightness == Brightness.light
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.primaryContainer,
-              ),
-            ),
-          );
-        }
-
-        return WeekMenuScaffold(
-          mondayOfWeek: _mondayOfWeek,
-          initialDayOfWeek: DayOfWeek.mon,
-          initialMealOfDay: widget.initialMealOfDay ?? MealOfDay.breakfast,
-          mealFuture: _mealFuture,
-          appInfo: widget.appInfo,
-          bannerText: l10n.previewingNextWeek,
-          titleFontWeight: FontWeight.w600,
-          onPreviousWeekRequested: () async {
-            await Navigator.of(context).maybePop();
-          },
-        );
+    return WeekMenuScaffold(
+      mondayOfWeek: _mondayOfWeek,
+      initialDayOfWeek: DayOfWeek.mon,
+      initialMealOfDay: widget.initialMealOfDay ?? MealOfDay.breakfast,
+      mealFuture: _mealFuture,
+      appInfo: widget.appInfo,
+      bannerText: l10n.previewingNextWeek,
+      titleFontWeight: FontWeight.w600,
+      onPreviousWeekRequested: () async {
+        await Navigator.of(context).maybePop();
       },
     );
   }
