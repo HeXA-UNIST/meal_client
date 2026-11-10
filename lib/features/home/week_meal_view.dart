@@ -185,7 +185,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     _horizontalPointerScrolling = false;
     _edgeEligible = false;
     _edgeReturn.stop();
-    if (cancel || changeWeek) {
+    if (cancel) {
       _edgeDistance.value = 0;
     } else if (_edgeDistance.value > 0) {
       // 손을 놓은 위치와 속도에서 스크롤용 스프링으로 복귀한다.

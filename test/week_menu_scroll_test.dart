@@ -226,8 +226,19 @@ void main() {
     await gesture.moveBy(const Offset(-160, 0));
     await tester.pump();
     expect(opened, 0);
+    final origin = tester.view.physicalSize.width / 2;
+    double centerX() => tester.getCenter(find.byType(TabBarView)).dx;
+    final pulled = centerX();
+    await tester.pump(const Duration(milliseconds: 100));
     await gesture.up();
+    expect(opened, 1);
+    await tester.pump();
+    expect(centerX(), closeTo(pulled, 0.01));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(centerX(), greaterThan(pulled));
+    expect(centerX(), lessThan(origin));
     await tester.pumpAndSettle();
+    expect(centerX(), closeTo(origin, 0.01));
     expect(opened, 1);
   });
 
@@ -242,10 +253,18 @@ void main() {
         return route.future;
       },
     );
+    double centerX() => tester.getCenter(find.byType(TabBarView)).dx;
+    final origin = centerX();
     await wheel(tester, const Offset(150, 0));
+    final pulled = centerX();
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.pumpAndSettle();
     expect(opened, 1);
+    expect(centerX(), closeTo(pulled, 0.01));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(centerX(), greaterThan(pulled));
+    expect(centerX(), lessThan(origin));
+    await tester.pumpAndSettle();
+    expect(centerX(), closeTo(origin, 0.01));
     await wheel(tester, const Offset(150, 0));
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
