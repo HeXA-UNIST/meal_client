@@ -24,7 +24,7 @@ Future<void> _showPreviewToast(BuildContext context, String message) async {
   await Fluttertoast.showToast(
     msg: message,
     toastLength: Toast.LENGTH_SHORT,
-    timeInSecForIosWeb: isIos ? 2 : 1,
+    timeInSecForIosWeb: 2,
     // Android는 색상을 전달하지 않아 기본 네이티브 Toast를 유지한다.
     backgroundColor: isIos ? backgroundColor : null,
     textColor: isIos || kIsWeb ? textColor : null,
