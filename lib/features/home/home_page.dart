@@ -486,7 +486,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       appInfo: appInfo,
       drawer: HomePageDrawer(
         infoFuture: appInfo,
-        nextWeekStart: nextWeekStart,
         onNextWeekRequested: () => _openNextWeek(),
       ),
       onNextWeekRequested: _openNextWeek,

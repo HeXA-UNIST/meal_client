@@ -2,10 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
-import 'package:meal_client/features/home/home_app_bar.dart';
-import 'package:meal_client/features/home/week_menu_scaffold.dart';
-import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,7 +40,10 @@ void main() {
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               key: scaffoldKey,
-              drawer: HomePageDrawer(infoFuture: Future.value(info)),
+              drawer: HomePageDrawer(
+                infoFuture: Future.value(info),
+                onNextWeekRequested: () async {},
+              ),
               body: const SizedBox.shrink(),
             ),
           ),
@@ -99,7 +98,10 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           key: scaffoldKey,
-          drawer: HomePageDrawer(infoFuture: Future.value(info)),
+          drawer: HomePageDrawer(
+            infoFuture: Future.value(info),
+            onNextWeekRequested: () async {},
+          ),
           body: const SizedBox.shrink(),
         ),
       ),
@@ -121,7 +123,8 @@ void main() {
     expect(find.text('17:30 - 19:00'), findsOneWidget);
   });
 
-  testWidgets('다음 주 미리보기 항목을 탭하면 NextWeekPreviewPage로 이동한다', (tester) async {
+  testWidgets('미리보기 항목을 닫기 중 연타해도 홈을 닫지 않고 콜백을 호출한다', (tester) async {
+    var requested = 0;
     final info = AppInfo.fromJson({
       'announcement': null,
       'operatingHours': {
@@ -137,22 +140,29 @@ void main() {
           ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: WeekMenuScaffold(
-          mondayOfWeek: DateTime.utc(2026, 6, 15),
-          initialDayOfWeek: DayOfWeek.sun,
-          initialMealOfDay: MealOfDay.lunch,
-          mealFuture: Future.value(WeekMeal.empty()),
-          appInfo: Future.value(info),
-          drawer: HomePageDrawer(
-            infoFuture: Future.value(info),
-            nextWeekStart: Future.value('2026-06-22'),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    drawer: HomePageDrawer(
+                      infoFuture: Future.value(info),
+                      onNextWeekRequested: () async => requested++,
+                    ),
+                    body: const Text('홈 화면'),
+                  ),
+                ),
+              ),
+              child: const Text('홈 열기'),
+            ),
           ),
         ),
       ),
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.tap(find.text('홈 열기'));
     await tester.pumpAndSettle();
     tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
     await tester.pumpAndSettle();
@@ -161,16 +171,14 @@ void main() {
       tester.element(find.byType(HomePageDrawer)),
     )!;
     await tester.tap(find.text(l10n.nextWeekPreview));
-    // 이동만 검증하므로 데이터 조회 중인 로딩 애니메이션의 종료는 기다리지 않는다.
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-
-    expect(find.byType(NextWeekPreviewPage), findsOneWidget);
+    await tester.tap(find.text(l10n.nextWeekPreview));
+    expect(requested, 2);
+    await tester.pumpAndSettle();
+    expect(find.text('홈 화면'), findsOneWidget);
+    expect(find.text('홈 열기'), findsNothing);
     expect(
-      tester
-          .widget<NextWeekPreviewPage>(find.byType(NextWeekPreviewPage))
-          .initialMealOfDay,
-      isNull,
+      tester.state<ScaffoldState>(find.byType(Scaffold)).isDrawerOpen,
+      isFalse,
     );
   });
 }

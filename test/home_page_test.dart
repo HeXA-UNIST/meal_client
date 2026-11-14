@@ -62,7 +62,7 @@ void main() {
     final preview = tester.widget<NextWeekPreviewPage>(
       find.byType(NextWeekPreviewPage),
     );
-    expect(await preview.nextWeekStartFuture, '2026-08-17');
+    expect(preview.nextWeekStart, '2026-08-17');
     expect(preview.appInfo, same(home.appInfo));
     expect(preview.initialMealOfDay, home.initialMealOfDay.next);
     Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
@@ -122,9 +122,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pumpAndSettle();
+    tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(HomePageDrawer)),
+    )!;
+    await tester.tap(find.text(l10n.nextWeekPreview));
+    await tester.tap(find.text(l10n.nextWeekPreview));
+    await tester.pumpAndSettle();
+    expect(find.byType(NextWeekPreviewPage), findsNothing);
     final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
-    final drawerRequest =
-        (home.drawer! as HomePageDrawer).onNextWeekRequested!();
     final boundaryRequest = home.onNextWeekRequested!(MealOfDay.lunch);
     refresh.complete(
       _mealResponse(DateTime.utc(2026, 8, 10), nextWeekStart: '2026-08-17'),
@@ -137,10 +146,24 @@ void main() {
       find.byType(NextWeekPreviewPage, skipOffstage: false),
       findsOneWidget,
     );
+    expect(
+      tester
+          .widget<NextWeekPreviewPage>(find.byType(NextWeekPreviewPage))
+          .initialMealOfDay,
+      isNull,
+    );
+    final preview = tester.widget<WeekMenuScaffold>(
+      find.descendant(
+        of: find.byType(NextWeekPreviewPage),
+        matching: find.byType(WeekMenuScaffold),
+      ),
+    );
+    expect(preview.initialDayOfWeek, DayOfWeek.mon);
+    expect(preview.initialMealOfDay, MealOfDay.breakfast);
     final context = tester.element(find.byType(NextWeekPreviewPage));
     Navigator.of(context).pop();
     await tester.pumpAndSettle();
-    await Future.wait([drawerRequest, boundaryRequest]);
+    await boundaryRequest;
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -154,7 +177,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
-    final request = (home.drawer! as HomePageDrawer).onNextWeekRequested!();
+    final request = (home.drawer! as HomePageDrawer).onNextWeekRequested();
     unawaited(
       Navigator.of(tester.element(find.byType(HomePage))).push<void>(
         MaterialPageRoute(builder: (_) => const Scaffold(body: Text('다른 화면'))),
@@ -212,10 +235,24 @@ void main() {
     refresh.complete(updated);
     await tester.pumpAndSettle();
     expect(await scaffold().mealFuture, same(updated.weekMeal));
-    expect(await _nextWeekStart(scaffold()), '2026-08-17');
     expect(scaffold().key, before.key);
     await resumeAfter(const Duration(minutes: 59));
     expect(downloads, 2);
+    final request = (scaffold().drawer! as HomePageDrawer)
+        .onNextWeekRequested();
+    for (var frame = 0; frame < 5; frame++) {
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester
+          .widget<NextWeekPreviewPage>(find.byType(NextWeekPreviewPage))
+          .nextWeekStart,
+      '2026-08-17',
+    );
+    Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
+    await tester.pumpAndSettle();
+    await request;
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -421,8 +458,21 @@ void main() {
 
   testWidgets('일요일 세션이 월요일에 재개되면 주간 화면 상태와 Future를 새로 만든다', (tester) async {
     var now = DateTime.utc(2026, 8, 16, 14, 30); // KST 일요일 23:30
+    var downloads = 0;
 
-    await tester.pumpWidget(_buildHomePage(() => now));
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => now,
+        refreshMeal: () async {
+          downloads++;
+          return _mealResponse(
+            DateTime.utc(2026, 8, downloads == 1 ? 10 : 17),
+            nextWeekStart: downloads == 1 ? '2026-08-17' : '2026-08-24',
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
     final beforeResume = tester.widget<WeekMenuScaffold>(
       find.byType(WeekMenuScaffold),
     );
@@ -443,10 +493,23 @@ void main() {
       isNot(same(beforeResume.cachedMealFuture)),
     );
     expect(afterResume.mealFuture, isNot(same(beforeResume.mealFuture)));
+    await tester.pumpAndSettle();
+    final request = (afterResume.drawer! as HomePageDrawer)
+        .onNextWeekRequested();
+    for (var frame = 0; frame < 5; frame++) {
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 400));
     expect(
-      _nextWeekStart(afterResume),
-      isNot(same(_nextWeekStart(beforeResume))),
+      tester
+          .widget<NextWeekPreviewPage>(find.byType(NextWeekPreviewPage))
+          .nextWeekStart,
+      '2026-08-24',
     );
+    Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
+    await tester.pumpAndSettle();
+    await request;
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('월요일 갱신은 지연된 일요일 갱신 뒤에도 새 주 결과를 유지한다', (tester) async {
@@ -642,10 +705,6 @@ AppInfo _appInfoWithAnnouncement(String content) {
       'weekend': <String, dynamic>{},
     },
   });
-}
-
-Future<String?>? _nextWeekStart(WeekMenuScaffold scaffold) {
-  return (scaffold.drawer! as HomePageDrawer).nextWeekStart;
 }
 
 Widget _buildHomePage(

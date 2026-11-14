@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/home/home_app_bar.dart';
+import 'package:meal_client/features/home/week_menu_scaffold.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -42,7 +43,7 @@ void main() {
                   onPressed: () => Navigator.of(context).push<void>(
                     MaterialPageRoute(
                       builder: (_) => NextWeekPreviewPage(
-                        nextWeekStartFuture: Future.value('2026-06-22'),
+                        nextWeekStart: '2026-06-22',
                         initialMealOfDay: MealOfDay.dinner,
                         appInfo: Future.value(_emptyAppInfo()),
                         loadDatedWeek: (_) async =>
@@ -148,33 +149,47 @@ void main() {
     expect(calls.single.arguments['msg'], '다음 주 식단이 아직 준비되지 않았어요.');
   });
 
-  testWidgets('nextWeekStart 조회 중에는 로딩 인디케이터를 보여준다', (tester) async {
-    final completer = Completer<String?>();
+  testWidgets('식단 로딩 중에도 상단 바를 표시하고 선택한 끼니를 유지한다', (tester) async {
+    final completer = Completer<WeekMeal>();
+    var datedLoads = 0;
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ko'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
-          nextWeekStartFuture: completer.future,
+          nextWeekStart: '2026-06-22',
           appInfo: Future.value(_emptyAppInfo()),
+          loadDatedWeek: (_) {
+            datedLoads++;
+            return completer.future;
+          },
+          onNextWeekMealRefreshed: () {},
         ),
       ),
     );
 
-    // completer가 끝나지 않아 CircularProgressIndicator가 무기한
-    // 애니메이션 중이므로, pumpAndSettle이 아닌 pump 한 프레임만 진행한다.
     await tester.pump();
-
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-    // 위젯 트리를 정리해 completer의 future가 dangling되지 않게 한다.
-    completer.complete(null);
+    expect(find.byType(AnimatedDateTitle), findsOneWidget);
+    expect(find.byType(DayOfWeekTabBar), findsOneWidget);
+    expect(find.text('아침'), findsOneWidget);
+    expect(
+      tester
+          .widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold))
+          .mondayOfWeek,
+      DateTime(2026, 6, 22),
+    );
+    await tester.tap(find.byType(MealOfDaySwitchButton));
     await tester.pump();
-    await tester.pump();
+    completer.complete(WeekMeal.empty());
+    await tester.pumpAndSettle();
+    expect(find.text('점심'), findsOneWidget);
+    expect(datedLoads, 1);
   });
 
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {
@@ -186,7 +201,7 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value('2026-06-22'),
+          nextWeekStart: '2026-06-22',
           appInfo: Future.value(_emptyAppInfo()),
           loadDatedWeek: (_) async => throw Exception('network error'),
         ),
@@ -198,27 +213,9 @@ void main() {
 
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(find.text(l10n.cannotLoadMeal), findsOneWidget);
-  });
-
-  testWidgets('nextWeekStart가 null이면 준비되지 않음 메시지를 보여준다', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value(null),
-          appInfo: Future.value(_emptyAppInfo()),
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    final l10n = lookupAppLocalizations(const Locale('en'));
-    expect(find.text(l10n.nextWeekNotReady), findsOneWidget);
+    expect(find.byType(AnimatedDateTitle), findsOneWidget);
+    expect(find.byType(DayOfWeekTabBar), findsOneWidget);
+    expect(find.byType(MealOfDaySwitchButton), findsOneWidget);
   });
 
   testWidgets('nextWeekStart가 있으면 다음 주 데이터를 불러와 배너와 함께 보여준다', (tester) async {
@@ -276,7 +273,7 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value('2026-06-22'),
+          nextWeekStart: '2026-06-22',
           appInfo: Future.value(_emptyAppInfo()),
           loadDatedWeek: (_) async {
             datedLoads++;
@@ -294,34 +291,6 @@ void main() {
     expect(find.text('쌀밥'), findsOneWidget);
     expect(datedLoads, 1);
     expect(notificationReconciliations, 1);
-  });
-
-  testWidgets('다음 주 날짜가 없으면 추가 식단 조회를 하지 않는다', (tester) async {
-    var datedFetches = 0;
-    final rawJson = _emptyWeekRawJson('2026-06-22');
-
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value(null),
-          appInfo: Future.value(_emptyAppInfo()),
-          loadDatedWeek: (_) async {
-            datedFetches++;
-            return parseRawMeal(rawJson);
-          },
-        ),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump();
-
-    expect(datedFetches, 0);
   });
 }
 
