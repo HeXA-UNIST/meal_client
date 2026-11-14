@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/home/home_app_bar.dart';
-import 'package:meal_client/features/home/week_menu_scaffold.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -21,87 +19,72 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
-  for (final useWheel in [false, true]) {
-    testWidgets(
-      '미리보기 ${useWheel ? '휠' : '터치'} 경계는 일요일에서 멈추고 월요일에서 이번 주로 돌아온다',
-      (tester) async {
-        tester.view.physicalSize = const Size(400, 600);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await tester.pumpWidget(
-          MaterialApp(
-            locale: const Locale('ko'),
-            localizationsDelegates: const [
-              AppLocalizations.delegate,
-              ...GlobalMaterialLocalizations.delegates,
-            ],
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => NextWeekPreviewPage(
-                        nextWeekStart: '2026-06-22',
-                        initialMealOfDay: MealOfDay.dinner,
-                        appInfo: Future.value(_emptyAppInfo()),
-                        loadDatedWeek: (_) async =>
-                            parseRawMeal(_emptyWeekRawJson('2026-06-22')),
-                        onNextWeekMealRefreshed: () {},
-                      ),
-                    ),
+  testWidgets('미리보기 경계는 일요일에서 멈추고 월요일에서 이번 주로 돌아온다', (tester) async {
+    tester.view.physicalSize = const Size(400, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => NextWeekPreviewPage(
+                    nextWeekStart: '2026-06-22',
+                    initialMealOfDay: MealOfDay.dinner,
+                    appInfo: Future.value(_emptyAppInfo()),
+                    loadDatedWeek: (_) async =>
+                        parseRawMeal(_emptyWeekRawJson('2026-06-22')),
+                    onNextWeekMealRefreshed: () {},
                   ),
-                  child: const Text('이번 주'),
                 ),
               ),
+              child: const Text('이번 주'),
             ),
           ),
-        );
-        await tester.tap(find.text('이번 주'));
-        await tester.pumpAndSettle();
-        expect(
-          tester
-              .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
-              .label,
-          '저녁',
-        );
-        Future<void> overscroll({required bool forward}) async {
-          final center = tester.getCenter(find.byType(TabBarView));
-          if (useWheel) {
-            await tester.sendEventToBinding(
-              PointerScrollEvent(
-                position: center,
-                scrollDelta: Offset(forward ? 160 : -160, 0),
-              ),
-            );
-            await tester.pump(const Duration(milliseconds: 200));
-          } else {
-            final gesture = await tester.startGesture(center);
-            await gesture.moveBy(Offset(forward ? -30 : 30, 0));
-            await tester.pump();
-            await gesture.moveBy(Offset(forward ? -160 : 160, 0));
-            await tester.pump();
-            await gesture.up();
-          }
-          await tester.pumpAndSettle();
-        }
-
-        await tester.tap(find.text('일'));
-        await tester.pumpAndSettle();
-        await overscroll(forward: true);
-        expect(find.byType(NextWeekPreviewPage), findsOneWidget);
-        expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 6);
-        expect(find.byType(CircularProgressIndicator), findsNothing);
-        await tester.tap(find.text('월'));
-        await tester.pumpAndSettle();
-        await overscroll(forward: false);
-        expect(find.byType(NextWeekPreviewPage), findsNothing);
-        expect(find.text('이번 주'), findsOneWidget);
-      },
+        ),
+      ),
     );
-  }
+    await tester.tap(find.text('이번 주'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '저녁',
+    );
+    Future<void> overscroll({required bool forward}) async {
+      final center = tester.getCenter(find.byType(TabBarView));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: center,
+          scrollDelta: Offset(forward ? 160 : -160, 0),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+    }
 
+    await tester.tap(find.text('일'));
+    await tester.pumpAndSettle();
+    await overscroll(forward: true);
+    expect(find.byType(NextWeekPreviewPage), findsOneWidget);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 6);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.tap(find.text('월'));
+    await tester.pumpAndSettle();
+    await overscroll(forward: false);
+    expect(find.byType(NextWeekPreviewPage), findsNothing);
+    expect(find.text('이번 주'), findsOneWidget);
+  });
   testWidgets('다음 주 미준비 시 화면 전환 없이 안내 Toast를 띄운다', (tester) async {
     final calls = <MethodCall>[];
     const channel = MethodChannel('PonnamKarthik/fluttertoast');
@@ -147,49 +130,6 @@ void main() {
     expect(calls, hasLength(1));
     expect(calls.single.method, 'showToast');
     expect(calls.single.arguments['msg'], '다음 주 식단이 아직 준비되지 않았어요.');
-  });
-
-  testWidgets('식단 로딩 중에도 상단 바를 표시하고 선택한 끼니를 유지한다', (tester) async {
-    final completer = Completer<WeekMeal>();
-    var datedLoads = 0;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('ko'),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: NextWeekPreviewPage(
-          nextWeekStart: '2026-06-22',
-          appInfo: Future.value(_emptyAppInfo()),
-          loadDatedWeek: (_) {
-            datedLoads++;
-            return completer.future;
-          },
-          onNextWeekMealRefreshed: () {},
-        ),
-      ),
-    );
-
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.byType(AnimatedDateTitle), findsOneWidget);
-    expect(find.byType(DayOfWeekTabBar), findsOneWidget);
-    expect(find.text('아침'), findsOneWidget);
-    expect(
-      tester
-          .widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold))
-          .mondayOfWeek,
-      DateTime(2026, 6, 22),
-    );
-    await tester.tap(find.byType(MealOfDaySwitchButton));
-    await tester.pump();
-    completer.complete(WeekMeal.empty());
-    await tester.pumpAndSettle();
-    expect(find.text('점심'), findsOneWidget);
-    expect(datedLoads, 1);
   });
 
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {

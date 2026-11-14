@@ -367,6 +367,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // 먼 요일 탭의 비인접 전환은 TabBarView에 맡기고 본문 입력만 직접 조정한다.
     final pages = TabBarView(
       controller: widget.tabController,
       physics: const NeverScrollableScrollPhysics(),

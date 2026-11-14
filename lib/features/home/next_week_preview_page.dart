@@ -120,6 +120,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // 식단 로딩·오류도 이 안에서 처리해 날짜·요일·끼니 선택을 계속 표시한다.
     return WeekMenuScaffold(
       mondayOfWeek: _mondayOfWeek,
       initialDayOfWeek: DayOfWeek.mon,
