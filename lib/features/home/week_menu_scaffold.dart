@@ -9,6 +9,23 @@ import 'model.dart';
 import 'nested_page_scroll.dart';
 import 'week_meal_view.dart';
 
+class _MealTransitionTabController extends TabController {
+  _MealTransitionTabController({
+    required super.length,
+    required super.vsync,
+    required super.initialIndex,
+    required this.isMealTransitionActive,
+  });
+
+  final bool Function() isMealTransitionActive;
+
+  @override
+  void animateTo(int value, {Duration? duration, Curve curve = Curves.ease}) {
+    if (isMealTransitionActive()) return;
+    super.animateTo(value, duration: duration, curve: curve);
+  }
+}
+
 /// [HomePage]와 다음 주 미리보기 화면이 공유하는 화면 뼈대.
 /// AppBar(요일 탭 + 끼니 전환 버튼), 데이터 로딩 FutureBuilder 체인,
 /// TabController/PageController 생명주기를 소유한다.
@@ -25,6 +42,8 @@ class WeekMenuScaffold extends StatefulWidget {
     required this.appInfo,
     this.bannerText,
     this.drawer,
+    this.onNextWeekRequested,
+    this.onPreviousWeekRequested,
     this.titleFontWeight = FontWeight.w700,
   });
 
@@ -38,6 +57,8 @@ class WeekMenuScaffold extends StatefulWidget {
   final Future<AppInfo> appInfo;
   final String? bannerText;
   final Widget? drawer;
+  final Future<void> Function(MealOfDay mealOfDay)? onNextWeekRequested;
+  final Future<void> Function()? onPreviousWeekRequested;
   final FontWeight titleFontWeight;
 
   @override
@@ -57,7 +78,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
 
   // 버튼으로 시작한 식사 전환 동안에는 상단 버튼 상태를 유지하고,
   // 중간 onPageChanged가 버튼 상태를 다시 덮어쓰지 않게 한다.
-  bool _isMealOfDayButtonTransition = false;
+  int _mealTransitionId = 0;
+  int? _activeMealTransition;
+  final ValueNotifier<bool> _mealTransitionActive = ValueNotifier(false);
+  bool _horizontalInputActive = false;
 
   @override
   void initState() {
@@ -68,10 +92,11 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     );
     _mealOfDayNotifier = ValueNotifier(_model.mealOfDay);
 
-    _tabController = TabController(
+    _tabController = _MealTransitionTabController(
       length: DayOfWeek.values.length,
       vsync: this,
       initialIndex: _model.dayOfWeek.index,
+      isMealTransitionActive: () => _activeMealTransition != null,
     );
     _tabController.addListener(_onTabChanged);
 
@@ -79,6 +104,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       count: DayOfWeek.values.length,
       pageCount: MealOfDay.values.length,
       initialPage: _model.mealOfDay.index,
+      activeIndex: _model.dayOfWeek.index,
     );
   }
 
@@ -91,15 +117,25 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     // 직접 사용되지 않으므로(animateToPage의 activeIndex는 onPressed 콜백에서만
     // 읽힘) rebuild를 발생시킬 이유가 없다.
     _model.dayOfWeek = nextDayOfWeek;
+    _mealOfDayPageControllerGroup.setActiveIndex(nextDayOfWeek.index);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    final dayOfWeekTabBar = DayOfWeekTabBar(
+    final dayOfWeekTabBarContent = DayOfWeekTabBar(
       tabController: _tabController,
       today: widget.today,
+    );
+    final dayOfWeekTabBar = PreferredSize(
+      preferredSize: dayOfWeekTabBarContent.preferredSize,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _mealTransitionActive,
+        child: dayOfWeekTabBarContent,
+        builder: (context, active, child) =>
+            IgnorePointer(ignoring: active, child: child),
+      ),
     );
     final PreferredSizeWidget? bottom;
     final Widget? flexibleSpace;
@@ -148,12 +184,18 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
               };
               return MealOfDaySwitchButton(
                 onPressed: () async {
+                  if (_horizontalInputActive ||
+                      _tabController.indexIsChanging) {
+                    return;
+                  }
                   // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
                   // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
                   final nextMeal = _mealOfDayNotifier.value.next;
                   // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
                   _mealOfDayNotifier.value = nextMeal;
-                  _isMealOfDayButtonTransition = true;
+                  final transitionId = ++_mealTransitionId;
+                  _activeMealTransition = transitionId;
+                  _mealTransitionActive.value = true;
 
                   try {
                     await _mealOfDayPageControllerGroup.animateToPage(
@@ -164,11 +206,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
                       activeIndex: _model.dayOfWeek.index,
                     );
                   } finally {
-                    // _isMealOfDayButtonTransition은 build()가 아닌
-                    // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
-                    // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
-                    // 해제해도 렌더링에 영향이 없다.
-                    _isMealOfDayButtonTransition = false;
+                    if (_activeMealTransition == transitionId) {
+                      _activeMealTransition = null;
+                      if (mounted) _mealTransitionActive.value = false;
+                    }
                   }
                 },
                 label: label,
@@ -277,6 +318,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
 
   Widget _buildTabBarView(WeekMeal weekMeal) {
     return WeekMealTabBarView(
+      isMealTransitionActive: () => _activeMealTransition != null,
+      onHorizontalActivityChanged: (active) {
+        _horizontalInputActive = active;
+      },
+      onNextWeekRequested: widget.onNextWeekRequested == null
+          ? null
+          : () => widget.onNextWeekRequested!(_mealOfDayNotifier.value),
+      onPreviousWeekRequested: widget.onPreviousWeekRequested,
       pageCount: MealOfDay.values.length,
       weekMeal: weekMeal,
       tabController: _tabController,
@@ -287,7 +336,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       onPageChanged: (page) {
         // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
         // 상단 버튼 상태에 반영하지 않는다.
-        if (_isMealOfDayButtonTransition) {
+        if (_activeMealTransition != null) {
           return;
         }
         final nextMealOfDay = MealOfDay.values[page];
@@ -306,6 +355,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     _tabController.dispose();
     _mealOfDayPageControllerGroup.dispose();
     _mealOfDayNotifier.dispose();
+    _mealTransitionActive.dispose();
     super.dispose();
   }
 }

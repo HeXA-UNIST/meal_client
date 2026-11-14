@@ -321,6 +321,7 @@ class HomePageDrawer extends StatefulWidget {
 class _HomePageDrawerState extends State<HomePageDrawer> {
   late Future<AppInfo> _infoFuture;
   late Future<String?> _nextWeekStart;
+  bool _openingNextWeek = false;
 
   @override
   void initState() {
@@ -375,17 +376,20 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
           _DrawerItem(
             icon: Icons.calendar_month_outlined,
             title: l10n.nextWeekPreview,
-            onTap: () {
+            onTap: () async {
+              if (_openingNextWeek) return;
+              _openingNextWeek = true;
+              final homeContext = Scaffold.of(context).context;
               Navigator.of(context).pop();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => NextWeekPreviewPage(
-                    nextWeekStartFuture: _nextWeekStart,
-                    appInfo: _infoFuture,
-                  ),
-                ),
-              );
+              try {
+                await openNextWeekPreview(
+                  context: homeContext,
+                  nextWeekStartFuture: _nextWeekStart,
+                  appInfo: _infoFuture,
+                );
+              } finally {
+                _openingNextWeek = false;
+              }
             },
           ),
           _DrawerItem(
