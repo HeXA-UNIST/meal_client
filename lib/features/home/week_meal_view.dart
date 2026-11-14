@@ -104,7 +104,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   bool _horizontalPointerScrolling = false;
   bool _edgeEligible = false;
   double _edgeDirection = 1;
-  bool _changingWeek = false;
+  bool _weekRequestInProgress = false;
 
   @override
   void initState() {
@@ -123,8 +123,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     final active =
         _horizontalPosition != null ||
         (_trackedHorizontalPosition?.isScrollingNotifier.value ?? false) ||
-        _edgeReturn.isAnimating ||
-        _changingWeek;
+        _edgeReturn.isAnimating;
     if (_horizontalActivity == active) return;
     _horizontalActivity = active;
     widget.onHorizontalActivityChanged?.call(active);
@@ -205,17 +204,13 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   }
 
   Future<void> _changeWeek(Future<void> Function() changeWeek) async {
-    if (!mounted || _changingWeek) return;
-    setState(() => _changingWeek = true);
-    _updateHorizontalActivity();
+    // 요청 대기는 중복 진입만 막고 현재 식단의 입력 활동에는 포함하지 않는다.
+    if (!mounted || _weekRequestInProgress) return;
+    _weekRequestInProgress = true;
     try {
       await changeWeek();
     } finally {
-      if (mounted) {
-        _pointerSession.reset();
-        setState(() => _changingWeek = false);
-        _updateHorizontalActivity();
-      }
+      _weekRequestInProgress = false;
     }
   }
 
@@ -248,7 +243,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   }
 
   void _startHorizontal(BuildContext context, DragStartDetails details) {
-    if (_changingWeek || (widget.isMealTransitionActive?.call() ?? false)) {
+    if (widget.isMealTransitionActive?.call() ?? false) {
       return;
     }
     _pointerSession.reset();
@@ -261,9 +256,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
 
   void _updateHorizontal(DragUpdateDetails details) {
     final position = _horizontalPosition;
-    if (position == null ||
-        _changingWeek ||
-        (widget.isMealTransitionActive?.call() ?? false)) {
+    if (position == null || (widget.isMealTransitionActive?.call() ?? false)) {
       return;
     }
     final input = axisDirectionIsReversed(position.axisDirection)
@@ -325,7 +318,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
       if (!mounted) return;
       event.respond(allowPlatformDefault: false);
-      if (_changingWeek || (widget.isMealTransitionActive?.call() ?? false)) {
+      if (widget.isMealTransitionActive?.call() ?? false) {
         _pointerSession.reset();
         return;
       }
@@ -381,8 +374,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         widget.tabController.length,
         (tabIndex) => NestedPageScrollView(
           pointerSession: _pointerSession,
-          isHorizontalInputActive: () =>
-              _horizontalPosition != null || _changingWeek,
+          isHorizontalInputActive: () => _horizontalPosition != null,
           onHorizontalPointerSignal: _onPointerSignal,
           onHorizontalDragStart: _startHorizontal,
           onHorizontalDragUpdate: _updateHorizontal,

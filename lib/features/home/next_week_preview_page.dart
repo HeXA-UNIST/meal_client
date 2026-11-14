@@ -39,20 +39,21 @@ Future<void> openNextWeekPreview({
   required Future<AppInfo> appInfo,
   MealOfDay? initialMealOfDay,
 }) async {
+  final route = ModalRoute.of(context);
   String? nextWeekStart;
   try {
     nextWeekStart = await nextWeekStartFuture;
   } catch (error, stackTrace) {
     debugPrint('[BapU] next week metadata fetch failed: $error');
     debugPrintStack(stackTrace: stackTrace);
-    if (!context.mounted) return;
+    if (!context.mounted || route?.isCurrent == false) return;
     await _showPreviewToast(
       context,
       AppLocalizations.of(context)!.cannotLoadMeal,
     );
     return;
   }
-  if (!context.mounted) return;
+  if (!context.mounted || route?.isCurrent == false) return;
   if (nextWeekStart == null) {
     await _showPreviewToast(
       context,

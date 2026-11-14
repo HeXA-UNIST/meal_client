@@ -54,6 +54,62 @@ void main() {
     await tester.pump();
   }
 
+  for (final touch in [false, true]) {
+    testWidgets('${touch ? '터치' : '휠'} 범위 밖 입력을 반전하면 현재 끼니 본문을 읽는다', (
+      tester,
+    ) async {
+      final controller = await mount(tester);
+      final inner = tester
+          .widget<SingleChildScrollView>(
+            find
+                .ancestor(
+                  of: find.text('끼니 0 상단'),
+                  matching: find.byType(SingleChildScrollView),
+                )
+                .first,
+          )
+          .controller!;
+      if (touch) {
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(NestedPageScrollView)),
+        );
+        await gesture.moveBy(const Offset(0, 50));
+        await tester.pump();
+        await gesture.moveBy(const Offset(0, -100));
+        await tester.pump();
+        expect(controller.page, 0);
+        expect(inner.offset, greaterThan(0));
+        await gesture.up();
+      } else {
+        await wheel(tester, const Offset(0, -50));
+        await wheel(tester, const Offset(0, 100));
+        expect(controller.page, 0);
+        expect(inner.offset, greaterThan(0));
+      }
+      await tester.pumpAndSettle();
+    });
+  }
+
+  testWidgets('미확정 경계 이동을 되돌리고 남은 휠 입력은 본문에 전달한다', (tester) async {
+    final controller = await mount(tester);
+    await wheel(tester, const Offset(0, 350));
+    expect(controller.page, greaterThan(0));
+    await wheel(tester, const Offset(0, -100));
+    expect(controller.page, 0);
+    final inner = tester
+        .widget<SingleChildScrollView>(
+          find
+              .ancestor(
+                of: find.text('끼니 0 상단'),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        )
+        .controller!;
+    expect(inner.offset, closeTo(inner.position.maxScrollExtent - 52, 0.01));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('휠 입력은 콘텐츠 끝에서 남은 거리에만 경계 저항을 적용한다', (tester) async {
     final controller = await mount(tester);
     await wheel(tester, const Offset(0, 350));

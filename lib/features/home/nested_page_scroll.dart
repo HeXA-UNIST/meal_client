@@ -227,12 +227,16 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
       return;
     }
     if (_pageMotion.isInputActive) {
-      _pageMotion.update(
-        widget.controller.position,
-        details,
-        pointerScrolling: _pointerScrolling,
-      );
-      return;
+      final remaining = _pageMotion.releaseAtOrigin(details);
+      if (remaining == null) {
+        _pageMotion.update(
+          widget.controller.position,
+          details,
+          pointerScrolling: _pointerScrolling,
+        );
+        return;
+      }
+      details = remaining;
     }
     var remaining = details.delta.dy + _deferredDy;
     _deferredDy = 0;

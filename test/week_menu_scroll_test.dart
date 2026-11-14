@@ -242,7 +242,36 @@ void main() {
     expect(opened, 1);
   });
 
-  testWidgets('다음 주 화면이 열려 있는 동안 중복 진입하지 않는다', (tester) async {
+  testWidgets('게시 정보 대기 중에도 끼니 버튼과 세로·가로 입력을 사용할 수 있다', (tester) async {
+    final pending = Completer<void>();
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sun,
+      onNextWeek: () => pending.future,
+    );
+    await wheel(tester, const Offset(150, 0));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    String meal() => tester
+        .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+        .label;
+    await tester.tap(find.byType(MealOfDaySwitchButton));
+    await tester.pumpAndSettle();
+    expect(meal(), '점심');
+    await wheel(tester, const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(meal(), '저녁');
+    await wheel(tester, const Offset(-35, 0));
+    // 이전 요청의 완료가 새 가로 입력 세션의 축을 초기화하면 안 된다.
+    pending.complete();
+    await tester.pump();
+    await wheel(tester, const Offset(-90, 200));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 5);
+    expect(meal(), '저녁');
+  });
+
+  testWidgets('다음 주 요청이 끝날 때까지 중복 진입하지 않는다', (tester) async {
     var opened = 0;
     final route = Completer<void>();
     await mount(

@@ -39,7 +39,7 @@ void main() {
     await tester.pump();
     final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
     await tester.tap(find.byType(MealOfDaySwitchButton));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
     final target = tester.getCenter(find.byType(TabBarView));
     await tester.sendEventToBinding(
       PointerScrollEvent(position: target, scrollDelta: const Offset(150, 0)),
@@ -69,6 +69,106 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('새 주 첫 갱신과 복귀 재시도가 실패해도 새 주 캐시를 유지한다', (tester) async {
+    var now = DateTime.utc(2026, 8, 16, 14, 59);
+    final oldMeal = _mealResponse(DateTime.utc(2026, 8, 10));
+    final newMeal = _mealResponse(DateTime.utc(2026, 8, 17));
+    final firstFailure = Completer<MealResponse>();
+    final retry = Completer<MealResponse>();
+    var downloads = 0;
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => now,
+        loadCachedMeal: () async => downloads == 0 ? oldMeal : newMeal,
+        refreshMeal: () {
+          downloads++;
+          if (downloads == 1) return Future.value(oldMeal);
+          if (downloads == 2) return firstFailure.future;
+          return retry.future;
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    now = DateTime.utc(2026, 8, 16, 15, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    firstFailure.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    WeekMenuScaffold scaffold() =>
+        tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
+    expect(await scaffold().cachedMealFuture, same(newMeal.weekMeal));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    now = now.add(const Duration(hours: 1));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(downloads, 3);
+    expect(await scaffold().cachedMealFuture, same(newMeal.weekMeal));
+    retry.completeError(StateError('still offline'));
+    await tester.pumpAndSettle();
+    expect(await scaffold().cachedMealFuture, same(newMeal.weekMeal));
+    expect(find.byType(MealOfDaySwitchButton), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('게시 정보 대기 중 드로어와 경계 요청은 미리보기를 한 번만 연다', (tester) async {
+    final refresh = Completer<MealResponse>();
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 16, 3),
+        refreshMeal: () => refresh.future,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
+    final drawerRequest =
+        (home.drawer! as HomePageDrawer).onNextWeekRequested!();
+    final boundaryRequest = home.onNextWeekRequested!(MealOfDay.lunch);
+    refresh.complete(
+      _mealResponse(DateTime.utc(2026, 8, 10), nextWeekStart: '2026-08-17'),
+    );
+    for (var frame = 0; frame < 5; frame++) {
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.byType(NextWeekPreviewPage, skipOffstage: false),
+      findsOneWidget,
+    );
+    final context = tester.element(find.byType(NextWeekPreviewPage));
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+    await Future.wait([drawerRequest, boundaryRequest]);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('다른 화면에서 게시 정보가 도착해도 미리보기가 덮어 열리지 않는다', (tester) async {
+    final refresh = Completer<MealResponse>();
+    await tester.pumpWidget(
+      _buildHomePage(
+        () => DateTime.utc(2026, 8, 16, 3),
+        refreshMeal: () => refresh.future,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
+    final request = (home.drawer! as HomePageDrawer).onNextWeekRequested!();
+    unawaited(
+      Navigator.of(tester.element(find.byType(HomePage))).push<void>(
+        MaterialPageRoute(builder: (_) => const Scaffold(body: Text('다른 화면'))),
+      ),
+    );
+    await tester.pumpAndSettle();
+    refresh.complete(
+      _mealResponse(DateTime.utc(2026, 8, 10), nextWeekStart: '2026-08-17'),
+    );
+    await tester.pumpAndSettle();
+    await request;
+    expect(find.text('다른 화면'), findsOneWidget);
+    expect(find.byType(NextWeekPreviewPage, skipOffstage: false), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('같은 주 복귀는 성공 후 1시간에 갱신하고 진행 중 요청을 중복하지 않는다', (tester) async {

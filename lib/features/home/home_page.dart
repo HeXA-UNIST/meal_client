@@ -74,6 +74,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   DateTime? _lastSuccessfulMealRefreshAt;
   bool _mealRefreshInProgress = false;
   int _mealLoadGeneration = 0;
+  bool _openingNextWeek = false;
   Timer? _displayTimer;
   AppInfo? _displayInfo;
   bool _displayActive =
@@ -211,6 +212,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final now = _now();
     setState(() {
       if (_weekId != MealTimeConfig.kstWeekId(now)) {
+        // 지난주 성공으로 새 주의 실패한 갱신 Future를 보존하지 않는다.
+        _lastSuccessfulMealRefreshAt = null;
         _initializeModelAndDate(now);
         _initializeDataLoading();
       }
@@ -454,6 +457,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _openNextWeek([MealOfDay? initialMealOfDay]) async {
+    if (_openingNextWeek) return;
+    _openingNextWeek = true;
+    try {
+      await openNextWeekPreview(
+        context: context,
+        nextWeekStartFuture: nextWeekStart,
+        appInfo: appInfo,
+        initialMealOfDay: initialMealOfDay,
+      );
+    } finally {
+      _openingNextWeek = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WeekMenuScaffold(
@@ -466,15 +484,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       cachedMealFuture: cachedMeal,
       mealFuture: downloadedMeal,
       appInfo: appInfo,
-      drawer: HomePageDrawer(infoFuture: appInfo, nextWeekStart: nextWeekStart),
-      onNextWeekRequested: (mealOfDay) async {
-        await openNextWeekPreview(
-          context: context,
-          nextWeekStartFuture: nextWeekStart,
-          appInfo: appInfo,
-          initialMealOfDay: mealOfDay,
-        );
-      },
+      drawer: HomePageDrawer(
+        infoFuture: appInfo,
+        nextWeekStart: nextWeekStart,
+        onNextWeekRequested: () => _openNextWeek(),
+      ),
+      onNextWeekRequested: _openNextWeek,
     );
   }
 

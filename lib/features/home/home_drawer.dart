@@ -311,8 +311,14 @@ class _OperationHoursCafeteriaEntry extends StatelessWidget {
 class HomePageDrawer extends StatefulWidget {
   final Future<AppInfo>? infoFuture;
   final Future<String?>? nextWeekStart;
+  final Future<void> Function()? onNextWeekRequested;
 
-  const HomePageDrawer({super.key, this.infoFuture, this.nextWeekStart});
+  const HomePageDrawer({
+    super.key,
+    this.infoFuture,
+    this.nextWeekStart,
+    this.onNextWeekRequested,
+  });
 
   @override
   State<HomePageDrawer> createState() => _HomePageDrawerState();
@@ -382,11 +388,12 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
               final homeContext = Scaffold.of(context).context;
               Navigator.of(context).pop();
               try {
-                await openNextWeekPreview(
-                  context: homeContext,
-                  nextWeekStartFuture: _nextWeekStart,
-                  appInfo: _infoFuture,
-                );
+                await (widget.onNextWeekRequested?.call() ??
+                    openNextWeekPreview(
+                      context: homeContext,
+                      nextWeekStartFuture: _nextWeekStart,
+                      appInfo: _infoFuture,
+                    ));
               } finally {
                 _openingNextWeek = false;
               }

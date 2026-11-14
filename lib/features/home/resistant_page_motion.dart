@@ -29,6 +29,37 @@ class ResistantPageMotion {
       (_settlingPosition?.context.notificationContext?.mounted ?? false) &&
       _settlingPosition!.isScrollingNotifier.value;
 
+  /// 미확정 이동이 시작 경계로 돌아오면 남은 입력을 콘텐츠에 돌려준다.
+  DragUpdateDetails? releaseAtOrigin(DragUpdateDetails details) {
+    final position = _position;
+    if (position == null || _target != null) return null;
+    if ((_startPixels - _origin * position.viewportDimension).abs() > 0.01) {
+      return null;
+    }
+    final reversed = axisDirectionIsReversed(position.axisDirection);
+    final delta = position.axis == Axis.vertical
+        ? details.delta.dy
+        : details.delta.dx;
+    final input = reversed ? delta : -delta;
+    if (_distance != 0 &&
+        (input * _distance >= 0 || input.abs() < _distance.abs())) {
+      return null;
+    }
+    final consumed = reversed ? -_distance : _distance;
+    DragUpdateDetails withDelta(double value) => DragUpdateDetails(
+      sourceTimeStamp: details.sourceTimeStamp,
+      delta: position.axis == Axis.vertical
+          ? Offset(0, value)
+          : Offset(value, 0),
+      primaryDelta: value,
+      globalPosition: details.globalPosition,
+      localPosition: details.localPosition,
+    );
+    update(position, withDelta(consumed), pointerScrolling: _pointerScrolling);
+    cancel();
+    return withDelta(delta - consumed);
+  }
+
   void update(
     ScrollPosition position,
     DragUpdateDetails details, {
