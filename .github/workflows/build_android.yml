@@ -1,6 +1,11 @@
 name: Build Android (release)
 
 on:
+  workflow_call:
+    inputs:
+      ci:
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       format:
@@ -16,6 +21,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v7
@@ -48,7 +54,36 @@ jobs:
         shell: bash
         run: echo "value=$(yq -r '.version' pubspec.yaml)" >> "$GITHUB_OUTPUT"
 
+      - name: Setup Java for validation
+        if: inputs.ci
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies for validation
+        if: inputs.ci
+        run: flutter pub get
+
+      - name: Analyze
+        if: inputs.ci
+        run: flutter analyze --no-pub
+
+      - name: Flutter tests
+        if: inputs.ci
+        run: flutter test --no-pub
+
+      # Flutter 빌드로 추적하지 않는 Gradle Wrapper도 준비한다.
+      - name: Build Android debug
+        if: inputs.ci
+        run: flutter build apk --debug --no-pub
+
+      - name: Android unit tests
+        if: inputs.ci
+        run: ./android/gradlew -p android :app:testDebugUnitTest
+
       - name: Decode keystore and create jks and properties file for signing the app
+        if: ${{ !inputs.ci }}
         shell: bash
         run: |
           echo "$KEYSTORE" | base64 --decode > app/keystore.jks
@@ -62,6 +97,7 @@ jobs:
         working-directory: ./android
 
       - name: Inject Signing Config into build.gradle.kts
+        if: ${{ !inputs.ci }}
         shell: python
         run: |
           import os
