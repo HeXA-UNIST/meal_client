@@ -139,9 +139,21 @@ void main() {
     test('setThemeMode — 저장 및 재로드', () async {
       final prefs = await SharedPreferences.getInstance();
       final settings = createSettings(prefs);
-      settings.setThemeMode(ThemeMode.dark);
+      await settings.setThemeMode(ThemeMode.dark);
       final settings2 = createSettings(prefs);
       expect(settings2.themeMode, ThemeMode.dark);
+    });
+
+    test('화면 모드를 연속 변경해도 마지막 선택을 저장한다', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final settings = createSettings(prefs);
+      await Future.wait([
+        settings.setThemeMode(ThemeMode.dark),
+        settings.setThemeMode(ThemeMode.light),
+        settings.setThemeMode(ThemeMode.system),
+      ]);
+      expect(settings.themeMode, ThemeMode.system);
+      expect(prefs.getString(StorageKeys.themeMode), 'system');
     });
 
     test('앱 언어를 저장하고 재시작 후 복원한다', () async {

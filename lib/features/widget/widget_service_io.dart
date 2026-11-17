@@ -1,7 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
+
+/// iOS 위젯에 앱의 화면 모드를 저장하고 갱신을 요청한다.
+Future<void> syncWidgetThemeMode(String mode) async {
+  if (!Platform.isIOS) return;
+  await const MethodChannel('pro.hexa.meal.meal_client/widget_shared_storage')
+      .invokeMethod<void>('setWidgetThemeMode', mode);
+}
 
 /// 홈 화면 위젯 새로고침을 트리거한다.
 ///

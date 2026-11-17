@@ -67,6 +67,7 @@ class BapuSettings extends ChangeNotifier {
   VoidCallback? _disposeResumeListener;
   ({String? current, String? next})? _observedCacheContent;
   Future<void> _notificationMutationQueue = Future.value();
+  Future<void> _themeMutationQueue = Future.value();
   bool _disposed = false;
   MealNotificationAuthorizationStatus? _notificationAuthorizationStatus;
   bool _notificationSyncFailed = false;
@@ -181,6 +182,8 @@ class BapuSettings extends ChangeNotifier {
        _notification = loadNotificationSettings(_prefs),
        _themeMode = _loadThemeMode(_prefs),
        _locale = initialLocale ?? loadAppLocale(_prefs) {
+    // 기존 설치에서 저장한 화면 모드도 첫 실행 때 위젯에 전달한다.
+    unawaited(_syncThemeMode(_themeMode, persist: false));
     if (_notificationPlatform != MealNotificationPlatform.unsupported) {
       _disposeResumeListener =
           (resumeListenerRegistrar ?? _registerResumeListener)(
@@ -803,20 +806,35 @@ class BapuSettings extends ChangeNotifier {
 
   // --- 테마 ---
 
-  void setThemeMode(ThemeMode mode) {
+  Future<void> setThemeMode(ThemeMode mode) {
     _themeMode = mode;
-    _prefs.setString(StorageKeys.themeMode, mode.name);
     notifyListeners();
+    return _syncThemeMode(mode);
+  }
+
+  Future<void> _syncThemeMode(ThemeMode mode, {bool persist = true}) {
+    // 빠르게 연속 선택하거나 초기화해도 마지막 선택이 공유 저장소에 남는다.
+    _themeMutationQueue = _themeMutationQueue
+        .then((_) async {
+          if (persist &&
+              !await _prefs.setString(StorageKeys.themeMode, mode.name)) {
+            throw StateError('App theme write failed');
+          }
+          await syncWidgetThemeMode(mode.name);
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('[BapU] widget theme synchronization failed: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        });
+    return _themeMutationQueue;
   }
 
   // --- 전체 초기화 ---
 
   void resetAll() {
     _allergy = _allergy.reset();
-    _themeMode = ThemeMode.system;
     unawaited(_prefs.setStringList(StorageKeys.allergenIds, []));
-    unawaited(_prefs.setString(StorageKeys.themeMode, ThemeMode.system.name));
-    notifyListeners();
+    unawaited(setThemeMode(ThemeMode.system));
     unawaited(
       _enqueueNotificationMutation(() async {
         final previousAuthorizationStatus = _notificationAuthorizationStatus;

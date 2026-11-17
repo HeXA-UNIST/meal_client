@@ -1,6 +1,23 @@
 import XCTest
+import SwiftUI
 
 final class BapUWidgetTests: XCTestCase {
+  func test위젯은앱의화면모드를따르고시스템선택시덮어쓰지않는다() throws {
+    let suiteName = "BapUWidgetThemeTests.\(UUID().uuidString)"
+    let preferences = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defer { preferences.removePersistentDomain(forName: suiteName) }
+
+    XCTAssertNil(savedWidgetColorScheme(in: preferences))
+    for (mode, expected) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
+      preferences.set(mode, forKey: "settings_theme_mode")
+      XCTAssertEqual(savedWidgetColorScheme(in: preferences), expected)
+    }
+    preferences.set("system", forKey: "settings_theme_mode")
+    XCTAssertNil(savedWidgetColorScheme(in: preferences))
+    preferences.set("invalid", forKey: "settings_theme_mode")
+    XCTAssertNil(savedWidgetColorScheme(in: preferences))
+  }
+
   private var cacheDirectory: URL!
 
   override func setUpWithError() throws {

@@ -1,6 +1,14 @@
 import SwiftUI
 import WidgetKit
 
+func savedWidgetColorScheme(in preferences: UserDefaults?) -> ColorScheme? {
+  switch preferences?.string(forKey: "settings_theme_mode") {
+  case "light": return .light
+  case "dark": return .dark
+  default: return nil
+  }
+}
+
 #if !BAPU_WIDGET_TESTS
 import AppIntents
 #endif
@@ -793,6 +801,16 @@ private struct BapUWidgetView: View {
   }
 }
 
+private struct WidgetThemeModifier: ViewModifier {
+  @Environment(\.colorScheme) private var systemColorScheme
+
+  func body(content: Content) -> some View {
+    let preferences = WidgetContract.appGroupIdentifier.flatMap { UserDefaults(suiteName: $0) }
+    // 시스템 선택은 WidgetKit 환경을 유지하고 명시적 선택만 덮어쓴다.
+    content.environment(\.colorScheme, savedWidgetColorScheme(in: preferences) ?? systemColorScheme)
+  }
+}
+
 private struct WidgetBackgroundModifier: ViewModifier {
   @ViewBuilder
   func body(content: Content) -> some View {
@@ -817,6 +835,7 @@ struct BapUWidget: Widget {
       provider: BapUWidgetProvider()
     ) { entry in
       BapUWidgetView(entry: entry)
+        .modifier(WidgetThemeModifier())
     }
     .configurationDisplayName(LocalizedStringKey("widgetConfigurationDisplayName"))
     .description(LocalizedStringKey("widgetConfigurationDescription"))

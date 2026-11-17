@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import WidgetKit
 import workmanager_apple
 
 @main
@@ -43,6 +44,23 @@ import workmanager_apple
     )
     sharedStorageChannel.setMethodCallHandler { call, result in
       switch call.method {
+      case "setWidgetThemeMode":
+        guard let mode = call.arguments as? String,
+              ["system", "light", "dark"].contains(mode),
+              let group = Bundle.main.object(forInfoDictionaryKey: appGroupInfoKey) as? String,
+              !group.isEmpty,
+              let preferences = UserDefaults(suiteName: group)
+        else {
+          result(FlutterError(
+            code: "WIDGET_THEME_UNAVAILABLE",
+            message: "Widget theme or App Group is invalid",
+            details: nil
+          ))
+          return
+        }
+        preferences.set(mode, forKey: "settings_theme_mode")
+        WidgetCenter.shared.reloadTimelines(ofKind: "BapUWidget")
+        result(nil)
       case "appGroupIdentifier":
         guard
           let group = Bundle.main.object(forInfoDictionaryKey: appGroupInfoKey) as? String,
