@@ -16,6 +16,7 @@ void main() {
     WidgetTester tester, {
     DayOfWeek initialDay = DayOfWeek.mon,
     Future<void> Function()? onNextWeek,
+    Future<void> Function()? onPreviousWeek,
   }) async {
     tester.view.physicalSize = const Size(400, 600);
     tester.view.devicePixelRatio = 1;
@@ -33,6 +34,7 @@ void main() {
           mondayOfWeek: DateTime.utc(2026, 10, 5),
           initialDayOfWeek: initialDay,
           onNextWeekRequested: onNextWeek == null ? null : (_) => onNextWeek(),
+          onPreviousWeekRequested: onPreviousWeek,
           initialMealOfDay: MealOfDay.breakfast,
           mealFuture: Future.value(WeekMeal.empty()),
           appInfo: Future.value(
@@ -56,6 +58,115 @@ void main() {
     );
     await tester.pump();
   }
+
+  List<String> recordHaptics(WidgetTester tester) {
+    final events = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          events.add(call.arguments as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    return events;
+  }
+
+  for (final forward in [true, false]) {
+    testWidgets(
+      '${forward ? '다음 주 진입' : '이번 주 복귀'} 당김 단계마다 햅틱을 주고 되당김과 복귀에서는 반복하지 않는다',
+      (tester) async {
+        var changed = 0;
+        Future<void> changeWeek() async {
+          changed++;
+        }
+
+        await mount(
+          tester,
+          initialDay: forward ? DayOfWeek.sun : DayOfWeek.mon,
+          onNextWeek: forward ? changeWeek : null,
+          onPreviousWeek: forward ? null : changeWeek,
+        );
+        final direction = forward ? -1.0 : 1.0;
+        final start = Offset(forward ? 350 : 50, 300);
+        final events = recordHaptics(tester);
+        var gesture = await tester.startGesture(start);
+        await gesture.moveBy(Offset(direction * 30, 0));
+        await tester.pump();
+        expect(events, isEmpty);
+        for (var i = 0; i < 4; i++) {
+          await gesture.moveBy(Offset(direction * 30, 0));
+          await tester.pump();
+        }
+        expect(events, [
+          'HapticFeedbackType.selectionClick',
+          'HapticFeedbackType.selectionClick',
+          'HapticFeedbackType.selectionClick',
+          'HapticFeedbackType.lightImpact',
+        ]);
+        await gesture.moveBy(Offset(-direction * 60, 0));
+        await tester.pump();
+        await gesture.moveBy(Offset(direction * 60, 0));
+        await tester.pump();
+        expect(events, hasLength(4));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(events, hasLength(4));
+        expect(changed, 1);
+
+        if (!forward) return;
+        // 새 터치에서는 단계별 피드백을 다시 허용한다.
+        gesture = await tester.startGesture(start);
+        await gesture.moveBy(Offset(direction * 30, 0));
+        await tester.pump();
+        await gesture.moveBy(Offset(direction * 30, 0));
+        await tester.pump();
+        expect(events, hasLength(5));
+        expect(events.last, 'HapticFeedbackType.selectionClick');
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(events, hasLength(5));
+      },
+    );
+  }
+
+  testWidgets('한 입력으로 여러 단계를 건너뛰면 도착 단계의 햅틱만 준다', (tester) async {
+    await mount(tester, initialDay: DayOfWeek.sun, onNextWeek: () async {});
+    final events = recordHaptics(tester);
+    final gesture = await tester.startGesture(const Offset(350, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-150, 0));
+    await tester.pump();
+    expect(events, ['HapticFeedbackType.lightImpact']);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('주 경계 휠과 마우스 드래그에는 햅틱을 주지 않는다', (tester) async {
+    await mount(tester, initialDay: DayOfWeek.sun, onNextWeek: () async {});
+    final events = recordHaptics(tester);
+    await wheel(tester, const Offset(150, 0));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      const Offset(350, 300),
+      kind: PointerDeviceKind.mouse,
+    );
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-150, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(events, isEmpty);
+  });
 
   testWidgets('대각선 휠은 세션 중 성분 크기가 바뀌어도 처음 선택한 축을 유지한다', (tester) async {
     await mount(tester);
@@ -167,6 +278,7 @@ void main() {
         changed++;
       },
     );
+    final events = recordHaptics(tester);
     double centerX() => tester.getCenter(find.byType(TabBarView)).dx;
     final origin = centerX();
     var gesture = await tester.startGesture(const Offset(200, 300));
@@ -189,8 +301,23 @@ void main() {
     await gesture.moveBy(const Offset(-30, 0));
     await tester.pump();
     expect(centerX(), closeTo(returning, 0.01));
-    await gesture.moveBy(const Offset(-20, 0));
+    final hapticCount = events.length;
+    final distance =
+        tester
+            .widget<CircularProgressIndicator>(
+              find.byType(CircularProgressIndicator),
+            )
+            .value! *
+        120;
+    final toNextStep = (distance / 30).floor() * 30 + 30 - distance;
+    // 다시 잡은 거리의 단계는 반복하지 않고 다음 단계부터 울린다.
+    await gesture.moveBy(Offset(-toNextStep / 2, 0));
     await tester.pump();
+    expect(events, hasLength(hapticCount));
+    await gesture.moveBy(Offset(-toNextStep / 2 - 1, 0));
+    await tester.pump();
+    expect(events, hasLength(hapticCount + 1));
+    expect(events.last, 'HapticFeedbackType.selectionClick');
     final repulled = centerX();
     expect(repulled, lessThan(returning));
     await tester.pump(const Duration(milliseconds: 100));

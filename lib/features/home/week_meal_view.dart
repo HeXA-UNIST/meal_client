@@ -102,6 +102,8 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   ScrollPosition? _trackedHorizontalPosition;
   bool _horizontalActivity = false;
   bool _horizontalPointerScrolling = false;
+  bool _horizontalTouchDragging = false;
+  int _edgeHapticStep = 0;
   bool _edgeEligible = false;
   double _edgeDirection = 1;
   bool _weekRequestInProgress = false;
@@ -182,6 +184,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
       _horizontalMotion.finish(velocity: velocity);
     }
     _horizontalPointerScrolling = false;
+    _horizontalTouchDragging = false;
     _edgeEligible = false;
     _edgeReturn.stop();
     if (cancel) {
@@ -239,6 +242,9 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     _edgeEligible = eligible;
     _edgeDirection = direction;
     _edgeDistance.value = remainingDistance;
+    _edgeHapticStep = (remainingDistance / (_weekBoundaryDistance / 4))
+        .floor()
+        .clamp(0, 4);
     _updateHorizontalActivity();
   }
 
@@ -251,7 +257,23 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
       context,
       axis: Axis.horizontal,
     )?.position;
-    if (position != null) _beginHorizontal(position);
+    if (position != null) {
+      _beginHorizontal(position);
+      _horizontalTouchDragging = details.kind == PointerDeviceKind.touch;
+    }
+  }
+
+  void _updateEdgeHaptic(double distance) {
+    if (!_horizontalTouchDragging || _horizontalPointerScrolling) return;
+    final step = (distance / (_weekBoundaryDistance / 4)).floor().clamp(0, 4);
+    if (step <= _edgeHapticStep) return;
+    // 되당김과 빠르게 건너뛴 단계는 재생하지 않는다.
+    _edgeHapticStep = step;
+    unawaited(
+      step == 4
+          ? HapticFeedback.lightImpact()
+          : HapticFeedback.selectionClick(),
+    );
   }
 
   void _updateHorizontal(DragUpdateDetails details) {
@@ -275,6 +297,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
           .clamp(0.0, _weekBoundaryDistance * 2)
           .toDouble();
       _edgeDistance.value = distance;
+      _updateEdgeHaptic(distance);
       if (distance > 0) return;
       final remaining = input + previous * _edgeDirection;
       if (remaining == 0) return;
