@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="ic_launcher_background">@color/black</color>
+    <color name="ic_launcher_logo">@color/main_color</color>
+
     <!-- 위젯 색상 (다크) — Flutter 다크 팔레트 기준.
          레이아웃/드로어블의 @color 참조는 런처가 재-inflate할 때 자동 적용되고,
          운영상태처럼 코드에서 setTextColor로 주입하는 색은 렌더 시점의 uiMode를 따른다
