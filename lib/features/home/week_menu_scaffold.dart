@@ -4,7 +4,10 @@ import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
+import 'package:provider/provider.dart';
+
 import 'home_app_bar.dart';
+import 'menu_header_region.dart';
 import 'model.dart';
 import 'nested_page_scroll.dart';
 import 'week_meal_view.dart';
@@ -101,9 +104,13 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       tabController: _tabController,
       today: widget.today,
     );
+    final region = context.watch<MenuHeaderRegion?>();
+    final header = region != null && region.fits(MediaQuery.of(context))
+        ? region
+        : null;
     final PreferredSizeWidget? bottom;
     final Widget? flexibleSpace;
-    if (MediaQuery.sizeOf(context).width >= 840) {
+    if (header == null && MediaQuery.sizeOf(context).width >= 840) {
       flexibleSpace = SafeArea(
         child: Center(child: SizedBox(width: 420, child: dayOfWeekTabBar)),
       );
@@ -126,62 +133,90 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       );
     }
 
-    return Scaffold(
-      drawer: widget.drawer,
-      appBar: AppBar(
-        toolbarHeight: 52,
-        titleSpacing: 0,
-        centerTitle: false,
-        title: AnimatedDateTitle(
-          tabController: _tabController,
-          mondayOfWeek: widget.mondayOfWeek,
-          fontWeight: widget.titleFontWeight,
-        ),
-        actions: [
-          ValueListenableBuilder<MealOfDay>(
-            valueListenable: _mealOfDayNotifier,
-            builder: (context, mealOfDay, _) {
-              final (label, icon) = switch (mealOfDay) {
-                MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
-                MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
-                MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
-              };
-              return MealOfDaySwitchButton(
-                onPressed: () async {
-                  // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
-                  // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
-                  final nextMeal = _mealOfDayNotifier.value.next;
-                  // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
-                  _mealOfDayNotifier.value = nextMeal;
-                  _isMealOfDayButtonTransition = true;
-
-                  try {
-                    await _mealOfDayPageControllerGroup.animateToPage(
-                      nextMeal.index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      // 현재 선택된 요일 탭만 애니메이션 처리
-                      activeIndex: _model.dayOfWeek.index,
-                    );
-                  } finally {
-                    // _isMealOfDayButtonTransition은 build()가 아닌
-                    // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
-                    // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
-                    // 해제해도 렌더링에 영향이 없다.
-                    _isMealOfDayButtonTransition = false;
-                  }
-                },
-                label: label,
-                icon: icon,
-              );
-            },
-          ),
-        ],
-        actionsPadding: const EdgeInsets.only(right: 8),
-        backgroundColor: colorScheme.surface,
-        bottom: bottom,
-        flexibleSpace: flexibleSpace,
+    final appBar = AppBar(
+      primary: header == null,
+      toolbarHeight: MenuHeaderRegion.toolbarHeight,
+      titleSpacing: 0,
+      centerTitle: false,
+      title: AnimatedDateTitle(
+        tabController: _tabController,
+        mondayOfWeek: widget.mondayOfWeek,
+        fontWeight: widget.titleFontWeight,
       ),
+      actions: [
+        ValueListenableBuilder<MealOfDay>(
+          valueListenable: _mealOfDayNotifier,
+          builder: (context, mealOfDay, _) {
+            final (label, icon) = switch (mealOfDay) {
+              MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
+              MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
+              MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
+            };
+            return MealOfDaySwitchButton(
+              onPressed: () async {
+                // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
+                // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
+                final nextMeal = _mealOfDayNotifier.value.next;
+                // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
+                _mealOfDayNotifier.value = nextMeal;
+                _isMealOfDayButtonTransition = true;
+
+                try {
+                  await _mealOfDayPageControllerGroup.animateToPage(
+                    nextMeal.index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    // 현재 선택된 요일 탭만 애니메이션 처리
+                    activeIndex: _model.dayOfWeek.index,
+                  );
+                } finally {
+                  // _isMealOfDayButtonTransition은 build()가 아닌
+                  // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
+                  // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
+                  // 해제해도 렌더링에 영향이 없다.
+                  _isMealOfDayButtonTransition = false;
+                }
+              },
+              label: label,
+              icon: icon,
+            );
+          },
+        ),
+      ],
+      actionsPadding: const EdgeInsets.only(right: 8),
+      backgroundColor: colorScheme.surface,
+      bottom: header == null ? bottom : null,
+      flexibleSpace: flexibleSpace,
+    );
+    return Scaffold(
+      primary: header == null,
+      drawer: widget.drawer,
+      appBar: header == null
+          ? appBar
+          : PreferredSize(
+              preferredSize: Size.fromHeight(
+                header.rowHeight + dayOfWeekTabBar.preferredSize.height,
+              ),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: header.rowHeight,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: header.toolbarTop),
+                        child: SizedBox(
+                          width: header.left,
+                          height: MenuHeaderRegion.toolbarHeight,
+                          child: appBar,
+                        ),
+                      ),
+                    ),
+                  ),
+                  dayOfWeekTabBar,
+                ],
+              ),
+            ),
       body: body,
     );
   }

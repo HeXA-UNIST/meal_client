@@ -28,6 +28,7 @@ import workmanager_apple
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     Self.registerSharedStorageChannel(with: engineBridge.pluginRegistry)
+    MenuHeaderRegions.register(with: engineBridge.pluginRegistry)
   }
 
   private static func registerSharedStorageChannel(with registry: FlutterPluginRegistry) {
