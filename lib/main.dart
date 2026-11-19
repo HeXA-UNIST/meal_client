@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:meal_client/core/native_startup.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/features/home/home_page.dart';
-import 'package:meal_client/features/home/menu_header_region.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/features/settings/locale_settings.dart';
 
@@ -89,11 +88,7 @@ void main() async {
         settings.rescheduleMealNotifications();
         return settings;
       },
-      child: StreamProvider<MenuHeaderRegion?>(
-        create: (_) => MenuHeaderRegion.observe(),
-        initialData: null,
-        child: const BapUApp(),
-      ),
+      child: const BapUApp(),
     ),
   );
 }

@@ -3,8 +3,6 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:meal_client/features/home/menu_header_region.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/domain/meal.dart';
@@ -19,52 +17,6 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
-  testWidgets('미리보기를 밀어서 닫는 중에는 끼니 버튼이 상태 막대 아래에 놓인다', (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(669, 951);
-    tester.view.padding = const FakeViewPadding(top: 84);
-    addTearDown(tester.view.reset);
-    final nav = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      Provider<MenuHeaderRegion?>.value(
-        value: const MenuHeaderRegion(Size(669, 951), 84, 540, 46, 70),
-        child: MaterialApp(
-          theme: ThemeData(platform: TargetPlatform.iOS),
-          locale: const Locale('ko'),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            ...GlobalMaterialLocalizations.delegates,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          navigatorKey: nav,
-          home: const Scaffold(),
-        ),
-      ),
-    );
-    nav.currentState!.push(
-      MaterialPageRoute<void>(
-        builder: (_) => NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value('2026-06-22'),
-          appInfo: Future.value(_emptyAppInfo()),
-          loadDatedWeek: (_) async => WeekMeal.empty(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final button = find.widgetWithText(TextButton, '아침');
-    expect(tester.getCenter(button).dy, 46);
-    final gesture = await tester.startGesture(const Offset(1, 200));
-    await gesture.moveBy(const Offset(32, 0));
-    await tester.pump();
-    await gesture.moveBy(const Offset(120, 0));
-    await tester.pump();
-    expect(nav.currentState!.userGestureInProgress, isTrue);
-    expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(84));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(tester.getCenter(button).dy, 46);
-  });
-
   testWidgets('nextWeekStart 조회 중에는 로딩 인디케이터를 보여준다', (tester) async {
     final completer = Completer<String?>();
 
