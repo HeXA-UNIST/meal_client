@@ -21,6 +21,7 @@ Future<void> _showPreviewToast(BuildContext context, String message) async {
       ? const Color(0xFFF0F0F0)
       : const Color(0xFF454545);
   final textColor = isLight ? const Color(0xFF2E2E2E) : const Color(0xFFF5F5F5);
+  await Fluttertoast.cancel();
   await Fluttertoast.showToast(
     msg: message,
     toastLength: Toast.LENGTH_SHORT,

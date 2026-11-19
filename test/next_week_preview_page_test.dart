@@ -127,9 +127,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     expect(find.byType(NextWeekPreviewPage), findsNothing);
     expect(find.text('미리보기 열기'), findsOneWidget);
-    expect(calls, hasLength(1));
-    expect(calls.single.method, 'showToast');
-    expect(calls.single.arguments['msg'], '다음 주 식단이 아직 준비되지 않았어요.');
+    expect(calls.map((call) => call.method), ['cancel', 'showToast']);
+    expect(calls.last.arguments['msg'], '다음 주 식단이 아직 준비되지 않았어요.');
   });
 
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {
