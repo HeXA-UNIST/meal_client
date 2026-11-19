@@ -103,6 +103,8 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   bool _horizontalActivity = false;
   bool _horizontalPointerScrolling = false;
   bool _horizontalTouchDragging = false;
+  double? _touchReleasePixels;
+  double? _settlingEdgeDirection;
   int _edgeHapticStep = 0;
   bool _edgeEligible = false;
   double _edgeDirection = 1;
@@ -170,6 +172,10 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         ? widget.onNextWeekRequested
         : widget.onPreviousWeekRequested;
     final position = _horizontalPosition;
+    _touchReleasePixels = !cancel && _horizontalTouchDragging
+        ? position?.pixels
+        : null;
+    _settlingEdgeDirection = null;
     final edgeVelocity = position == null || _horizontalPointerScrolling
         ? 0.0
         : _edgeDirection *
@@ -217,8 +223,28 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     }
   }
 
-  void _beginHorizontal(ScrollPosition position) {
-    // 경계 요일로 이동 중 시작된 입력이나 같은 관성으로 주를 전환하지 않는다.
+  void _beginHorizontal(ScrollPosition position, {bool touch = false}) {
+    // 경계로 정렬 중인 새 터치는 첫 입력의 방향을 확인한 뒤 진입을 허용한다.
+    double? settlingEdgeDirection;
+    final releasedPixels = _touchReleasePixels;
+    if (touch &&
+        !widget.tabController.indexIsChanging &&
+        _horizontalMotion.isSettling &&
+        releasedPixels != null) {
+      final movement = position.pixels - releasedPixels;
+      if (movement > 0 &&
+          widget.onNextWeekRequested != null &&
+          position.pixels >
+              position.maxScrollExtent - position.viewportDimension) {
+        settlingEdgeDirection = 1;
+      } else if (movement < 0 &&
+          widget.onPreviousWeekRequested != null &&
+          position.pixels <
+              position.minScrollExtent + position.viewportDimension) {
+        settlingEdgeDirection = -1;
+      }
+    }
+    // 같은 입력이나 휠 관성으로는 경계 도착 후에도 주를 전환하지 않는다.
     final atEnd =
         widget.onNextWeekRequested != null &&
         widget.tabController.index == widget.tabController.length - 1 &&
@@ -239,6 +265,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     _finishHorizontal(cancel: true);
     _trackHorizontalPosition(position);
     _horizontalPosition = position;
+    _settlingEdgeDirection = settlingEdgeDirection;
     _edgeEligible = eligible;
     _edgeDirection = direction;
     _edgeDistance.value = remainingDistance;
@@ -258,7 +285,10 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
       axis: Axis.horizontal,
     )?.position;
     if (position != null) {
-      _beginHorizontal(position);
+      _beginHorizontal(
+        position,
+        touch: details.kind == PointerDeviceKind.touch,
+      );
       _horizontalTouchDragging = details.kind == PointerDeviceKind.touch;
     }
   }
@@ -284,6 +314,12 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     final input = axisDirectionIsReversed(position.axisDirection)
         ? details.delta.dx
         : -details.delta.dx;
+    final settlingEdgeDirection = _settlingEdgeDirection;
+    if (settlingEdgeDirection != null && input != 0) {
+      _edgeEligible = input * settlingEdgeDirection > 0;
+      _edgeDirection = settlingEdgeDirection;
+      _settlingEdgeDirection = null;
+    }
     final boundary = _edgeDirection > 0
         ? position.maxScrollExtent
         : position.minScrollExtent;
@@ -312,11 +348,24 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         localPosition: details.localPosition,
       );
     }
+    final previousPixels = position.pixels;
     _horizontalMotion.update(
       position,
       remainingDetails,
       pointerScrolling: _horizontalPointerScrolling,
     );
+    if (_edgeEligible &&
+        !atBoundary &&
+        input * _edgeDirection > 0 &&
+        (position.pixels - boundary).abs() < 0.01) {
+      // 경계까지 이동하는 데 쓴 거리를 빼고 남은 드래그만 당김에 반영한다.
+      _horizontalMotion.cancel();
+      _edgeDistance.value =
+          ((input - (boundary - previousPixels)) * _edgeDirection)
+              .clamp(0.0, _weekBoundaryDistance * 2)
+              .toDouble();
+      _updateEdgeHaptic(_edgeDistance.value);
+    }
   }
 
   void _onPointerSignal(BuildContext context, PointerSignalEvent event) {

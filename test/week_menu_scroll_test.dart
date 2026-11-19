@@ -221,6 +221,155 @@ void main() {
     expect(opened, 1);
   });
 
+  for (final forward in [true, false]) {
+    testWidgets(
+      '${forward ? '일요일' : '월요일'} 정렬 중 새 터치는 경계까지 남은 거리를 제외하고 주를 전환한다',
+      (tester) async {
+        var changed = 0;
+        Future<void> changeWeek() async {
+          changed++;
+        }
+
+        await mount(
+          tester,
+          initialDay: forward ? DayOfWeek.sat : DayOfWeek.tue,
+          onNextWeek: forward ? changeWeek : null,
+          onPreviousWeek: forward ? null : changeWeek,
+        );
+        final direction = forward ? -1.0 : 1.0;
+        ScrollPosition position() => tester
+            .state<ScrollableState>(
+              find
+                  .descendant(
+                    of: find.byType(TabBarView),
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is Scrollable &&
+                          axisDirectionToAxis(widget.axisDirection) ==
+                              Axis.horizontal,
+                    ),
+                  )
+                  .first,
+            )
+            .position;
+
+        var gesture = await tester.startGesture(const Offset(200, 300));
+        await gesture.moveBy(Offset(direction * 30, 0));
+        await gesture.moveBy(Offset(direction * 240, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        await gesture.up();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(position().isScrollingNotifier.value, isTrue);
+        expect(changed, 0);
+
+        gesture = await tester.startGesture(const Offset(200, 300));
+        await gesture.moveBy(Offset(direction * 30, 0));
+        await tester.pump();
+        final remaining = forward
+            ? position().maxScrollExtent - position().pixels
+            : position().pixels - position().minScrollExtent;
+        expect(remaining, greaterThan(0));
+        expect(remaining, lessThan(180));
+        await gesture.moveBy(Offset(direction * 180, 0));
+        await tester.pump();
+        expect(
+          tester
+              .widget<CircularProgressIndicator>(
+                find.byType(CircularProgressIndicator),
+              )
+              .value,
+          closeTo((180 - remaining) / 120, 0.001),
+        );
+        await gesture.moveBy(Offset(direction * 130, 0));
+        await tester.pump();
+        expect(changed, 0);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(changed, 1);
+      },
+    );
+  }
+
+  testWidgets('주 경계에 도착한 첫 터치는 그대로 더 당겨도 다음 주를 열지 않는다', (tester) async {
+    var changed = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sat,
+      onNextWeek: () async {
+        changed++;
+      },
+    );
+    final gesture = await tester.startGesture(const Offset(350, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-400, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-160, 0));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(changed, 0);
+  });
+
+  testWidgets('일요일 정렬 중 새 터치를 반대 방향으로 시작하면 주 진입을 허용하지 않는다', (tester) async {
+    var changed = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sat,
+      onNextWeek: () async {
+        changed++;
+      },
+    );
+    var gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-240, 0));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(30, 0));
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-500, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-160, 0));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(changed, 0);
+  });
+
+  testWidgets('일요일에서 멀어지는 정렬 중에는 새 터치를 다음 주 방향으로 밀어도 진입하지 않는다', (tester) async {
+    var changed = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sun,
+      onNextWeek: () async {
+        changed++;
+      },
+    );
+    var gesture = await tester.startGesture(const Offset(200, 300));
+    await gesture.moveBy(const Offset(30, 0));
+    await gesture.moveBy(const Offset(240, 0));
+    await tester.pump(const Duration(milliseconds: 100));
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    gesture = await tester.startGesture(const Offset(350, 300));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-400, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-160, 0));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(changed, 0);
+  });
+
   testWidgets('주 경계에서 짧은 입력과 반대 입력은 다음 주를 열지 않는다', (tester) async {
     var opened = 0;
     await mount(
