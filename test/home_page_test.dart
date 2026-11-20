@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -77,13 +78,18 @@ void main() {
       final scaffold = tester.widget<WeekMenuScaffold>(
         find.byType(WeekMenuScaffold),
       );
+      final message = priorSuccess
+          ? l10n.nextWeekNotReady
+          : l10n.cannotLoadMeal;
+      final before = find.text(message).evaluate().length;
       await scaffold.onNextWeekRequested!(MealOfDay.breakfast);
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 2));
-      expect(
-        calls.last.arguments['msg'],
-        priorSuccess ? l10n.nextWeekNotReady : l10n.cannotLoadMeal,
-      );
+      if (kIsWeb) {
+        expect(find.text(message), findsNWidgets(before + 1));
+      } else {
+        expect(calls.last.arguments['msg'], message);
+      }
+      await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

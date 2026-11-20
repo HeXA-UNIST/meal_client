@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -16,13 +17,17 @@ class NestedPageScrollController extends PageController {
 
   // 버튼 이동은 진행 중인 사용자 입력과 별도의 요청이다.
   int navigationRevision = 0;
+  WheelScrollTarget? wheelTarget;
+  VoidCallback? _cancelWheel;
 
-  void cancelUserInput() {
+  void cancelUserInput({bool keepWeekWheel = false}) {
+    if (!keepWeekWheel) _cancelWheel?.call();
     navigationRevision++;
     notifyListeners();
   }
 
   void _prepareButtonMove() {
+    _cancelWheel?.call();
     navigationRevision++;
     final currentPage = page!.round();
     _reverseList.fillRange(0, currentPage, false);
@@ -69,7 +74,7 @@ class NestedPageScrollView extends StatefulWidget {
     required this.builder,
     this.pointerSession,
     this.isHorizontalInputActive,
-    this.onHorizontalPointerSignal,
+    this.wheelTargetFor,
     this.onHorizontalDragStart,
     this.onHorizontalDragUpdate,
     this.onHorizontalDragEnd,
@@ -81,8 +86,7 @@ class NestedPageScrollView extends StatefulWidget {
   final NestedPageScrollController controller;
   final void Function(int page) onPageChanged;
   final Widget Function(BuildContext context, int pageIndex) builder;
-  final void Function(BuildContext, PointerSignalEvent)?
-  onHorizontalPointerSignal;
+  final WheelScrollTarget? Function(Axis, ScrollPosition?)? wheelTargetFor;
 
   final void Function(BuildContext, DragStartDetails)? onHorizontalDragStart;
   final GestureDragUpdateCallback? onHorizontalDragUpdate;
@@ -120,6 +124,8 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     super.initState();
     _navigationRevision = widget.controller.navigationRevision;
     widget.controller.addListener(_onControllerChanged);
+    widget.controller.wheelTarget = _wheelTarget;
+    widget.controller._cancelWheel = _pointerSession.reset;
     scrollControllers = List.generate(
       widget.controller.pageCount,
       (_) => ScrollController(),
@@ -153,8 +159,10 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
           false);
 
   void _start(DragStartDetails details) {
+    _pointerSession.reset();
     _finish(cancel: true);
     if (!widget.controller.hasClients || _horizontalScrolling) return;
+    PointerScrollSession.clearWeekPull(Navigator.maybeOf(context));
     _touchScrolling = true;
     _preparePages(widget.controller.page!.round());
   }
@@ -207,6 +215,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
       _deferredDy = 0;
       _update(
         DragUpdateDetails(
+          kind: details.kind,
           sourceTimeStamp: details.sourceTimeStamp,
           delta: Offset(0, pending),
           primaryDelta: pending,
@@ -277,6 +286,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     _pageMotion.update(
       widget.controller.position,
       DragUpdateDetails(
+        kind: details.kind,
         sourceTimeStamp: details.sourceTimeStamp,
         delta: Offset(0, remaining),
         primaryDelta: remaining,
@@ -301,9 +311,6 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     _inputEpoch++;
     _deferredDy = 0;
     _deferredUpdateScheduled = false;
-    if (_pointerScrolling && _pointerSession.axis == Axis.vertical) {
-      _pointerSession.reset();
-    }
     final drag = _drag;
     _drag = null;
     _dragController = null;
@@ -325,57 +332,96 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     }
   }
 
-  void _onPointerSignal(PointerSignalEvent event) {
-    if (event is PointerScrollInertiaCancelEvent) {
-      _finish();
-      widget.onHorizontalPointerSignal?.call(context, event);
-      return;
-    }
-    if (event is! PointerScrollEvent || _touchScrolling) return;
-    final delta = event.scrollDelta;
-    if (delta == Offset.zero) return;
-    final axis = _pointerSession.peekAxis(
-      delta,
-      shifted: HardwareKeyboard.instance.isShiftPressed,
-    );
-    if (axis == Axis.horizontal) {
-      widget.onHorizontalPointerSignal?.call(context, event);
-      return;
-    }
-    if (_horizontalScrolling) {
-      // 차단한 세로 휠이 부모나 브라우저 스크롤로 전달되지 않게 소비한다.
-      GestureBinding.instance.pointerSignalResolver.register(event, (_) {
-        _finish(cancel: true);
-        _pointerSession.record(() {}, axis: Axis.vertical);
-        event.respond(allowPlatformDefault: false);
-      });
-      return;
-    }
-    GestureBinding.instance.pointerSignalResolver.register(event, (resolved) {
-      if (!mounted || !widget.controller.hasClients) return;
+  late final _wheelTarget = WheelScrollTarget(
+    motion: _pageMotion,
+    move: (details, _) {
+      if (!mounted || !widget.controller.hasClients || _horizontalScrolling) {
+        if (_pointerScrolling) _finish(cancel: true);
+        return;
+      }
       if (!_pointerScrolling) {
         _finish(cancel: true);
         _pointerScrolling = true;
         _preparePages(widget.controller.page!.round());
       }
-      _update(
-        DragUpdateDetails(
-          sourceTimeStamp: event.timeStamp,
-          delta: Offset(0, -delta.dy),
-          primaryDelta: -delta.dy,
-          globalPosition: event.position,
-          localPosition: event.localPosition,
-        ),
-      );
+      _update(details);
+    },
+    finish: (_) {
+      if (mounted && _pointerScrolling) _finish();
+    },
+    canRead: _canRead,
+  );
+
+  bool _canRead(double delta) {
+    if (!mounted || !widget.controller.hasClients) return false;
+    final page = widget.controller.page;
+    if (page == null ||
+        (page - page.round()).abs() *
+                widget.controller.position.viewportDimension >
+            _edgeTolerance) {
+      return false;
+    }
+    final inner = scrollControllers[page.round()];
+    if (!inner.hasClients || !inner.position.hasContentDimensions) return false;
+    final position = inner.position;
+    final reversed = widget.controller.pageReversed(page.round());
+    if (axisDirectionIsReversed(position.axisDirection) != reversed) {
+      return false;
+    }
+    final next = position.pixels + (reversed ? -delta : delta);
+    return next >= position.minScrollExtent && next <= position.maxScrollExtent;
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollInertiaCancelEvent) {
+      _pointerSession.reset(clearWeekPullIn: Navigator.maybeOf(context));
+      return;
+    }
+    if (event is! PointerScrollEvent ||
+        _touchScrolling ||
+        _horizontalDragging ||
+        event.scrollDelta == Offset.zero) {
+      return;
+    }
+    final shifted = HardwareKeyboard.instance.isShiftPressed;
+    final horizontal = Scrollable.maybeOf(
+      context,
+      axis: Axis.horizontal,
+    )?.position;
+    final route = widget.wheelTargetFor;
+    final controller = widget.controller;
+    final session = _pointerSession;
+    WheelScrollTarget? targetFor(Axis axis) {
+      if (!mounted ||
+          widget.controller != controller ||
+          _pointerSession != session) {
+        return null;
+      }
+      if (route != null) return route(axis, horizontal);
+      return axis == Axis.vertical ? _wheelTarget : null;
+    }
+
+    final axis = _pointerSession.peekAxis(event.scrollDelta, shifted: shifted);
+    if (axis == Axis.horizontal &&
+        (horizontal == null || !horizontal.hasPixels || route == null)) {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      if (!mounted || !widget.controller.hasClients) return;
       event.respond(allowPlatformDefault: false);
-      _pointerSession.record(() => _finish(), axis: Axis.vertical);
+      _pointerSession.accept(
+        event,
+        shifted: shifted,
+        targetFor: targetFor,
+        navigator: Navigator.maybeOf(context),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Listener(
+    final view = Listener(
       onPointerSignal: _onPointerSignal,
       onPointerDown: (event) => _dragPointer ??= event.pointer,
       onPointerUp: (event) {
@@ -436,27 +482,51 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         ),
       ),
     );
+    if (!kIsWeb) return view;
+    // 웹에서 천천히 밀 때 식단이 손가락을 조금 더 일찍 따라오도록 한다.
+    return MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(gestureSettings: const DeviceGestureSettings(touchSlop: 12)),
+      child: view,
+    );
   }
 
   @override
   void didUpdateWidget(NestedPageScrollView oldWidget) {
     super.didUpdateWidget(oldWidget);
     assert(oldWidget.controller.pageCount == widget.controller.pageCount);
-    if (oldWidget.pointerSession != widget.pointerSession) {
-      _localPointerSession.reset();
+    if (oldWidget.pointerSession != widget.pointerSession ||
+        oldWidget.controller != widget.controller) {
+      // 세션을 여러 요일이 공유하므로 이전 뷰가 받던 휠 입력만 취소하고 분리한다.
+      _finish(cancel: true);
+      (oldWidget.pointerSession ?? _localPointerSession).detach(_wheelTarget);
+      _unbindWheelTarget(oldWidget.controller);
+      widget.controller.wheelTarget = _wheelTarget;
+      widget.controller._cancelWheel = _pointerSession.reset;
     }
     if (oldWidget.controller != widget.controller) {
-      _finish(cancel: true);
       oldWidget.controller.removeListener(_onControllerChanged);
       _navigationRevision = widget.controller.navigationRevision;
       widget.controller.addListener(_onControllerChanged);
     }
   }
 
+  void _unbindWheelTarget(NestedPageScrollController controller) {
+    // 같은 컨트롤러에 새 뷰가 먼저 연결될 수 있다. 그때는 새 뷰의 콜백을 남겨 둔다.
+    if (controller.wheelTarget != _wheelTarget) return;
+    controller.wheelTarget = null;
+    controller._cancelWheel = null;
+  }
+
   @override
   void dispose() {
+    // detach가 휠 종료 콜백을 호출할 수 있다. 짧은 당김을 먼저 취소해야 이미
+    // 폐기된 자식 ScrollPosition에서 원위치로 돌아가는 애니메이션을 시작하지 않는다.
     _finish(cancel: true);
+    _pointerSession.detach(_wheelTarget);
     _localPointerSession.reset();
+    _unbindWheelTarget(widget.controller);
     widget.controller.removeListener(_onControllerChanged);
     for (final controller in scrollControllers) {
       controller.dispose();
@@ -611,7 +681,8 @@ class NestedPageScrollControllerGroup {
     _isSyncing = true;
     try {
       for (final controller in _controllers) {
-        controller.cancelUserInput();
+        // 자동으로 도착한 요일에서 공유 휠 대기열을 이어 받는다.
+        controller.cancelUserInput(keepWeekWheel: true);
         if (controller.hasClients) controller.jumpToPage(_page);
       }
     } finally {

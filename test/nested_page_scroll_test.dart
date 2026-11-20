@@ -159,32 +159,159 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('짧은 끼니 스크롤도 의도한 방향으로 정렬한다', (tester) async {
-    final controller = await mount(tester, contentHeight: 100);
-    await wheel(tester, const Offset(0, 100));
-    final preview = controller.page!;
-    expect(preview, greaterThan(0));
-    expect(preview, lessThan(0.25));
-    // 입력 종료를 기다리지 않고 다음 프레임부터 전환한다.
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(controller.page, greaterThan(preview));
-    await tester.pump(const Duration(milliseconds: 230));
+  testWidgets('마우스 휠 한 칸은 본문 끝까지 먼저 쓰고 남은 거리만 페이지에 전달한다', (tester) async {
+    final controller = await mount(tester);
+    final inner = tester
+        .widget<SingleChildScrollView>(
+          find
+              .ancestor(
+                of: find.text('끼니 0 상단'),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        )
+        .controller!;
+    inner.jumpTo(inner.position.maxScrollExtent - 25);
+    await wheel(tester, const Offset(0, 50));
+    await tester.pump(const Duration(milliseconds: 181));
+    await tester.pumpAndSettle();
+    expect(inner.offset, inner.position.maxScrollExtent);
+    expect(controller.page, 0);
+    await wheel(tester, const Offset(0, 50));
     await tester.pumpAndSettle();
     expect(controller.page, 1);
   });
 
   testWidgets('전환 중 반대 입력으로 원래 끼니로 되돌릴 수 있다', (tester) async {
     final controller = await mount(tester, contentHeight: 100);
-    await wheel(tester, const Offset(0, 100));
+    await wheel(tester, const Offset(0, 50));
     await tester.pump(const Duration(milliseconds: 50));
     final movingPage = controller.page!;
-    await wheel(tester, const Offset(0, -100));
+    await wheel(tester, const Offset(0, -50));
     await tester.pump(const Duration(milliseconds: 50));
     expect(controller.page, lessThan(movingPage));
     await tester.pump(const Duration(milliseconds: 230));
     await tester.pumpAndSettle();
     expect(controller.page, 0);
   });
+
+  testWidgets('정렬 직후의 짧은 반전은 첫 입력부터 현재 본문을 읽는다', (tester) async {
+    final controller = await mount(tester);
+    await wheel(tester, const Offset(0, 702));
+    for (final tail in [12.0, 6.0]) {
+      await tester.pump(const Duration(milliseconds: 10));
+      await wheel(tester, Offset(0, tail));
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    final inner = tester
+        .widget<SingleChildScrollView>(
+          find
+              .ancestor(
+                of: find.text('끼니 1 상단'),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        )
+        .controller!;
+    inner.jumpTo(120);
+    for (final expected in [80, 40]) {
+      await wheel(tester, const Offset(0, -40));
+      expect(inner.offset, expected);
+      expect(controller.page, 1);
+    }
+    await wheel(tester, const Offset(0, -100));
+    await tester.pumpAndSettle();
+    expect(controller.page, 0);
+    expect(find.text('끼니 0 하단').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('같은 컨트롤러로 뷰를 교체한 뒤에도 휠 입력을 받고 취소할 수 있다', (tester) async {
+    final controller = NestedPageScrollController(pageCount: 3);
+    addTearDown(controller.dispose);
+    final session = PointerScrollSession();
+    Widget view(int key) => MaterialApp(
+      home: NestedPageScrollView(
+        key: ValueKey(key),
+        controller: controller,
+        pointerSession: session,
+        wheelTargetFor: (axis, _) =>
+            axis == Axis.vertical ? controller.wheelTarget : null,
+        onPageChanged: (_) {},
+        builder: (_, page) => Text('끼니 $page'),
+      ),
+    );
+    await tester.pumpWidget(view(0));
+    await tester.pumpWidget(view(1));
+    await wheel(tester, const Offset(0, 40));
+    expect(controller.page, greaterThan(0));
+    controller.cancelUserInput();
+    // 취소 전에 움직인 40px가 다음 40px에 더해지면 끼니가 넘어간다.
+    await wheel(tester, const Offset(0, 40));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(controller.page, 0);
+  });
+
+  for (final queued in [false, true]) {
+    testWidgets('다른 뷰가 공유 세션을 떠나도 ${queued ? "대기 중인" : "처리 중인"} 휠 입력을 이어 간다', (
+      tester,
+    ) async {
+      final controllers = List.generate(
+        2,
+        (_) => NestedPageScrollController(pageCount: 3),
+      );
+      final shared = PointerScrollSession();
+      final replacement = PointerScrollSession();
+      addTearDown(() {
+        for (final controller in controllers) {
+          controller.dispose();
+        }
+      });
+      Widget views(PointerScrollSession left) => MaterialApp(
+        home: Row(
+          children: [
+            for (var i = 0; i < 2; i++)
+              Expanded(
+                child: NestedPageScrollView(
+                  controller: controllers[i],
+                  pointerSession: i == 0 ? left : shared,
+                  onPageChanged: (_) {},
+                  builder: (_, page) => Text('끼니 $page'),
+                ),
+              ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(views(shared));
+      if (queued) {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(find.byType(NestedPageScrollView).first),
+            scrollDelta: const Offset(0, 80),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      Future<void> rightWheel() async {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(find.byType(NestedPageScrollView).last),
+            scrollDelta: const Offset(0, 40),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await rightWheel();
+      await tester.pumpWidget(views(replacement));
+      expect(shared.axis, Axis.vertical);
+      await rightWheel();
+      await tester.pumpAndSettle();
+      expect(controllers.last.page, 1);
+    });
+  }
 
   testWidgets('콘텐츠 중간에서 시작한 드래그도 끝에서 끼니 이동으로 이어진다', (tester) async {
     final controller = await mount(tester);
@@ -207,6 +334,10 @@ void main() {
 
   testWidgets('입력이 계속되어도 전환을 완료하고 같은 관성으로 끼니를 건너뛰지 않는다', (tester) async {
     final controller = await mount(tester, contentHeight: 100);
+    await wheel(tester, const Offset(0, 100));
+    final preview = controller.page!;
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(controller.page, greaterThan(preview));
     for (var i = 0; i < 20; i++) {
       await wheel(tester, const Offset(0, 40));
       await tester.pump(const Duration(milliseconds: 20));
@@ -216,30 +347,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     expect(controller.page, 1);
-  });
-
-  testWidgets('다음 끼니에서 이전 끼니로 돌아가면 하단부터 진입한다', (tester) async {
-    final controller = await mount(tester);
-    await wheel(tester, const Offset(0, 702));
-    await tester.pump(const Duration(milliseconds: 230));
-    await tester.pumpAndSettle();
-    expect(controller.page, 1);
-    await wheel(tester, const Offset(0, -450));
-    await tester.pump(const Duration(milliseconds: 230));
-    await tester.pumpAndSettle();
-    expect(controller.page, 0);
-    final inner = tester.widget<SingleChildScrollView>(
-      find
-          .ancestor(
-            of: find.text('끼니 0 상단'),
-            matching: find.byType(SingleChildScrollView),
-          )
-          .first,
-    );
-    expect(inner.reverse, isTrue);
-    expect(inner.controller!.offset, 0);
-    await tester.pump(const Duration(milliseconds: 230));
-    await tester.pumpAndSettle();
   });
 
   testWidgets('버튼 이동이 진행 중인 휠 세션을 취소해 이전 타이머가 새 이동을 덮어쓰지 않는다', (tester) async {

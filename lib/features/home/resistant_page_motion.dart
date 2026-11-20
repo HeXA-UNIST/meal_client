@@ -11,7 +11,30 @@ class ResistantPageMotion {
   static const resistanceLength = 120.0;
   // 저항이 적용되기 전의 입력 누적 거리로 전환을 결정한다.
   static const commitDistance = 72.0;
+  // Windows Edge에서 마우스 휠을 한 칸씩 세 번 돌렸을 때 매번 50 논리 픽셀이 들어왔다.
+  // 두 손가락으로 트랙패드를 밀어도 mouse로 들어올 수 있다. 그래서 50 기준은
+  // 이벤트 하나가 그만큼 움직였고 같은 방향으로 누적된 거리도 충분할 때만 쓴다.
+  static const _mouseWheelStep = 50.0;
+  static bool isMouseWheelStep(PointerDeviceKind? kind, double delta) =>
+      kind == PointerDeviceKind.mouse && delta.abs() >= _mouseWheelStep;
+
+  static bool shouldCommitWheel(
+    PointerDeviceKind? kind,
+    double delta,
+    double distance,
+  ) =>
+      distance.abs() >= commitDistance ||
+      (isMouseWheelStep(kind, delta) &&
+          distance.abs() >= _mouseWheelStep &&
+          delta.sign == distance.sign);
   static const transitionDuration = Duration(milliseconds: 300);
+  void Function(
+    ScrollPosition position,
+    double page,
+    double direction,
+    Duration time,
+  )?
+  onWheelCommit;
   ScrollPosition? _position;
   Drag? _drag;
   double _origin = 0;
@@ -54,6 +77,7 @@ class ResistantPageMotion {
     }
     final consumed = reversed ? -_distance : _distance;
     DragUpdateDetails withDelta(double value) => DragUpdateDetails(
+      kind: details.kind,
       sourceTimeStamp: details.sourceTimeStamp,
       delta: position.axis == Axis.vertical
           ? Offset(0, value)
@@ -90,10 +114,10 @@ class ResistantPageMotion {
       _reverseDistance = input * _direction < 0
           ? _reverseDistance + input.abs()
           : 0;
-      if (_reverseDistance >= commitDistance) {
+      if (shouldCommitWheel(details.kind, input.abs(), _reverseDistance)) {
         final previous = _target!;
         _origin = previous;
-        _commit(previous - _direction);
+        _commit(previous - _direction, details.sourceTimeStamp);
       }
       return;
     }
@@ -148,21 +172,32 @@ class ResistantPageMotion {
         localPosition: details.localPosition,
       ),
     );
-    if (_pointerScrolling && _distance.abs() >= commitDistance) {
-      _commit(target);
+    if (_pointerScrolling &&
+        shouldCommitWheel(details.kind, input, _distance)) {
+      _commit(target, details.sourceTimeStamp);
     }
   }
 
-  void _commit(double target) {
+  void _commit(double target, Duration? time) {
     final position = _position!;
     _direction = (target * position.viewportDimension - position.pixels).sign;
     if (_direction == 0) _direction = (target - _origin).sign;
     _target = target;
     _reverseDistance = 0;
-    _animateTo(target * position.viewportDimension);
+    alignWheel(position, target);
+    final wheelDirection = axisDirectionIsReversed(position.axisDirection)
+        ? -_direction
+        : _direction;
+    onWheelCommit?.call(
+      position,
+      target,
+      wheelDirection,
+      time ?? Duration.zero,
+    );
   }
 
   void finish({double velocity = 0}) {
+    onWheelCommit = null;
     final position = _position;
     if (position == null) return;
     if (!_pointerScrolling) {
@@ -183,13 +218,13 @@ class ResistantPageMotion {
       return;
     }
     if (_target == null) {
-      _animateTo(_origin * position.viewportDimension);
+      alignWheel(position, _origin);
     }
     _clear();
   }
 
-  void _animateTo(double pixels) {
-    final position = _position!;
+  void alignWheel(ScrollPosition position, double page) {
+    final pixels = page * position.viewportDimension;
     // 기본 animateTo는 자식의 포인터 입력을 막으므로 관성 입력과 반전을
     // 계속 받을 수 있는 동일한 Flutter 애니메이션 활동을 사용한다.
     position.beginActivity(
@@ -232,6 +267,13 @@ class ResistantPageMotion {
     if (position?.context.notificationContext?.mounted ?? false) {
       position!.hold(() {});
     }
+    _clear();
+  }
+
+  // 탭 컨트롤러가 같은 위치에서 새 애니메이션을 시작했다.
+  // 이전 휠 정렬의 hold가 새 탭 이동을 중단하지 않도록 추적만 끝낸다.
+  void relinquish() {
+    _stopTracking();
     _clear();
   }
 

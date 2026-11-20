@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/home_app_bar.dart';
 import 'package:meal_client/features/home/nested_page_scroll.dart';
+import 'package:meal_client/features/home/resistant_page_motion.dart';
 import 'package:meal_client/features/home/week_menu_scaffold.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -15,6 +16,7 @@ void main() {
   Future<void> mount(
     WidgetTester tester, {
     DayOfWeek initialDay = DayOfWeek.mon,
+    WeekMeal? weekMeal,
     Future<void> Function()? onNextWeek,
     Future<void> Function()? onPreviousWeek,
   }) async {
@@ -36,7 +38,7 @@ void main() {
           onNextWeekRequested: onNextWeek == null ? null : (_) => onNextWeek(),
           onPreviousWeekRequested: onPreviousWeek,
           initialMealOfDay: MealOfDay.breakfast,
-          mealFuture: Future.value(WeekMeal.empty()),
+          mealFuture: Future.value(weekMeal ?? WeekMeal.empty()),
           appInfo: Future.value(
             AppInfo.fromJson({
               'announcement': null,
@@ -52,12 +54,279 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> wheel(WidgetTester tester, Offset delta) async {
+  Future<void> wheel(
+    WidgetTester tester,
+    Offset delta, {
+    PointerDeviceKind kind = PointerDeviceKind.mouse,
+  }) async {
     await tester.sendEventToBinding(
-      PointerScrollEvent(position: const Offset(200, 300), scrollDelta: delta),
+      PointerScrollEvent(
+        kind: kind,
+        timeStamp: tester.binding.clock.now().difference(DateTime.utc(2000)),
+        position: const Offset(200, 300),
+        scrollDelta: delta,
+      ),
     );
     await tester.pump();
   }
+
+  int day(WidgetTester tester) =>
+      tester.widget<TabBar>(find.byType(TabBar)).controller!.index;
+  String mealLabel(WidgetTester tester) => tester
+      .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+      .label;
+
+  testWidgets('실측 마우스 휠 한 칸으로 끼니를 넘기고 Shift 조합으로 요일을 넘긴다', (tester) async {
+    await mount(tester);
+    // Windows Edge에서 측정한 물리 휠 한 칸은 50 논리 픽셀이었다.
+    await wheel(tester, const Offset(0, 50));
+    await tester.pumpAndSettle();
+    expect(mealLabel(tester), '점심');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    try {
+      await wheel(tester, const Offset(2, 50));
+      await tester.pumpAndSettle();
+    } finally {
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    }
+    expect(day(tester), 1);
+    expect(mealLabel(tester), '점심');
+  });
+
+  testWidgets('Flutter가 trackpad로 분류한 50px 입력은 원래 페이지로 돌아온다', (tester) async {
+    await mount(tester);
+    for (final delta in [const Offset(50, 0), const Offset(0, 50)]) {
+      await wheel(tester, delta, kind: PointerDeviceKind.trackpad);
+      await tester.pump(const Duration(milliseconds: 181));
+      await tester.pumpAndSettle();
+    }
+    expect(day(tester), 0);
+    expect(mealLabel(tester), '아침');
+  });
+
+  testWidgets('확정되지 않은 세로 휠 입력 중 식단 화면을 닫을 수 있다', (tester) async {
+    await mount(tester);
+    await wheel(tester, const Offset(0, 20));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final settling in [true, false]) {
+    testWidgets(
+      '휠 세션 종료 뒤 Shift를 떼면 ${settling ? "정렬 중에도" : "도착 후에도"} 끼니를 넘긴다',
+      (tester) async {
+        await mount(tester, initialDay: DayOfWeek.tue);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        try {
+          for (final delta in [-70.0, -20.0, -10.0]) {
+            await wheel(tester, Offset(0, delta));
+            await tester.pump(const Duration(milliseconds: 10));
+          }
+          await tester.pump(Duration(milliseconds: settling ? 170 : 290));
+        } finally {
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        }
+        await wheel(tester, const Offset(0, 50));
+        await tester.pumpAndSettle();
+        expect(day(tester), 0);
+        expect(mealLabel(tester), '점심');
+      },
+    );
+  }
+
+  testWidgets('세로 휠 세션이 끝난 후 Shift를 누른 한 칸은 요일을 넘긴다', (tester) async {
+    await mount(tester);
+    for (final delta in [70.0, 20.0, 10.0]) {
+      await wheel(tester, Offset(0, delta));
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    await tester.pump(const Duration(milliseconds: 170));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    try {
+      await wheel(tester, const Offset(0, 50));
+      await tester.pumpAndSettle();
+      expect(day(tester), 1);
+      expect(mealLabel(tester), '점심');
+    } finally {
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    }
+  });
+
+  testWidgets('Shift를 뗀 뒤 새로 민 세로 입력은 정렬 대기열에서도 세로로 전달한다', (tester) async {
+    await mount(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    try {
+      for (final delta in [80.0, 24.0, 12.0, 8.0, 6.0, 4.0]) {
+        await wheel(tester, Offset(0, delta));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+    } finally {
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    }
+    await wheel(tester, const Offset(2, 40));
+    await tester.pump(const Duration(milliseconds: 20));
+    await wheel(tester, const Offset(3, 42));
+    await tester.pumpAndSettle();
+    expect(day(tester), 1);
+    expect(mealLabel(tester), '점심');
+  });
+
+  testWidgets('220ms 간격 휠 다섯 칸을 정렬이 끝날 때마다 한 칸씩 반영한다', (tester) async {
+    await mount(tester);
+    for (var i = 0; i < 5; i++) {
+      await wheel(tester, const Offset(50, 0));
+      await tester.pump(const Duration(milliseconds: 220));
+    }
+    await tester.pumpAndSettle();
+    expect(day(tester), 5);
+  });
+
+  testWidgets('끼니 휠의 감속 뒤 두 번째 스와이프를 받아들인다', (tester) async {
+    await mount(tester);
+    for (final d in <double>[80, 24, 12, 8, 6, 4, 40, 42, 28, 10, 4]) {
+      await wheel(tester, Offset(0, d));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    await tester.pumpAndSettle();
+    expect(day(tester), 0);
+    expect(mealLabel(tester), '저녁');
+  });
+
+  testWidgets('첫 정렬이 끝나기 전에 두 번 더 민 입력도 세 요일을 넘긴다', (tester) async {
+    await mount(tester);
+    for (final d in <double>[
+      80,
+      22,
+      12,
+      8,
+      3,
+      3,
+      3,
+      40,
+      42,
+      16,
+      9,
+      5,
+      3,
+      3,
+      3,
+      40,
+      42,
+    ]) {
+      await wheel(tester, Offset(d, 0));
+      await tester.pump(const Duration(milliseconds: 18));
+    }
+    await tester.pumpAndSettle();
+    expect(day(tester), 3);
+  });
+
+  testWidgets('버스트가 멎은 뒤 늦게 도착한 관성 한 번으로는 다음 요일을 넘기지 않는다', (tester) async {
+    await mount(tester);
+    for (final d in <double>[100, 24, 8]) {
+      await wheel(tester, Offset(d, 0));
+      await tester.pump(const Duration(milliseconds: 15));
+    }
+    await tester.pump(const Duration(milliseconds: 320));
+    await wheel(tester, const Offset(85, 0));
+    await tester.pumpAndSettle();
+    expect(day(tester), 1);
+    await tester.pump(const Duration(milliseconds: 380));
+  });
+
+  testWidgets('일요일 정렬 전에 받아 둔 휠 한 칸으로 다음 주를 열지 않는다', (tester) async {
+    var opened = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sat,
+      onNextWeek: () async {
+        opened++;
+      },
+    );
+    await wheel(tester, const Offset(120, 0));
+    await tester.pump(const Duration(milliseconds: 220));
+    await wheel(tester, const Offset(140, 0));
+    await tester.pumpAndSettle();
+    expect(day(tester), 6);
+    expect(opened, 0);
+    await wheel(tester, const Offset(140, 0));
+    await tester.pump(const Duration(milliseconds: 181));
+    expect(opened, 1);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('정렬 중 탭 선택은 대기 중인 다음 요일 입력을 취소한다', (tester) async {
+    await mount(tester);
+    await wheel(tester, const Offset(120, 0));
+    await tester.pump(const Duration(milliseconds: 220));
+    await wheel(tester, const Offset(120, 0));
+    await tester.tap(find.text('목'));
+    await tester.pumpAndSettle();
+    expect(day(tester), 3);
+  });
+
+  for (final (first, second, expected) in [
+    (15.0, 15.0, 30.0),
+    (44.0, 1.0, 0.0),
+  ]) {
+    testWidgets(
+      '요일 정렬 중 들어온 세로 ${first.toInt()}+${second.toInt()}px를 도착 본문에서 판정한다',
+      (tester) async {
+        final meal = WeekMeal.empty();
+        meal[DayOfWeek.tue][MealOfDay.breakfast][Cafeteria.student].add(
+          Meal.regular(
+            menu: List.generate(55, (i) => MealMenuItem(ko: '화요일 메뉴 $i')),
+          ),
+        );
+        await mount(tester, weekMeal: meal);
+        await wheel(tester, const Offset(100, 0));
+        await tester.pump(const Duration(milliseconds: 25));
+        await wheel(tester, Offset(0, first));
+        await tester.pump(const Duration(milliseconds: 15));
+        await wheel(tester, Offset(0, second));
+        await tester.pumpAndSettle();
+        expect(day(tester), 1);
+        final content = tester.widget<SingleChildScrollView>(
+          find
+              .ancestor(
+                of: find.text('화요일 메뉴 0'),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        );
+        expect(content.controller!.offset, closeTo(expected, 0.01));
+        expect(mealLabel(tester), '아침');
+      },
+    );
+  }
+
+  testWidgets('정렬 중 충분한 반대 축 입력은 도착 요일의 다음 끼니로 전달한다', (tester) async {
+    await mount(tester);
+    await wheel(tester, const Offset(100, 0));
+    await tester.pump(const Duration(milliseconds: 30));
+    await wheel(tester, const Offset(2, 36));
+    await tester.pump(const Duration(milliseconds: 20));
+    await wheel(tester, const Offset(1, 40));
+    await tester.pumpAndSettle();
+    expect(day(tester), 1);
+    expect(mealLabel(tester), '점심');
+  });
+
+  testWidgets('도착 요일에 읽을 본문이 없으면 작은 교차 입력으로 끼니를 넘기지 않는다', (tester) async {
+    await mount(tester);
+    for (final d in <double>[100, 16, 8]) {
+      await wheel(tester, Offset(d, 0));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    await wheel(tester, const Offset(0, 15));
+    await tester.pump(const Duration(milliseconds: 15));
+    await wheel(tester, const Offset(0, 15));
+    await tester.pump(const Duration(milliseconds: 240));
+    await wheel(tester, const Offset(0, 60));
+    await tester.pumpAndSettle();
+    expect(day(tester), 1);
+    expect(mealLabel(tester), '아침');
+  });
 
   List<String> recordHaptics(WidgetTester tester) {
     final events = <String>[];
@@ -79,75 +348,61 @@ void main() {
     return events;
   }
 
-  for (final forward in [true, false]) {
-    testWidgets(
-      '${forward ? '다음 주 진입' : '이번 주 복귀'} 당김 단계마다 햅틱을 주고 되당김과 복귀에서는 반복하지 않는다',
-      (tester) async {
-        var changed = 0;
-        Future<void> changeWeek() async {
-          changed++;
-        }
+  testWidgets('주 경계 햅틱은 새로 도달한 단계에서 한 번 울린다', (tester) async {
+    var changed = 0;
+    Future<void> changeWeek() async {
+      changed++;
+    }
 
-        await mount(
-          tester,
-          initialDay: forward ? DayOfWeek.sun : DayOfWeek.mon,
-          onNextWeek: forward ? changeWeek : null,
-          onPreviousWeek: forward ? null : changeWeek,
-        );
-        final direction = forward ? -1.0 : 1.0;
-        final start = Offset(forward ? 350 : 50, 300);
-        final events = recordHaptics(tester);
-        var gesture = await tester.startGesture(start);
-        await gesture.moveBy(Offset(direction * 30, 0));
-        await tester.pump();
-        expect(events, isEmpty);
-        for (var i = 0; i < 4; i++) {
-          await gesture.moveBy(Offset(direction * 30, 0));
-          await tester.pump();
-        }
-        expect(events, [
-          'HapticFeedbackType.selectionClick',
-          'HapticFeedbackType.selectionClick',
-          'HapticFeedbackType.selectionClick',
-          'HapticFeedbackType.lightImpact',
-        ]);
-        await gesture.moveBy(Offset(-direction * 60, 0));
-        await tester.pump();
-        await gesture.moveBy(Offset(direction * 60, 0));
-        await tester.pump();
-        expect(events, hasLength(4));
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(events, hasLength(4));
-        expect(changed, 1);
-
-        if (!forward) return;
-        // 새 터치에서는 단계별 피드백을 다시 허용한다.
-        gesture = await tester.startGesture(start);
-        await gesture.moveBy(Offset(direction * 30, 0));
-        await tester.pump();
-        await gesture.moveBy(Offset(direction * 30, 0));
-        await tester.pump();
-        expect(events, hasLength(5));
-        expect(events.last, 'HapticFeedbackType.selectionClick');
-        await gesture.cancel();
-        await tester.pumpAndSettle();
-        expect(events, hasLength(5));
-      },
-    );
-  }
-
-  testWidgets('한 입력으로 여러 단계를 건너뛰면 도착 단계의 햅틱만 준다', (tester) async {
-    await mount(tester, initialDay: DayOfWeek.sun, onNextWeek: () async {});
+    await mount(tester, initialDay: DayOfWeek.sun, onNextWeek: changeWeek);
+    const start = Offset(350, 300);
     final events = recordHaptics(tester);
-    final gesture = await tester.startGesture(const Offset(350, 300));
+    var gesture = await tester.startGesture(start);
+    await gesture.moveBy(const Offset(-30, 0));
+    await tester.pump();
+    expect(events, isEmpty);
+    for (var i = 0; i < 4; i++) {
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump();
+    }
+    expect(events, [
+      'HapticFeedbackType.selectionClick',
+      'HapticFeedbackType.selectionClick',
+      'HapticFeedbackType.selectionClick',
+      'HapticFeedbackType.lightImpact',
+    ]);
+    // 터치스크린은 게이지가 차도 손을 떼기 전까지 전환하지 않는다.
+    await tester.pump(const Duration(seconds: 1));
+    expect(changed, 0);
+    expect(
+      tester
+          .widget<CircularProgressIndicator>(
+            find.byType(CircularProgressIndicator),
+          )
+          .value,
+      1,
+    );
+    await gesture.moveBy(const Offset(60, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-60, 0));
+    await tester.pump();
+    expect(events, hasLength(4));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(events, hasLength(4));
+    expect(changed, 1);
+
+    // 새 터치로 여러 단계를 한 번에 당기면 도착 단계에서만 울린다.
+    gesture = await tester.startGesture(start);
     await gesture.moveBy(const Offset(-30, 0));
     await tester.pump();
     await gesture.moveBy(const Offset(-150, 0));
     await tester.pump();
-    expect(events, ['HapticFeedbackType.lightImpact']);
+    expect(events, hasLength(5));
+    expect(events.last, 'HapticFeedbackType.lightImpact');
     await gesture.cancel();
     await tester.pumpAndSettle();
+    expect(events, hasLength(5));
   });
 
   testWidgets('주 경계 휠과 마우스 드래그에는 햅틱을 주지 않는다', (tester) async {
@@ -193,6 +448,82 @@ void main() {
           .label,
       '점심',
     );
+  });
+
+  for (final forward in [true, false]) {
+    testWidgets(
+      '${forward ? '일요일' : '월요일'} 도착 직후 다시 밀면 관성이 끝나기 전에 주 경계 게이지가 시작된다',
+      (tester) async {
+        var requests = 0;
+        Future<void> request() async {
+          requests++;
+        }
+
+        await mount(
+          tester,
+          initialDay: forward ? DayOfWeek.sat : DayOfWeek.tue,
+          onNextWeek: forward ? request : null,
+          onPreviousWeek: forward ? null : request,
+        );
+        Future<void> swipe(double d) => wheel(
+          tester,
+          Offset(forward ? d : -d, 0),
+          kind: forward ? PointerDeviceKind.mouse : PointerDeviceKind.trackpad,
+        );
+        await swipe(100);
+        for (var i = 0; i < 16; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await swipe(6);
+        }
+        expect(day(tester), forward ? 6 : 0);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        await swipe(40);
+        await tester.pump(const Duration(milliseconds: 15));
+        await swipe(45);
+        final gauge = tester.widget<CircularProgressIndicator>(
+          find.byType(CircularProgressIndicator),
+        );
+        expect(gauge.value, closeTo(85 / 120, 0.001));
+        expect(requests, 0);
+        await swipe(40);
+        await tester.pump(const Duration(milliseconds: 181));
+        expect(requests, 1);
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
+  testWidgets('일요일 정렬 전후에 걸친 재가속으로는 주 경계 게이지를 시작하지 않는다', (tester) async {
+    var opened = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sat,
+      onNextWeek: () async {
+        opened++;
+      },
+    );
+    await wheel(tester, const Offset(100, 0));
+    const cadence = Duration(milliseconds: 20);
+    final beforeArrival =
+        ResistantPageMotion.transitionDuration -
+        const Duration(milliseconds: 10);
+    var elapsed = Duration.zero;
+    while (elapsed + cadence < beforeArrival) {
+      await tester.pump(cadence);
+      elapsed += cadence;
+      await wheel(tester, const Offset(6, 0));
+    }
+    await tester.pump(beforeArrival - elapsed);
+    await wheel(tester, const Offset(65, 0));
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(day(tester), 6);
+    for (var i = 0; i < 3; i++) {
+      await wheel(tester, const Offset(65, 0));
+      await tester.pump(const Duration(milliseconds: 15));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    }
+    await tester.pumpAndSettle();
+    expect(opened, 0);
   });
 
   testWidgets('일요일 도착과 같은 휠 관성은 다음 주를 열지 않고 새 세션만 연다', (tester) async {
@@ -317,63 +648,183 @@ void main() {
     expect(changed, 0);
   });
 
-  testWidgets('일요일 정렬 중 새 터치를 반대 방향으로 시작하면 주 진입을 허용하지 않는다', (tester) async {
-    var changed = 0;
-    await mount(
-      tester,
-      initialDay: DayOfWeek.sat,
-      onNextWeek: () async {
-        changed++;
+  for (final towardSunday in [true, false]) {
+    testWidgets(
+      towardSunday
+          ? '일요일 정렬 중 새 터치를 반대 방향으로 시작하면 주 진입을 허용하지 않는다'
+          : '일요일에서 멀어지는 정렬 중에는 새 터치를 다음 주 방향으로 밀어도 진입하지 않는다',
+      (tester) async {
+        var requests = 0;
+        await mount(
+          tester,
+          initialDay: towardSunday ? DayOfWeek.sat : DayOfWeek.sun,
+          onNextWeek: () async {
+            requests++;
+          },
+        );
+        final direction = towardSunday ? -1.0 : 1.0;
+        var gesture = await tester.startGesture(const Offset(200, 300));
+        await gesture.moveBy(Offset(direction * 30, 0));
+        await gesture.moveBy(Offset(direction * 240, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        await gesture.up();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        gesture = await tester.startGesture(const Offset(200, 300));
+        await gesture.moveBy(Offset(-direction * 30, 0));
+        if (towardSunday) {
+          await gesture.moveBy(const Offset(20, 0));
+          await tester.pump();
+        }
+        await gesture.moveBy(const Offset(-500, 0));
+        await tester.pump();
+        await gesture.moveBy(const Offset(-160, 0));
+        await tester.pump();
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(requests, 0);
       },
     );
-    var gesture = await tester.startGesture(const Offset(200, 300));
-    await gesture.moveBy(const Offset(-30, 0));
-    await gesture.moveBy(const Offset(-240, 0));
-    await tester.pump(const Duration(milliseconds: 100));
-    await gesture.up();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 16));
-    gesture = await tester.startGesture(const Offset(200, 300));
-    await gesture.moveBy(const Offset(30, 0));
-    await gesture.moveBy(const Offset(20, 0));
-    await tester.pump();
-    await gesture.moveBy(const Offset(-500, 0));
-    await tester.pump();
-    await gesture.moveBy(const Offset(-160, 0));
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(changed, 0);
-  });
+  }
 
-  testWidgets('일요일에서 멀어지는 정렬 중에는 새 터치를 다음 주 방향으로 밀어도 진입하지 않는다', (tester) async {
-    var changed = 0;
+  for (final forward in [true, false]) {
+    testWidgets(
+      '${forward ? '다음 주' : '이번 주'} 게이지가 차면 트랙패드 관성 중에도 한 번만 요청하고 복귀한다',
+      (tester) async {
+        var requests = 0;
+        Future<void> request() async {
+          requests++;
+        }
+
+        await mount(
+          tester,
+          initialDay: forward ? DayOfWeek.sun : DayOfWeek.mon,
+          onNextWeek: forward ? request : null,
+          onPreviousWeek: forward ? null : request,
+        );
+        Future<void> trackpad(double distance) => wheel(
+          tester,
+          Offset(forward ? distance : -distance, 0),
+          kind: forward ? PointerDeviceKind.mouse : PointerDeviceKind.trackpad,
+        );
+        await trackpad(85);
+        await trackpad(55);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        for (var i = 0; i < 30; i++) {
+          await tester.pump(const Duration(milliseconds: 25));
+          await trackpad(i < 8 ? 24 : 6);
+          if (i == 8) expect(requests, 1);
+        }
+        await tester.pumpAndSettle();
+        expect(requests, 1);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+      },
+    );
+  }
+
+  Future<void> mountWithPreview(WidgetTester tester) async {
     await mount(
       tester,
       initialDay: DayOfWeek.sun,
       onNextWeek: () async {
-        changed++;
+        final context = tester.element(find.byType(WeekMenuScaffold));
+        final home = context.widget as WeekMenuScaffold;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            builder: (_) => WeekMenuScaffold(
+              mondayOfWeek: home.mondayOfWeek.add(const Duration(days: 7)),
+              initialDayOfWeek: DayOfWeek.mon,
+              initialMealOfDay: MealOfDay.breakfast,
+              appInfo: home.appInfo,
+              mealFuture: Future.value(WeekMeal.empty()),
+            ),
+          ),
+        );
       },
     );
-    var gesture = await tester.startGesture(const Offset(200, 300));
-    await gesture.moveBy(const Offset(30, 0));
-    await gesture.moveBy(const Offset(240, 0));
-    await tester.pump(const Duration(milliseconds: 100));
-    await gesture.up();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 16));
-    gesture = await tester.startGesture(const Offset(350, 300));
-    await gesture.moveBy(const Offset(-30, 0));
-    await gesture.moveBy(const Offset(-400, 0));
-    await tester.pump();
-    await gesture.moveBy(const Offset(-160, 0));
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    await gesture.up();
+  }
+
+  testWidgets('미리보기로 이어진 관성은 월요일을 유지하고 새 스와이프는 화요일로 넘긴다', (tester) async {
+    await mountWithPreview(tester);
+    await wheel(tester, const Offset(135, 0));
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 25));
+      await wheel(tester, const Offset(12, 0));
+    }
+    expect(day(tester), 0);
+    await wheel(tester, const Offset(40, 0));
+    await tester.pump(const Duration(milliseconds: 15));
+    await wheel(tester, const Offset(45, 0));
     await tester.pumpAndSettle();
-    expect(changed, 0);
+    expect(day(tester), 1);
   });
+
+  testWidgets('미리보기에서 220ms 간격의 두 번째 휠 한 칸부터 요일을 넘긴다', (tester) async {
+    await mountWithPreview(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    try {
+      for (var i = 0; i < 3; i++) {
+        if (i > 0) await tester.pump(const Duration(milliseconds: 120));
+        await wheel(tester, const Offset(0, 50));
+      }
+      for (var i = 0; i < 3; i++) {
+        // 화면 전환 도중에도 같은 간격으로 계속 굴린다.
+        for (var frame = 0; frame < 11; frame++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        await wheel(tester, const Offset(0, 50));
+        if (i == 0) {
+          expect(
+            tester
+                .widgetList<TabBar>(find.byType(TabBar))
+                .last
+                .controller!
+                .index,
+            0,
+          );
+        }
+      }
+      await tester.pumpAndSettle();
+      expect(day(tester), 2);
+    } finally {
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    }
+  });
+
+  for (final tab in [true, false]) {
+    testWidgets('주 요청 뒤 ${tab ? "요일 탭을 누르면" : "새 드래그를 시작하면"} 다음 휠을 받는다', (
+      tester,
+    ) async {
+      var requests = 0;
+      await mount(
+        tester,
+        initialDay: DayOfWeek.sun,
+        onNextWeek: () async {
+          requests++;
+        },
+      );
+      for (var i = 0; i < 3; i++) {
+        await wheel(tester, const Offset(50, 0));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await tester.pump(const Duration(milliseconds: 181));
+      expect(requests, 1);
+      if (tab) {
+        await tester.tap(find.text('일'));
+      } else {
+        final touch = await tester.startGesture(const Offset(200, 300));
+        await touch.moveBy(const Offset(0, 30));
+        await tester.pump();
+        await touch.up();
+      }
+      await tester.pump();
+      await wheel(tester, const Offset(150, 0));
+      await tester.pump(const Duration(milliseconds: 181));
+      expect(requests, 2);
+      await tester.pumpAndSettle();
+    });
+  }
 
   testWidgets('주 경계에서 짧은 입력과 반대 입력은 다음 주를 열지 않는다', (tester) async {
     var opened = 0;
@@ -769,91 +1220,34 @@ void main() {
     }
   });
 
-  testWidgets('요일 탭 전환 중 끼니 버튼을 무시하고 전환 후 다시 사용할 수 있다', (tester) async {
-    await mount(tester);
-    final tab = tester.widget<TabBar>(find.byType(TabBar)).controller!;
-    await tester.tap(find.text('화'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 30));
-    await tester.tap(find.byType(MealOfDaySwitchButton), warnIfMissed: false);
-    await tester.pump();
-    expect(
-      tester
-          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
-          .label,
-      '아침',
-    );
-    await tester.pumpAndSettle();
-    expect(tab.index, 1);
-
-    await tester.tap(find.byType(MealOfDaySwitchButton));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
-          .label,
-      '점심',
-    );
-  });
-
-  testWidgets('가로 휠 세션과 정렬 중 끼니 버튼을 무시한다', (tester) async {
-    await mount(tester);
-    await wheel(tester, const Offset(100, 0));
-    await tester.pump(const Duration(milliseconds: 190));
-    final horizontal = tester
-        .widgetList<PageView>(find.byType(PageView))
-        .singleWhere((view) => view.scrollDirection == Axis.horizontal)
-        .controller!;
-    expect(horizontal.page, greaterThan(0));
-    expect(horizontal.page, lessThan(1));
-    await tester.tap(find.byType(MealOfDaySwitchButton), warnIfMissed: false);
-    await tester.pump();
-    expect(
-      tester
-          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
-          .label,
-      '아침',
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(MealOfDaySwitchButton));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
-          .label,
-      '점심',
-    );
-  });
-
-  testWidgets('Shift와 세로 휠 조합은 요일만 넘긴다', (tester) async {
-    await mount(tester);
-    final tabController = tester
-        .widget<TabBar>(find.byType(TabBar))
-        .controller!;
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-    try {
-      for (var i = 0; i < 3; i++) {
-        await tester.sendEventToBinding(
-          const PointerScrollEvent(
-            position: Offset(200, 300),
-            scrollDelta: Offset(2, 40),
-          ),
+  for (final useWheel in [false, true]) {
+    testWidgets(
+      '요일을 ${useWheel ? "휠로" : "탭으로"} 넘기는 동안 끼니 버튼을 잠그고 도착하면 다시 받는다',
+      (tester) async {
+        await mount(tester);
+        if (useWheel) {
+          await wheel(tester, const Offset(100, 0));
+          // 휠 입력이 끊긴 뒤에도 요일 이동이 끝날 때까지 버튼을 잠근다.
+          await tester.pump(const Duration(milliseconds: 190));
+        } else {
+          await tester.tap(find.text('화'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 30));
+        }
+        await tester.tap(
+          find.byType(MealOfDaySwitchButton),
+          warnIfMissed: false,
         );
-        await tester.pump(const Duration(milliseconds: 20));
-      }
-      await tester.pump(const Duration(milliseconds: 230));
-      await tester.pumpAndSettle();
-    } finally {
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-    }
-    expect(tabController.index, 1);
-    expect(
-      tester
-          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
-          .label,
-      '아침',
+        await tester.pumpAndSettle();
+        expect(day(tester), 1);
+        expect(mealLabel(tester), '아침');
+        await tester.tap(find.byType(MealOfDaySwitchButton));
+        await tester.pumpAndSettle();
+        expect(mealLabel(tester), '점심');
+      },
     );
-  });
+  }
+
   testWidgets('가로 pan/zoom 트랙패드는 요일을 이동하고 끼니는 유지한다', (tester) async {
     await mount(tester);
     final pointer = TestPointer(1, PointerDeviceKind.trackpad);

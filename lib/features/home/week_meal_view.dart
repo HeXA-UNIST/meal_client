@@ -143,6 +143,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
 
   void _onTabChanged() {
     if (widget.tabController.indexIsChanging) {
+      _horizontalMotion.relinquish();
       _finishHorizontal(cancel: true);
       _pointerSession.reset();
     } else if (_edgeEligible) {
@@ -183,7 +184,6 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
               (axisDirectionIsReversed(position.axisDirection)
                   ? velocity
                   : -velocity);
-    if (_pointerSession.axis == Axis.horizontal) _pointerSession.reset();
     _horizontalPosition = null;
     if (cancel) {
       _horizontalMotion.cancel();
@@ -224,7 +224,11 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     }
   }
 
-  void _beginHorizontal(ScrollPosition position, {bool touch = false}) {
+  void _beginHorizontal(
+    ScrollPosition position, {
+    bool touch = false,
+    bool allowWeekBoundary = true,
+  }) {
     // 경계로 정렬 중인 새 터치는 첫 입력의 방향을 확인한 뒤 진입을 허용한다.
     double? settlingEdgeDirection;
     final releasedPixels = _touchReleasePixels;
@@ -255,6 +259,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         widget.tabController.index == 0 &&
         (position.pixels - position.minScrollExtent).abs() < 0.01;
     final eligible =
+        allowWeekBoundary &&
         !position.isScrollingNotifier.value &&
         !widget.tabController.indexIsChanging &&
         (atEnd || atStart);
@@ -286,6 +291,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
       axis: Axis.horizontal,
     )?.position;
     if (position != null) {
+      PointerScrollSession.clearWeekPull(Navigator.maybeOf(context));
       _beginHorizontal(
         position,
         touch: details.kind == PointerDeviceKind.touch,
@@ -342,6 +348,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
           ? remaining
           : -remaining;
       remainingDetails = DragUpdateDetails(
+        kind: details.kind,
         sourceTimeStamp: details.sourceTimeStamp,
         delta: Offset(dx, 0),
         primaryDelta: dx,
@@ -369,56 +376,53 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     }
   }
 
-  void _onPointerSignal(BuildContext context, PointerSignalEvent event) {
-    if (event is PointerScrollInertiaCancelEvent) {
-      _finishHorizontal(allowWeekChange: false);
-      return;
+  WheelScrollTarget? _wheelTargetFor(Axis axis, ScrollPosition? position) {
+    if (!mounted ||
+        widget.tabController.indexIsChanging ||
+        (widget.isMealTransitionActive?.call() ?? false)) {
+      return null;
     }
-    if (event is! PointerScrollEvent) return;
-    final delta = event.scrollDelta;
-    if (delta == Offset.zero) return;
-    final shifted = HardwareKeyboard.instance.isShiftPressed;
-    if (_pointerSession.peekAxis(delta, shifted: shifted) != Axis.horizontal) {
-      return;
+    if (axis == Axis.vertical) {
+      return widget.pageControllerGroup
+          .getController(widget.tabController.index)
+          .wheelTarget;
     }
-    final dx = _pointerSession.horizontalDelta(delta, shifted: shifted);
-    final position = Scrollable.maybeOf(
-      context,
-      axis: Axis.horizontal,
-    )?.position;
-    if (position == null || !position.hasPixels) return;
-    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
-      if (!mounted) return;
-      event.respond(allowPlatformDefault: false);
-      if (widget.isMealTransitionActive?.call() ?? false) {
-        _pointerSession.reset();
-        return;
-      }
-      if (_horizontalPosition != position) {
-        _beginHorizontal(position);
-      }
-      _horizontalPointerScrolling = true;
-      _updateHorizontal(
-        DragUpdateDetails(
-          sourceTimeStamp: event.timeStamp,
-          delta: Offset(-dx, 0),
-          primaryDelta: -dx,
-          globalPosition: event.position,
-          localPosition: event.localPosition,
-        ),
-      );
-      _pointerSession.record(
-        _finishHorizontal,
-        axis: Axis.horizontal,
-        shifted: shifted,
-        boundary: _edgeEligible,
-      );
-    });
+    if (position == null || !position.hasPixels) return null;
+    return WheelScrollTarget(
+      motion: _horizontalMotion,
+      move: (details, allowWeekBoundary) {
+        if (_horizontalPosition != position) {
+          _beginHorizontal(position, allowWeekBoundary: allowWeekBoundary);
+        }
+        _horizontalPointerScrolling = true;
+        _updateHorizontal(details);
+      },
+      finish: (allowWeekChange) =>
+          _finishHorizontal(allowWeekChange: allowWeekChange),
+      isWeekBoundary: () => _edgeEligible,
+      // 휠에는 손을 뗐다는 이벤트가 없어 게이지가 찬 방향을 세션에 알려 준다.
+      // 터치스크린에서는 게이지가 차도 손을 떼기 전까지 당김 거리를 줄일 수 있다.
+      fullWeekPullDirection: () =>
+          _edgeEligible && _edgeDistance.value >= _weekBoundaryDistance
+          ? (axisDirectionIsReversed(position.axisDirection)
+                ? -_edgeDirection
+                : _edgeDirection)
+          : 0,
+      isWeekEdgePage: (position, page) =>
+          (widget.onNextWeekRequested != null &&
+              page == widget.tabController.length - 1) ||
+          (widget.onPreviousWeekRequested != null && page == 0),
+    );
   }
 
   @override
   void didUpdateWidget(WeekMealTabBarView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.tabController != widget.tabController ||
+        oldWidget.pageControllerGroup != widget.pageControllerGroup ||
+        oldWidget.mondayOfWeek != widget.mondayOfWeek) {
+      _pointerSession.reset();
+    }
     if (oldWidget.tabController != widget.tabController) {
       _finishHorizontal(cancel: true);
       oldWidget.tabController.removeListener(_onTabChanged);
@@ -452,7 +456,7 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         (tabIndex) => NestedPageScrollView(
           pointerSession: _pointerSession,
           isHorizontalInputActive: () => _horizontalPosition != null,
-          onHorizontalPointerSignal: _onPointerSignal,
+          wheelTargetFor: _wheelTargetFor,
           onHorizontalDragStart: _startHorizontal,
           onHorizontalDragUpdate: _updateHorizontal,
           onHorizontalDragEnd: (details) =>

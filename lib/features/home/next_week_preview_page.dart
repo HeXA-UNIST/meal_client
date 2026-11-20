@@ -15,12 +15,38 @@ import 'week_menu_scaffold.dart';
 typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
 
 Future<void> _showPreviewToast(BuildContext context, String message) async {
-  final isIos = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
   final isLight = Theme.of(context).brightness == Brightness.light;
   final backgroundColor = isLight
       ? const Color(0xFFF0F0F0)
       : const Color(0xFF454545);
   final textColor = isLight ? const Color(0xFF2E2E2E) : const Color(0xFFF5F5F5);
+  // 웹 플러그인의 메서드 채널은 cancel을 지원하지 않는다.
+  // 오버레이 토스트는 활성 안내와 대기열을 함께 교체할 수 있다.
+  if (kIsWeb) {
+    FToast().init(context)
+      ..removeQueuedCustomToasts()
+      ..showToast(
+        gravity: ToastGravity.BOTTOM,
+        ignorePointer: true,
+        child: Semantics(
+          liveRegion: true,
+          child: Material(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: textColor),
+              ),
+            ),
+          ),
+        ),
+      );
+    return;
+  }
+  final isIos = defaultTargetPlatform == TargetPlatform.iOS;
   await Fluttertoast.cancel();
   await Fluttertoast.showToast(
     msg: message,
@@ -28,9 +54,7 @@ Future<void> _showPreviewToast(BuildContext context, String message) async {
     timeInSecForIosWeb: 2,
     // Android는 색상을 전달하지 않아 기본 네이티브 Toast를 유지한다.
     backgroundColor: isIos ? backgroundColor : null,
-    textColor: isIos || kIsWeb ? textColor : null,
-    webBgColor: isLight ? '#F0F0F0' : '#454545',
-    webPosition: 'center',
+    textColor: isIos ? textColor : null,
   );
 }
 

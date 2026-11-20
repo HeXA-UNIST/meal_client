@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
@@ -124,11 +125,22 @@ void main() {
     );
     await tester.tap(find.text('미리보기 열기'));
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 2));
+    const message = '다음 주 식단이 아직 준비되지 않았어요.';
     expect(find.byType(NextWeekPreviewPage), findsNothing);
     expect(find.text('미리보기 열기'), findsOneWidget);
-    expect(calls.map((call) => call.method), ['cancel', 'showToast']);
-    expect(calls.last.arguments['msg'], '다음 주 식단이 아직 준비되지 않았어요.');
+    if (kIsWeb) {
+      expect(find.text(message), findsOneWidget);
+      await tester.tap(find.text('미리보기 열기'));
+      await tester.pumpAndSettle();
+      expect(find.text(message), findsOneWidget);
+      expect(calls, isEmpty);
+    } else {
+      expect(calls.map((call) => call.method), ['cancel', 'showToast']);
+      expect(calls.last.arguments['msg'], message);
+    }
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text(message), findsNothing);
   });
 
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {

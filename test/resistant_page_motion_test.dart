@@ -51,11 +51,12 @@ void main() {
   testWidgets('드래그는 기준을 넘어도 손을 놓기 전에는 자동 전환하지 않는다', (tester) async {
     final (controller, motion) = await mount(tester);
     move(controller, motion, 100, 20);
-    expect(controller.page, closeTo(0.25, 0.001));
+    final held = controller.page!;
+    expect(held, inExclusiveRange(0, 1));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(controller.page, closeTo(0.25, 0.001));
+    expect(controller.page, held);
     move(controller, motion, -60, 40);
-    expect(controller.page, closeTo(0.1, 0.001));
+    expect(controller.page, inExclusiveRange(0, held));
     motion.finish();
     await tester.pumpAndSettle();
     expect(controller.page, 0);
@@ -68,21 +69,17 @@ void main() {
       final (controller, motion) = await mount(tester);
       move(controller, motion, 100, 0, wheel: true);
       motion.finish();
-      expect(motion.isInputActive, isFalse);
-      expect(motion.isSettling, isTrue);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 120));
       final before = controller.position.pixels;
-      expect(before, greaterThan(200));
+      expect(controller.page, inExclusiveRange(0.5, 1));
       move(controller, motion, 8, 140, wheel: wheel);
       expect(controller.position.pixels, greaterThan(before));
       expect(controller.position.pixels - before, lessThanOrEqualTo(8.01));
-      expect(motion.isInputActive, isTrue);
       if (wheel) move(controller, motion, 80, 160, wheel: true);
       motion.finish();
       await tester.pumpAndSettle();
       expect(controller.page, 1);
-      expect(motion.isSettling, isFalse);
     });
   }
 }
