@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
@@ -141,6 +142,108 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     expect(find.text(message), findsNothing);
+  });
+
+  testWidgets('iOS에서는 다음 주 미준비와 조회 실패 토스트를 음성으로도 안내한다', (tester) async {
+    final toastCalls = <MethodCall>[];
+    final announcements = <String>[];
+    const toastChannel = MethodChannel('PonnamKarthik/fluttertoast');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      toastChannel,
+      (call) async {
+        toastCalls.add(call);
+        return true;
+      },
+    );
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<Object?>(
+      SystemChannels.accessibility,
+      (message) async {
+        if (message is Map && message['type'] == 'announce') {
+          final data = message['data'] as Map;
+          announcements.add(data['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        toastChannel,
+        null,
+      );
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<Object?>(
+            SystemChannels.accessibility,
+            null,
+          );
+    });
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(supportsAnnounce: true),
+              child: Scaffold(
+                body: Builder(
+                  builder: (innerContext) => Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => openNextWeekPreview(
+                          context: innerContext,
+                          nextWeekStartFuture: Future.value(null),
+                          appInfo: Future.value(_emptyAppInfo()),
+                        ),
+                        child: const Text('미준비'),
+                      ),
+                      TextButton(
+                        onPressed: () => openNextWeekPreview(
+                          context: innerContext,
+                          nextWeekStartFuture: Future<String?>.error(
+                            Exception('network'),
+                          ),
+                          appInfo: Future.value(_emptyAppInfo()),
+                        ),
+                        child: const Text('조회 실패'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('미준비'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('조회 실패'));
+      await tester.pumpAndSettle();
+
+      if (!kIsWeb) {
+        expect(announcements, ['다음 주 식단이 아직 준비되지 않았어요.', '식단 정보를 불러올 수 없어요.']);
+        expect(
+          toastCalls.where((call) => call.method == 'showToast').length,
+          2,
+        );
+      }
+
+      announcements.clear();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await tester.tap(find.text('미준비'));
+      await tester.pumpAndSettle();
+      expect(announcements, isEmpty);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {

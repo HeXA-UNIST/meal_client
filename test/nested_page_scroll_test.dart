@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/home/nested_page_scroll.dart';
@@ -446,5 +447,80 @@ void main() {
     );
     expect(inner.reverse, isTrue);
     expect(inner.controller!.offset, 0);
+  });
+
+  testWidgets('스크린 리더 showOnScreen 탐색으로 화면 밖 하단 콘텐츠를 노출한다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final controller = await mount(tester, contentHeight: 700);
+      final viewport = tester.getRect(find.byType(NestedPageScrollView));
+      expect(
+        tester.getRect(find.text('끼니 0 하단')).bottom,
+        greaterThan(viewport.bottom),
+      );
+
+      final bottomNode = tester.getSemantics(find.text('끼니 0 하단'));
+      tester
+          .renderObject(find.text('끼니 0 하단'))
+          .owner!
+          .semanticsOwner!
+          .performAction(bottomNode.id, SemanticsAction.showOnScreen);
+      await tester.pumpAndSettle();
+
+      expect(controller.page, 0);
+      expect(
+        tester.getRect(find.text('끼니 0 하단')).bottom,
+        lessThanOrEqualTo(viewport.bottom + 0.01),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('시맨틱 세로 스크롤은 본문 하단을 먼저 보여주고 다음 액션에서 끼니를 넘긴다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      // 뷰포트(400)보다 100px만 넘치는 본문: 한 번에 0.8*400=320px가 들어와도
+      // 같은 액션에서 다음 끼니로 건너뛰지 않아야 한다.
+      final controller = await mount(tester, contentHeight: 500);
+      final inner = tester
+          .widget<SingleChildScrollView>(
+            find
+                .ancestor(
+                  of: find.text('끼니 0 상단'),
+                  matching: find.byType(SingleChildScrollView),
+                )
+                .first,
+          )
+          .controller!;
+      final gestureFinder = find
+          .descendant(
+            of: find.byType(NestedPageScrollView),
+            matching: find.byType(GestureDetector),
+          )
+          .first;
+      final scrollNode = tester.getSemantics(gestureFinder);
+      expect(
+        scrollNode.getSemanticsData().hasAction(SemanticsAction.scrollUp),
+        isTrue,
+      );
+
+      final semanticsOwner = tester
+          .renderObject(gestureFinder)
+          .owner!
+          .semanticsOwner!;
+      semanticsOwner.performAction(scrollNode.id, SemanticsAction.scrollUp);
+      await tester.pumpAndSettle();
+
+      expect(controller.page, 0);
+      expect(inner.offset, closeTo(100, 0.01));
+
+      semanticsOwner.performAction(scrollNode.id, SemanticsAction.scrollUp);
+      await tester.pumpAndSettle();
+
+      expect(controller.page, 1);
+    } finally {
+      semantics.dispose();
+    }
   });
 }

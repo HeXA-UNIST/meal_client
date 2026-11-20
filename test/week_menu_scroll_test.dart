@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1320,5 +1321,262 @@ void main() {
       '아침',
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('작은 화면과 큰 글씨에서 키보드와 스크린 리더 탐색으로 마지막 메뉴까지 접근한다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      tester.view.physicalSize = const Size(360, 520);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final meal = WeekMeal.empty();
+      meal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.dormitory].add(
+        Meal.regular(
+          menu: List.generate(8, (i) => MealMenuItem(ko: '기숙사 메뉴 $i')),
+        ),
+      );
+      meal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.student].add(
+        Meal.regular(
+          menu: List.generate(8, (i) => MealMenuItem(ko: '학생 메뉴 $i')),
+        ),
+      );
+      meal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.faculty].add(
+        Meal.regular(
+          menu: const [
+            MealMenuItem(ko: '교직원 메뉴'),
+            MealMenuItem(ko: '마지막 메뉴'),
+          ],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2.0)),
+            child: child!,
+          ),
+          home: WeekMenuScaffold(
+            mondayOfWeek: DateTime.utc(2026, 10, 5),
+            initialDayOfWeek: DayOfWeek.mon,
+            initialMealOfDay: MealOfDay.breakfast,
+            mealFuture: Future.value(meal),
+            appInfo: Future.value(
+              AppInfo.fromJson({
+                'announcement': null,
+                'operatingHours': {
+                  'weekday': <String, dynamic>{},
+                  'weekend': <String, dynamic>{},
+                },
+              }),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final viewport = tester.getRect(find.byType(TabBarView));
+      expect(
+        tester.getRect(find.text('마지막 메뉴')).bottom,
+        greaterThan(viewport.bottom),
+      );
+
+      // 키보드 PageDown으로 마지막 메뉴까지 내려갈 수 있다.
+      for (var i = 0; i < 8; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+        await tester.pumpAndSettle();
+      }
+      expect(mealLabel(tester), '아침');
+      expect(
+        tester.getRect(find.text('마지막 메뉴')).bottom,
+        lessThanOrEqualTo(viewport.bottom + 0.01),
+      );
+
+      // PageUp으로 다시 맨 위로 올라간 뒤 showOnScreen으로도 마지막 메뉴 카드에 도달한다.
+      for (var i = 0; i < 8; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+        await tester.pumpAndSettle();
+      }
+      expect(
+        tester.getRect(find.text('마지막 메뉴')).bottom,
+        greaterThan(viewport.bottom),
+      );
+
+      final lastMenuNode = tester.getSemantics(find.text('마지막 메뉴'));
+      tester
+          .renderObject(find.text('마지막 메뉴'))
+          .owner!
+          .semanticsOwner!
+          .performAction(lastMenuNode.id, SemanticsAction.showOnScreen);
+      await tester.pumpAndSettle();
+      expect(mealLabel(tester), '아침');
+      expect(
+        tester.getRect(find.text('마지막 메뉴')).bottom,
+        lessThanOrEqualTo(viewport.bottom + 0.01),
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('본문 시맨틱 가로 스크롤로 요일을 전환할 수 있다', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await mount(tester);
+
+      final bodyFinder = find.byType(NestedPageScrollView);
+      final bodyNode = tester.getSemantics(bodyFinder);
+      final semanticsOwner = tester
+          .renderObject(bodyFinder)
+          .owner!
+          .semanticsOwner!;
+      expect(
+        bodyNode.getSemanticsData().hasAction(SemanticsAction.scrollLeft),
+        isTrue,
+      );
+
+      semanticsOwner.performAction(bodyNode.id, SemanticsAction.scrollLeft);
+      await tester.pumpAndSettle();
+      expect(day(tester), 1);
+
+      final tuesdayNode = tester.getSemantics(bodyFinder);
+      semanticsOwner.performAction(tuesdayNode.id, SemanticsAction.scrollRight);
+      await tester.pumpAndSettle();
+      expect(day(tester), 0);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('휠로 끼니 전환 중 PageDown을 눌러도 페이지 정렬이 중단되지 않는다', (tester) async {
+    final meal = WeekMeal.empty();
+    meal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.student].add(
+      Meal.regular(
+        menu: List.generate(30, (i) => MealMenuItem(ko: '아침 메뉴 $i')),
+      ),
+    );
+    meal[DayOfWeek.mon][MealOfDay.lunch][Cafeteria.student].add(
+      Meal.regular(
+        menu: List.generate(30, (i) => MealMenuItem(ko: '점심 메뉴 $i')),
+      ),
+    );
+    await mount(tester, weekMeal: meal);
+
+    // 아침 본문 맨 아래로 이동한 뒤 휠로 점심 전환을 시작한다.
+    final breakfastScroll = tester
+        .widget<SingleChildScrollView>(
+          find
+              .ancestor(
+                of: find.text('아침 메뉴 0'),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        )
+        .controller!;
+    breakfastScroll.jumpTo(breakfastScroll.position.maxScrollExtent);
+    await tester.pump();
+
+    await wheel(tester, const Offset(0, 100));
+    await tester.pump(const Duration(milliseconds: 150));
+
+    // 전환 중간에 PageDown을 눌러도 두 끼니 사이에 멈추지 않고 점심에 정렬된다.
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+
+    final pageController = tester
+        .widget<NestedPageScrollView>(find.byType(NestedPageScrollView))
+        .controller;
+    expect(pageController.page, 1.0);
+    expect(mealLabel(tester), '점심');
+  });
+
+  testWidgets('드로어가 열려 있을 때 PageDown은 드로어 목록을 스크롤한다', (tester) async {
+    tester.view.physicalSize = const Size(400, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final meal = WeekMeal.empty();
+    meal[DayOfWeek.mon][MealOfDay.breakfast][Cafeteria.student].add(
+      Meal.regular(
+        menu: List.generate(30, (i) => MealMenuItem(ko: '아침 메뉴 $i')),
+      ),
+    );
+    final drawerController = ScrollController();
+    addTearDown(drawerController.dispose);
+    final firstItemFocus = FocusNode();
+    addTearDown(firstItemFocus.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: WeekMenuScaffold(
+          mondayOfWeek: DateTime.utc(2026, 10, 5),
+          initialDayOfWeek: DayOfWeek.mon,
+          initialMealOfDay: MealOfDay.breakfast,
+          mealFuture: Future.value(meal),
+          appInfo: Future.value(
+            AppInfo.fromJson({
+              'announcement': null,
+              'operatingHours': {
+                'weekday': <String, dynamic>{},
+                'weekend': <String, dynamic>{},
+              },
+            }),
+          ),
+          drawer: Drawer(
+            child: ListView(
+              controller: drawerController,
+              children: [
+                for (var i = 0; i < 30; i++)
+                  SizedBox(
+                    height: 60,
+                    child: TextButton(
+                      focusNode: i == 0 ? firstItemFocus : null,
+                      onPressed: () {},
+                      child: Text('드로어 항목 $i'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final mealScroll = tester
+        .widget<SingleChildScrollView>(
+          find
+              .ancestor(
+                of: find.text('아침 메뉴 0'),
+                matching: find.byType(SingleChildScrollView),
+              )
+              .first,
+        )
+        .controller!;
+
+    tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
+    await tester.pumpAndSettle();
+    firstItemFocus.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+
+    expect(drawerController.offset, greaterThan(0));
+    expect(mealScroll.offset, 0);
   });
 }

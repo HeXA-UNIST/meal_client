@@ -19,6 +19,10 @@ class NestedPageScrollController extends PageController {
   int navigationRevision = 0;
   WheelScrollTarget? wheelTarget;
   VoidCallback? _cancelWheel;
+  ScrollPosition? Function()? _activeInnerPosition;
+
+  /// 현재 선택된 끼니 페이지 내부 스크롤 위치. 키보드 스크롤에서 사용한다.
+  ScrollPosition? get activeInnerPosition => _activeInnerPosition?.call();
 
   void cancelUserInput({bool keepWeekWheel = false}) {
     if (!keepWeekWheel) _cancelWheel?.call();
@@ -113,6 +117,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
   late int _navigationRevision;
   bool _pointerScrolling = false;
   bool _touchScrolling = false;
+  bool _semanticScrolling = false;
   bool _horizontalDragging = false;
   int? _dragPointer;
   double _deferredDy = 0;
@@ -126,11 +131,33 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     widget.controller.addListener(_onControllerChanged);
     widget.controller.wheelTarget = _wheelTarget;
     widget.controller._cancelWheel = _pointerSession.reset;
+    widget.controller._activeInnerPosition = _currentInnerPosition;
     scrollControllers = List.generate(
       widget.controller.pageCount,
       (_) => ScrollController(),
       growable: false,
     );
+  }
+
+  ScrollPosition? _currentInnerPosition() {
+    if (!mounted ||
+        !widget.controller.hasClients ||
+        _touchScrolling ||
+        _pointerScrolling ||
+        _pageMotion.isInputActive ||
+        _pageMotion.isSettling ||
+        widget.controller.position.isScrollingNotifier.value) {
+      return null;
+    }
+    final page = widget.controller.page;
+    if (page == null) return null;
+    final index = page.round().clamp(0, scrollControllers.length - 1);
+    if ((page - index).abs() * widget.controller.position.viewportDimension >=
+            _edgeTolerance ||
+        !_innerReady(index)) {
+      return null;
+    }
+    return scrollControllers[index].position;
   }
 
   void _onControllerChanged() {
@@ -164,6 +191,8 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     if (!widget.controller.hasClients || _horizontalScrolling) return;
     PointerScrollSession.clearWeekPull(Navigator.maybeOf(context));
     _touchScrolling = true;
+    // 시맨틱 스크롤 액션은 포인터 종류 없이 한 번에 큰 delta를 전달한다.
+    _semanticScrolling = details.kind == null;
     _preparePages(widget.controller.page!.round());
   }
 
@@ -273,7 +302,8 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         final consumed = remaining.clamp(-available, available).toDouble();
         _move(inner, consumed, details);
         remaining -= consumed;
-        if (remaining.abs() < _edgeTolerance) return;
+        // 시맨틱 스크롤이 본문 끝을 넘겨 같은 액션에서 다음 끼니로 건너뛰지 않게 한다.
+        if (_semanticScrolling || remaining.abs() < _edgeTolerance) return;
       }
     }
 
@@ -313,6 +343,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     _dragController = null;
     _pointerScrolling = false;
     _touchScrolling = false;
+    _semanticScrolling = false;
     if (cancel) {
       drag?.cancel();
       _pageMotion.cancel();
@@ -519,6 +550,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
       _unbindWheelTarget(oldWidget.controller);
       widget.controller.wheelTarget = _wheelTarget;
       widget.controller._cancelWheel = _pointerSession.reset;
+      widget.controller._activeInnerPosition = _currentInnerPosition;
     }
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onControllerChanged);
@@ -532,6 +564,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     if (controller.wheelTarget != _wheelTarget) return;
     controller.wheelTarget = null;
     controller._cancelWheel = null;
+    controller._activeInnerPosition = null;
   }
 
   @override
@@ -621,7 +654,7 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
         scrollDirection: Axis.vertical,
         controller: widget.scrollController,
         reverse: _reverse,
-        physics: const NeverScrollableScrollPhysics(),
+        physics: const _ImplicitOnlyScrollPhysics(),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: widget.builder(context, widget.pageIndex),
@@ -629,6 +662,20 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
       ),
     );
   }
+}
+
+/// 포인터 드래그·휠은 상위 [NestedPageScrollView]에 맡기되,
+/// 스크린 리더 순차 탐색의 자동 스크롤(`showOnScreen`)은 허용한다.
+class _ImplicitOnlyScrollPhysics extends NeverScrollableScrollPhysics {
+  const _ImplicitOnlyScrollPhysics({super.parent});
+
+  @override
+  _ImplicitOnlyScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _ImplicitOnlyScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  bool get allowImplicitScrolling => true;
 }
 
 class NestedPageScrollControllerGroup {

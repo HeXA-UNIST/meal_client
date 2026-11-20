@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/semantics.dart' show SemanticsService;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -47,6 +48,13 @@ Future<void> _showPreviewToast(BuildContext context, String message) async {
     return;
   }
   final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+  // iOS 네이티브 토스트는 VoiceOver 알림을 보내지 않으므로 별도로 음성 안내한다.
+  final announceView = isIos && MediaQuery.supportsAnnounceOf(context)
+      ? View.maybeOf(context)
+      : null;
+  final textDirection = announceView == null
+      ? null
+      : Directionality.of(context);
   await Fluttertoast.cancel();
   await Fluttertoast.showToast(
     msg: message,
@@ -56,6 +64,13 @@ Future<void> _showPreviewToast(BuildContext context, String message) async {
     backgroundColor: isIos ? backgroundColor : null,
     textColor: isIos ? textColor : null,
   );
+  if (announceView != null && context.mounted) {
+    await SemanticsService.sendAnnouncement(
+      announceView,
+      message,
+      textDirection!,
+    );
+  }
 }
 
 Future<void> openNextWeekPreview({
