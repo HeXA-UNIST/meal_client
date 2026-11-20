@@ -1,9 +1,13 @@
-import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:meal_client/features/home/next_week_preview_page.dart';
+import 'package:meal_client/features/home/home_app_bar.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -17,34 +21,229 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
-  testWidgets('nextWeekStart 조회 중에는 로딩 인디케이터를 보여준다', (tester) async {
-    final completer = Completer<String?>();
-
+  testWidgets('미리보기 경계는 일요일에서 멈추고 월요일에서 이번 주로 돌아온다', (tester) async {
+    tester.view.physicalSize = const Size(400, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('ko'),
         localizationsDelegates: const [
           AppLocalizations.delegate,
           ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: NextWeekPreviewPage(
-          nextWeekStartFuture: completer.future,
-          appInfo: Future.value(_emptyAppInfo()),
-          refreshNextWeekStart: () async => null,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => NextWeekPreviewPage(
+                    nextWeekStart: '2026-06-22',
+                    initialMealOfDay: MealOfDay.dinner,
+                    appInfo: Future.value(_emptyAppInfo()),
+                    loadDatedWeek: (_) async =>
+                        parseRawMeal(_emptyWeekRawJson('2026-06-22')),
+                    onNextWeekMealRefreshed: () {},
+                  ),
+                ),
+              ),
+              child: const Text('이번 주'),
+            ),
+          ),
         ),
       ),
     );
+    await tester.tap(find.text('이번 주'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+          .label,
+      '저녁',
+    );
+    Future<void> overscroll({required bool forward}) async {
+      final center = tester.getCenter(find.byType(TabBarView));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: center,
+          scrollDelta: Offset(forward ? 160 : -160, 0),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+    }
 
-    // completer가 끝나지 않아 CircularProgressIndicator가 무기한
-    // 애니메이션 중이므로, pumpAndSettle이 아닌 pump 한 프레임만 진행한다.
-    await tester.pump();
+    await tester.tap(find.text('일'));
+    await tester.pumpAndSettle();
+    await overscroll(forward: true);
+    expect(find.byType(NextWeekPreviewPage), findsOneWidget);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 6);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.tap(find.text('월'));
+    await tester.pumpAndSettle();
+    await overscroll(forward: false);
+    expect(find.byType(NextWeekPreviewPage), findsNothing);
+    expect(find.text('이번 주'), findsOneWidget);
+  });
+  testWidgets('다음 주 미준비 시 화면 전환 없이 안내 Toast를 띄운다', (tester) async {
+    final calls = <MethodCall>[];
+    const channel = MethodChannel('PonnamKarthik/fluttertoast');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      calls.add(call);
+      return true;
+    });
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      );
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('ko'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => openNextWeekPreview(
+                context: context,
+                nextWeekStartFuture: Future.value(null),
+                appInfo: Future.value(_emptyAppInfo()),
+              ),
+              child: const Text('미리보기 열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('미리보기 열기'));
+    await tester.pumpAndSettle();
+    const message = '다음 주 식단이 아직 준비되지 않았어요.';
+    expect(find.byType(NextWeekPreviewPage), findsNothing);
+    expect(find.text('미리보기 열기'), findsOneWidget);
+    if (kIsWeb) {
+      expect(find.text(message), findsOneWidget);
+      await tester.tap(find.text('미리보기 열기'));
+      await tester.pumpAndSettle();
+      expect(find.text(message), findsOneWidget);
+      expect(calls, isEmpty);
+    } else {
+      expect(calls.map((call) => call.method), ['cancel', 'showToast']);
+      expect(calls.last.arguments['msg'], message);
+    }
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text(message), findsNothing);
+  });
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  testWidgets('iOS에서는 다음 주 미준비와 조회 실패 토스트를 음성으로도 안내한다', (tester) async {
+    final toastCalls = <MethodCall>[];
+    final announcements = <String>[];
+    const toastChannel = MethodChannel('PonnamKarthik/fluttertoast');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      toastChannel,
+      (call) async {
+        toastCalls.add(call);
+        return true;
+      },
+    );
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<Object?>(
+      SystemChannels.accessibility,
+      (message) async {
+        if (message is Map && message['type'] == 'announce') {
+          final data = message['data'] as Map;
+          announcements.add(data['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        toastChannel,
+        null,
+      );
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<Object?>(
+            SystemChannels.accessibility,
+            null,
+          );
+    });
 
-    // 위젯 트리를 정리해 completer의 future가 dangling되지 않게 한다.
-    completer.complete(null);
-    await tester.pump();
-    await tester.pump();
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(supportsAnnounce: true),
+              child: Scaffold(
+                body: Builder(
+                  builder: (innerContext) => Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => openNextWeekPreview(
+                          context: innerContext,
+                          nextWeekStartFuture: Future.value(null),
+                          appInfo: Future.value(_emptyAppInfo()),
+                        ),
+                        child: const Text('미준비'),
+                      ),
+                      TextButton(
+                        onPressed: () => openNextWeekPreview(
+                          context: innerContext,
+                          nextWeekStartFuture: Future<String?>.error(
+                            Exception('network'),
+                          ),
+                          appInfo: Future.value(_emptyAppInfo()),
+                        ),
+                        child: const Text('조회 실패'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('미준비'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('조회 실패'));
+      await tester.pumpAndSettle();
+
+      if (!kIsWeb) {
+        expect(announcements, ['다음 주 식단이 아직 준비되지 않았어요.', '식단 정보를 불러올 수 없어요.']);
+        expect(
+          toastCalls.where((call) => call.method == 'showToast').length,
+          2,
+        );
+      }
+
+      announcements.clear();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await tester.tap(find.text('미준비'));
+      await tester.pumpAndSettle();
+      expect(announcements, isEmpty);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('다음 주 식단을 불러오지 못하면 에러 메시지를 보여준다', (tester) async {
@@ -56,7 +255,7 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value('2026-06-22'),
+          nextWeekStart: '2026-06-22',
           appInfo: Future.value(_emptyAppInfo()),
           loadDatedWeek: (_) async => throw Exception('network error'),
         ),
@@ -68,32 +267,12 @@ void main() {
 
     final l10n = lookupAppLocalizations(const Locale('en'));
     expect(find.text(l10n.cannotLoadMeal), findsOneWidget);
-  });
-
-  testWidgets('nextWeekStart가 null이면 준비되지 않음 메시지를 보여준다', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value(null),
-          appInfo: Future.value(_emptyAppInfo()),
-          refreshNextWeekStart: () async => null,
-        ),
-      ),
-    );
-
-    await tester.pumpAndSettle();
-
-    final l10n = lookupAppLocalizations(const Locale('en'));
-    expect(find.text(l10n.nextWeekNotReady), findsOneWidget);
+    expect(find.byType(AnimatedDateTitle), findsOneWidget);
+    expect(find.byType(DayOfWeekTabBar), findsOneWidget);
+    expect(find.byType(MealOfDaySwitchButton), findsOneWidget);
   });
 
   testWidgets('nextWeekStart가 있으면 다음 주 데이터를 불러와 배너와 함께 보여준다', (tester) async {
-    var metadataRefreshes = 0;
     var datedLoads = 0;
     var notificationReconciliations = 0;
     final rawJson = jsonEncode({
@@ -148,12 +327,8 @@ void main() {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value('2026-06-22'),
+          nextWeekStart: '2026-06-22',
           appInfo: Future.value(_emptyAppInfo()),
-          refreshNextWeekStart: () async {
-            metadataRefreshes++;
-            return '2026-06-22';
-          },
           loadDatedWeek: (_) async {
             datedLoads++;
             return parseRawMeal(rawJson);
@@ -168,43 +343,8 @@ void main() {
     final l10n = lookupAppLocalizations(const Locale('ko'));
     expect(find.text(l10n.previewingNextWeek), findsOneWidget);
     expect(find.text('쌀밥'), findsOneWidget);
-    expect(metadataRefreshes, 0);
     expect(datedLoads, 1);
     expect(notificationReconciliations, 1);
-  });
-
-  testWidgets('다음 주 날짜가 없으면 current metadata를 한 번만 갱신한다', (tester) async {
-    var metadataRefreshes = 0;
-    var datedFetches = 0;
-    final rawJson = _emptyWeekRawJson('2026-06-22');
-
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          ...GlobalMaterialLocalizations.delegates,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: NextWeekPreviewPage(
-          nextWeekStartFuture: Future.value(null),
-          appInfo: Future.value(_emptyAppInfo()),
-          refreshNextWeekStart: () async {
-            metadataRefreshes++;
-            return '2026-06-22';
-          },
-          loadDatedWeek: (_) async {
-            datedFetches++;
-            return parseRawMeal(rawJson);
-          },
-        ),
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump();
-
-    expect(metadataRefreshes, 1);
-    expect(datedFetches, 1);
   });
 }
 

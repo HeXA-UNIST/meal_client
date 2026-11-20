@@ -33,8 +33,8 @@ Supported platforms: Android, iOS, and Web.
   in source. Search for symbols and user-visible text instead of relying on a
   fixed file or test list.
 - Before changing `lib/features/home/nested_page_scroll.dart`, read its comments
-  and `docs/features/nested_page_scroll.md`; its touch and pointer paths form a
-  coupled state machine.
+  and related input tests; its touch and pointer paths form a coupled state
+  machine.
 
 ## Change-Sensitive Guardrails
 

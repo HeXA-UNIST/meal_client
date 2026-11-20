@@ -50,13 +50,14 @@ dependencies:
   intl: any
   flutter_localizations:
     sdk: flutter
-  flutter_local_notifications: ^22.3.0
+  flutter_local_notifications: ^22.3.3
   workmanager: ^0.10.7
   home_widget: ^0.10.0
   timezone: ^0.11.1
 
   material_ui: any
   cupertino_ui: any
+  fluttertoast: ^10.0.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
