@@ -31,7 +31,8 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(values[0], Double(view.bounds.width), accuracy: 1)
     XCTAssertEqual(values[1], Double(view.bounds.height), accuracy: 1)
     XCTAssertLessThan(frame.minY, view.safeAreaInsets.top)
-    XCTAssertGreaterThanOrEqual(frame.height, 52)
+    let pixel = 1 / max(view.traitCollection.displayScale, 1)
+    XCTAssertGreaterThanOrEqual(frame.height + pixel, 52)
     XCTAssertGreaterThanOrEqual(frame.width, 316)
     XCTAssertGreaterThan(view.bounds.width - frame.maxX, frame.minX)
   }

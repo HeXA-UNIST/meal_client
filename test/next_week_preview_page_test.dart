@@ -19,7 +19,7 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
-  testWidgets('미리보기를 밀어서 닫는 중에는 끼니 버튼이 상태 막대 아래에 놓인다', (tester) async {
+  testWidgets('미리보기 전환 중에는 첫 줄을 숨기고 요일 탭과 배너의 높이를 유지한다', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(669, 951);
     tester.view.padding = const FakeViewPadding(top: 84);
@@ -54,8 +54,23 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
     final button = find.widgetWithText(TextButton, '아침');
+    final tabs = find.byType(TabBar);
+    final banner = find.text('다음 주 미리보기 중');
+    final opacity = find
+        .ancestor(of: button, matching: find.byType(AnimatedOpacity))
+        .first;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+    // 주 시작일과 식단을 읽는 두 FutureBuilder가 차례로 화면에 반영된다.
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<AnimatedOpacity>(opacity).opacity, 0);
+    final tabsY = tester.getTopLeft(tabs).dy;
+    final bannerY = tester.getTopLeft(banner).dy;
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(tabs).dy, tabsY);
+    expect(tester.getTopLeft(banner).dy, bannerY);
     expect(tester.getCenter(button).dy, 46);
     final gesture = await tester.startGesture(const Offset(1, 200));
     await gesture.moveBy(const Offset(32, 0));
@@ -63,10 +78,16 @@ void main() {
     await gesture.moveBy(const Offset(120, 0));
     await tester.pump();
     expect(nav.currentState!.userGestureInProgress, isTrue);
-    expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(84));
+    expect(tester.widget<AnimatedOpacity>(opacity).opacity, 0);
+    expect(button.hitTestable(), findsNothing);
+    expect(tester.getTopLeft(tabs).dy, tabsY);
+    expect(tester.getTopLeft(banner).dy, bannerY);
     await gesture.up();
     await tester.pumpAndSettle();
     expect(tester.getCenter(button).dy, 46);
+    expect(tester.widget<AnimatedOpacity>(opacity).opacity, 1);
+    expect(button.hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(banner).dy, bannerY);
   });
 
   testWidgets('nextWeekStart 조회 중에는 로딩 인디케이터를 보여준다', (tester) async {

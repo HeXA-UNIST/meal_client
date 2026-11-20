@@ -7,7 +7,6 @@ import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/settings/bapu_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
-import 'menu_header_region.dart';
 import 'week_menu_scaffold.dart';
 
 typedef DatedWeekMealLoader = Future<WeekMeal> Function(String weekStart);
@@ -182,7 +181,7 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
           );
         }
 
-        final menu = WeekMenuScaffold(
+        return WeekMenuScaffold(
           mondayOfWeek: _mondayOfWeek,
           initialDayOfWeek: DayOfWeek.mon,
           initialMealOfDay: MealOfDay.breakfast,
@@ -190,19 +189,6 @@ class _NextWeekMenuState extends State<_NextWeekMenu> {
           appInfo: widget.appInfo,
           bannerText: l10n.previewingNextWeek,
           titleFontWeight: FontWeight.w600,
-        );
-        final region = context.watch<MenuHeaderRegion?>();
-        final animation = ModalRoute.of(context)?.animation;
-        return AnimatedBuilder(
-          animation: region == null || animation == null
-              ? kAlwaysCompleteAnimation
-              : animation,
-          child: menu,
-          builder: (_, child) => Provider<MenuHeaderRegion?>.value(
-            // 페이지가 이동하는 동안에는 창 기준 시계 좌표를 사용할 수 없다.
-            value: animation == null || animation.value == 1 ? region : null,
-            child: child,
-          ),
         );
       },
     );

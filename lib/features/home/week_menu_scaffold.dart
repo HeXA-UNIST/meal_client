@@ -135,7 +135,8 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
 
     final appBar = AppBar(
       primary: header == null,
-      toolbarHeight: MenuHeaderRegion.toolbarHeight,
+      toolbarHeight:
+          header?.fittedToolbarHeight ?? MenuHeaderRegion.toolbarHeight,
       titleSpacing: 0,
       centerTitle: false,
       title: AnimatedDateTitle(
@@ -210,8 +211,8 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
                         ),
                         child: SizedBox(
                           width: header.frame.width,
-                          height: MenuHeaderRegion.toolbarHeight,
-                          child: appBar,
+                          height: header.fittedToolbarHeight,
+                          child: _SlidingMenuToolbar(child: appBar),
                         ),
                       ),
                     ),
@@ -345,6 +346,37 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     _mealOfDayPageControllerGroup.dispose();
     _mealOfDayNotifier.dispose();
     super.dispose();
+  }
+}
+
+// 페이지가 이동하면 뒤로가기 버튼과 날짜도 시계 영역을 지나갈 수 있다.
+// 요일 탭과 본문의 높이는 유지하고 창 위치에 의존하는 첫 줄만 숨긴다.
+class _SlidingMenuToolbar extends StatelessWidget {
+  const _SlidingMenuToolbar({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null) return child;
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (_, toolbar) {
+        final visible = animation.value == 1;
+        return IgnorePointer(
+          ignoring: !visible,
+          child: AnimatedOpacity(
+            duration: visible
+                ? const Duration(milliseconds: 100)
+                : Duration.zero,
+            opacity: visible ? 1 : 0,
+            child: toolbar,
+          ),
+        );
+      },
+    );
   }
 }
 

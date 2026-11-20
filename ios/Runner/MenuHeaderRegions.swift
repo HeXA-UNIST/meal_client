@@ -16,6 +16,13 @@ final class MenuFlutterViewController: FlutterViewController {
     regions.publish()
   }
 
+  override func viewSafeAreaInsetsDidChange() {
+    super.viewSafeAreaInsetsDidChange()
+    if regions.hasGuide {
+      view.setNeedsLayout()
+    }
+  }
+
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
     regions.publish()
@@ -26,6 +33,7 @@ final class MenuFlutterViewController: FlutterViewController {
 final class MenuHeaderRegions: NSObject, @preconcurrency FlutterStreamHandler {
   private weak var controller: MenuFlutterViewController?
   private var guide: UILayoutGuide?
+  var hasGuide: Bool { guide != nil }
   private var sink: FlutterEventSink?
   private(set) var lastPublished: [Double]?
 
@@ -40,8 +48,10 @@ final class MenuHeaderRegions: NSObject, @preconcurrency FlutterStreamHandler {
     }
     guide = BapuTopBarGuide(view, CGFloat(height.doubleValue))
     sink = events
-    view.setNeedsLayout()
-    view.layoutIfNeeded()
+    if hasGuide {
+      view.setNeedsLayout()
+      view.layoutIfNeeded()
+    }
     publish()
     return nil
   }

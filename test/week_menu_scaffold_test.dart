@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +38,7 @@ void main() {
         builder: (_, value, child) =>
             Provider<MenuHeaderRegion?>.value(value: value, child: child),
         child: MaterialApp(
+          darkTheme: ThemeData.dark(),
           locale: const Locale('ko'),
           localizationsDelegates: const [
             AppLocalizations.delegate,
@@ -64,10 +66,46 @@ void main() {
     region.value = const MenuHeaderRegion(
       Size(669, 951),
       84,
-      Rect.fromLTWH(22, 22, 458, 52),
+      Rect.fromLTWH(22, 46, 458, 52),
     );
     await tester.pump();
     expect(tester.getTopRight(button).dx, lessThanOrEqualTo(480));
+    // 상태 표시줄 스타일을 읽는 지점(y=42)이 AppBar 위에 있는 경우.
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    for (final brightness in [Brightness.dark, Brightness.light]) {
+      tester.platformDispatcher.platformBrightnessTestValue = brightness;
+      await tester.pumpAndSettle();
+      expect(SystemChrome.latestStyle?.statusBarBrightness, brightness);
+    }
+    tester.view.devicePixelRatio = 3;
+    tester.view.physicalSize = const Size(2007, 2853);
+    tester.view.padding = const FakeViewPadding(top: 252);
+    const shortHeight = 52 - 1 / 3;
+    region.value = const MenuHeaderRegion(
+      Size(669, 951),
+      84,
+      Rect.fromLTWH(14, 20, 526, shortHeight),
+    );
+    await tester.pump();
+    expect(tester.getTopLeft(find.byType(AppBar)).dy, 20);
+    expect(
+      tester.getSize(find.byType(AppBar)).height,
+      closeTo(shortHeight, 0.001),
+    );
+    region.value = const MenuHeaderRegion(
+      Size(669, 951),
+      84,
+      Rect.fromLTWH(14, 20, 526, 51.5),
+    );
+    await tester.pump();
+    expect(tester.getTopLeft(tabs).dy, 84 + MenuHeaderRegion.toolbarHeight);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 84);
+    region.value = const MenuHeaderRegion(
+      Size(669, 951),
+      84,
+      Rect.fromLTWH(14, 20, 526, 52),
+    );
     tester.view.physicalSize = const Size(620, 951);
     await tester.pump();
     expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(84));
@@ -75,7 +113,7 @@ void main() {
     tester.view.physicalSize = const Size(669, 951);
     await tester.pump();
     expect(tester.getTopLeft(tabs).dy, 84 + MenuHeaderRegion.toolbarHeight);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('로딩 중 선택한 끼니를 데이터 도착 후에도 유지한다', (tester) async {
     final response = Completer<WeekMeal>();
