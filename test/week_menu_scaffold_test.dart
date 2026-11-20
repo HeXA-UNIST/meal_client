@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:meal_client/features/home/menu_header_region.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/home/week_menu_scaffold.dart';
 import 'package:meal_client/features/info/app_info.dart';
@@ -16,6 +18,65 @@ AppInfo _emptyAppInfo() => AppInfo.fromJson({
 });
 
 void main() {
+  testWidgets('상단 오른쪽 예약 영역은 첫 줄만 줄이고 창이 바뀌면 기본 헤더로 돌아간다', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(669, 951);
+    tester.view.padding = const FakeViewPadding(top: 84);
+    addTearDown(tester.view.reset);
+    final region = ValueNotifier<MenuHeaderRegion?>(
+      const MenuHeaderRegion(
+        Size(669, 951),
+        84,
+        Rect.fromLTWH(14, 20, 526, 52),
+      ),
+    );
+    addTearDown(region.dispose);
+    await tester.pumpWidget(
+      ValueListenableBuilder<MenuHeaderRegion?>(
+        valueListenable: region,
+        builder: (_, value, child) =>
+            Provider<MenuHeaderRegion?>.value(value: value, child: child),
+        child: MaterialApp(
+          locale: const Locale('ko'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: WeekMenuScaffold(
+            mondayOfWeek: DateTime(2026, 6, 22),
+            initialDayOfWeek: DayOfWeek.mon,
+            initialMealOfDay: MealOfDay.breakfast,
+            mealFuture: Future.value(WeekMeal.empty()),
+            appInfo: Future.value(_emptyAppInfo()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final button = find.widgetWithText(TextButton, '아침');
+    final tabs = find.byType(TabBar);
+    expect(tester.getCenter(button).dy, 46);
+    expect(tester.getTopLeft(find.byType(AppBar)).dx, 14);
+    expect(tester.getTopRight(button).dx, lessThanOrEqualTo(540));
+    expect(tester.getTopRight(tabs).dx, greaterThan(540));
+    expect(tester.getTopLeft(tabs).dy, 84);
+    region.value = const MenuHeaderRegion(
+      Size(669, 951),
+      84,
+      Rect.fromLTWH(22, 22, 458, 52),
+    );
+    await tester.pump();
+    expect(tester.getTopRight(button).dx, lessThanOrEqualTo(480));
+    tester.view.physicalSize = const Size(620, 951);
+    await tester.pump();
+    expect(tester.getTopLeft(button).dy, greaterThanOrEqualTo(84));
+    region.value = null;
+    tester.view.physicalSize = const Size(669, 951);
+    await tester.pump();
+    expect(tester.getTopLeft(tabs).dy, 84 + MenuHeaderRegion.toolbarHeight);
+  });
+
   testWidgets('로딩 중 선택한 끼니를 데이터 도착 후에도 유지한다', (tester) async {
     final response = Completer<WeekMeal>();
     final week = WeekMeal.empty();
