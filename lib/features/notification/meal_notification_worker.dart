@@ -19,6 +19,9 @@ import 'notification_service.dart';
 import 'scheduled_meal_notifications.dart';
 
 typedef BackgroundCacheRefresh = Future<void> Function();
+// Android BapUNotificationPermissionRecovery.TASK_NAME과 같은 값이어야 한다.
+const notificationPermissionRecoveryTaskName =
+    'bapu_notification_permission_recovery';
 typedef BackgroundNotificationReconcile = Future<void> Function();
 typedef BackgroundNotificationSnapshot = ({
   NotificationSettings settings,
@@ -36,13 +39,37 @@ void callbackDispatcher() {
     WidgetsFlutterBinding.ensureInitialized();
     DartPluginRegistrant.ensureInitialized();
 
+    if (taskName == notificationPermissionRecoveryTaskName) {
+      return recoverBackgroundMealNotifications();
+    }
     if (taskName == mealRefreshTaskName ||
         taskName == Workmanager.iOSBackgroundTask) {
+      if (!await syncMealBackgroundRefresh()) return true;
+      // 예약은 유지하되 KST 00~07시에는 주기 갱신을 성공 처리해 재시도를 피한다.
+      // 권한 복구와 이미 예약된 알림·위젯의 시간 경계 갱신에는 적용하지 않는다.
+      if (MealTimeConfig.toKst(DateTime.now()).hour < 7) return true;
       return refreshBackgroundMealAndInfoCaches();
     }
 
     return true;
   });
+}
+
+/// 권한 재허용 시 네트워크 요청 없이 저장된 설정과 식단으로 예약을 복구한다.
+Future<bool> recoverBackgroundMealNotifications({
+  BackgroundNotificationReconcile? reconcileNotifications,
+}) async {
+  final failure = await _captureBackgroundRefreshFailure(
+    'notification permission recovery',
+    reconcileNotifications ??
+        () => _reconcileNotificationsFromCache(forceReschedule: true),
+  );
+  if (failure == null) return true;
+  _logBackgroundRefreshFailure(
+    'notification permission recovery failed',
+    failure,
+  );
+  return false;
 }
 
 Future<bool> refreshBackgroundMealAndInfoCaches({
@@ -126,12 +153,15 @@ Future<bool> refreshBackgroundMealAndInfoCaches({
   return true;
 }
 
-Future<void> _reconcileNotificationsFromCache() async {
+Future<void> _reconcileNotificationsFromCache({
+  bool forceReschedule = false,
+}) async {
   await initNotifications();
-  await reconcileBackgroundMealNotifications();
+  await reconcileBackgroundMealNotifications(forceReschedule: forceReschedule);
 }
 
 Future<void> reconcileBackgroundMealNotifications({
+  bool forceReschedule = false,
   BackgroundNotificationSnapshotLoader? loadSnapshot,
   Future<void> Function(NotificationSettings settings)? reconcile,
   Future<void> Function()? cancelPending,
@@ -144,6 +174,7 @@ Future<void> reconcileBackgroundMealNotifications({
       await (reconcile ??
           (settings) => reconcileScheduledMealNotifications(
             settings: settings,
+            forceReschedule: forceReschedule,
           ))(snapshot.settings);
     } else {
       await (cancelPending ?? cancelAllPendingMealNotifications)();

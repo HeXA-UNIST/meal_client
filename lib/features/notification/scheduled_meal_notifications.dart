@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    show PendingNotificationRequest;
 import 'package:material_ui/material_ui.dart' show TimeOfDay;
 
 import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/meal/meal_cache.dart';
+import 'package:meal_client/features/meal/meal_data_source.dart';
 import 'package:meal_client/features/settings/notification/notification_settings.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 
@@ -11,6 +14,7 @@ import 'meal_notification_content_builder.dart';
 import 'meal_notification_period.dart';
 import 'meal_notification_time.dart';
 import 'notification_service.dart';
+import 'notification_platform.dart';
 
 const kScheduledMealNotificationIdStart = 100000000;
 const kScheduledMealNotificationIdEnd = 140000000;
@@ -23,14 +27,9 @@ const _notificationDateModulo = 100000;
 
 /// 예약 시각이 지난 pending을 stale로 판정하기까지 기다리는 시간.
 ///
-/// Android는 `inexactAllowWhileIdle` 알람을 예약 시각이 아니라 지연 창 안에서
-/// 배달한다. 창이 닫히기 전에 reconcile이 돌면 아직 배달되지 않은 알림이 batch에서
-/// 빠지는데, 이때 곧바로 취소하면 사용자는 그 끼니 알림을 영영 받지 못한다.
-/// 그래서 시각이 지난 pending도 이 시간 동안은 배달 대기로 보고 그대로 둔다.
-///
-/// 1시간은 Android 12+ 문서가 말하는 통상 창 상한에 맞춘 값이다. Doze나 절전
-/// 모드에서는 그보다 더 밀릴 수 있으므로 절대 보장이 아니다 — 그 경우 유예가
-/// 끝난 뒤의 reconcile이 아직 pending인 알림을 취소할 수 있다.
+/// Android의 `setExactAndAllowWhileIdle`도 시스템 제한으로 지연될 수 있다.
+/// 기존 예약과 배달 대기 중인 알림을 조정 과정에서 곧바로 취소하지 않도록
+/// 기존 1시간 유예를 유지한다. 절전 지연의 상한을 보장하는 값은 아니다.
 const kMealNotificationDeliveryGrace = Duration(hours: 1);
 
 typedef ScheduledMealNotification = ({
@@ -45,6 +44,8 @@ typedef ScheduledMealWeekLoader = Future<ScheduledMealWeek?> Function();
 typedef MealNotificationAuthorizationStatusReader =
     Future<MealNotificationAuthorizationStatus> Function();
 typedef ScheduledMealPendingIdReader = Future<List<int>> Function();
+typedef ScheduledMealPendingRequestReader =
+    Future<List<PendingNotificationRequest>> Function();
 typedef ScheduledMealPendingCanceler = Future<void> Function(int id);
 typedef ScheduledMealNotificationUpserter = Future<void> Function(
   ScheduledMealNotification notification,
@@ -179,7 +180,9 @@ class _NotificationSlot {
 
 Future<void> reconcileScheduledMealNotifications({
   required NotificationSettings settings,
+  MealNotificationPlatform? platform,
   bool Function()? isCurrent,
+  bool forceReschedule = false,
   ScheduledMealWeek? currentWeek,
   ScheduledMealWeek? nextWeek,
   DateTime Function()? nowProvider,
@@ -187,6 +190,7 @@ Future<void> reconcileScheduledMealNotifications({
   ScheduledMealWeekLoader? loadNextWeek,
   MealNotificationAuthorizationStatusReader? readAuthorizationStatus,
   ScheduledMealPendingIdReader? readPendingIds,
+  ScheduledMealPendingRequestReader? readAndroidPendingRequests,
   ScheduledMealPendingCanceler? cancelPending,
   ScheduledMealNotificationUpserter? upsertNotification,
   int maxNotifications = kMaxScheduledMealNotifications,
@@ -205,10 +209,34 @@ Future<void> reconcileScheduledMealNotifications({
 
   final pendingReader = readPendingIds ?? pendingMealNotificationIds;
   final canceler = cancelPending ?? cancelPendingMealNotification;
-  final pending = (await pendingReader())
-      .where(isScheduledMealNotificationId)
-      .toList(growable: false);
+  List<PendingNotificationRequest>? androidRequests;
+  if (readAndroidPendingRequests != null) {
+    androidRequests = await readAndroidPendingRequests();
+  } else if (readPendingIds == null &&
+      (platform ?? mealNotificationPlatform) ==
+          MealNotificationPlatform.android) {
+    androidRequests = await androidPendingMealNotificationRequests();
+  }
+  final pendingById = {
+    for (final request in androidRequests ?? <PendingNotificationRequest>[])
+      request.id: request,
+  };
+  final pending =
+      (androidRequests == null
+              ? await pendingReader()
+              : androidRequests.map((request) => request.id))
+          .where(isScheduledMealNotificationId)
+          .toList(growable: false);
   if (!currentGeneration()) {
+    return;
+  }
+  if (authorization ==
+      MealNotificationAuthorizationStatus.exactAlarmNotAuthorized) {
+    // 업데이트 전 inexact 예약도 특별 접근이 없으면 남기지 않는다.
+    for (final id in pending) {
+      if (!currentGeneration()) return;
+      await canceler(id);
+    }
     return;
   }
   final instant = (nowProvider ?? DateTime.now)();
@@ -219,6 +247,22 @@ Future<void> reconcileScheduledMealNotifications({
     return;
   }
   if (current == null) {
+    // 본문을 재생성할 수 없어도 사용자가 명시적으로 해제한 예약은 남기지 않는다.
+    Object? firstError;
+    StackTrace? firstStackTrace;
+    for (final id in pending) {
+      if (!currentGeneration()) return;
+      if (_matchesCurrentNotificationSettings(id, settings)) continue;
+      try {
+        await canceler(id);
+      } catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError, firstStackTrace!);
+    }
     return;
   }
   final next =
@@ -227,8 +271,21 @@ Future<void> reconcileScheduledMealNotifications({
     return;
   }
 
-  final localizations = l10n ?? notificationLocalizations();
+  final localizations = l10n ?? await notificationLocalizations();
+  final androidAlarmGeneration = androidRequests == null
+      ? null
+      : await readAndroidMealAlarmGeneration();
   final expectedNextWeekStart = current.startDate.add(const Duration(days: 7));
+  final awaitingDelivery = _awaitingDeliveryBatch(
+    settings: settings,
+    l10n: localizations,
+    now: instant,
+    currentWeek: current,
+    nextWeek: next,
+    grace: deliveryGrace,
+    maxNotifications: maxNotifications,
+  );
+  final awaitingDeliveryIds = awaitingDelivery.map((item) => item.id).toSet();
   final retainedIds = <int>{
     if (next == null)
       ...pending.where(
@@ -237,26 +294,24 @@ Future<void> reconcileScheduledMealNotifications({
             _matchesCurrentNotificationSettings(id, settings),
       ),
     // 배달 창이 아직 열려 있는 pending은 batch에서 빠지더라도 취소하지 않는다.
-    ...pending.where(
-      _awaitingDeliveryIds(
-        settings: settings,
-        l10n: localizations,
-        now: instant,
-        currentWeek: current,
-        nextWeek: next,
-        grace: deliveryGrace,
-        maxNotifications: maxNotifications,
-      ).contains,
-    ),
+    ...pending.where(awaitingDeliveryIds.contains),
   };
-  final batch = buildMealNotificationBatch(
-    settings: settings,
-    l10n: localizations,
-    now: instant,
-    currentWeek: current,
-    nextWeek: next,
-    maxNotifications: maxNotifications - retainedIds.length,
-  );
+  final batch = <ScheduledMealNotification>[
+    // 임박한 기존 예약부터 같은 ID로 새 언어의 내용을 반영한다. 이미 시각이 지난
+    // 지연 알림은 과거로 재예약하지 않고 기존 배달 유예를 유지한다.
+    ...awaitingDelivery.where(
+      (item) =>
+          retainedIds.contains(item.id) && item.fireInstant.isAfter(instant),
+    ),
+    ...buildMealNotificationBatch(
+      settings: settings,
+      l10n: localizations,
+      now: instant,
+      currentWeek: current,
+      nextWeek: next,
+      maxNotifications: maxNotifications - retainedIds.length,
+    ),
+  ];
   final desiredIds = batch.map((notification) => notification.id).toSet();
 
   Object? firstError;
@@ -284,12 +339,30 @@ Future<void> reconcileScheduledMealNotifications({
         fireInstant: notification.fireInstant,
         title: notification.title,
         body: notification.body,
+        channelName: localizations.mealNotifications,
+        platform: platform,
+        androidAlarmGeneration: androidAlarmGeneration,
       );
   for (final notification in batch) {
     if (!currentGeneration()) {
       return;
     }
     if (notification.fireInstant.isBefore((nowProvider ?? DateTime.now)())) {
+      continue;
+    }
+    // ID가 같아도 본문·시각·예약 모드가 달라지면 다시 등록한다.
+    // 플러그인 목록에서 사라진 예약은 보충하고, 복구 경로는 비교 없이 재등록한다.
+    final previous = pendingById[notification.id];
+    if (!forceReschedule &&
+        previous != null &&
+        previous.title == notification.title &&
+        previous.body == notification.body &&
+        previous.payload ==
+            androidMealNotificationSchedulePayload(
+              fireInstant: notification.fireInstant,
+              channelName: localizations.mealNotifications,
+              alarmGeneration: androidAlarmGeneration!,
+            )) {
       continue;
     }
     try {
@@ -350,10 +423,12 @@ Future<void> cancelAllPendingMealNotifications({
 
 Future<ScheduledMealWeek?> _loadCachedWeek(DateTime now) async {
   final startDate = kstWeekStartForInstant(now);
-  final cached = await MealCache().readValidatedMealForWeek(startDate);
-  return cached == null
-      ? null
-      : (startDate: startDate, weekMeal: cached.weekMeal);
+  try {
+    final cached = await getCachedMealData(now: now);
+    return (startDate: startDate, weekMeal: cached.weekMeal);
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
@@ -365,7 +440,7 @@ Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
       : (startDate: startDate, weekMeal: cached.weekMeal);
 }
 
-/// 예약 시각은 지났지만 OS가 아직 배달하지 않았을 수 있는 알림의 ID 집합.
+/// 배달 유예 중이거나 예약 안전 여유 안에 들어온 알림의 최신 내용.
 ///
 /// [buildMealNotificationBatch]를 유예 구간에 대해 한 번 더 돌려서 구한다. 그래야
 /// 알림 on/off, 시간대, 요일뿐 아니라 대상 식당·기숙사 메뉴 종류·키워드·해당 끼니
@@ -373,7 +448,7 @@ Future<ScheduledMealWeek?> _loadCachedNextWeek(DateTime now) async {
 /// 여기서 빠지므로 유예 없이 취소된다.
 ///
 /// 본 batch는 `now + leadTime` 이후만 담으므로 두 구간은 겹치거나 벌어지지 않는다.
-Set<int> _awaitingDeliveryIds({
+List<ScheduledMealNotification> _awaitingDeliveryBatch({
   required NotificationSettings settings,
   required AppLocalizations l10n,
   required DateTime now,
@@ -394,8 +469,7 @@ Set<int> _awaitingDeliveryIds({
         maxNotifications: maxNotifications,
       )
       .where((notification) => notification.fireInstant.isBefore(deadline))
-      .map((notification) => notification.id)
-      .toSet();
+      .toList(growable: false);
 }
 
 typedef _OwnedNotificationTarget = ({

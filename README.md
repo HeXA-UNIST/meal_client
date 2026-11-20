@@ -10,6 +10,11 @@ UNIST 구내식당 식단표 뷰어
 [![License: GPL 2.0](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-0553B1?logo=flutter&logoColor=fff)](https://flutter.dev)
 
+## Requirements
+
+- Android 앱: Android 9(SDK 28) 이상
+- iOS 홈 화면 위젯: iOS 17 이상
+
 ## 주요 기능
 
 | 기능 | Android | iOS | Web |
@@ -58,6 +63,12 @@ Android 앱을 한 번 실행하거나 빌드하여 Gradle Wrapper를 준비한 
 ./android/gradlew -p android :app:testDebugUnitTest
 ```
 
+실제 TextView의 본문 크기 선택·2열 공통 크기·말줄임을 검사하려면 Android 실기기를 연결하거나 에뮬레이터를 실행한 뒤 아래 명령을 사용하세요. 이 검증은 위 JVM 테스트와 별도로 실행합니다.
+
+```bash
+./android/gradlew -p android :app:connectedDebugAndroidTest
+```
+
 Windows에서는 `./android/gradlew` 대신 `.\android\gradlew.bat`을 사용하세요.
 
 iOS 네이티브 테스트는 macOS에서 사용 가능한 시뮬레이터를 확인하고, `SIMULATOR_UDID`를 사용할 시뮬레이터의 UDID로 바꿔서 실행하세요.
@@ -69,20 +80,20 @@ xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner -destination 'p
 
 ## Architecture
 
-- `AppSettings`는 앱 설정을 관리하고 설정값을 `shared_preferences`에 저장합니다.
-- `/v2/menu`에서 식단을, `/v2/info`에서 최신 식당 운영 시간과 공지를 가져옵니다.
-  - Android와 iOS 앱은 받은 JSON을 캐시에 저장해 홈 화면 위젯과 공유합니다.
-  - 요청을 보내기 전 유효한 캐시가 있으면 해당 데이터를 먼저 표시하고, 최신 응답을 받으면 화면을 갱신합니다.
-  - 웹에서는 캐싱을 사용하지 않습니다.
-  - `/v2/menu`에서 다음 주 시작일을 제공할 경우(=다음 주 식단이 업로드되었다는 의미) 앱은 다음 주 식단을 가져와 표시합니다.
-- Android와 iOS 앱은 `workmanager`를 통해 백그라운드 데이터 갱신 작업을 등록하고, 사용자 설정과 식단 캐시를 바탕으로 로컬에서 식단 알림을 예약합니다.
+- Android와 iOS에서는 화면에서 데이터를 갱신할 때와 백그라운드 작업에서 데이터를 갱신할 때 같은 로직을 사용합니다. 백그라운드 작업은 화면이 메모리에 보관하는 상태 대신 저장된 설정과 캐시를 읽어 로컬 알림을 예약합니다.
+- 홈 화면 위젯은 네이티브 코드로 구현되어 있으며, Flutter가 저장한 식단과 운영 정보의 JSON 파일을 직접 읽습니다. 공유 캐시의 형식과 저장 방식은 앱과 위젯 모두에 영향을 줍니다.
+- 화면에는 유효한 캐시의 데이터를 먼저 표시하고, 서버 응답을 받으면 내용을 갱신합니다.
+- 식단의 날짜와 주차, 운영시간은 한국 시간(KST)을 기준으로 해석합니다. 사용자가 지정한 알림 시각은 기기의 현지 시간을 기준으로 하므로, 알림을 보낼 시각과 알림 대상 식단의 날짜를 구분합니다.
+- `BapuSettings`는 앱 전역에서 사용하는 테마·언어·알림 설정을 관리합니다. 조회한 식단과 선택한 날짜·끼니 등 홈 화면에 필요한 상태는 해당 화면에서 관리합니다.
+- 앱 화면과 네이티브 위젯은 같은 JSON을 사용하지만, 각 플랫폼의 코드가 데이터를 별도로 해석합니다.
+- 데이터 조회와 로컬 저장의 성공 여부는 각각 판단합니다. 화면에서는 캐시 저장에 실패해도 서버 응답을 표시할 수 있지만, 백그라운드 작업에서는 현재 주 식단이나 안내 정보를 캐시에 저장하지 못하면 작업이 실패한 것으로 처리합니다.
 
 ### Directory Structure
 
 ```text
 meal_client/
 ├── lib/
-│   ├── main.dart                 # 앱 시작점과 테마
+│   ├── main.dart                 # 앱 진입점, 테마
 │   ├── core/                     # API, 네트워크, 공유 저장소
 │   ├── domain/                   # 식단 데이터 모델
 │   ├── features/
@@ -95,8 +106,6 @@ meal_client/
 │   └── l10n/                     # 한국어/영어 번역
 ├── android/                      # Android 앱, 홈 화면 위젯
 ├── ios/                          # iOS 앱, WidgetKit 위젯
-├── plugins/
-│   └── bapu_widget_bridge/       # Android 위젯 렌더링 브리지
 └── web/                          # 웹 앱 리소스
 ```
 
@@ -106,7 +115,7 @@ meal_client/
 - **Network:** `http`, Android `cronet_http`, iOS `cupertino_http`
 - **Local Storage:** `shared_preferences`, `path_provider`
 - **Notification & Background task:** `flutter_local_notifications`, `timezone`, `workmanager`
-- **Home Widget:** Android `bapu_widget_bridge`, iOS WidgetKit
+- **Home Widget:** `home_widget`, Android RemoteViews, iOS WidgetKit
 - **Localization:** `flutter_localizations`, `intl`
 - **Share API:** `share_plus`
 

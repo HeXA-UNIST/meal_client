@@ -12,7 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('Android 지연 안내와 요일 선택 의미를 노출한다', (tester) async {
+  testWidgets('Android 요일 선택 의미를 노출한다', (tester) async {
     final settings = await _pumpPage(
       tester,
       platform: MealNotificationPlatform.android,
@@ -20,8 +20,6 @@ void main() {
     );
     addTearDown(settings.dispose);
 
-    final l10n = lookupAppLocalizations(const Locale('ko'));
-    expect(find.text(l10n.androidNotificationTimingNotice), findsOneWidget);
     expect(
       tester.getSemantics(find.bySemanticsLabel('월')),
       matchesSemantics(
@@ -50,6 +48,75 @@ void main() {
         hasTapAction: true,
       ),
     );
+  });
+
+  testWidgets('정확한 알람 권한을 거부하면 스위치를 끈 채 설정 이동 안내를 표시한다', (tester) async {
+    final settings = await _pumpPage(
+      tester,
+      platform: MealNotificationPlatform.android,
+      authorization:
+          MealNotificationAuthorizationStatus.exactAlarmNotAuthorized,
+    );
+    addTearDown(settings.dispose);
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    expect(settings.notification.enabled, isFalse);
+    expect(
+      find.widgetWithText(SnackBar, l10n.exactAlarmPermissionRequired),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(SnackBarAction, l10n.openExactAlarmSettings),
+      findsOneWidget,
+    );
+    expect(find.text(l10n.notificationPermissionDenied), findsNothing);
+  });
+
+  testWidgets('권한 복구 후 예약이 실패해도 공통 재시도 성공 시 실패 안내가 모두 사라진다', (tester) async {
+    var authorization =
+        MealNotificationAuthorizationStatus.exactAlarmNotAuthorized;
+    var failSchedule = true;
+    final settings = await _pumpPage(
+      tester,
+      platform: MealNotificationPlatform.android,
+      initialValues: {StorageKeys.notificationEnabled: true},
+      authorizationReader: () async => authorization,
+      exactAlarmRequester: () async {
+        authorization = MealNotificationAuthorizationStatus.enabled;
+        return true;
+      },
+      schedule: (_, {required isCurrent}) async {
+        if (failSchedule) throw StateError('일시적인 예약 실패');
+      },
+    );
+    addTearDown(settings.dispose);
+    await tester.pumpAndSettle();
+    final l10n = lookupAppLocalizations(const Locale('ko'));
+    await tester.tap(
+      find.widgetWithText(TextButton, l10n.openExactAlarmSettings),
+    );
+    await tester.pumpAndSettle();
+    expect(settings.notificationSyncFailed, isTrue);
+    expect(find.text(l10n.notificationSyncFailed), findsOneWidget);
+
+    failSchedule = false;
+    final retryRow = find.widgetWithText(ListTile, l10n.notificationSyncFailed);
+    await tester.tap(
+      find.descendant(
+        of: retryRow,
+        matching: find.widgetWithText(TextButton, l10n.retry),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(settings.notification.enabled, isTrue);
+    expect(
+      settings.notificationAuthorizationStatus,
+      MealNotificationAuthorizationStatus.enabled,
+    );
+    expect(settings.notificationSyncFailed, isFalse);
+    expect(find.text(l10n.notificationSyncFailed), findsNothing);
+    expect(find.text(l10n.exactAlarmNotificationsPaused), findsNothing);
   });
 
   testWidgets('마스터 스위치가 꺼지면 종속 컨트롤이 선택 상태는 유지한 채 모두 비활성이 된다', (tester) async {
@@ -236,6 +303,8 @@ Future<BapuSettings> _pumpPage(
   MealNotificationAuthorizationStatus authorization =
       MealNotificationAuthorizationStatus.enabled,
   bool permissionGranted = true,
+  NotificationAuthorizationStatusReader? authorizationReader,
+  Future<bool> Function()? exactAlarmRequester,
   MealNotificationScheduler? schedule,
 }) async {
   SharedPreferences.setMockInitialValues(initialValues);
@@ -250,7 +319,9 @@ Future<BapuSettings> _pumpPage(
       cancel: () async {},
     ),
     notificationPermissionRequester: () async => permissionGranted,
-    notificationAuthorizationStatusReader: () async => authorization,
+    exactAlarmPermissionRequester: exactAlarmRequester ?? () async => false,
+    notificationAuthorizationStatusReader:
+        authorizationReader ?? () async => authorization,
   );
 
   await tester.pumpWidget(

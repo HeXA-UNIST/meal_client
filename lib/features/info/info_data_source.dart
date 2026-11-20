@@ -6,13 +6,16 @@ import 'package:meal_client/features/info/info_cache.dart';
 import 'package:meal_client/features/info/info_refresh_service.dart';
 
 Future<AppInfo> fetchAppInfo({
-  RawInfoFetcher fetch = fetchRawConditional,
+  ConditionalFetcher fetch = fetchRawConditional,
 }) async {
   return InfoRefreshService(
     fetchRaw: fetch,
     throwOnCacheWriteFailure: false,
   ).refreshInfo();
 }
+
+Future<({AppInfo info, bool cacheReady})> fetchAppInfoWithStatus() =>
+    InfoRefreshService().refreshInfoWithStatus();
 
 /// 마지막으로 저장된 info.json을 읽어 파싱한다.
 ///

@@ -7,12 +7,12 @@ import 'package:provider/provider.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:meal_client/features/notification/meal_notification_period.dart';
 import 'package:meal_client/features/notification/notification_service.dart';
 
 import '../bapu_settings.dart';
 import 'notification_settings.dart' show DormMenuType, NotificationSettings;
+import 'exact_alarm_permission_notice.dart';
 
 const _selectedCafeteriaChipLabelStyle = TextStyle(fontWeight: FontWeight.w600);
 
@@ -122,9 +122,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   // SwitchListTile.onChanged에 async 람다를 사용할 수 없어 별도 메서드로 분리.
   // 권한 거부 시 SnackBar로 안내하고 시스템 설정으로 이동 버튼을 제공한다.
   void _openNotificationSettings() =>
-      device_settings.AppSettings.openAppSettings(
-        type: device_settings.AppSettingsType.notification,
-      );
+      context.read<BapuSettings>().openNotificationSettings();
 
   Future<void> _handleNotificationToggle(bool enable) async {
     final result = await context.read<BapuSettings>().setNotificationEnabled(
@@ -139,13 +137,22 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
   void _showToggleFailureSnackBar(NotificationEnableResult result) {
     final l10n = AppLocalizations.of(context)!;
     final messenger = ScaffoldMessenger.of(context);
+    final exactAlarmDenied =
+        result == NotificationEnableResult.exactAlarmPermissionDenied;
     final snackBar = SnackBar(
       content: Text(
-        result == NotificationEnableResult.permissionDenied
+        exactAlarmDenied
+            ? l10n.exactAlarmPermissionRequired
+            : result == NotificationEnableResult.permissionDenied
             ? l10n.notificationPermissionDenied
             : l10n.notificationSyncFailed,
       ),
-      action: result == NotificationEnableResult.permissionDenied
+      action: exactAlarmDenied
+          ? SnackBarAction(
+              label: l10n.openExactAlarmSettings,
+              onPressed: () => unawaited(_handleNotificationToggle(true)),
+            )
+          : result == NotificationEnableResult.permissionDenied
           ? SnackBarAction(
               label: l10n.openSystemAppSettings,
               onPressed: _openNotificationSettings,
@@ -165,6 +172,8 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
       if (!mounted) return;
       messenger.showSnackBar(snackBar);
     });
+    // 권한 상태가 같으면 리빌드가 없으므로 콜백이 실행될 프레임도 요청한다.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -197,6 +206,7 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
           // 별도 안내를 띄우지 않는다. 권한 거부는 토글 시 SnackBar로 안내한다.
           // 여기서는 앱 안에서는 켜 두었는데 시스템에서 권한이 꺼진, 알림이
           // 조용히 오지 않는 상태만 노출한다.
+          const ExactAlarmPermissionNotice(),
           if (notification.enabled &&
               authorizationStatus ==
                   MealNotificationAuthorizationStatus.notAuthorized)
@@ -232,22 +242,6 @@ class _MealNotificationPageState extends State<MealNotificationPage> {
                 l10n.notificationTimesLabel,
                 enabled: notification.enabled,
               ),
-              if (notification.enabled &&
-                  appSettings.usesInexactNotificationTiming)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 24, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      l10n.androidNotificationTimingNotice,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.brightness == Brightness.dark
-                            ? theme.colorScheme.onSurface
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
               if (notification.enabled && notification.activePeriods.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),

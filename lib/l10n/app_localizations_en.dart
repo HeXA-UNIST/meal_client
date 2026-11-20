@@ -94,6 +94,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLanguageSettings => 'App Language Settings';
 
   @override
+  String get languageKorean => '한국어';
+
+  @override
+  String get languageEnglish => 'English';
+
+  @override
+  String get languageSaveFailed =>
+      'Couldn\'t save the language setting. Please try again.';
+
+  @override
   String get dormitoryCafeteria => 'Dormitory';
 
   @override
@@ -228,13 +238,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openSystemAppSettings => 'Open Settings';
 
   @override
-  String get androidNotificationTimingNotice =>
-      'Device power restrictions may delay notifications beyond the selected time.';
-
-  @override
   String get notificationSyncFailed =>
       'Notification settings could not be applied.';
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get cafeteriaOperating => 'Currently open';
+
+  @override
+  String get cafeteriaNotOperating => 'Not currently open';
+
+  @override
+  String get exactAlarmNotificationsPaused =>
+      'Meal notifications are paused because alarms and reminders are not allowed. Your notification preferences are preserved.';
+
+  @override
+  String get exactAlarmPermissionRequired =>
+      'Allow alarms and reminders to receive meal notifications.';
+
+  @override
+  String get notificationPermissionRequired =>
+      'Permissions required for meal notifications are turned off. Please allow them in settings.';
+
+  @override
+  String get mealNotificationPermissionTitle => 'Notification permissions';
+
+  @override
+  String get later => 'Later';
+
+  @override
+  String get openExactAlarmSettings => 'Alarms & reminders settings';
 }

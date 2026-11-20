@@ -3,22 +3,16 @@ package pro.hexa.meal.meal_client
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
-import androidx.annotation.Keep
 import java.util.concurrent.Executors
-import java.util.function.Consumer
 
 /**
  * 위젯 렌더의 공통 진입점이다. 데이터 갱신은 Dart cache writer가 맡고, native는 cache-only로
  * 다시 그린다. 순수 native 주기 안전망이 필요해지면 provider XML의 updatePeriodMillis
  * (최소 30분, coarse하지만 권한/코드 부담이 작음)를 후속 검토 후보로 쓸 수 있다.
  */
-@Keep
 object BapUWidgetUpdateDispatcher {
-    private const val TAG = "BapUWidgetUpdateDispatcher"
-
     /**
-     * provider, receiver, 설정 화면, Flutter bridge에서 들어오는 렌더를 한 줄로 실행한다.
+     * provider, receiver, 설정 화면에서 들어오는 렌더를 한 줄로 실행한다.
      * 캐시 쓰기는 이 큐의 책임이 아니며, 요청 합치기나 우선순위도 두지 않는다. 순서대로
      * 끝까지 실행하는 것만으로 오래된 렌더가 뒤늦게 새 화면을 덮는 일을 막는다.
      */
@@ -33,29 +27,36 @@ object BapUWidgetUpdateDispatcher {
             } catch (error: Exception) {
                 // 각 진입점이 결과를 직접 전달한 뒤에도 남을 수 있는 예외가 Android process의
                 // uncaught exception이 되지 않도록 executor 경계에서 마지막으로 차단한다.
-                Log.e(TAG, "uncaught widget task failure", error)
+                logWidgetFailure("task", error)
             }
         }
     }
 
-    /** Flutter plugin은 app 모듈을 직접 의존할 수 없어 reflection으로 이 메서드를 호출한다. */
-    @Keep
-    @JvmStatic
-    fun enqueueRenderAllWidgets(context: Context, completion: Consumer<Throwable?>) {
+    /** 설정 화면과 권한 복구 경로에 렌더·예약 완료 결과를 전달한다. */
+    fun enqueueRenderAllWidgets(context: Context, completion: (Throwable?) -> Unit) {
         val appContext = context.applicationContext
         execute {
-            val failure = runCatching {
-                try {
-                    renderAllWidgets(appContext)
-                } finally {
-                    // 새 운영시간으로 다음 경계를 다시 계산하고, 캐시 오류로 끊긴 예약도 복구한다.
-                    // 일부 화면 갱신이 실패해도 설치된 위젯의 시간 갱신은 계속 시도한다.
-                    if (hasAnyWidget(appContext)) {
-                        BapUWidgetScheduleManager.scheduleNext(appContext)
-                    }
+            val renderFailure = runCatching { renderAllWidgets(appContext) }.exceptionOrNull()
+            val schedulingFailure = runCatching {
+                // 렌더 실패와 무관하게 다음 경계를 예약하고, 두 작업이 모두 실패하면
+                // 렌더 예외를 주 오류로 유지하면서 예약 예외도 함께 전달한다.
+                if (hasAnyWidget(appContext)) {
+                    BapUWidgetScheduleManager.scheduleNext(appContext)
                 }
             }.exceptionOrNull()
-            completion.accept(failure)
+            val failure = renderFailure ?: schedulingFailure
+            if (renderFailure != null && schedulingFailure != null) {
+                renderFailure.addSuppressed(schedulingFailure)
+            }
+            if (failure != null) {
+                val stage = when {
+                    renderFailure != null && schedulingFailure != null -> "render_and_schedule"
+                    renderFailure != null -> "render"
+                    else -> "schedule"
+                }
+                logWidgetFailure(stage, failure)
+            }
+            completion(failure)
         }
     }
 
@@ -71,12 +72,12 @@ object BapUWidgetUpdateDispatcher {
         }
     }
 
-    /** Broadcast 경로는 다른 ID를 계속 갱신하고 실패를 logcat에 남기는 것으로 끝낸다. */
+    /** 이 경계에서 기록한 오류는 호출자에게 다시 던지지 않는다. */
     fun renderAllWidgetsLenient(context: Context) {
         try {
             renderAllWidgets(context)
         } catch (e: Exception) {
-            Log.e(TAG, e.message, e)
+            logWidgetFailure("render", e)
         }
     }
 
@@ -87,10 +88,10 @@ object BapUWidgetUpdateDispatcher {
         update: (Int, WidgetMealData) -> Unit
     ) {
         val data = BapUWidgetFetcher.fetch(context)
-        updateBestEffort(widgetIds) { id -> update(id, data) }
-            .forEach { failure ->
-                Log.e(TAG, "update failed id=${failure.widgetId}", failure.cause)
-            }
+        val failures = updateBestEffort(widgetIds) { id -> update(id, data) }
+        if (failures.isNotEmpty()) {
+            logWidgetFailure("render", WidgetRenderException(failures))
+        }
     }
 
     internal fun updateBestEffort(
@@ -110,7 +111,6 @@ object BapUWidgetUpdateDispatcher {
         val manager = AppWidgetManager.getInstance(context)
         return manager.getAppWidgetIds(ComponentName(context, BapUWidget2x2Provider::class.java)).isNotEmpty()
     }
-
 }
 
 internal data class WidgetRenderFailure(val widgetId: Int, val cause: Exception)

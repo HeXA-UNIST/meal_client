@@ -1,6 +1,7 @@
 package pro.hexa.meal.meal_client
 
 import android.content.Context
+import android.util.Log
 
 data class WidgetMealData(
     val mealOfDay: Int,
@@ -10,6 +11,7 @@ data class WidgetMealData(
     val facultyMenu: List<String> = emptyList(),
     val operatingResults: Map<Int, OperatingResult> = emptyMap(),
     val errorMessageResId: Int? = null,
+    val languageCode: String? = null,
 ) {
     val isError: Boolean
         get() = errorMessageResId != null
@@ -24,9 +26,19 @@ data class WidgetMealData(
 }
 
 object BapUWidgetFetcher {
-    fun fetch(context: Context): WidgetMealData =
-        runCatching { BapUWidgetMealRepository.fetch(context) }
-            .getOrElse { WidgetMealData.error() }
+    fun fetch(
+        context: Context,
+        languageCode: String = BapUWidgetMealRepository.currentLanguageCode(context),
+    ): WidgetMealData {
+        // 언어 누락은 데이터 오류 화면으로 바꾸지 않고 렌더 경계로 전달한다.
+        val savedLanguage = BapUWidgetMealRepository.requireSavedLanguageCode(languageCode)
+        return runCatching { BapUWidgetMealRepository.fetch(context, savedLanguage) }
+            .getOrElse {
+                Log.e("BapUWidgetFetcher", "widget cache read failed", it)
+                WidgetMealData.error()
+            }
+            .copy(languageCode = savedLanguage)
+    }
 
     internal fun parseWidgetMealData(
         json: String,
