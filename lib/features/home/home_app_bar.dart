@@ -3,8 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 
-import 'pointer_scroll_session.dart';
-
 class MealOfDaySwitchButton extends StatelessWidget {
   const MealOfDaySwitchButton({
     super.key,
@@ -48,10 +46,16 @@ class MealOfDaySwitchButton extends StatelessWidget {
 }
 
 class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
-  const DayOfWeekTabBar({super.key, required this.tabController, this.today});
+  const DayOfWeekTabBar({
+    super.key,
+    required this.tabController,
+    this.today,
+    this.onTap,
+  });
 
   final TabController tabController;
   final DayOfWeek? today;
+  final ValueChanged<int>? onTap;
 
   static const _preferredSize = Size.fromHeight(44.0);
 
@@ -101,9 +105,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
             shape: const StadiumBorder(),
             clipBehavior: Clip.antiAlias,
             child: TabBar(
-              onTap: (_) => PointerScrollSession.clearWeekPull(
-                Navigator.maybeOf(context),
-              ),
+              onTap: onTap,
               tabs: List.generate(labels.length, (index) {
                 final isToday = DayOfWeek.values[index] == today;
                 return Tab(

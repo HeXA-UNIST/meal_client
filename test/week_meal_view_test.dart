@@ -40,7 +40,7 @@ void main() {
     );
   });
 
-  for (final width in [200.0, 208.0, 800.0]) {
+  for (final width in [200.0, 208.0, 800.0, 900.0]) {
     testWidgets('가용 폭 $width에서도 식단과 운영시간을 표시한다', (tester) async {
       tester.view.physicalSize = Size(width, 800);
       tester.view.devicePixelRatio = 1;
@@ -105,6 +105,27 @@ void main() {
               widget.text.toPlainText().contains('08:00 - 09:20'),
         ),
         findsOneWidget,
+      );
+      final table = find.byType(Table).first;
+      final body = find
+          .ancestor(of: table, matching: find.byType(SingleChildScrollView))
+          .first;
+      final inner = tester.widget<SingleChildScrollView>(body).controller!;
+      expect(inner.position.maxScrollExtent, 0);
+      expect(
+        tester.getTopLeft(table).dy - tester.getTopLeft(body).dy,
+        width < 840 ? 2 : 10,
+      );
+
+      // 본문이 화면보다 길면 마지막 카드까지 스크롤할 수 있어야 한다.
+      tester.view.physicalSize = Size(width, 60);
+      await tester.pumpAndSettle();
+      expect(inner.position.maxScrollExtent, greaterThan(0));
+      inner.jumpTo(inner.position.maxScrollExtent);
+      await tester.pump();
+      expect(
+        tester.getBottomLeft(table).dy,
+        closeTo(tester.getBottomLeft(body).dy, 0.01),
       );
     });
   }

@@ -3,57 +3,17 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/foundation.dart';
-import 'package:share_plus/share_plus.dart';
 
-import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 
-import 'meal_card.dart';
+import 'meal_page_grid.dart';
 import 'nested_page_scroll.dart';
 import 'resistant_page_motion.dart';
 import 'pointer_scroll_session.dart';
 
-const _cardMinWidth = 160;
-const _cardMaxWidth = 208;
-const _cardOuterMargin = 8.0;
-const _cardInnerMargin = 6.0;
-
-String buildMealShareText({
-  required String cardTitle,
-  required DateTime targetDate,
-  required String mealOfDayLabel,
-  required Meal meal,
-  required String languageCode,
-  required String convenienceLabel,
-  required String specialLabel,
-}) {
-  final lines = <String>[
-    '[${targetDate.month}/${targetDate.day} $cardTitle $mealOfDayLabel]',
-  ];
-  for (final section in meal.sections) {
-    final sectionTitle = section.titleFor(
-      languageCode,
-      convenienceLabel: convenienceLabel,
-      specialLabel: specialLabel,
-    );
-    if (sectionTitle != null) {
-      lines.add('');
-      lines.add('〈$sectionTitle〉');
-    }
-    lines.addAll(
-      section.menu.map((menuItem) => '- ${menuItem.textFor(languageCode)}'),
-    );
-    final kcal = section.kcal;
-    if (kcal != null) {
-      lines.add('');
-      lines.add('$kcal kcal');
-    }
-  }
-  return lines.join('\n');
-}
+export 'meal_page_grid.dart' show buildMealShareText;
 
 class WeekMealTabBarView extends StatefulWidget {
   const WeekMealTabBarView({
@@ -470,232 +430,16 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
               widget.onPageChanged(page);
             }
           },
-          builder: (context, pageIndex) {
-            final nowMeal = widget.weekMeal
+          builder: (context, pageIndex) => MealPageGrid(
+            meal: widget.weekMeal
                 .fromDayOfWeek(DayOfWeek.values[tabIndex])
-                .fromMealOfDay(MealOfDay.values[pageIndex]);
-            final targetDate = DateUtils.dateOnly(widget.mondayOfWeek)
-                .add(Duration(days: tabIndex));
-            return FutureBuilder<AppInfo>(
-              future: widget.appInfo,
-              builder: (context, infoSnapshot) {
-                return SafeArea(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cardCount = Cafeteria.values.fold<int>(
-                        0,
-                        (count, cafeteria) =>
-                            count + nowMeal.fromCafeteria(cafeteria).length,
-                      );
-
-                      if (cardCount == 0) {
-                        return Center(
-                          child: Text(
-                            l10n.noMeal,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        );
-                      }
-
-                      final double cardWidth;
-                      final int columns;
-                      final int leftFill;
-                      {
-                        var divided = (constraints.maxWidth / _cardMaxWidth)
-                            .toInt();
-                        if (divided < 1) divided = 1;
-                        if (divided < 2) {
-                          final halfCardWidth = constraints.maxWidth / 2;
-                          if (halfCardWidth > _cardMinWidth) {
-                            divided = 2;
-                            cardWidth = halfCardWidth;
-                          } else {
-                            cardWidth = constraints.maxWidth < _cardMaxWidth
-                                ? constraints.maxWidth
-                                : _cardMaxWidth.toDouble();
-                          }
-                        } else {
-                          cardWidth = _cardMaxWidth.toDouble();
-                        }
-
-                        if (cardCount <= divided) {
-                          columns = cardCount;
-                          leftFill = 0;
-                        } else {
-                          columns = divided;
-                          leftFill = (columns - (cardCount / columns).toInt());
-                        }
-                      }
-
-                      final rowCount = (cardCount + columns - 1) ~/ columns;
-                      var cardIndex = 0;
-                      final cards = Cafeteria.values
-                          .map<Iterable<Widget>>((cafeteria) {
-                            final meals = nowMeal.fromCafeteria(cafeteria);
-                            return meals.map((meal) {
-                              final columnIndex = cardIndex % columns;
-                              final rowIndex = cardIndex ~/ columns;
-                              cardIndex++;
-                              var title = switch (cafeteria) {
-                                Cafeteria.dormitory => l10n.dormitoryCafeteria,
-                                Cafeteria.student => l10n.studentCafeteria,
-                                Cafeteria.faculty => l10n.facultyCafeteria,
-                              };
-
-                              // 한식, 할랄 표기는 기숙사 식당에 한정하여 표기한다.
-                              if (cafeteria == Cafeteria.dormitory) {
-                                final mealType = switch (meal) {
-                                  KoreanMeal _ => l10n.menuKorean,
-                                  HalalMeal _ => l10n.menuHalal,
-                                  _ => null,
-                                };
-                                if (mealType != null) {
-                                  title = l10n.cafeteriaWithMealType(
-                                    title,
-                                    mealType,
-                                  );
-                                }
-                              }
-
-                              final operatingTime = infoSnapshot
-                                  .data
-                                  ?.operatingHours
-                                  .forDate(targetDate)
-                                  .timeFor(
-                                    cafeteria,
-                                    MealOfDay.values[pageIndex],
-                                  );
-                              final now =
-                                  widget.currentKstDateTime ??
-                                  MealTimeConfig.toKst(DateTime.now());
-                              final isOperating =
-                                  operatingTime != null &&
-                                  DateUtils.isSameDay(targetDate, now) &&
-                                  operatingTime.contains(now);
-
-                              return MealCard(
-                                title: title,
-                                meal: meal,
-                                // 화면 바깥쪽은 기존 8dp를 유지하고, 카드끼리
-                                // 마주 보는 면만 5dp씩 사용해 가로·세로 모두
-                                // 카드 사이의 실제 간격을 10dp로 맞춘다.
-                                margin: EdgeInsets.fromLTRB(
-                                  columnIndex == 0
-                                      ? _cardOuterMargin
-                                      : _cardInnerMargin,
-                                  rowIndex == 0
-                                      ? _cardOuterMargin
-                                      : _cardInnerMargin,
-                                  columnIndex == columns - 1
-                                      ? _cardOuterMargin
-                                      : _cardInnerMargin,
-                                  rowIndex == rowCount - 1
-                                      ? _cardOuterMargin
-                                      : _cardInnerMargin,
-                                ),
-                                operatingTimeLabel: operatingTime?.label,
-                                isOperating: isOperating,
-                                onLongPress: kIsWeb
-                                    ? null
-                                    : (sharePositionOrigin) {
-                                        // 웹 버전에서는 공유 비활성화 (Web Share API 구림)
-                                        // 나중에 마우스 호버링으로 클립보드 버튼 띄우기 구현
-                                        final languageCode =
-                                            Localizations.localeOf(context)
-                                                .languageCode;
-                                        SharePlus.instance.share(
-                                          ShareParams(
-                                            sharePositionOrigin:
-                                                sharePositionOrigin,
-                                            text: buildMealShareText(
-                                              cardTitle: title,
-                                              targetDate: targetDate,
-                                              mealOfDayLabel: switch (MealOfDay
-                                                  .values[pageIndex]) {
-                                                MealOfDay.breakfast =>
-                                                  l10n.breakfast,
-                                                MealOfDay.lunch => l10n.lunch,
-                                                MealOfDay.dinner => l10n.dinner,
-                                              },
-                                              meal: meal,
-                                              languageCode: languageCode,
-                                              convenienceLabel:
-                                                  l10n.menuSectionConvenience,
-                                              specialLabel:
-                                                  l10n.menuSectionSpecial,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                              );
-                            });
-                          })
-                          .expand((e) => e)
-                          .toList(growable: true);
-                      for (var i = 0; i < leftFill; i++) {
-                        cards.add(const SizedBox());
-                      }
-
-                      final rows = (cards.length / columns).toInt();
-                      final row = <TableRow>[];
-                      for (var i = 0; i < rows; i++) {
-                        final end = (i + 1) * columns;
-                        row.add(
-                          TableRow(
-                            children: [
-                              const TableCell(child: SizedBox()),
-                              ...cards
-                                  .sublist(
-                                    i * columns,
-                                    end < cards.length ? end : cards.length,
-                                  )
-                                  .map((card) => TableCell(child: card)),
-                              const TableCell(child: SizedBox()),
-                            ],
-                          ),
-                        );
-                      }
-                      final remain = cards
-                          .sublist(columns * rows)
-                          .map((card) => TableCell(child: card))
-                          .toList();
-                      if (remain.isNotEmpty) {
-                        remain.insert(0, const TableCell(child: SizedBox()));
-                        remain.add(const TableCell(child: SizedBox()));
-                        row.add(TableRow(children: remain));
-                      }
-
-                      // 이 Table의 모든 식단 카드는 FixedColumnWidth(cardWidth)를
-                      // 사용하므로 메타데이터 배율도 카드마다 다시 측정할 필요가
-                      // 없다. 운영시간과 칼로리가 모두 있는 worst-case 배율을 여기서
-                      // 한 번 계산해 Scope로 전달하면, 값이 하나뿐인 카드나 값이 없는
-                      // 카드도 동일한 글자 크기와 아이콘 크기를 유지한다.
-                      return MealCardMetadataScaleScope(
-                        scale: calculateMealCardMetadataScale(
-                          context,
-                          cardWidth: cardWidth,
-                          horizontalMargin: columns == 1
-                              ? 2 * _cardOuterMargin
-                              : _cardOuterMargin + _cardInnerMargin,
-                        ),
-                        child: Table(
-                          border: const TableBorder(),
-                          defaultColumnWidth: FixedColumnWidth(cardWidth),
-                          columnWidths: {
-                            0: FlexColumnWidth(),
-                            columns + 1: FlexColumnWidth(),
-                          },
-                          defaultVerticalAlignment:
-                              TableCellVerticalAlignment.intrinsicHeight,
-                          children: row,
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            );
-          },
+                .fromMealOfDay(MealOfDay.values[pageIndex]),
+            mealOfDay: MealOfDay.values[pageIndex],
+            targetDate: DateUtils.dateOnly(widget.mondayOfWeek)
+                .add(Duration(days: tabIndex)),
+            appInfo: widget.appInfo,
+            currentKstDateTime: widget.currentKstDateTime,
+          ),
         ),
         growable: false,
       ),

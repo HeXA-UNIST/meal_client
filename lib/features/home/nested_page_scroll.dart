@@ -258,10 +258,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         (page - index).abs() <
         _edgeTolerance / widget.controller.position.viewportDimension;
     final inner = scrollControllers[index];
-    if (aligned &&
-        (!inner.hasClients ||
-            axisDirectionIsReversed(inner.position.axisDirection) !=
-                widget.controller.pageReversed(index))) {
+    if (aligned && !_innerReady(index)) {
       _defer(remaining, details);
       return;
     }
@@ -349,8 +346,26 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     finish: (_) {
       if (mounted && _pointerScrolling) _finish();
     },
+    readyForWheel: () {
+      if (!mounted || !widget.controller.hasClients) return true;
+      final page = widget.controller.page;
+      if (page == null) return false;
+      final index = page.round();
+      if ((page - index).abs() * widget.controller.position.viewportDimension >=
+          _edgeTolerance) {
+        return true;
+      }
+      return _innerReady(index);
+    },
     canRead: _canRead,
   );
+
+  bool _innerReady(int index) {
+    final inner = scrollControllers[index];
+    return inner.hasClients &&
+        axisDirectionIsReversed(inner.position.axisDirection) ==
+            widget.controller.pageReversed(index);
+  }
 
   bool _canRead(double delta) {
     if (!mounted || !widget.controller.hasClients) return false;
@@ -601,9 +616,6 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAliveClientMixin 필수
-    // 좁은 화면은 2px + 카드 상단 margin 8px로, 상단 버튼과 요일바 사이의
-    // 시각 간격 10px에 맞춘다. 넓은 화면은 기존 여백을 유지한다.
-    final topPadding = MediaQuery.sizeOf(context).width < 840 ? 2.0 : 10.0;
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         scrollDirection: Axis.vertical,
@@ -612,10 +624,7 @@ class _KeptAliveItemState extends State<_KeptAliveItem>
         physics: const NeverScrollableScrollPhysics(),
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Padding(
-            padding: EdgeInsets.only(top: topPadding),
-            child: widget.builder(context, widget.pageIndex),
-          ),
+          child: widget.builder(context, widget.pageIndex),
         ),
       ),
     );

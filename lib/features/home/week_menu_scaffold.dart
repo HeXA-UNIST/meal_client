@@ -7,6 +7,7 @@ import 'package:meal_client/l10n/app_localizations.dart';
 import 'home_app_bar.dart';
 import 'model.dart';
 import 'nested_page_scroll.dart';
+import 'pointer_scroll_session.dart';
 import 'week_meal_view.dart';
 
 class _MealTransitionTabController extends TabController {
@@ -127,6 +128,8 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     final dayOfWeekTabBarContent = DayOfWeekTabBar(
       tabController: _tabController,
       today: widget.today,
+      onTap: (_) =>
+          PointerScrollSession.clearWeekPull(Navigator.maybeOf(context)),
     );
     final dayOfWeekTabBar = PreferredSize(
       preferredSize: dayOfWeekTabBarContent.preferredSize,

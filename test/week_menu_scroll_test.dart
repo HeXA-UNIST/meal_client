@@ -93,6 +93,34 @@ void main() {
     expect(mealLabel(tester), '점심');
   });
 
+  for (final (name, tail, expectedMeal, expectedDay) in [
+    ('같은 방향 관성', [Offset(0, -50)], '점심', 0),
+    ('반전', [Offset(0, 50)], '저녁', 0),
+    ('교차 축', [Offset(40, 0), Offset(40, 0)], '점심', 1),
+  ]) {
+    testWidgets('끼니 배치를 기다리던 휠이 전환을 확정한 뒤에도 $name 입력을 판정한다', (tester) async {
+      await mount(tester);
+      final controller = tester
+          .widget<NestedPageScrollView>(
+            find.byType(NestedPageScrollView).hitTestable().first,
+          )
+          .controller;
+      controller.jumpToPage(2);
+      // 아직 저녁 본문이 배치되지 않은 프레임에 점심 방향 입력과 후속 입력을 보낸다.
+      for (final delta in [const Offset(0, -50), ...tail]) {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: const Offset(200, 300),
+            scrollDelta: delta,
+          ),
+        );
+      }
+      await tester.pumpAndSettle();
+      expect(mealLabel(tester), expectedMeal);
+      expect(day(tester), expectedDay);
+    });
+  }
+
   testWidgets('Flutter가 trackpad로 분류한 50px 입력은 원래 페이지로 돌아온다', (tester) async {
     await mount(tester);
     for (final delta in [const Offset(50, 0), const Offset(0, 50)]) {

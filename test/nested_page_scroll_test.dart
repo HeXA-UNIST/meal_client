@@ -141,10 +141,6 @@ void main() {
   });
   testWidgets('미확정 경계 이동을 되돌리고 남은 휠 입력은 본문에 전달한다', (tester) async {
     final controller = await mount(tester);
-    await wheel(tester, const Offset(0, 350));
-    expect(controller.page, greaterThan(0));
-    await wheel(tester, const Offset(0, -100));
-    expect(controller.page, 0);
     final inner = tester
         .widget<SingleChildScrollView>(
           find
@@ -155,6 +151,10 @@ void main() {
               .first,
         )
         .controller!;
+    await wheel(tester, Offset(0, inner.position.maxScrollExtent + 48));
+    expect(controller.page, greaterThan(0));
+    await wheel(tester, const Offset(0, -100));
+    expect(controller.page, 0);
     expect(inner.offset, closeTo(inner.position.maxScrollExtent - 52, 0.01));
     await tester.pumpAndSettle();
   });
@@ -181,6 +181,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.page, 1);
   });
+
+  for (final waitForLayout in [false, true]) {
+    testWidgets(
+      '끼니 배치 ${waitForLayout ? "후" : "전"}에도 작은 휠 두 건을 한 칸으로 합치지 않는다',
+      (tester) async {
+        final controller = await mount(tester, contentHeight: 100);
+        controller.jumpToPage(1);
+        if (waitForLayout) await tester.pump();
+        final center = tester.getCenter(find.byType(NestedPageScrollView));
+        for (var i = 0; i < 2; i++) {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, 25),
+            ),
+          );
+        }
+        await tester.pump();
+        await tester.pump(PointerScrollSession.singleIdleDuration);
+        await tester.pumpAndSettle();
+        expect(controller.page, 1);
+      },
+    );
+  }
 
   testWidgets('전환 중 반대 입력으로 원래 끼니로 되돌릴 수 있다', (tester) async {
     final controller = await mount(tester, contentHeight: 100);
@@ -251,6 +275,36 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
     expect(controller.page, 0);
+  });
+
+  testWidgets('본문 배치를 기다리던 뷰가 교체되면 새 뷰가 첫 휠 입력을 받는다', (tester) async {
+    final session = PointerScrollSession();
+    final before = NestedPageScrollController(pageCount: 3);
+    final after = NestedPageScrollController(pageCount: 3);
+    addTearDown(before.dispose);
+    addTearDown(after.dispose);
+    Widget view(NestedPageScrollController controller) => MaterialApp(
+      home: NestedPageScrollView(
+        key: ObjectKey(controller),
+        controller: controller,
+        pointerSession: session,
+        onPageChanged: (_) {},
+        builder: (_, page) => Text('끼니 $page'),
+      ),
+    );
+    await tester.pumpWidget(view(before));
+    before.jumpToPage(1);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(find.byType(NestedPageScrollView)),
+        scrollDelta: const Offset(0, 50),
+      ),
+    );
+    await tester.pumpWidget(view(after));
+    expect(after.page, 0);
+    await wheel(tester, const Offset(0, 50));
+    await tester.pumpAndSettle();
+    expect(after.page, 1);
   });
 
   for (final queued in [false, true]) {

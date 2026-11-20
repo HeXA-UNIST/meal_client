@@ -13,6 +13,7 @@ class WheelScrollTarget {
     required this.motion,
     required this.move,
     required this.finish,
+    this.readyForWheel,
     this.canRead,
     this.isWeekBoundary,
     this.fullWeekPullDirection,
@@ -22,6 +23,7 @@ class WheelScrollTarget {
   final ResistantPageMotion motion;
   final void Function(DragUpdateDetails details, bool allowWeekBoundary) move;
   final void Function(bool allowWeekChange) finish;
+  final bool Function()? readyForWheel;
   final bool Function(double delta)? canRead;
   final bool Function()? isWeekBoundary;
   final double Function()? fullWeekPullDirection;
@@ -34,7 +36,26 @@ typedef _Sample = ({
   PointerScrollEvent event,
   bool shifted,
 });
-typedef _Restart = ({Axis axis, List<_Sample> samples});
+
+sealed class _WheelDecision {
+  const _WheelDecision();
+}
+
+final class _ContinueGroup extends _WheelDecision {
+  const _ContinueGroup();
+}
+
+final class _Restart extends _WheelDecision {
+  const _Restart(this.axis, this.samples);
+  final Axis axis;
+  final List<_Sample> samples;
+}
+
+final class _ReverseAlignment extends _WheelDecision {
+  const _ReverseAlignment(this.page);
+  final double page;
+}
+
 typedef WheelTargetForAxis = WheelScrollTarget? Function(Axis axis);
 
 // 같은 Navigator에서 미리보기를 열거나 닫아도 남은 관성으로 도착 요일을 넘기지 않는다.
@@ -131,6 +152,7 @@ class PointerScrollSession {
   final _queue = Queue<_WheelGroup>();
   _WheelGroup? _current;
   _WheelGroup? _settlingGroup;
+  bool _layoutRetryScheduled = false;
   Timer? _idle;
   Timer? _guard;
   int _generation = 0;
@@ -220,7 +242,7 @@ class PointerScrollSession {
     final value = _component(delta, axis, group?.shifted ?? shifted);
     final sample = (time: time, delta: value, event: event, shifted: shifted);
     if (group != null && group.direction != 0) {
-      final restart = _classify(group, sample);
+      final restart = _handleCommittedInput(group, sample);
       if (restart != null) {
         _start(
           restart.axis,
@@ -246,7 +268,21 @@ class PointerScrollSession {
     }
   }
 
-  _Restart? _classify(_WheelGroup group, _Sample sample) {
+  _Restart? _handleCommittedInput(_WheelGroup group, _Sample sample) {
+    switch (_classify(group, sample)) {
+      case _ContinueGroup():
+        return null;
+      case final _Restart restart:
+        return restart;
+      case _ReverseAlignment(:final page):
+        final position = group.position!;
+        group.target!.motion.alignWheel(position, page);
+        _committed(group, position, page, -group.direction, sample.time);
+        return null;
+    }
+  }
+
+  _WheelDecision _classify(_WheelGroup group, _Sample sample) {
     final axis = group.axis;
     final otherAxis = axis == Axis.horizontal ? Axis.vertical : Axis.horizontal;
     final other = _component(sample.event.scrollDelta, otherAxis, false);
@@ -255,15 +291,16 @@ class PointerScrollSession {
         !group.shifted &&
         other.abs() >= 3 * math.max(1, value.abs())) {
       return _crossAxis(group, otherAxis, (
-        time: sample.time,
-        delta: other,
-        event: sample.event,
-        shifted: false,
-      ));
+            time: sample.time,
+            delta: other,
+            event: sample.event,
+            shifted: false,
+          )) ??
+          const _ContinueGroup();
     }
     group.cross.clear();
     group.softRead = false;
-    if (value == 0) return null;
+    if (value == 0) return const _ContinueGroup();
     final history = group.history;
     final settled = _settlingGroup == null;
     final pairAfterArrival = settled && group.previousSampleSettled;
@@ -290,9 +327,7 @@ class PointerScrollSession {
         final direction = axisDirectionIsReversed(position.axisDirection)
             ? -group.direction
             : group.direction;
-        final target = group.page - direction;
-        group.target!.motion.alignWheel(position, target);
-        _committed(group, position, target, -group.direction, sample.time);
+        return _ReverseAlignment(group.page - direction);
       }
     } else {
       group.reverse = 0;
@@ -302,35 +337,32 @@ class PointerScrollSession {
         // 정렬 도중부터 커진 값까지 쓰면 일요일로 넘어간 동작만으로 다음 주가 열린다.
         if (group.weekEdge && !pairAfterArrival) {
           history.clear();
-          return null;
+          return const _ContinueGroup();
         }
         final pair = history.sublist(history.length - 2);
-        if (pair.first.shifted != sample.shifted) return null;
+        if (pair.first.shifted != sample.shifted) return const _ContinueGroup();
         return _restartOnInputAxis(group, pair);
       }
     }
-    return null;
+    return const _ContinueGroup();
   }
 
   _Restart _restartOnInputAxis(_WheelGroup group, List<_Sample> samples) {
     final last = samples.last;
     if (last.shifted == group.shifted) {
-      return (axis: group.axis, samples: samples);
+      return _Restart(group.axis, samples);
     }
     final axis = _dominant(last.event.scrollDelta, last.shifted);
     // 새 동작을 승인한 뒤에는 이전 그룹의 가로 이동량을 세로 본문에 전달하지 않는다.
-    return (
-      axis: axis,
-      samples: [
-        for (final s in samples)
-          (
-            time: s.time,
-            delta: _component(s.event.scrollDelta, axis, s.shifted),
-            event: s.event,
-            shifted: s.shifted,
-          ),
-      ],
-    );
+    return _Restart(axis, [
+      for (final s in samples)
+        (
+          time: s.time,
+          delta: _component(s.event.scrollDelta, axis, s.shifted),
+          event: s.event,
+          shifted: s.shifted,
+        ),
+    ]);
   }
 
   _Restart? _crossAxis(_WheelGroup group, Axis axis, _Sample sample) {
@@ -349,11 +381,9 @@ class PointerScrollSession {
     if (cross.length >= 2 &&
         (sample.delta + cross[cross.length - 2].delta).abs() >=
             ResistantPageMotion.commitDistance) {
-      return (
-        axis: axis,
-        samples: group.softRead
-            ? List.of(cross)
-            : cross.sublist(cross.length - 2),
+      return _Restart(
+        axis,
+        group.softRead ? List.of(cross) : cross.sublist(cross.length - 2),
       );
     }
     if (axis == Axis.vertical) {
@@ -388,9 +418,7 @@ class PointerScrollSession {
     final total = samples.fold(0.0, (n, s) => n + s.delta);
     final canRead =
         group.targetFor(Axis.vertical)?.canRead?.call(total) ?? false;
-    final result = canRead
-        ? (axis: Axis.vertical, samples: List.of(samples))
-        : null;
+    final result = canRead ? _Restart(Axis.vertical, List.of(samples)) : null;
     group.softRead = false;
     samples.clear();
     return result;
@@ -420,19 +448,26 @@ class PointerScrollSession {
       _settlingGroup != null || _queue.isNotEmpty,
     );
     _current = group;
-    if (group.queued) _queue.add(group);
+    if (group.waiting) _queue.add(group);
     for (final s in samples) {
       _append(group, s);
     }
   }
 
   void _append(_WheelGroup group, _Sample s) {
+    // 웹 트랙패드에서 받은 25px 두 건을 합치면 마우스 휠 한 칸(50px)으로 판정할 수 있다.
+    // 본문이 배치될 때까지 각 이벤트의 두 축을 그대로 보관해 도착한 순서대로 판정한다.
+    if (!group.waiting && !_readyForWheel(group)) {
+      group.waiting = true;
+      _queue.add(group);
+    }
     if (group.waiting) {
       group.pending.add(s);
     } else {
       _deliver(group, s);
     }
     _observe(group);
+    if (group.waiting && _settlingGroup == null) _drainQueue();
   }
 
   void _observe(_WheelGroup group, {bool tail = false}) {
@@ -542,8 +577,39 @@ class PointerScrollSession {
     WidgetsBinding.instance.scheduleFrame();
   }
 
+  bool _readyForWheel(_WheelGroup group) {
+    final target = group.target ?? group.targetFor(group.axis);
+    return target?.readyForWheel?.call() ?? true;
+  }
+
   void _drainQueue() {
     while (_settlingGroup == null && _queue.isNotEmpty) {
+      final group = _queue.first;
+      final target = group.target ?? group.targetFor(group.axis);
+      if (target == null) {
+        // 배치 전에 뷰가 교체되면 이전 입력의 목적지가 사라진다.
+        // 이 그룹이 아직 입력을 소유한 경우에만 타이머와 축 잠금을 해제한다.
+        _queue.removeFirst();
+        if (_current == group) {
+          _idle?.cancel();
+          _guard?.cancel();
+          _current = null;
+        }
+        continue;
+      }
+      if (target.readyForWheel?.call() == false) {
+        if (!_layoutRetryScheduled) {
+          _layoutRetryScheduled = true;
+          final generation = _generation;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (generation != _generation) return;
+            _layoutRetryScheduled = false;
+            _drainQueue();
+          });
+          WidgetsBinding.instance.scheduleFrame();
+        }
+        return;
+      }
       _replay(_queue.removeFirst());
     }
   }
@@ -566,7 +632,7 @@ class PointerScrollSession {
         if (sample.delta != 0) _deliver(group, sample);
         continue;
       }
-      final restart = _classify(group, sample);
+      final restart = _handleCommittedInput(group, sample);
       if (restart == null) continue;
       // 정렬을 기다리던 동안 다음 스와이프까지 들어왔을 수 있다.
       final next = _WheelGroup(
@@ -616,6 +682,7 @@ class PointerScrollSession {
   void reset({NavigatorState? clearWeekPullIn}) {
     clearWeekPull(clearWeekPullIn);
     _generation++;
+    _layoutRetryScheduled = false;
     _untrack();
     _idle?.cancel();
     _guard?.cancel();
