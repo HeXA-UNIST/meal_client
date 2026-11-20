@@ -14,20 +14,28 @@ class PointerScrollSession {
 
   Axis? get axis => _axis;
 
-  Axis selectAxis(Offset delta, {required bool shifted}) {
-    if (_axis == null) {
-      _shifted = shifted;
-      _axis = shifted || delta.dx.abs() > delta.dy.abs()
+  Axis peekAxis(Offset delta, {required bool shifted}) =>
+      _axis ??
+      (shifted || delta.dx.abs() > delta.dy.abs()
           ? Axis.horizontal
-          : Axis.vertical;
+          : Axis.vertical);
+
+  double horizontalDelta(Offset delta, {required bool shifted}) =>
+      (_axis == null ? shifted : _shifted) && delta.dy.abs() > delta.dx.abs()
+      ? delta.dy
+      : delta.dx;
+
+  void record(
+    VoidCallback onIdle, {
+    required Axis axis,
+    bool shifted = false,
+    bool boundary = false,
+  }) {
+    // resolver가 선택한 입력만 축을 잠그고 만료 타이머를 함께 등록한다.
+    if (_axis == null) {
+      _axis = axis;
+      _shifted = shifted;
     }
-    return _axis!;
-  }
-
-  double horizontalDelta(Offset delta) =>
-      _shifted && delta.dy.abs() > delta.dx.abs() ? delta.dy : delta.dx;
-
-  void record(VoidCallback onIdle, {bool boundary = false}) {
     _eventCount++;
     _timer?.cancel();
     // 주 경계 진입은 관성 꼬리가 멎은 뒤 실행한다.

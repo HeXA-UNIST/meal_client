@@ -118,16 +118,15 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
         _edgeDistance.value = _edgeReturn.value
             .clamp(0.0, double.infinity)
             .toDouble();
-      })
-      ..addStatusListener((_) => _updateHorizontalActivity());
+      });
     widget.tabController.addListener(_onTabChanged);
   }
 
   void _updateHorizontalActivity() {
+    // 주 경계 표시만 복귀할 때는 버튼과 본문 모두 끼니 입력을 허용한다.
     final active =
         _horizontalPosition != null ||
-        (_trackedHorizontalPosition?.isScrollingNotifier.value ?? false) ||
-        _edgeReturn.isAnimating;
+        (_trackedHorizontalPosition?.isScrollingNotifier.value ?? false);
     if (_horizontalActivity == active) return;
     _horizontalActivity = active;
     widget.onHorizontalActivityChanged?.call(active);
@@ -163,6 +162,8 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     bool allowWeekChange = true,
     double velocity = 0,
   }) {
+    // 무관한 취소나 중복 종료는 복귀 스프링과 재입력 기준을 바꾸지 않는다.
+    if (!cancel && _horizontalPosition == null) return;
     final changeWeek =
         !cancel &&
         allowWeekChange &&
@@ -377,11 +378,10 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
     final delta = event.scrollDelta;
     if (delta == Offset.zero) return;
     final shifted = HardwareKeyboard.instance.isShiftPressed;
-    if (_pointerSession.selectAxis(delta, shifted: shifted) !=
-        Axis.horizontal) {
+    if (_pointerSession.peekAxis(delta, shifted: shifted) != Axis.horizontal) {
       return;
     }
-    final dx = _pointerSession.horizontalDelta(delta);
+    final dx = _pointerSession.horizontalDelta(delta, shifted: shifted);
     final position = Scrollable.maybeOf(
       context,
       axis: Axis.horizontal,
@@ -396,7 +396,6 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
       }
       if (_horizontalPosition != position) {
         _beginHorizontal(position);
-        _pointerSession.selectAxis(delta, shifted: shifted);
       }
       _horizontalPointerScrolling = true;
       _updateHorizontal(
@@ -408,7 +407,12 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
           localPosition: event.localPosition,
         ),
       );
-      _pointerSession.record(_finishHorizontal, boundary: _edgeEligible);
+      _pointerSession.record(
+        _finishHorizontal,
+        axis: Axis.horizontal,
+        shifted: shifted,
+        boundary: _edgeEligible,
+      );
     });
   }
 

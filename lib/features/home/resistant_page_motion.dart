@@ -41,6 +41,13 @@ class ResistantPageMotion {
         ? details.delta.dy
         : details.delta.dx;
     final input = reversed ? delta : -delta;
+    // 범위 밖으로 계속 당길 때는 같은 활동을 유지하고, 안쪽 반전만 돌려준다.
+    if (_distance == 0 &&
+        (input == 0 ||
+            (_startPixels <= position.minScrollExtent && input < 0) ||
+            (_startPixels >= position.maxScrollExtent && input > 0))) {
+      return null;
+    }
     if (_distance != 0 &&
         (input * _distance >= 0 || input.abs() < _distance.abs())) {
       return null;

@@ -292,9 +292,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // 못한다. 반드시 매번 새로 받아오는 downloadedMealRecord 기준으로
     // nextWeekStart를 뽑는다 (docs/superpowers/specs/
     // 2026-07-07-next-week-preview-design.md 참고).
-    nextWeekStart = downloadedMealRecord
-        .then<String?>((r) => r.weekMeta.nextWeekStart)
-        .catchError((Object _) => previousNextWeekStart);
+    nextWeekStart = downloadedMealRecord.then<String?>(
+      (r) => r.weekMeta.nextWeekStart,
+    );
+    if (previousNextWeekStart != null) {
+      nextWeekStart = nextWeekStart.catchError(
+        (Object _) => previousNextWeekStart,
+      );
+    }
+    // 미리보기를 열기 전 실패해도 오류를 관찰하되, 요청자에게는 그대로 전달한다.
+    unawaited(
+      nextWeekStart.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    );
   }
 
   /// 주차 전환 전후의 갱신이 canonical meal.json을 역순으로 쓰지 않게 한다.

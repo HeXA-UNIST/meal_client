@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/core/constants.dart';
@@ -26,6 +27,66 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
+
+  for (final priorSuccess in [false, true]) {
+    testWidgets('${priorSuccess ? '미준비 응답 후 갱신' : '최초 갱신'} 실패의 미리보기 안내를 구분한다', (
+      tester,
+    ) async {
+      final calls = <MethodCall>[];
+      const channel = MethodChannel('PonnamKarthik/fluttertoast');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call);
+        return true;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      var now = DateTime.utc(2026, 8, 10, 3);
+      var downloads = 0;
+      final failure = Completer<MealResponse>();
+      await tester.pumpWidget(
+        _buildHomePage(
+          () => now,
+          refreshMeal: () async {
+            downloads++;
+            if (priorSuccess && downloads == 1) {
+              return _mealResponse(DateTime.utc(2026, 8, 10));
+            }
+            return failure.future;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (priorSuccess) {
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        now = now.add(const Duration(hours: 2));
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+      }
+      failure.completeError(StateError('offline'));
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(WeekMenuScaffold));
+      final l10n = AppLocalizations.of(context)!;
+      final scaffold = tester.widget<WeekMenuScaffold>(
+        find.byType(WeekMenuScaffold),
+      );
+      await scaffold.onNextWeekRequested!(MealOfDay.breakfast);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+      expect(
+        calls.last.arguments['msg'],
+        priorSuccess ? l10n.nextWeekNotReady : l10n.cannotLoadMeal,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   testWidgets('홈 일요일 경계 입력은 기존 다음 주 미리보기 화면을 한 번 연다', (tester) async {
     final refresh = Completer<MealResponse>();

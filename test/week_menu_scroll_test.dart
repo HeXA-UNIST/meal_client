@@ -262,6 +262,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
         expect(position().isScrollingNotifier.value, isTrue);
         expect(changed, 0);
+        final unrelated = await tester.startGesture(
+          const Offset(320, 300),
+          pointer: 9,
+        );
+        await unrelated.cancel();
 
         gesture = await tester.startGesture(const Offset(200, 300));
         await gesture.moveBy(Offset(direction * 30, 0));
@@ -413,6 +418,65 @@ void main() {
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(changed, 0);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(changed, 1);
+  });
+
+  for (final button in [true, false]) {
+    testWidgets('주 경계 복귀 중 ${button ? '버튼' : '세로 입력'}으로 끼니를 바꿀 수 있다', (
+      tester,
+    ) async {
+      await mount(tester, initialDay: DayOfWeek.sun, onNextWeek: () async {});
+      final origin = tester.getCenter(find.byType(TabBarView)).dx;
+      final gesture = await tester.startGesture(const Offset(200, 300));
+      await gesture.moveBy(const Offset(-30, 0));
+      await gesture.moveBy(const Offset(-80, 0));
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.getCenter(find.byType(TabBarView)).dx, lessThan(origin));
+      if (button) {
+        await tester.tap(find.byType(MealOfDaySwitchButton));
+      } else {
+        await wheel(tester, const Offset(0, 150));
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
+            .label,
+        '점심',
+      );
+    });
+  }
+
+  testWidgets('보조 포인터 취소는 진행 중인 주 경계 드래그를 끝내지 않는다', (tester) async {
+    var changed = 0;
+    await mount(
+      tester,
+      initialDay: DayOfWeek.sun,
+      onNextWeek: () async {
+        changed++;
+      },
+    );
+    final gesture = await tester.startGesture(
+      const Offset(200, 300),
+      pointer: 1,
+    );
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-80, 0));
+    await tester.pump();
+    final before = tester.getCenter(find.byType(TabBarView)).dx;
+    final secondary = await tester.startGesture(
+      const Offset(320, 300),
+      pointer: 2,
+    );
+    await secondary.cancel();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.getCenter(find.byType(TabBarView)).dx, closeTo(before, 0.01));
+    await gesture.moveBy(const Offset(-80, 0));
     await gesture.up();
     await tester.pumpAndSettle();
     expect(changed, 1);

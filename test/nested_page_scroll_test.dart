@@ -2,11 +2,15 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:meal_client/features/home/nested_page_scroll.dart';
+import 'package:meal_client/features/home/pointer_scroll_session.dart';
 
 void main() {
   Future<NestedPageScrollController> mount(
     WidgetTester tester, {
     double contentHeight = 700,
+    PointerScrollSession? pointerSession,
+    bool Function()? consumeSignal,
+    bool Function()? horizontalActive,
   }) async {
     final controller = NestedPageScrollController(pageCount: 3);
     addTearDown(controller.dispose);
@@ -19,15 +23,28 @@ void main() {
               height: 400,
               child: NestedPageScrollView(
                 controller: controller,
+                pointerSession: pointerSession,
+                isHorizontalInputActive: horizontalActive,
                 onPageChanged: (_) {},
-                builder: (_, page) => SizedBox(
-                  height: contentHeight,
-                  child: Column(
-                    children: [
-                      Text('끼니 $page 상단'),
-                      const Spacer(),
-                      Text('끼니 $page 하단'),
-                    ],
+                builder: (_, page) => Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerSignal: (event) {
+                    if (consumeSignal?.call() ?? false) {
+                      GestureBinding.instance.pointerSignalResolver.register(
+                        event,
+                        (_) {},
+                      );
+                    }
+                  },
+                  child: SizedBox(
+                    height: contentHeight,
+                    child: Column(
+                      children: [
+                        Text('끼니 $page 상단'),
+                        const Spacer(),
+                        Text('끼니 $page 하단'),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -50,6 +67,46 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('자식이 소비한 휠은 공유 세션의 축을 잠그지 않는다', (tester) async {
+    final session = PointerScrollSession();
+    addTearDown(session.reset);
+    var consume = true;
+    await mount(tester, pointerSession: session, consumeSignal: () => consume);
+    await wheel(tester, const Offset(0, 40));
+    expect(session.axis, isNull);
+    expect(
+      session.peekAxis(const Offset(40, 0), shifted: false),
+      Axis.horizontal,
+    );
+    consume = false;
+    await wheel(tester, const Offset(0, 40));
+    expect(session.axis, Axis.vertical);
+    await tester.pump(PointerScrollSession.singleIdleDuration);
+    await tester.pumpAndSettle();
+    expect(session.axis, isNull);
+  });
+
+  testWidgets('가로 활동으로 차단된 대각선 휠도 세로 세션 축을 유지한다', (tester) async {
+    final session = PointerScrollSession();
+    addTearDown(session.reset);
+    var active = false;
+    await mount(
+      tester,
+      pointerSession: session,
+      horizontalActive: () => active,
+    );
+    await wheel(tester, const Offset(0, 40));
+    expect(session.axis, Axis.vertical);
+    active = true;
+    await wheel(tester, const Offset(60, 40));
+    expect(session.axis, Axis.vertical);
+    await wheel(tester, const Offset(60, 40));
+    expect(session.axis, Axis.vertical);
+    await tester.pump(PointerScrollSession.singleIdleDuration);
+    await tester.pumpAndSettle();
+    expect(session.axis, isNull);
+  });
+
   testWidgets('범위 밖 터치 입력을 반전하면 현재 끼니 본문을 읽는다', (tester) async {
     final controller = await mount(tester);
     final inner = tester
@@ -67,6 +124,14 @@ void main() {
     );
     await gesture.moveBy(const Offset(0, 50));
     await tester.pump();
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    final activity = controller.position.activity;
+    for (var i = 0; i < 3; i++) {
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      expect(controller.position.activity, same(activity));
+    }
     await gesture.moveBy(const Offset(0, -100));
     await tester.pump();
     expect(controller.page, 0);

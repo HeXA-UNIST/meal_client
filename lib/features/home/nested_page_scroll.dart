@@ -109,6 +109,8 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
   late int _navigationRevision;
   bool _pointerScrolling = false;
   bool _touchScrolling = false;
+  bool _horizontalDragging = false;
+  int? _dragPointer;
   double _deferredDy = 0;
   int _inputEpoch = 0;
   bool _deferredUpdateScheduled = false;
@@ -332,12 +334,11 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     if (event is! PointerScrollEvent || _touchScrolling) return;
     final delta = event.scrollDelta;
     if (delta == Offset.zero) return;
-    final axis = _pointerSession.selectAxis(
+    final axis = _pointerSession.peekAxis(
       delta,
       shifted: HardwareKeyboard.instance.isShiftPressed,
     );
     if (axis == Axis.horizontal) {
-      if (widget.onHorizontalPointerSignal == null) _pointerSession.reset();
       widget.onHorizontalPointerSignal?.call(context, event);
       return;
     }
@@ -345,8 +346,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
       // 차단한 세로 휠이 부모나 브라우저 스크롤로 전달되지 않게 소비한다.
       GestureBinding.instance.pointerSignalResolver.register(event, (_) {
         _finish(cancel: true);
-        _pointerSession.selectAxis(delta, shifted: false);
-        _pointerSession.record(() {});
+        _pointerSession.record(() {}, axis: Axis.vertical);
         event.respond(allowPlatformDefault: false);
       });
       return;
@@ -356,7 +356,6 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
       if (!_pointerScrolling) {
         _finish(cancel: true);
         _pointerScrolling = true;
-        _pointerSession.selectAxis(delta, shifted: false);
         _preparePages(widget.controller.page!.round());
       }
       _update(
@@ -369,7 +368,7 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
         ),
       );
       event.respond(allowPlatformDefault: false);
-      _pointerSession.record(() => _finish());
+      _pointerSession.record(() => _finish(), axis: Axis.vertical);
     });
   }
 
@@ -378,22 +377,50 @@ class _NestedPageScrollViewState extends State<NestedPageScrollView>
     super.build(context);
     return Listener(
       onPointerSignal: _onPointerSignal,
+      onPointerDown: (event) => _dragPointer ??= event.pointer,
+      onPointerUp: (event) {
+        if (_dragPointer == event.pointer) _dragPointer = null;
+      },
       // 인식된 드래그의 PointerCancel도 onEnd로 전달될 수 있어 먼저 취소한다.
-      onPointerCancel: (_) {
-        widget.onHorizontalDragCancel?.call();
-        _finish();
+      onPointerCancel: (event) {
+        if (_dragPointer != event.pointer) return;
+        _dragPointer = null;
+        if (_horizontalDragging) {
+          _horizontalDragging = false;
+          widget.onHorizontalDragCancel?.call();
+        }
+        if (_touchScrolling) _finish();
       },
       child: GestureDetector(
         onHorizontalDragStart: widget.onHorizontalDragStart == null
             ? null
-            : (details) => widget.onHorizontalDragStart!(context, details),
+            : (details) {
+                _horizontalDragging = true;
+                widget.onHorizontalDragStart!(context, details);
+              },
         onHorizontalDragUpdate: widget.onHorizontalDragUpdate,
-        onHorizontalDragEnd: widget.onHorizontalDragEnd,
-        onHorizontalDragCancel: widget.onHorizontalDragCancel,
+        onHorizontalDragEnd: widget.onHorizontalDragEnd == null
+            ? null
+            : (details) {
+                if (!_horizontalDragging) return;
+                _horizontalDragging = false;
+                widget.onHorizontalDragEnd?.call(details);
+              },
+        onHorizontalDragCancel: widget.onHorizontalDragCancel == null
+            ? null
+            : () {
+                if (!_horizontalDragging) return;
+                _horizontalDragging = false;
+                widget.onHorizontalDragCancel?.call();
+              },
         onVerticalDragStart: _start,
         onVerticalDragUpdate: _update,
-        onVerticalDragEnd: (details) => _finish(details: details),
-        onVerticalDragCancel: () => _finish(),
+        onVerticalDragEnd: (details) {
+          if (_touchScrolling) _finish(details: details);
+        },
+        onVerticalDragCancel: () {
+          if (_touchScrolling) _finish();
+        },
         child: PageView.builder(
           scrollDirection: Axis.vertical,
           itemCount: widget.controller.pageCount,
