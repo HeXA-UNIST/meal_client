@@ -168,7 +168,6 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
       mealFuture: _mealFuture,
       appInfo: widget.appInfo,
       bannerText: l10n.previewingNextWeek,
-      titleFontWeight: FontWeight.w600,
       onPreviousWeekRequested: () async {
         await Navigator.of(context).maybePop();
       },

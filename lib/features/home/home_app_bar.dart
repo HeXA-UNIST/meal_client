@@ -151,12 +151,10 @@ class AnimatedDateTitle extends StatelessWidget {
     super.key,
     required this.tabController,
     required this.mondayOfWeek,
-    this.fontWeight = FontWeight.w700,
   });
 
   final TabController tabController;
   final DateTime mondayOfWeek;
-  final FontWeight fontWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +169,7 @@ class AnimatedDateTitle extends StatelessWidget {
     });
 
     final animation = tabController.animation;
-    final titleStyle = TextStyle(fontWeight: fontWeight);
+    const titleStyle = TextStyle(fontWeight: FontWeight.w700);
     if (animation == null) {
       return Text(dateLabels[tabController.index], style: titleStyle);
     }
