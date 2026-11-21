@@ -58,6 +58,7 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<int>? onTap;
 
   static const _preferredSize = Size.fromHeight(44.0);
+  static const _indicatorInset = 4.0;
 
   // 눌림 효과는 숨기되 포커스·호버 강조는 테마 기본값을 사용한다.
   static final _overlayColor = WidgetStateProperty.resolveWith<Color?>((
@@ -78,6 +79,9 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final directionSign = Directionality.of(context) == TextDirection.rtl
+        ? -1.0
+        : 1.0;
     final labels = [
       l10n.mon,
       l10n.tue,
@@ -108,25 +112,39 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
               onTap: onTap,
               tabs: List.generate(labels.length, (index) {
                 final isToday = DayOfWeek.values[index] == today;
+                // 인디케이터가 바 양 끝 4px 안쪽을 7등분해 그리므로,
+                // 각 요일 텍스트도 화면 폭과 무관한 상수만큼 옮겨 알약 중앙에 맞춘다.
+                final labelOffset =
+                    directionSign *
+                    _indicatorInset *
+                    (1 - (2 * index + 1) / labels.length);
                 return Tab(
-                  child: Text(
-                    labels[index],
-                    // 오늘인 요일은 w800으로 굵게 표시한다.
-                    style: isToday
-                        ? const TextStyle(fontWeight: FontWeight.w800)
-                        : null,
+                  child: Transform.translate(
+                    offset: Offset(labelOffset, 0),
+                    child: Text(
+                      labels[index],
+                      softWrap: false,
+                      overflow: TextOverflow.fade,
+                      // 오늘인 요일은 w800으로 굵게 표시한다.
+                      style: isToday
+                          ? const TextStyle(fontWeight: FontWeight.w800)
+                          : null,
+                    ),
                   ),
                 );
               }),
               labelColor: colorScheme.onPrimaryContainer,
               unselectedLabelColor: unselectedLabelColor,
               indicatorSize: TabBarIndicatorSize.tab,
-              // 터치 영역은 바의 양 끝까지 채우고, 선택 표시는 사방을 같은
-              // 폭으로 줄여 둥근 강조 영역 안에 일정한 여백을 유지한다.
-              indicatorPadding: const EdgeInsets.all(4),
-              indicator: BoxDecoration(
+              // 터치·호버 영역은 바의 양 끝까지 채우고, 선택 알약은 상하·양 끝만
+              // 4px 안쪽으로 그려 칸마다 폭이 과도하게 좁아지지 않게 한다.
+              indicatorPadding: const EdgeInsets.symmetric(
+                vertical: _indicatorInset,
+              ),
+              indicator: _DayOfWeekTabIndicator(
                 color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(128),
+                tabCount: labels.length,
+                horizontalInset: _indicatorInset,
               ),
               labelStyle: theme.textTheme.titleSmall!.copyWith(
                 fontSize: 16,
@@ -143,6 +161,67 @@ class DayOfWeekTabBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
     );
+  }
+}
+
+/// 바 양 끝 여백만 [horizontalInset]만큼 비우고 그 안쪽을 [tabCount]등분해
+/// 선택 알약을 그리는 인디케이터.
+class _DayOfWeekTabIndicator extends Decoration {
+  const _DayOfWeekTabIndicator({
+    required this.color,
+    required this.tabCount,
+    required this.horizontalInset,
+  });
+
+  final Color color;
+  final int tabCount;
+  final double horizontalInset;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _DayOfWeekTabIndicatorPainter(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _DayOfWeekTabIndicator &&
+          other.color == color &&
+          other.tabCount == tabCount &&
+          other.horizontalInset == horizontalInset;
+
+  @override
+  int get hashCode => Object.hash(color, tabCount, horizontalInset);
+}
+
+class _DayOfWeekTabIndicatorPainter extends BoxPainter {
+  _DayOfWeekTabIndicatorPainter(this.decoration);
+
+  final _DayOfWeekTabIndicator decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final size = configuration.size;
+    if (size == null || size.width <= 0 || size.height <= 0) return;
+
+    final tabWidth = size.width;
+    final pillWidth =
+        tabWidth - (2 * decoration.horizontalInset) / decoration.tabCount;
+    if (pillWidth <= 0) return;
+
+    // 등폭 탭과 TabIndicatorAnimation.linear(TabBarIndicatorSize.tab 기본값)라
+    // 전환 중에도 size.width가 일정하다는 전제로 진행 위치를 계산한다.
+    final progress = offset.dx / tabWidth;
+    final pillRect = Rect.fromLTWH(
+      decoration.horizontalInset + progress * pillWidth,
+      offset.dy,
+      pillWidth,
+      size.height,
+    );
+    final rrect = RRect.fromRectAndRadius(
+      pillRect,
+      Radius.circular(pillRect.shortestSide / 2),
+    );
+    canvas.drawRRect(rrect, Paint()..color = decoration.color);
   }
 }
 
