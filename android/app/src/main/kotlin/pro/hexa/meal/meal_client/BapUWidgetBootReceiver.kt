@@ -13,8 +13,10 @@ class BapUWidgetBootReceiver : BroadcastReceiver() {
             intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         BapUNotificationPermissionRecovery.invalidateScheduleGeneration(context)
         val pending = goAsync()
+        val replaced = intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
         BapUWidgetUpdateDispatcher.execute {
             try {
+                BapUWidget2x2Provider.syncWidgetPreview(context, force = replaced)
                 if (BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
                     BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
                     BapUWidgetScheduleManager.scheduleNext(context)

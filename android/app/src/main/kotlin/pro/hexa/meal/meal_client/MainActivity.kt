@@ -7,6 +7,9 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        BapUWidgetUpdateDispatcher.execute {
+            BapUWidget2x2Provider.syncWidgetPreview(applicationContext)
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "pro.hexa.meal.meal_client/meal_background_refresh").setMethodCallHandler { call, result ->
             if (call.method != "postpone") {

@@ -1,9 +1,12 @@
 package pro.hexa.meal.meal_client
 
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -38,7 +41,68 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
 
     companion object {
         const val TAG = "BapUWidget2x2"
+        private const val PREVIEW_SIGNATURE_VERSION = 1
+        private const val KEY_GENERATED_PREVIEW_SIGNATURE = "generated_preview_signature"
         private val renderCache = BapUWidgetRenderCache()
+
+        /**
+         * Android 15(API 35) 이상 위젯 선택기에 실제 렌더링 함수로 만든 생성형 미리보기를 등록한다.
+         * 시스템 호출 빈도 제한(시간당 약 2회)을 지키기 위해 언어·화면 밀도·글자 배율·앱 버전이
+         * 바뀐 경우(또는 업데이트 직후)에만 다시 등록한다.
+         */
+        fun syncWidgetPreview(baseContext: Context, force: Boolean = false) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+            try {
+                val languageCode = BapUWidgetMealRepository.currentLanguageCode(baseContext)
+                val config = baseContext.resources.configuration
+                val versionCode = baseContext.packageManager
+                    .getPackageInfo(baseContext.packageName, PackageManager.PackageInfoFlags.of(0))
+                    .longVersionCode
+                val signature = "$PREVIEW_SIGNATURE_VERSION|$versionCode|$languageCode|${config.densityDpi}|${config.fontScale}"
+                val prefs = getWidgetConfigPrefs(baseContext)
+                if (!force && prefs.getString(KEY_GENERATED_PREVIEW_SIGNATURE, null) == signature) return
+
+                val preview = createPreviewRemoteViews(baseContext, languageCode)
+                val manager = AppWidgetManager.getInstance(baseContext)
+                val provider = ComponentName(baseContext, BapUWidget2x2Provider::class.java)
+                val applied = manager.setWidgetPreview(
+                    provider,
+                    AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN,
+                    preview,
+                )
+                if (applied) {
+                    prefs.edit().putString(KEY_GENERATED_PREVIEW_SIGNATURE, signature).apply()
+                } else {
+                    Log.d(TAG, "generated widget preview skipped (rate-limited)")
+                }
+            } catch (e: Exception) {
+                logWidgetFailure("preview", e)
+            }
+        }
+
+        internal fun createPreviewRemoteViews(baseContext: Context, languageCode: String): RemoteViews {
+            val context = BapUWidgetMealRepository.localizedContext(baseContext, languageCode)
+            val sampleMenu = context.getString(R.string.widget_preview_menu).split("\n")
+            val sampleData = WidgetMealData(
+                mealOfDay = WidgetMealOfDay.LUNCH.index,
+                dormKoreanMenu = sampleMenu,
+                operatingResults = mapOf(CAFE_DORM_KOREAN to OperatingResult(OperatingStatus.OPEN)),
+                languageCode = languageCode,
+            )
+            val views = createRemoteViews(
+                context = context,
+                cafeteria = CAFE_DORM_KOREAN,
+                data = sampleData,
+                widthDp = WIDGET_PREVIEW_SIZE_DP,
+                heightDp = WIDGET_PREVIEW_SIZE_DP,
+                attachLaunchIntent = false,
+            )
+            // 생성형 미리보기는 런처 테마 전환에 맞춰 상태 글자색도 리소스로 바인딩한다.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                views.setColor(R.id.tv_status, "setTextColor", R.color.widget_status_open)
+            }
+            return views
+        }
 
         @Suppress("DEPRECATION")
         fun updateWidget(baseContext: Context, manager: AppWidgetManager, widgetId: Int, data: WidgetMealData, skipUnchanged: Boolean = false) {
@@ -136,7 +200,23 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             cafeteria: Int,
             data: WidgetMealData,
             widthDp: Float,
-            heightDp: Float
+            heightDp: Float,
+        ): RemoteViews = createRemoteViews(
+            context = context,
+            cafeteria = cafeteria,
+            data = data,
+            widthDp = widthDp,
+            heightDp = heightDp,
+            attachLaunchIntent = true,
+        )
+
+        private fun createRemoteViews(
+            context: Context,
+            cafeteria: Int,
+            data: WidgetMealData,
+            widthDp: Float,
+            heightDp: Float,
+            attachLaunchIntent: Boolean,
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_2x2)
             val cafeteriaName = context.getString(cafeteriaNameResId(cafeteria))
@@ -157,6 +237,11 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             val heightPx = dpToPx(context, heightDp).toInt()
 
             val statusDisplay = data.operatingStatus(context, cafeteria)
+            val showMealOfDay = showsWidgetMealOfDay(data.languageCode, widthDp)
+            views.setViewVisibility(
+                R.id.tv_meal_of_day,
+                if (showMealOfDay) View.VISIBLE else View.GONE,
+            )
 
             fun setup(root: View) {
                 root.findViewById<TextView>(R.id.tv_cafeteria_name).apply {
@@ -164,8 +249,9 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, headerSp)
                 }
                 root.findViewById<TextView>(R.id.tv_meal_of_day).apply {
+                    visibility = if (showMealOfDay) View.VISIBLE else View.GONE
                     text = mealLabel
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, menuSp)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, headerSp)
                 }
                 root.findViewById<TextView>(R.id.tv_food_type).apply {
                     val foodTypeResId = cafeteriaFoodTypeResId(cafeteria)
@@ -208,10 +294,11 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                 menu.textSizeSp, listOf(R.id.tv_menu, R.id.tv_menu_left, R.id.tv_menu_right),
                 statusSp, listOf(R.id.tv_status),
                 headerSp = headerSp,
-                headerIds = listOf(R.id.tv_cafeteria_name, R.id.tv_food_type)
+                headerIds = listOf(R.id.tv_cafeteria_name, R.id.tv_food_type, R.id.tv_meal_of_day)
             )
-            views.setTextViewTextSize(R.id.tv_meal_of_day, TypedValue.COMPLEX_UNIT_SP, menuSp)
-            views.setOnClickPendingIntent(R.id.widget_root, makeLaunchPendingIntent(context))
+            if (attachLaunchIntent) {
+                views.setOnClickPendingIntent(R.id.widget_root, makeLaunchPendingIntent(context))
+            }
             return views
         }
     }

@@ -10,9 +10,14 @@ import android.view.View
 import android.widget.RemoteViews
 import android.widget.TextView
 
-/** 본문은 이 크기 아래로 축소하지 않고, 여유 공간이 있을 때만 확대한다. */
+/** 본문은 이 크기 아래로 축소하지 않고, 위젯 크기 여유에 맞춰 열 구성별 상한까지 확대한다. */
 const val WIDGET_MENU_MIN_TEXT_SP = 12f
-private val WIDGET_MENU_TEXT_SIZES_SP = floatArrayOf(12f, 12.5f, 13f, 13.5f, 14f)
+private val WIDGET_MENU_SINGLE_COLUMN_TEXT_SIZES_SP = floatArrayOf(12f, 12.5f, 13f)
+private val WIDGET_MENU_TWO_COLUMN_TEXT_SIZES_SP = floatArrayOf(12f, 12.5f, 13f, 13.5f, 14f)
+private const val WIDGET_MENU_SINGLE_COLUMN_REFERENCE_LINES = 7
+private const val WIDGET_MENU_TWO_COLUMN_REFERENCE_LINES = 5
+private const val WIDGET_MENU_SINGLE_COLUMN_REFERENCE_CHARS_PER_LINE = 9
+private const val WIDGET_MENU_TWO_COLUMN_REFERENCE_CHARS_PER_LINE = 8
 private val WIDGET_MENU_DESCRIPTION = Regex(" +\\([^()]*\\)")
 
 /** 실측 계산이 어긋나더라도 무한정 늘어나지 않도록 두는 하드 상한(안전장치). */
@@ -20,6 +25,12 @@ const val WIDGET_MENU_MAX_LINES_SAFETY_CAP = 20
 
 /** TextView의 내용 높이와 부모가 배정한 높이 사이에서 발생할 수 있는 픽셀 반올림 오차. */
 private const val WIDGET_MENU_MEASURE_ROUNDING_TOLERANCE_PX = 1
+
+/** 설정 화면 미리보기(widget_config_single.xml)와 Android 15+ 생성형 미리보기의 대표 크기. */
+const val WIDGET_PREVIEW_SIZE_DP = 180f
+
+/** 영어 2칸 폭(및 180dp 미리보기)에서는 헤더 겹침을 막기 위해 식사 시간을 숨긴다. */
+const val WIDGET_ENGLISH_MEAL_OF_DAY_MIN_WIDTH_DP = 190
 
 /** AOSP Launcher3 셀 공식상 4칸 너비에 해당하는 최소 크기. */
 const val WIDGET_TWO_COLUMN_MIN_WIDTH_DP = 250
@@ -55,7 +66,7 @@ data class WidgetMenuLayout(
     val rightText: String = "",
 )
 
-/** 전체 메뉴를 보존하는 가장 큰 본문 크기를 고르고, 12sp에서도 넘치면 부분 말줄임한다. */
+/** 위젯 크기로 본문 크기를 고정하고, 실제 메뉴가 넘치면 부분 말줄임한다. */
 fun layoutWidgetMenu(
     context: Context,
     widthPx: Int,
@@ -64,75 +75,91 @@ fun layoutWidgetMenu(
     twoColumns: Boolean,
     setup: (View) -> Unit,
 ): WidgetMenuLayout {
+    val menuIds = if (twoColumns) listOf(R.id.tv_menu_left, R.id.tv_menu_right) else listOf(R.id.tv_menu)
+    val textSizeSp = menuTextSizeForWidget(context, widthPx, heightPx, menuIds, setup)
+    fun setupFixedSize(root: View) {
+        setup(root)
+        menuIds.forEach { root.findViewById<TextView>(it).setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp) }
+    }
+
     val filtered = items.map {
         it.replace(WIDGET_MENU_DESCRIPTION, "").substringAfter(')')
     }.filter { it.isNotEmpty() }
-    if (filtered.isEmpty()) return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, "-")
+    if (filtered.isEmpty()) return WidgetMenuLayout(textSizeSp, "-")
 
     if (!twoColumns) {
-        val text = filtered.joinToString("\n")
-        fitMenuTextSizeByRealLayout(context, widthPx, heightPx, listOf(R.id.tv_menu to text), setup)
-            ?.let { return WidgetMenuLayout(it, text) }
         return WidgetMenuLayout(
-            WIDGET_MENU_MIN_TEXT_SP,
-            truncateMenuByRealLayout(context, R.layout.widget_2x2, R.id.tv_menu, widthPx, heightPx, filtered, setup),
+            textSizeSp,
+            truncateMenuByRealLayout(context, R.layout.widget_2x2, R.id.tv_menu, widthPx, heightPx, filtered, ::setupFixedSize),
         )
     }
 
-    val balancedSplit = (filtered.size + 1) / 2
-    val splits = if (filtered.size == 1) listOf(1) else
-        (1 until filtered.size).sortedBy { kotlin.math.abs(it - balancedSplit) }
-    var best: WidgetMenuLayout? = null
-    for (split in splits) {
-        val left = filtered.take(split).joinToString("\n")
-        val right = filtered.drop(split).joinToString("\n")
-        val size = fitMenuTextSizeByRealLayout(
-            context, widthPx, heightPx,
-            listOf(R.id.tv_menu_left to left, R.id.tv_menu_right to right), setup,
-        ) ?: continue
-        if (best == null || size > best.textSizeSp) best = WidgetMenuLayout(size, left, right)
-        if (size == WIDGET_MENU_TEXT_SIZES_SP.last()) break
-    }
-    best?.let { return it }
-
     val (left, right) = truncateMenuTwoColumnsByRealLayout(
         context, R.layout.widget_2x2, R.id.tv_menu_left, R.id.tv_menu_right,
-        widthPx, heightPx, filtered, setup,
+        widthPx, heightPx, filtered, ::setupFixedSize,
     )
-    return WidgetMenuLayout(WIDGET_MENU_MIN_TEXT_SP, left, right)
+    return WidgetMenuLayout(textSizeSp, left, right)
 }
 
-/** 큰 SP 후보부터 직접 실측하여, 모든 열의 전체 메뉴가 들어가는 공통 크기를 고른다. */
-private fun fitMenuTextSizeByRealLayout(
+/** 헤더에 식사 시간(아침/점심/저녁)을 함께 표시할지 결정한다. */
+fun showsWidgetMealOfDay(languageCode: String?, widthDp: Number): Boolean =
+    languageCode?.startsWith("en") != true || widthDp.toFloat() >= WIDGET_ENGLISH_MEAL_OF_DAY_MIN_WIDTH_DP
+
+/** 위젯 크기와 열 구성만으로 고정 샘플을 실측해 본문 크기를 고른다. */
+private fun menuTextSizeForWidget(
     context: Context,
     widthPx: Int,
     heightPx: Int,
-    menus: List<Pair<Int, String>>,
+    menuIds: List<Int>,
     setup: (View) -> Unit,
-): Float? {
+): Float {
     val root = LayoutInflater.from(context).inflate(R.layout.widget_2x2, null)
     setup(root)
-    val menuViews = menus.map { (id, text) ->
+    // 식당명·끼니·운영상태 문구가 바뀌어도 같은 크기의 위젯은 같은 폰트를 쓴다.
+    // 실제 문구의 줄바꿈으로 공간이 줄어들면 이후 실제 레이아웃에서 말줄임한다.
+    root.findViewById<TextView>(R.id.tv_food_type).visibility = View.VISIBLE
+    root.findViewById<TextView>(R.id.tv_meal_of_day).visibility = View.VISIBLE
+    listOf(R.id.tv_cafeteria_name, R.id.tv_food_type, R.id.tv_meal_of_day, R.id.tv_status).forEach {
+        root.findViewById<TextView>(it).text = "가"
+    }
+    val menuViews = menuIds.map { id ->
         root.findViewById<TextView>(id).apply {
-            this.text = text
+            text = "가"
             maxLines = Int.MAX_VALUE
         }
     }
-    val widthSpec = View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY)
-    val heightSpec = View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
-    for (size in WIDGET_MENU_TEXT_SIZES_SP.reversed()) {
-        menuViews.forEach { it.setTextSize(TypedValue.COMPLEX_UNIT_SP, size) }
-        root.measure(widthSpec, heightSpec)
-        val fits = menuViews.all { menu ->
-            val assignedHeight = menu.measuredHeight
-            val menuWidth = View.MeasureSpec.makeMeasureSpec(menu.measuredWidth, View.MeasureSpec.EXACTLY)
-            menu.measure(menuWidth, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
-            menu.lineCount <= WIDGET_MENU_MAX_LINES_SAFETY_CAP &&
-                fitsWithinWidgetMenuHeight(menu.measuredHeight, assignedHeight)
-        }
-        if (fits) return size
+    root.measure(
+        View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY),
+    )
+    val menu = menuViews.minBy { it.measuredWidth }
+    val assignedHeight = menuViews.minOf { it.measuredHeight }
+    val widthSpec = View.MeasureSpec.makeMeasureSpec(menu.measuredWidth, View.MeasureSpec.EXACTLY)
+    val twoColumns = menuIds.size > 1
+    val textSizesSp = if (twoColumns) {
+        WIDGET_MENU_TWO_COLUMN_TEXT_SIZES_SP
+    } else {
+        WIDGET_MENU_SINGLE_COLUMN_TEXT_SIZES_SP
     }
-    return null
+    val referenceLines = if (twoColumns) {
+        WIDGET_MENU_TWO_COLUMN_REFERENCE_LINES
+    } else {
+        WIDGET_MENU_SINGLE_COLUMN_REFERENCE_LINES
+    }
+    val referenceCharsPerLine = if (twoColumns) {
+        WIDGET_MENU_TWO_COLUMN_REFERENCE_CHARS_PER_LINE
+    } else {
+        WIDGET_MENU_SINGLE_COLUMN_REFERENCE_CHARS_PER_LINE
+    }
+    val referenceLine = "가".repeat(referenceCharsPerLine)
+    menu.text = List(referenceLines) { referenceLine }.joinToString("\n")
+
+    return textSizesSp.reversed().firstOrNull { size ->
+        menu.setTextSize(TypedValue.COMPLEX_UNIT_SP, size)
+        menu.measure(widthSpec, View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        menu.lineCount == referenceLines &&
+            fitsWithinWidgetMenuHeight(menu.measuredHeight, assignedHeight)
+    } ?: WIDGET_MENU_MIN_TEXT_SP
 }
 
 /**

@@ -26,9 +26,15 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         // 런처의 갱신 요청은 항상 다시 그린다. Flutter가 반복 요청한 경우만 생략한다.
         if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE &&
             intent.getBooleanExtra(HomeWidgetPlugin.TRIGGERED_FROM_HOME_WIDGET, false)) {
+            val appWidgetIds = intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS) ?: IntArray(0)
+            if (appWidgetIds.isEmpty()) {
+                // 위젯을 아직 배치하지 않았더라도 언어 변경 등으로 미리보기를 갱신한다.
+                enqueueBroadcastWork { BapUWidget2x2Provider.syncWidgetPreview(context) }
+                return
+            }
             updateWidgets(
                 context, AppWidgetManager.getInstance(context),
-                intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS) ?: return,
+                appWidgetIds,
                 skipUnchanged = true,
             )
             return
@@ -57,6 +63,7 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
             } catch (e: Exception) {
                 logWidgetFailure("render", e)
             } finally {
+                BapUWidget2x2Provider.syncWidgetPreview(context)
                 // home_widget과 시스템 갱신 모두 다음 경계를 보정한다. 렌더 실패 시에도
                 // 예약을 시도해 캐시 복구 뒤 다시 갱신할 기회를 남긴다.
                 try {

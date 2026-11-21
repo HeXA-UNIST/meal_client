@@ -58,10 +58,11 @@
             android:id="@+id/tv_meal_of_day"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:maxLines="1"
             android:text="@string/meal_lunch"
             android:textColor="@color/widget_text_meal"
-            android:textSize="10sp"
-            android:textStyle="bold"
+            android:textSize="11sp"
             android:fontFamily="sans-serif"
             android:letterSpacing="-0.02" />
     </LinearLayout>

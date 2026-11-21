@@ -220,7 +220,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
         preview.findViewById<TextView>(R.id.tv_food_type)
             .setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         preview.findViewById<TextView>(R.id.tv_meal_of_day)
-            .setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            .setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         preview.findViewById<TextView>(R.id.tv_menu)
             .setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         preview.findViewById<TextView>(R.id.tv_status)
@@ -229,7 +229,7 @@ class BapUWidgetSingleConfigActivity : Activity() {
 
     /**
      * 현재 선택된 식당 기준으로 미리보기 카드를 다시 채운다.
-     * 카드는 [PREVIEW_SIZE_DP] 고정 크기이므로, 실제 위젯이 쓰는 것과 같은
+     * 카드는 [WIDGET_PREVIEW_SIZE_DP] 고정 크기이므로, 실제 위젯이 쓰는 것과 같은
      * [layoutWidgetMenu]로 본문 크기를 고르고 넘치면 "…"로 표시한다
      * (전체를 그냥 이어붙이면 고정 카드 밖으로 넘친 마지막 줄이 예고 없이 잘려 보인다).
      */
@@ -256,12 +256,16 @@ class BapUWidgetSingleConfigActivity : Activity() {
             statusDisplay = data.operatingStatus(this, cafeteria)
         }
 
+        val showMealOfDay = showsWidgetMealOfDay(widgetLanguageCode, WIDGET_PREVIEW_SIZE_DP)
         preview.findViewById<TextView>(R.id.tv_cafeteria_name).text = cafeteriaName
         preview.findViewById<TextView>(R.id.tv_food_type).apply {
             visibility = if (foodTypeText != null) View.VISIBLE else View.GONE
             if (foodTypeText != null) text = foodTypeText
         }
-        preview.findViewById<TextView>(R.id.tv_meal_of_day).text = mealLabel
+        preview.findViewById<TextView>(R.id.tv_meal_of_day).apply {
+            visibility = if (showMealOfDay) View.VISIBLE else View.GONE
+            text = mealLabel
+        }
         preview.findViewById<TextView>(R.id.tv_status).apply {
             visibility = View.VISIBLE
             text = statusDisplay.second
@@ -274,8 +278,9 @@ class BapUWidgetSingleConfigActivity : Activity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             }
             root.findViewById<TextView>(R.id.tv_meal_of_day).apply {
+                visibility = if (showMealOfDay) View.VISIBLE else View.GONE
                 text = mealLabel
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             }
             root.findViewById<TextView>(R.id.tv_food_type).apply {
                 visibility = if (foodTypeText != null) View.VISIBLE else View.GONE
@@ -287,25 +292,17 @@ class BapUWidgetSingleConfigActivity : Activity() {
                 .setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
 
-        val previewSizePx = dpToPx(this, PREVIEW_SIZE_DP).toInt()
+        val previewSizePx = dpToPx(this, WIDGET_PREVIEW_SIZE_DP).toInt()
         val menuView = preview.findViewById<TextView>(R.id.tv_menu)
-        if (menuItems.isEmpty()) {
-            menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, WIDGET_MENU_MIN_TEXT_SP)
-            menuView.text = getString(R.string.widget_no_menu)
-        } else {
-            val menu = layoutWidgetMenu(
-                this, previewSizePx, previewSizePx, menuItems, false, ::setupMeasure,
-            )
-            menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, menu.textSizeSp)
-            menuView.text = menu.leftText
-        }
+        val menu = layoutWidgetMenu(
+            this, previewSizePx, previewSizePx, menuItems, false, ::setupMeasure,
+        )
+        menuView.setTextSize(TypedValue.COMPLEX_UNIT_SP, menu.textSizeSp)
+        menuView.text = if (menuItems.isEmpty()) getString(R.string.widget_no_menu) else menu.leftText
     }
 
     companion object {
         private const val TAG = "BapUWidgetSingleConfig"
         private const val STATE_CAFETERIA = "selectedCafeteria"
-
-        /** widget_config_single.xml의 preview_widget include 크기(180dp)와 반드시 일치해야 한다. */
-        private const val PREVIEW_SIZE_DP = 180f
     }
 }
