@@ -64,6 +64,48 @@ class ResistantPageMotion {
         ? details.delta.dy
         : details.delta.dx;
     final input = reversed ? delta : -delta;
+    DragUpdateDetails withDelta(double value) => DragUpdateDetails(
+      kind: details.kind,
+      sourceTimeStamp: details.sourceTimeStamp,
+      delta: position.axis == Axis.vertical
+          ? Offset(0, value)
+          : Offset(value, 0),
+      primaryDelta: value,
+      globalPosition: details.globalPosition,
+      localPosition: details.localPosition,
+    );
+    if (position.outOfRange) {
+      final atMin = position.pixels < position.minScrollExtent;
+      final boundary = atMin
+          ? position.minScrollExtent
+          : position.maxScrollExtent;
+      // 시작 페이지가 아닌 다른 경계의 바운스는 원점으로 돌아올 때까지 유지한다.
+      if ((boundary - _origin * position.viewportDimension).abs() > 0.01) {
+        return null;
+      }
+      if (input == 0 || (atMin ? input < 0 : input > 0)) {
+        return null;
+      }
+      final dragOffset = reversed ? input : -input;
+      final applied = position.physics.applyPhysicsToUserOffset(
+        position,
+        dragOffset,
+      );
+      final projected = position.pixels - applied;
+      if (atMin ? projected < boundary : projected > boundary) {
+        return null;
+      }
+      _updateDrag(position, details, dragOffset);
+      if (position.outOfRange) {
+        return withDelta(0);
+      }
+      final overflow = position.pixels - boundary;
+      if (position.pixels != boundary) {
+        position.setPixels(boundary);
+      }
+      cancel();
+      return withDelta(reversed ? overflow : -overflow);
+    }
     // 범위 밖으로 계속 당길 때는 같은 활동을 유지하고, 안쪽 반전만 돌려준다.
     if (_distance == 0 &&
         (input == 0 ||
@@ -76,32 +118,54 @@ class ResistantPageMotion {
       return null;
     }
     final consumed = reversed ? -_distance : _distance;
-    DragUpdateDetails withDelta(double value) => DragUpdateDetails(
-      kind: details.kind,
-      sourceTimeStamp: details.sourceTimeStamp,
-      delta: position.axis == Axis.vertical
-          ? Offset(0, value)
-          : Offset(value, 0),
-      primaryDelta: value,
-      globalPosition: details.globalPosition,
-      localPosition: details.localPosition,
-    );
     update(position, withDelta(consumed), pointerScrolling: _pointerScrolling);
     cancel();
     return withDelta(delta - consumed);
+  }
+
+  void _updateDrag(
+    ScrollPosition position,
+    DragUpdateDetails details,
+    double dragOffset,
+  ) {
+    _drag ??= position.drag(
+      DragStartDetails(
+        kind: PointerDeviceKind.trackpad,
+        sourceTimeStamp: details.sourceTimeStamp,
+        globalPosition: details.globalPosition,
+        localPosition: details.localPosition,
+      ),
+      () => _drag = null,
+    );
+    _drag?.update(
+      DragUpdateDetails(
+        sourceTimeStamp: details.sourceTimeStamp,
+        delta: position.axis == Axis.vertical
+            ? Offset(0, dragOffset)
+            : Offset(dragOffset, 0),
+        primaryDelta: dragOffset,
+        globalPosition: details.globalPosition,
+        localPosition: details.localPosition,
+      ),
+    );
   }
 
   void update(
     ScrollPosition position,
     DragUpdateDetails details, {
     required bool pointerScrolling,
+    bool allowLeadingOverscroll = true,
+    bool allowTrailingOverscroll = true,
   }) {
     if (_position != position) {
       cancel();
       _position = position;
-      _startPixels = position.pixels;
+      // 바운스 복귀 중 다시 잡아도 본문 반환 기준은 정렬된 경계로 둔다.
+      _startPixels = position.pixels
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
       _pointerScrolling = pointerScrolling;
-      _origin = (position.pixels / position.viewportDimension).roundToDouble();
+      _origin = (_startPixels / position.viewportDimension).roundToDouble();
     }
     final reversed = axisDirectionIsReversed(position.axisDirection);
     final delta = position.axis == Axis.vertical
@@ -121,14 +185,54 @@ class ResistantPageMotion {
       }
       return;
     }
-    _distance += input;
     if (!_pointerScrolling) {
+      final viewport = position.viewportDimension;
+      if (position.outOfRange) {
+        _updateDrag(position, details, reversed ? input : -input);
+        final reference = position.outOfRange
+            ? (position.pixels < position.minScrollExtent
+                  ? position.minScrollExtent
+                  : position.maxScrollExtent)
+            : position.pixels;
+        _distance = (reference - _startPixels).clamp(-viewport, viewport);
+        return;
+      }
+      final unclamped = _startPixels + _distance + input;
+      if (unclamped < position.minScrollExtent &&
+          _startPixels - viewport <= position.minScrollExtent) {
+        _distance = (position.minScrollExtent - _startPixels).clamp(
+          -viewport,
+          viewport,
+        );
+        // 시작 경계 바깥 입력을 그대로 전달해 플랫폼 stretch/bounce 효과를 복원한다.
+        final offset = allowLeadingOverscroll
+            ? input
+            : position.minScrollExtent - position.pixels;
+        _updateDrag(position, details, reversed ? offset : -offset);
+        return;
+      }
+      if (unclamped > position.maxScrollExtent &&
+          _startPixels + viewport >= position.maxScrollExtent) {
+        _distance = (position.maxScrollExtent - _startPixels).clamp(
+          -viewport,
+          viewport,
+        );
+        final offset = allowTrailingOverscroll
+            ? input
+            : position.maxScrollExtent - position.pixels;
+        _updateDrag(position, details, reversed ? offset : -offset);
+        return;
+      }
       // 드래그는 페이지 사이에서 손가락을 직접 따라간다.
-      _distance = _distance.clamp(
-        -position.viewportDimension,
-        position.viewportDimension,
-      );
+      _distance = (_distance + input).clamp(-viewport, viewport);
+      final pixels = (_startPixels + _distance)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      final offset = pixels - position.pixels;
+      _updateDrag(position, details, reversed ? offset : -offset);
+      return;
     }
+    _distance += input;
     final startPage = _startPixels / position.viewportDimension;
     final target =
         (_distance > 0 ? startPage.floor() + 1 : startPage.ceil() - 1)
@@ -142,38 +246,16 @@ class ResistantPageMotion {
       _distance = 0;
     }
     // 더 당길수록 같은 입력에 대한 화면 이동량이 작아진다.
-    final displayed = _pointerScrolling
-        ? _distance /
-              (1 + resistanceCoefficient * _distance.abs() / resistanceLength)
-        : _distance;
+    final displayed =
+        _distance /
+        (1 + resistanceCoefficient * _distance.abs() / resistanceLength);
     // 정렬 중 다시 잡아도 가장 가까운 페이지로 순간 이동하지 않는다.
     final pixels = (_startPixels + displayed)
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
     final offset = pixels - position.pixels;
-    _drag ??= position.drag(
-      DragStartDetails(
-        kind: PointerDeviceKind.trackpad,
-        sourceTimeStamp: details.sourceTimeStamp,
-        globalPosition: details.globalPosition,
-        localPosition: details.localPosition,
-      ),
-      () => _drag = null,
-    );
-    final dragOffset = reversed ? offset : -offset;
-    _drag?.update(
-      DragUpdateDetails(
-        sourceTimeStamp: details.sourceTimeStamp,
-        delta: position.axis == Axis.vertical
-            ? Offset(0, dragOffset)
-            : Offset(dragOffset, 0),
-        primaryDelta: dragOffset,
-        globalPosition: details.globalPosition,
-        localPosition: details.localPosition,
-      ),
-    );
-    if (_pointerScrolling &&
-        shouldCommitWheel(details.kind, input, _distance)) {
+    _updateDrag(position, details, reversed ? offset : -offset);
+    if (shouldCommitWheel(details.kind, input, _distance)) {
       _commit(target, details.sourceTimeStamp);
     }
   }
@@ -264,8 +346,9 @@ class ResistantPageMotion {
     _drag?.cancel();
     final position = _position ?? (isSettling ? _settlingPosition : null);
     _stopTracking();
-    if (position?.context.notificationContext?.mounted ?? false) {
-      position!.hold(() {});
+    if ((position?.context.notificationContext?.mounted ?? false) &&
+        !position!.outOfRange) {
+      position.hold(() {});
     }
     _clear();
   }

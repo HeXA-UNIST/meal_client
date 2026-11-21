@@ -321,6 +321,8 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
       position,
       remainingDetails,
       pointerScrolling: _horizontalPointerScrolling,
+      allowLeadingOverscroll: !(_edgeEligible && _edgeDirection < 0),
+      allowTrailingOverscroll: !(_edgeEligible && _edgeDirection > 0),
     );
     if (_edgeEligible &&
         !atBoundary &&
@@ -408,9 +410,13 @@ class _WeekMealTabBarViewState extends State<WeekMealTabBarView>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     // 먼 요일 탭의 비인접 전환은 TabBarView에 맡기고 본문 입력만 직접 조정한다.
+    // TabBarView 기본 물리처럼 ClampingScrollPhysics를 유지해 경계 밖에서
+    // TabBar 인디케이터가 반대 방향으로 튀지 않도록 한다.
     final pages = TabBarView(
       controller: widget.tabController,
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
       children: List.generate(
         widget.tabController.length,
         (tabIndex) => NestedPageScrollView(
