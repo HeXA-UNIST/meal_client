@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.util.SizeF
@@ -43,12 +44,19 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
         const val TAG = "BapUWidget2x2"
         private const val PREVIEW_SIGNATURE_VERSION = 1
         private const val KEY_GENERATED_PREVIEW_SIGNATURE = "generated_preview_signature"
+        // Android 16+(remoteViewsProto)에서는 setWidgetPreview가 비동기 저장되므로
+        // 직후 연달아 호출된 syncWidgetPreview가 저장 완료 전 0을 보고 rate limit을 소모하지 않게 보호한다.
+        private const val PREVIEW_ASYNC_SAVE_GRACE_MS = 5_000L
+        @Volatile
+        private var lastRegisteredPreviewSignature: String? = null
+        @Volatile
+        private var lastRegisteredPreviewElapsedMs: Long = 0L
         private val renderCache = BapUWidgetRenderCache()
 
         /**
          * Android 15(API 35) 이상 위젯 선택기에 실제 렌더링 함수로 만든 생성형 미리보기를 등록한다.
          * 시스템 호출 빈도 제한(시간당 약 2회)을 지키기 위해 언어·화면 밀도·글자 배율·앱 버전이
-         * 바뀐 경우(또는 업데이트 직후)에만 다시 등록한다.
+         * 같고 시스템이 홈 화면 생성형 미리보기를 계속 보유 중인 경우에만 등록을 건너뛴다.
          */
         fun syncWidgetPreview(baseContext: Context, force: Boolean = false) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
@@ -60,17 +68,24 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
                     .longVersionCode
                 val signature = "$PREVIEW_SIGNATURE_VERSION|$versionCode|$languageCode|${config.densityDpi}|${config.fontScale}"
                 val prefs = getWidgetConfigPrefs(baseContext)
-                if (!force && prefs.getString(KEY_GENERATED_PREVIEW_SIGNATURE, null) == signature) return
-
-                val preview = createPreviewRemoteViews(baseContext, languageCode)
                 val manager = AppWidgetManager.getInstance(baseContext)
                 val provider = ComponentName(baseContext, BapUWidget2x2Provider::class.java)
+                val recentlyRegistered = lastRegisteredPreviewSignature == signature &&
+                    SystemClock.elapsedRealtime() - lastRegisteredPreviewElapsedMs < PREVIEW_ASYNC_SAVE_GRACE_MS
+                if (!force &&
+                    prefs.getString(KEY_GENERATED_PREVIEW_SIGNATURE, null) == signature &&
+                    (recentlyRegistered || hasGeneratedHomeScreenPreview(manager, baseContext.packageName, provider))
+                ) return
+
+                val preview = createPreviewRemoteViews(baseContext, languageCode)
                 val applied = manager.setWidgetPreview(
                     provider,
                     AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN,
                     preview,
                 )
                 if (applied) {
+                    lastRegisteredPreviewSignature = signature
+                    lastRegisteredPreviewElapsedMs = SystemClock.elapsedRealtime()
                     prefs.edit().putString(KEY_GENERATED_PREVIEW_SIGNATURE, signature).apply()
                 } else {
                     Log.d(TAG, "generated widget preview skipped (rate-limited)")
@@ -78,6 +93,18 @@ class BapUWidget2x2Provider : BapUBaseWidgetProvider() {
             } catch (e: Exception) {
                 logWidgetFailure("preview", e)
             }
+        }
+
+        internal fun hasGeneratedHomeScreenPreview(
+            manager: AppWidgetManager,
+            packageName: String,
+            provider: ComponentName,
+        ): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return false
+            val info = manager.getInstalledProvidersForPackage(packageName, null)
+                .firstOrNull { it.provider == provider }
+                ?: return false
+            return (info.generatedPreviewCategories and AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN) != 0
         }
 
         internal fun createPreviewRemoteViews(baseContext: Context, languageCode: String): RemoteViews {

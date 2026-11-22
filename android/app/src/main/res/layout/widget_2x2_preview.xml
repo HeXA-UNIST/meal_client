@@ -51,6 +51,8 @@
         </LinearLayout>
 
         <TextView
+            android:id="@+id/tv_meal_of_day"
+            style="@style/WidgetPreviewMealOfDay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
