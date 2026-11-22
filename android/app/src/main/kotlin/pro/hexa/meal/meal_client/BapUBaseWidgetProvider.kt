@@ -3,8 +3,9 @@ package pro.hexa.meal.meal_client
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import android.util.Log
+import es.antonborri.home_widget.HomeWidgetPlugin
 
 /**
  * 모든 BapU 위젯 provider의 공통 보일러플레이트를 담당한다.
@@ -17,25 +18,59 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         context: Context,
         manager: AppWidgetManager,
         widgetId: Int,
-        data: WidgetMealData
+        data: WidgetMealData,
+        skipUnchanged: Boolean = false,
     )
+
+    override fun onReceive(context: Context, intent: Intent) {
+        // 런처의 갱신 요청은 항상 다시 그린다. Flutter가 반복 요청한 경우만 생략한다.
+        if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE &&
+            intent.getBooleanExtra(HomeWidgetPlugin.TRIGGERED_FROM_HOME_WIDGET, false)) {
+            val appWidgetIds = intent.getIntArrayExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS) ?: IntArray(0)
+            if (appWidgetIds.isEmpty()) {
+                // 위젯을 아직 배치하지 않았더라도 언어 변경 등으로 미리보기를 갱신한다.
+                enqueueBroadcastWork { BapUWidget2x2Provider.syncWidgetPreview(context) }
+                return
+            }
+            updateWidgets(
+                context, AppWidgetManager.getInstance(context),
+                appWidgetIds,
+                skipUnchanged = true,
+            )
+            return
+        }
+        super.onReceive(context, intent)
+    }
 
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
+    ) = updateWidgets(context, appWidgetManager, appWidgetIds, skipUnchanged = false)
+
+    private fun updateWidgets(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        skipUnchanged: Boolean,
     ) {
+        if (appWidgetIds.isEmpty()) return
         enqueueBroadcastWork {
             try {
                 BapUWidgetUpdateDispatcher.renderWidgetIds(context, appWidgetManager, appWidgetIds) { id, data ->
-                    performUpdate(context, appWidgetManager, id, data)
+                    performUpdate(context, appWidgetManager, id, data, skipUnchanged)
                 }
-                // onEnabled는 위젯이 처음 추가될 때만 불리므로, 앱 업데이트로 재설치된 경우
-                // 기존 위젯의 예약 호출 체인이 안 걸려있을 수 있다. 여기서도 매번 보정해준다.
-                BapUWidgetScheduleManager.scheduleNext(context)
             } catch (e: Exception) {
-                Log.e(javaClass.simpleName, "widget update failed", e)
-                reportNativeNonFatal(e)
+                logWidgetFailure("render", e)
+            } finally {
+                BapUWidget2x2Provider.syncWidgetPreview(context)
+                // home_widget과 시스템 갱신 모두 다음 경계를 보정한다. 렌더 실패 시에도
+                // 예약을 시도해 캐시 복구 뒤 다시 갱신할 기회를 남긴다.
+                try {
+                    BapUWidgetScheduleManager.scheduleNext(context)
+                } catch (e: Exception) {
+                    logWidgetFailure("schedule", e)
+                }
             }
         }
     }
@@ -52,16 +87,20 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
                     performUpdate(context, appWidgetManager, id, data)
                 }
             } catch (e: Exception) {
-                Log.e(javaClass.simpleName, "widget options update failed", e)
-                reportNativeNonFatal(e)
+                logWidgetFailure("resize", e)
             }
         }
     }
 
     override fun onEnabled(context: Context) {
         enqueueBroadcastWork {
+            BapUMealBackgroundRefresh.sync(context)
             BapUWidgetUpdateDispatcher.renderAllWidgetsLenient(context)
-            BapUWidgetScheduleManager.scheduleNext(context)
+            try {
+                BapUWidgetScheduleManager.scheduleNext(context)
+            } catch (e: Exception) {
+                logWidgetFailure("schedule", e)
+            }
         }
     }
 
@@ -69,6 +108,9 @@ abstract class BapUBaseWidgetProvider : AppWidgetProvider() {
         if (!BapUWidgetUpdateDispatcher.hasAnyWidget(context)) {
             BapUWidgetUpdateWorker.cancelLegacy(context)
             BapUWidgetScheduleManager.cancel(context)
+        }
+        enqueueBroadcastWork {
+            BapUMealBackgroundRefresh.sync(context)
         }
     }
 

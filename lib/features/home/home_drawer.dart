@@ -6,13 +6,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/domain/meal.dart';
-import 'package:meal_client/features/info/announcement_state.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
 import 'package:meal_client/features/settings/settings_page.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
-
-import 'next_week_preview_page.dart';
 
 class HomeAnnouncementDialog extends StatelessWidget {
   final String close;
@@ -312,9 +309,13 @@ class _OperationHoursCafeteriaEntry extends StatelessWidget {
 
 class HomePageDrawer extends StatefulWidget {
   final Future<AppInfo>? infoFuture;
-  final Future<String?>? nextWeekStart;
+  final Future<void> Function() onNextWeekRequested;
 
-  const HomePageDrawer({super.key, this.infoFuture, this.nextWeekStart});
+  const HomePageDrawer({
+    super.key,
+    this.infoFuture,
+    required this.onNextWeekRequested,
+  });
 
   @override
   State<HomePageDrawer> createState() => _HomePageDrawerState();
@@ -322,13 +323,11 @@ class HomePageDrawer extends StatefulWidget {
 
 class _HomePageDrawerState extends State<HomePageDrawer> {
   late Future<AppInfo> _infoFuture;
-  late Future<String?> _nextWeekStart;
 
   @override
   void initState() {
     super.initState();
     _infoFuture = widget.infoFuture ?? fetchAppInfo();
-    _nextWeekStart = widget.nextWeekStart ?? Future.value(null);
   }
 
   @override
@@ -336,9 +335,6 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
     super.didUpdateWidget(oldWidget);
     if (widget.infoFuture != oldWidget.infoFuture) {
       _infoFuture = widget.infoFuture ?? fetchAppInfo();
-    }
-    if (widget.nextWeekStart != oldWidget.nextWeekStart) {
-      _nextWeekStart = widget.nextWeekStart ?? Future.value(null);
     }
   }
 
@@ -378,18 +374,10 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
           _DrawerItem(
             icon: Icons.calendar_month_outlined,
             title: l10n.nextWeekPreview,
-            onTap: () {
+            onTap: () async {
               logUiClick(UiClickTarget.nextWeek, screen: AnalyticsScreen.home);
-              Navigator.of(context).pop();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => NextWeekPreviewPage(
-                    nextWeekStartFuture: _nextWeekStart,
-                    appInfo: _infoFuture,
-                  ),
-                ),
-              );
+              Scaffold.of(context).closeDrawer();
+              await widget.onNextWeekRequested();
             },
           ),
           _DrawerItem(
@@ -399,8 +387,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
               final rootNavigator = Navigator.of(context, rootNavigator: true);
               final rootContext = rootNavigator.context;
               Navigator.of(context).pop();
-              var announcement = await getStoredAnnouncement();
-              announcement ??= (await _infoFuture).announcement;
+              final announcement = (await _infoFuture).announcement;
               if (announcement != null && rootContext.mounted) {
                 final dialogL10n = AppLocalizations.of(rootContext)!;
                 final languageCode = Localizations.localeOf(rootContext)
@@ -412,7 +399,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
                     return HomeAnnouncementDialog(
                       close: dialogL10n.close,
                       title:
-                          announcement!.title?.textFor(languageCode) ??
+                          announcement.title?.textFor(languageCode) ??
                           dialogL10n.announcement,
                       content: announcement.content.textFor(languageCode),
                     );

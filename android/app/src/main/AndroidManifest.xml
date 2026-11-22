@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 식단 알림과 위젯 상태 전환에 정확한 알람 특별 접근을 사용한다. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Analytics SDK가 병합하는 광고 식별자·광고 기여도 측정 권한을 제거한다. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
@@ -12,8 +14,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
-        android:enableOnBackInvokedCallback="false"
-        android:localeConfig="@xml/locales_config">
+        android:enableOnBackInvokedCallback="false">
         <!-- 일반 Analytics는 유지하고 광고 목적의 수집과 활용만 거부한다. -->
         <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
         <meta-data android:name="google_analytics_default_allow_ad_storage" android:value="false" />
@@ -63,12 +64,22 @@
             android:name=".BapUWidgetScheduledUpdateReceiver"
             android:exported="false" />
 
-        <!-- 재부팅 후 예약 호출 재등록 -->
+        <!-- 정확한 알람 권한 허용 후 위젯·식단 알림을 캐시에서 복구 -->
+        <receiver
+            android:name=".BapUWidgetExactAlarmPermissionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 재부팅·앱 업데이트 후 기존 위젯 예약 재등록 -->
         <receiver
             android:name=".BapUWidgetBootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

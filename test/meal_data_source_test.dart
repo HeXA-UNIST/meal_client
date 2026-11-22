@@ -8,9 +8,9 @@ import 'package:meal_client/features/meal/meal_data_source.dart';
 
 void main() {
   test('동시에 시작한 canonical foreground 갱신은 하나의 network 결과를 공유한다', () async {
-    final response = Completer<MealResponse>();
+    final response = Completer<MealRefreshResult>();
     var refreshCount = 0;
-    Future<MealResponse> refresh() {
+    Future<MealRefreshResult> refresh() {
       refreshCount++;
       return response.future;
     }
@@ -20,6 +20,7 @@ void main() {
     response.complete((
       weekMeal: WeekMeal.empty(),
       weekMeta: parseWeekMeta(_rawMeal('2026-04-20', isCurrentWeek: true)),
+      cacheReady: Future.value(true),
     ));
 
     expect(await first, await second);

@@ -1,0 +1,387 @@
+import 'package:flutter/gestures.dart';
+import 'package:material_ui/material_ui.dart';
+
+/// 축에 관계없이 페이지 경계의 저항과 전환을 관리한다.
+/// 드래그는 손을 놓을 때 물리로 정렬하고, 휠은 저항 뒤 즉시 전환한다.
+class ResistantPageMotion {
+  // 가로·세로 휠 공통 조절값. 거리는 논리 픽셀이다.
+  // 저항 계수는 작을수록 덜 뻑뻑하다. 0은 저항 없음, 1은 이전 강도다.
+  static const resistanceCoefficient = 0.75;
+  // 같은 계수에서 이 길이가 클수록 저항이 더 천천히 커진다.
+  static const resistanceLength = 120.0;
+  // 저항이 적용되기 전의 입력 누적 거리로 전환을 결정한다.
+  static const commitDistance = 72.0;
+  // Windows Edge에서 마우스 휠을 한 칸씩 세 번 돌렸을 때 매번 50 논리 픽셀이 들어왔다.
+  // 두 손가락으로 트랙패드를 밀어도 mouse로 들어올 수 있다. 그래서 50 기준은
+  // 이벤트 하나가 그만큼 움직였고 같은 방향으로 누적된 거리도 충분할 때만 쓴다.
+  static const _mouseWheelStep = 50.0;
+  static bool isMouseWheelStep(PointerDeviceKind? kind, double delta) =>
+      kind == PointerDeviceKind.mouse && delta.abs() >= _mouseWheelStep;
+
+  static bool shouldCommitWheel(
+    PointerDeviceKind? kind,
+    double delta,
+    double distance,
+  ) =>
+      distance.abs() >= commitDistance ||
+      (isMouseWheelStep(kind, delta) &&
+          distance.abs() >= _mouseWheelStep &&
+          delta.sign == distance.sign);
+  static const transitionDuration = Duration(milliseconds: 300);
+  void Function(
+    ScrollPosition position,
+    double page,
+    double direction,
+    Duration time,
+  )?
+  onWheelCommit;
+  ScrollPosition? _position;
+  Drag? _drag;
+  double _origin = 0;
+  double _startPixels = 0;
+  ScrollPosition? _settlingPosition;
+  double _distance = 0;
+  double? _target;
+  double _reverseDistance = 0;
+  double _direction = 0;
+  bool _pointerScrolling = false;
+
+  // 입력 종료와 페이지 정렬 완료를 구분한다.
+  bool get isInputActive => _position != null;
+  bool get isSettling =>
+      (_settlingPosition?.context.notificationContext?.mounted ?? false) &&
+      _settlingPosition!.isScrollingNotifier.value;
+
+  /// 미확정 이동이 시작 경계로 돌아오면 남은 입력을 콘텐츠에 돌려준다.
+  DragUpdateDetails? releaseAtOrigin(DragUpdateDetails details) {
+    final position = _position;
+    if (position == null || _target != null) return null;
+    if ((_startPixels - _origin * position.viewportDimension).abs() > 0.01) {
+      return null;
+    }
+    final reversed = axisDirectionIsReversed(position.axisDirection);
+    final delta = position.axis == Axis.vertical
+        ? details.delta.dy
+        : details.delta.dx;
+    final input = reversed ? delta : -delta;
+    DragUpdateDetails withDelta(double value) => DragUpdateDetails(
+      kind: details.kind,
+      sourceTimeStamp: details.sourceTimeStamp,
+      delta: position.axis == Axis.vertical
+          ? Offset(0, value)
+          : Offset(value, 0),
+      primaryDelta: value,
+      globalPosition: details.globalPosition,
+      localPosition: details.localPosition,
+    );
+    if (position.outOfRange) {
+      final atMin = position.pixels < position.minScrollExtent;
+      final boundary = atMin
+          ? position.minScrollExtent
+          : position.maxScrollExtent;
+      // 시작 페이지가 아닌 다른 경계의 바운스는 원점으로 돌아올 때까지 유지한다.
+      if ((boundary - _origin * position.viewportDimension).abs() > 0.01) {
+        return null;
+      }
+      if (input == 0 || (atMin ? input < 0 : input > 0)) {
+        return null;
+      }
+      final dragOffset = reversed ? input : -input;
+      final applied = position.physics.applyPhysicsToUserOffset(
+        position,
+        dragOffset,
+      );
+      final projected = position.pixels - applied;
+      if (atMin ? projected < boundary : projected > boundary) {
+        return null;
+      }
+      _updateDrag(position, details, dragOffset);
+      if (position.outOfRange) {
+        return withDelta(0);
+      }
+      final overflow = position.pixels - boundary;
+      if (position.pixels != boundary) {
+        position.setPixels(boundary);
+      }
+      cancel();
+      return withDelta(reversed ? overflow : -overflow);
+    }
+    // 범위 밖으로 계속 당길 때는 같은 활동을 유지하고, 안쪽 반전만 돌려준다.
+    if (_distance == 0 &&
+        (input == 0 ||
+            (_startPixels <= position.minScrollExtent && input < 0) ||
+            (_startPixels >= position.maxScrollExtent && input > 0))) {
+      return null;
+    }
+    if (_distance != 0 &&
+        (input * _distance >= 0 || input.abs() < _distance.abs())) {
+      return null;
+    }
+    final consumed = reversed ? -_distance : _distance;
+    update(position, withDelta(consumed), pointerScrolling: _pointerScrolling);
+    cancel();
+    return withDelta(delta - consumed);
+  }
+
+  void _updateDrag(
+    ScrollPosition position,
+    DragUpdateDetails details,
+    double dragOffset,
+  ) {
+    _drag ??= position.drag(
+      DragStartDetails(
+        kind: PointerDeviceKind.trackpad,
+        sourceTimeStamp: details.sourceTimeStamp,
+        globalPosition: details.globalPosition,
+        localPosition: details.localPosition,
+      ),
+      () => _drag = null,
+    );
+    _drag?.update(
+      DragUpdateDetails(
+        sourceTimeStamp: details.sourceTimeStamp,
+        delta: position.axis == Axis.vertical
+            ? Offset(0, dragOffset)
+            : Offset(dragOffset, 0),
+        primaryDelta: dragOffset,
+        globalPosition: details.globalPosition,
+        localPosition: details.localPosition,
+      ),
+    );
+  }
+
+  void update(
+    ScrollPosition position,
+    DragUpdateDetails details, {
+    required bool pointerScrolling,
+    bool allowLeadingOverscroll = true,
+    bool allowTrailingOverscroll = true,
+  }) {
+    if (_position != position) {
+      cancel();
+      _position = position;
+      // 바운스 복귀 중 다시 잡아도 본문 반환 기준은 정렬된 경계로 둔다.
+      _startPixels = position.pixels
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      _pointerScrolling = pointerScrolling;
+      _origin = (_startPixels / position.viewportDimension).roundToDouble();
+    }
+    final reversed = axisDirectionIsReversed(position.axisDirection);
+    final delta = position.axis == Axis.vertical
+        ? details.delta.dy
+        : details.delta.dx;
+    final input = reversed ? delta : -delta;
+    if (_target != null) {
+      // 같은 제스처의 관성 꼬리로 여러 페이지를 건너뛰지 않는다.
+      // 방향을 되돌리는 명시적인 입력은 전환 중에도 받아들인다.
+      _reverseDistance = input * _direction < 0
+          ? _reverseDistance + input.abs()
+          : 0;
+      if (shouldCommitWheel(details.kind, input.abs(), _reverseDistance)) {
+        final previous = _target!;
+        _origin = previous;
+        _commit(previous - _direction, details.sourceTimeStamp);
+      }
+      return;
+    }
+    if (!_pointerScrolling) {
+      final viewport = position.viewportDimension;
+      if (position.outOfRange) {
+        _updateDrag(position, details, reversed ? input : -input);
+        final reference = position.outOfRange
+            ? (position.pixels < position.minScrollExtent
+                  ? position.minScrollExtent
+                  : position.maxScrollExtent)
+            : position.pixels;
+        _distance = (reference - _startPixels).clamp(-viewport, viewport);
+        return;
+      }
+      final unclamped = _startPixels + _distance + input;
+      if (unclamped < position.minScrollExtent &&
+          _startPixels - viewport <= position.minScrollExtent) {
+        _distance = (position.minScrollExtent - _startPixels).clamp(
+          -viewport,
+          viewport,
+        );
+        // 시작 경계 바깥 입력을 그대로 전달해 플랫폼 stretch/bounce 효과를 복원한다.
+        final offset = allowLeadingOverscroll
+            ? input
+            : position.minScrollExtent - position.pixels;
+        _updateDrag(position, details, reversed ? offset : -offset);
+        return;
+      }
+      if (unclamped > position.maxScrollExtent &&
+          _startPixels + viewport >= position.maxScrollExtent) {
+        _distance = (position.maxScrollExtent - _startPixels).clamp(
+          -viewport,
+          viewport,
+        );
+        final offset = allowTrailingOverscroll
+            ? input
+            : position.maxScrollExtent - position.pixels;
+        _updateDrag(position, details, reversed ? offset : -offset);
+        return;
+      }
+      // 드래그는 페이지 사이에서 손가락을 직접 따라간다.
+      _distance = (_distance + input).clamp(-viewport, viewport);
+      final pixels = (_startPixels + _distance)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      final offset = pixels - position.pixels;
+      _updateDrag(position, details, reversed ? offset : -offset);
+      return;
+    }
+    _distance += input;
+    final startPage = _startPixels / position.viewportDimension;
+    final target =
+        (_distance > 0 ? startPage.floor() + 1 : startPage.ceil() - 1)
+            .toDouble()
+            .clamp(
+              position.minScrollExtent / position.viewportDimension,
+              position.maxScrollExtent / position.viewportDimension,
+            );
+    if ((_startPixels <= position.minScrollExtent && _distance < 0) ||
+        (_startPixels >= position.maxScrollExtent && _distance > 0)) {
+      _distance = 0;
+    }
+    // 더 당길수록 같은 입력에 대한 화면 이동량이 작아진다.
+    final displayed =
+        _distance /
+        (1 + resistanceCoefficient * _distance.abs() / resistanceLength);
+    // 정렬 중 다시 잡아도 가장 가까운 페이지로 순간 이동하지 않는다.
+    final pixels = (_startPixels + displayed)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    final offset = pixels - position.pixels;
+    _updateDrag(position, details, reversed ? offset : -offset);
+    if (shouldCommitWheel(details.kind, input, _distance)) {
+      _commit(target, details.sourceTimeStamp);
+    }
+  }
+
+  void _commit(double target, Duration? time) {
+    final position = _position!;
+    _direction = (target * position.viewportDimension - position.pixels).sign;
+    if (_direction == 0) _direction = (target - _origin).sign;
+    _target = target;
+    _reverseDistance = 0;
+    alignWheel(position, target);
+    final wheelDirection = axisDirectionIsReversed(position.axisDirection)
+        ? -_direction
+        : _direction;
+    onWheelCommit?.call(
+      position,
+      target,
+      wheelDirection,
+      time ?? Duration.zero,
+    );
+  }
+
+  void finish({double velocity = 0}) {
+    onWheelCommit = null;
+    final position = _position;
+    if (position == null) return;
+    if (!_pointerScrolling) {
+      // 종료 속도와 현재 위치를 그대로 Flutter의 페이지 물리에 전달한다.
+      final drag = _drag;
+      drag?.end(
+        DragEndDetails(
+          velocity: Velocity(
+            pixelsPerSecond: position.axis == Axis.vertical
+                ? Offset(0, velocity)
+                : Offset(velocity, 0),
+          ),
+          primaryVelocity: velocity,
+        ),
+      );
+      _trackSettling(position);
+      _clear();
+      return;
+    }
+    if (_target == null) {
+      alignWheel(position, _origin);
+    }
+    _clear();
+  }
+
+  void alignWheel(ScrollPosition position, double page) {
+    final pixels = page * position.viewportDimension;
+    // 기본 animateTo는 자식의 포인터 입력을 막으므로 관성 입력과 반전을
+    // 계속 받을 수 있는 동일한 Flutter 애니메이션 활동을 사용한다.
+    position.beginActivity(
+      _InteractivePageActivity(
+        position as ScrollActivityDelegate,
+        from: position.pixels,
+        to: pixels,
+        duration: transitionDuration,
+        // 원 코드와 같은 곡선으로 휠 전환을 예측 가능하게 유지한다.
+        curve: Curves.easeOutQuad,
+        vsync: position.context.vsync,
+      ),
+    );
+    _trackSettling(position);
+    _drag = null;
+  }
+
+  void _trackSettling(ScrollPosition position) {
+    _stopTracking();
+    if (!position.isScrollingNotifier.value) return;
+    _settlingPosition = position;
+    position.isScrollingNotifier.addListener(_onActivityChanged);
+  }
+
+  void _onActivityChanged() {
+    if (!(_settlingPosition?.isScrollingNotifier.value ?? false)) {
+      _stopTracking();
+    }
+  }
+
+  void _stopTracking() {
+    _settlingPosition?.isScrollingNotifier.removeListener(_onActivityChanged);
+    _settlingPosition = null;
+  }
+
+  void cancel() {
+    _drag?.cancel();
+    final position = _position ?? (isSettling ? _settlingPosition : null);
+    _stopTracking();
+    if ((position?.context.notificationContext?.mounted ?? false) &&
+        !position!.outOfRange) {
+      position.hold(() {});
+    }
+    _clear();
+  }
+
+  // 탭 컨트롤러가 같은 위치에서 새 애니메이션을 시작했다.
+  // 이전 휠 정렬의 hold가 새 탭 이동을 중단하지 않도록 추적만 끝낸다.
+  void relinquish() {
+    _stopTracking();
+    _clear();
+  }
+
+  void _clear() {
+    _drag = null;
+    _position = null;
+    _distance = 0;
+    _target = null;
+    _reverseDistance = 0;
+    _direction = 0;
+    _pointerScrolling = false;
+  }
+}
+
+/// 전환 중에도 뷰포트 안의 휠과 새 제스처를 받을 수 있게 한다.
+class _InteractivePageActivity extends DrivenScrollActivity {
+  _InteractivePageActivity(
+    super.delegate, {
+    required super.from,
+    required super.to,
+    required super.duration,
+    required super.curve,
+    required super.vsync,
+  });
+
+  @override
+  bool get shouldIgnorePointer => false;
+}

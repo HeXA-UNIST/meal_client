@@ -30,10 +30,12 @@ android {
         applicationId = "com.wjddnwls7879.unistbab"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // 위젯의 가변 폰트 굵기를 XML의 android:fontVariationSettings로 지정하려면 API 28 이상이 필요하다.
+        minSdk = 28
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -67,11 +69,12 @@ flutter {
 
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation(platform("com.google.firebase:firebase-bom:${rootProject.project(":firebase_core").findProperty("FirebaseSDKVersion")}"))
     implementation("com.google.firebase:firebase-crashlytics")
     implementation("com.google.firebase:firebase-crashlytics-ndk")
-    implementation("androidx.work:work-runtime:2.11.2")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("androidx.work:work-runtime:2.12.0")
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }

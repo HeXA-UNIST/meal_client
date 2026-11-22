@@ -1,10 +1,16 @@
 name: Build Web
 on:
+  workflow_call:
+    inputs:
+      ci:
+        type: boolean
+        default: true
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v7
@@ -42,7 +48,13 @@ jobs:
         shell: bash
         working-directory: .
 
+      # 전체 Flutter 테스트는 Android 검사에서 실행하고 브라우저에서는 모델·카드 렌더링을 확인한다.
+      - name: Chrome tests
+        if: inputs.ci
+        run: flutter test --no-pub --platform chrome test/domain_test.dart test/meal_card_test.dart
+
       - name: Upload Web Build
+        if: ${{ !inputs.ci }}
         uses: actions/upload-artifact@v7
         with:
           name: web-build-${{ steps.version.outputs.value }}

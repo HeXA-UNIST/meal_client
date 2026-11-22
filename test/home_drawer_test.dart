@@ -1,11 +1,74 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:meal_client/core/constants.dart';
 import 'package:meal_client/features/home/home_drawer.dart';
-import 'package:meal_client/features/home/next_week_preview_page.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  for (final hasAnnouncement in [true, false]) {
+    testWidgets(
+      hasAnnouncement
+          ? '저장된 과거 공지가 있어도 메뉴는 최신 공지를 표시한다'
+          : '서버에 공지가 없으면 저장된 과거 공지 대신 공지 없음으로 표시한다',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          StorageKeys.announcementKey: '과거 공지',
+        });
+        final info = AppInfo.fromJson({
+          'announcement': hasAnnouncement
+              ? {
+                  'title': {'ko': '최신 제목', 'en': 'Latest title'},
+                  'content': {'ko': '최신 공지', 'en': 'Latest announcement'},
+                }
+              : null,
+          'operatingHours': {
+            'weekday': <String, dynamic>{},
+            'weekend': <String, dynamic>{},
+          },
+        });
+        final scaffoldKey = GlobalKey<ScaffoldState>();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: const Locale('ko'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              key: scaffoldKey,
+              drawer: HomePageDrawer(
+                infoFuture: Future.value(info),
+                onNextWeekRequested: () async {},
+              ),
+              body: const SizedBox.shrink(),
+            ),
+          ),
+        );
+
+        scaffoldKey.currentState!.openDrawer();
+        await tester.pumpAndSettle();
+        final l10n = AppLocalizations.of(
+          tester.element(find.byType(HomePageDrawer)),
+        )!;
+        await tester.tap(find.text(l10n.announcement));
+        await tester.pumpAndSettle();
+
+        expect(find.text('과거 공지'), findsNothing);
+        expect(
+          find.text(hasAnnouncement ? '최신 공지' : l10n.noAnnouncement),
+          findsOneWidget,
+        );
+        if (hasAnnouncement) {
+          expect(find.text('최신 제목'), findsOneWidget);
+        }
+      },
+    );
+  }
+
   testWidgets('HomePageDrawer는 운영시간을 메뉴 항목으로 표시하고 팝업에서 평일과 주말을 구분한다', (
     tester,
   ) async {
@@ -35,7 +98,10 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           key: scaffoldKey,
-          drawer: HomePageDrawer(infoFuture: Future.value(info)),
+          drawer: HomePageDrawer(
+            infoFuture: Future.value(info),
+            onNextWeekRequested: () async {},
+          ),
           body: const SizedBox.shrink(),
         ),
       ),
@@ -57,7 +123,8 @@ void main() {
     expect(find.text('17:30 - 19:00'), findsOneWidget);
   });
 
-  testWidgets('다음 주 미리보기 항목을 탭하면 NextWeekPreviewPage로 이동한다', (tester) async {
+  testWidgets('미리보기 항목을 닫기 중 연타해도 홈을 닫지 않고 콜백을 호출한다', (tester) async {
+    var requested = 0;
     final info = AppInfo.fromJson({
       'announcement': null,
       'operatingHours': {
@@ -65,7 +132,6 @@ void main() {
         'weekend': <String, dynamic>{},
       },
     });
-    final scaffoldKey = GlobalKey<ScaffoldState>();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -74,26 +140,45 @@ void main() {
           ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          key: scaffoldKey,
-          drawer: HomePageDrawer(
-            infoFuture: Future.value(info),
-            nextWeekStart: Future.value(null),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    drawer: HomePageDrawer(
+                      infoFuture: Future.value(info),
+                      onNextWeekRequested: () async => requested++,
+                    ),
+                    body: const Text('홈 화면'),
+                  ),
+                ),
+              ),
+              child: const Text('홈 열기'),
+            ),
           ),
-          body: const SizedBox.shrink(),
         ),
       ),
     );
 
-    scaffoldKey.currentState!.openDrawer();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('홈 열기'));
+    await tester.pumpAndSettle();
+    tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
     await tester.pumpAndSettle();
 
     final l10n = AppLocalizations.of(
       tester.element(find.byType(HomePageDrawer)),
     )!;
     await tester.tap(find.text(l10n.nextWeekPreview));
+    await tester.tap(find.text(l10n.nextWeekPreview));
+    expect(requested, 2);
     await tester.pumpAndSettle();
-
-    expect(find.byType(NextWeekPreviewPage), findsOneWidget);
+    expect(find.text('홈 화면'), findsOneWidget);
+    expect(find.text('홈 열기'), findsNothing);
+    expect(
+      tester.state<ScaffoldState>(find.byType(Scaffold)).isDrawerOpen,
+      isFalse,
+    );
   });
 }

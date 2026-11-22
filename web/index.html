@@ -19,6 +19,7 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="밥먹어U">
+  <meta name="color-scheme" content="light dark">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="밥먹어U">
@@ -42,19 +43,65 @@
   <!--  <link rel="manifest" href="manifest.json">-->
 
   <style>
+    :root {
+      color-scheme: light dark;
+      --splash-green: #00CD80;
+      --splash-background: var(--splash-green);
+      --splash-logo: #fff;
+    }
+
+    @supports (color: color(display-p3 0 0 0)) {
+      @media (color-gamut: p3) {
+        :root {
+          --splash-green: color(display-p3 0.0001 0.8278 0.464);
+        }
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --splash-background: #000;
+        --splash-logo: var(--splash-green);
+      }
+    }
+
     /* 웹 브라우저 터치패드 좌우 스크롤 제스처 충돌 방지 */
     html,
     body {
       overscroll-behavior-x: none;
-      }
+    }
+
+    #web-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--splash-background);
+      z-index: 9999;
+    }
+
+    #web-splash svg {
+      display: block;
+      width: min(45vw, 300px);
+      height: min(45vw, 300px);
+      color: var(--splash-logo);
+    }
+
+    #web-splash-logo-cutout {
+      fill: var(--splash-background);
+    }
   </style>
 </head>
 <body>
-  <div
-    id="web-splash"
-    style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #00CD80; z-index: 9999;"
-  >
-    <img src="icon.svg" alt="밥먹어U" style="width: min(45vw, 300px); height: min(45vw, 300px);" />
+  <div id="web-splash">
+    <svg viewBox="0 0 300 300" role="img" aria-label="밥먹어U" fill="currentColor">
+      <rect x="78" y="77" width="67.3538" height="67.3538" rx="10"/>
+      <rect id="web-splash-logo-cutout" x="99.6985" y="98.6984" width="23.7987" height="23.7987" rx="5" fill="#00CD80"/>
+      <rect x="155.565" y="77" width="67.3538" height="67.3538" rx="10"/>
+      <ellipse cx="111.677" cy="188.242" rx="33.6769" ry="33.6769"/>
+      <path d="M219.901 188.045C220.338 188.045 220.82 188.253 221.194 188.48C222.143 189.058 223.063 189.951 222.996 191.06C221.936 208.76 207.247 222.787 189.281 222.787C171.333 222.787 156.654 208.788 155.568 191.114C155.498 189.975 156.447 189.061 157.427 188.476C157.807 188.25 158.292 188.045 158.734 188.045H219.901Z"/>
+    </svg>
   </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.

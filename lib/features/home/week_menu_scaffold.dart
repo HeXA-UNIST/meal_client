@@ -8,7 +8,25 @@ import 'package:meal_client/l10n/app_localizations.dart';
 import 'home_app_bar.dart';
 import 'model.dart';
 import 'nested_page_scroll.dart';
+import 'pointer_scroll_session.dart';
 import 'week_meal_view.dart';
+
+class _MealTransitionTabController extends TabController {
+  _MealTransitionTabController({
+    required super.length,
+    required super.vsync,
+    required super.initialIndex,
+    required this.isMealTransitionActive,
+  });
+
+  final bool Function() isMealTransitionActive;
+
+  @override
+  void animateTo(int value, {Duration? duration, Curve curve = Curves.ease}) {
+    if (isMealTransitionActive()) return;
+    super.animateTo(value, duration: duration, curve: curve);
+  }
+}
 
 /// [HomePage]와 다음 주 미리보기 화면이 공유하는 화면 뼈대.
 /// AppBar(요일 탭 + 끼니 전환 버튼), 데이터 로딩 FutureBuilder 체인,
@@ -18,25 +36,31 @@ class WeekMenuScaffold extends StatefulWidget {
     super.key,
     required this.mondayOfWeek,
     required this.initialDayOfWeek,
+    this.today,
+    this.currentKstDateTime,
     required this.initialMealOfDay,
     required this.mealFuture,
     this.cachedMealFuture,
     required this.appInfo,
     this.bannerText,
     this.drawer,
-    this.titleFontWeight = FontWeight.w700,
+    this.onNextWeekRequested,
+    this.onPreviousWeekRequested,
     this.analyticsScreen = AnalyticsScreen.home,
   });
 
   final DateTime mondayOfWeek;
   final DayOfWeek initialDayOfWeek;
+  final DayOfWeek? today;
+  final DateTime? currentKstDateTime;
   final MealOfDay initialMealOfDay;
   final Future<WeekMeal> mealFuture;
   final Future<WeekMeal>? cachedMealFuture;
   final Future<AppInfo> appInfo;
   final String? bannerText;
   final Widget? drawer;
-  final FontWeight titleFontWeight;
+  final Future<void> Function(MealOfDay mealOfDay)? onNextWeekRequested;
+  final Future<void> Function()? onPreviousWeekRequested;
   final AnalyticsScreen analyticsScreen;
 
   @override
@@ -45,6 +69,7 @@ class WeekMenuScaffold extends StatefulWidget {
 
 class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     with SingleTickerProviderStateMixin {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late final HomePageModel _model;
   late final TabController _tabController;
   late final NestedPageScrollControllerGroup _mealOfDayPageControllerGroup;
@@ -56,7 +81,10 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
 
   // 버튼으로 시작한 식사 전환 동안에는 상단 버튼 상태를 유지하고,
   // 중간 onPageChanged가 버튼 상태를 다시 덮어쓰지 않게 한다.
-  bool _isMealOfDayButtonTransition = false;
+  int _mealTransitionId = 0;
+  int? _activeMealTransition;
+  final ValueNotifier<bool> _mealTransitionActive = ValueNotifier(false);
+  bool _horizontalInputActive = false;
 
   @override
   void initState() {
@@ -67,10 +95,11 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     );
     _mealOfDayNotifier = ValueNotifier(_model.mealOfDay);
 
-    _tabController = TabController(
+    _tabController = _MealTransitionTabController(
       length: DayOfWeek.values.length,
       vsync: this,
       initialIndex: _model.dayOfWeek.index,
+      isMealTransitionActive: () => _activeMealTransition != null,
     );
     _tabController.addListener(_onTabChanged);
 
@@ -78,6 +107,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       count: DayOfWeek.values.length,
       pageCount: MealOfDay.values.length,
       initialPage: _model.mealOfDay.index,
+      activeIndex: _model.dayOfWeek.index,
     );
   }
 
@@ -90,18 +120,44 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     // 직접 사용되지 않으므로(animateToPage의 activeIndex는 onPressed 콜백에서만
     // 읽힘) rebuild를 발생시킬 이유가 없다.
     _model.dayOfWeek = nextDayOfWeek;
+    _mealOfDayPageControllerGroup.setActiveIndex(nextDayOfWeek.index);
+  }
+
+  ScrollPosition? _activeMealScrollPosition() {
+    if (_activeMealTransition != null ||
+        _horizontalInputActive ||
+        _tabController.indexIsChanging ||
+        (_scaffoldKey.currentState?.isDrawerOpen ?? false)) {
+      return null;
+    }
+    return _mealOfDayPageControllerGroup
+        .getController(_tabController.index)
+        .activeInnerPosition;
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    final dayOfWeekTabBar = DayOfWeekTabBar(
+    final dayOfWeekTabBarContent = DayOfWeekTabBar(
       tabController: _tabController,
-      onTap: (index) => logUiClick(
-        UiClickTarget.dayTab,
-        screen: widget.analyticsScreen,
-        dayOfWeek: DayOfWeek.values[index],
+      today: widget.today,
+      onTap: (index) {
+        PointerScrollSession.clearWeekPull(Navigator.maybeOf(context));
+        logUiClick(
+          UiClickTarget.dayTab,
+          screen: widget.analyticsScreen,
+          dayOfWeek: DayOfWeek.values[index],
+        );
+      },
+    );
+    final dayOfWeekTabBar = PreferredSize(
+      preferredSize: dayOfWeekTabBarContent.preferredSize,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _mealTransitionActive,
+        child: dayOfWeekTabBarContent,
+        builder: (context, active, child) =>
+            IgnorePointer(ignoring: active, child: child),
       ),
     );
     final PreferredSizeWidget? bottom;
@@ -129,68 +185,91 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       );
     }
 
-    return Scaffold(
-      drawer: widget.drawer,
-      appBar: AppBar(
-        toolbarHeight: 52,
-        titleSpacing: 0,
-        centerTitle: false,
-        title: AnimatedDateTitle(
-          tabController: _tabController,
-          mondayOfWeek: widget.mondayOfWeek,
-          fontWeight: widget.titleFontWeight,
+    return Actions(
+      actions: <Type, Action<Intent>>{
+        ScrollIntent: _ActiveMealScrollAction(
+          isDrawerOpen: () => _scaffoldKey.currentState?.isDrawerOpen ?? false,
+          positionForScroll: _activeMealScrollPosition,
+          onBeforeScroll: () {
+            _mealOfDayPageControllerGroup
+                .getController(_tabController.index)
+                .cancelUserInput();
+          },
         ),
-        actions: [
-          ValueListenableBuilder<MealOfDay>(
-            valueListenable: _mealOfDayNotifier,
-            builder: (context, mealOfDay, _) {
-              final (label, icon) = switch (mealOfDay) {
-                MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
-                MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
-                MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
-              };
-              return MealOfDaySwitchButton(
-                onPressed: () async {
-                  // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
-                  // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
-                  final nextMeal = _mealOfDayNotifier.value.next;
-                  logUiClick(
-                    UiClickTarget.mealSwitch,
-                    screen: widget.analyticsScreen,
-                    mealOfDay: nextMeal,
-                  );
-                  // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
-                  _mealOfDayNotifier.value = nextMeal;
-                  _isMealOfDayButtonTransition = true;
+      },
+      child: Focus(
+        autofocus: true,
+        skipTraversal: true,
+        includeSemantics: false,
+        child: Scaffold(
+          key: _scaffoldKey,
+          drawer: widget.drawer,
+          appBar: AppBar(
+            toolbarHeight: 52,
+            titleSpacing: 0,
+            centerTitle: false,
+            title: AnimatedDateTitle(
+              tabController: _tabController,
+              mondayOfWeek: widget.mondayOfWeek,
+            ),
+            actions: [
+              ValueListenableBuilder<MealOfDay>(
+                valueListenable: _mealOfDayNotifier,
+                builder: (context, mealOfDay, _) {
+                  final (label, icon) = switch (mealOfDay) {
+                    MealOfDay.breakfast => (l10n.breakfast, Icons.sunny),
+                    MealOfDay.lunch => (l10n.lunch, Icons.restaurant),
+                    MealOfDay.dinner => (l10n.dinner, Icons.nightlight),
+                  };
+                  return MealOfDaySwitchButton(
+                    onPressed: () async {
+                      if (_horizontalInputActive ||
+                          _tabController.indexIsChanging) {
+                        return;
+                      }
+                      // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
+                      // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
+                      final nextMeal = _mealOfDayNotifier.value.next;
+                      logUiClick(
+                        UiClickTarget.mealSwitch,
+                        screen: widget.analyticsScreen,
+                        mealOfDay: nextMeal,
+                      );
+                      // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
+                      _mealOfDayNotifier.value = nextMeal;
+                      final transitionId = ++_mealTransitionId;
+                      _activeMealTransition = transitionId;
+                      _mealTransitionActive.value = true;
 
-                  try {
-                    await _mealOfDayPageControllerGroup.animateToPage(
-                      nextMeal.index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                      // 현재 선택된 요일 탭만 애니메이션 처리
-                      activeIndex: _model.dayOfWeek.index,
-                    );
-                  } finally {
-                    // _isMealOfDayButtonTransition은 build()가 아닌
-                    // onPageChanged 콜백에서만 읽힌다. 콜백은 this를 캡처하여
-                    // 호출 시점의 필드 값을 직접 읽으므로, setState 없이
-                    // 해제해도 렌더링에 영향이 없다.
-                    _isMealOfDayButtonTransition = false;
-                  }
+                      try {
+                        await _mealOfDayPageControllerGroup.animateToPage(
+                          nextMeal.index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                          // 현재 선택된 요일 탭만 애니메이션 처리
+                          activeIndex: _model.dayOfWeek.index,
+                        );
+                      } finally {
+                        if (_activeMealTransition == transitionId) {
+                          _activeMealTransition = null;
+                          if (mounted) _mealTransitionActive.value = false;
+                        }
+                      }
+                    },
+                    label: label,
+                    icon: icon,
+                  );
                 },
-                label: label,
-                icon: icon,
-              );
-            },
+              ),
+            ],
+            actionsPadding: const EdgeInsets.only(right: 8),
+            backgroundColor: colorScheme.surface,
+            bottom: bottom,
+            flexibleSpace: flexibleSpace,
           ),
-        ],
-        actionsPadding: const EdgeInsets.only(right: 8),
-        backgroundColor: colorScheme.surface,
-        bottom: bottom,
-        flexibleSpace: flexibleSpace,
+          body: body,
+        ),
       ),
-      body: body,
     );
   }
 
@@ -285,16 +364,25 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
 
   Widget _buildTabBarView(WeekMeal weekMeal) {
     return WeekMealTabBarView(
+      isMealTransitionActive: () => _activeMealTransition != null,
+      onHorizontalActivityChanged: (active) {
+        _horizontalInputActive = active;
+      },
+      onNextWeekRequested: widget.onNextWeekRequested == null
+          ? null
+          : () => widget.onNextWeekRequested!(_mealOfDayNotifier.value),
+      onPreviousWeekRequested: widget.onPreviousWeekRequested,
       pageCount: MealOfDay.values.length,
       weekMeal: weekMeal,
       tabController: _tabController,
       pageControllerGroup: _mealOfDayPageControllerGroup,
       appInfo: widget.appInfo,
       mondayOfWeek: widget.mondayOfWeek,
+      currentKstDateTime: widget.currentKstDateTime,
       onPageChanged: (page) {
         // 버튼으로 시작한 전환 중에는 중간 페이지(예: 점심)를
         // 상단 버튼 상태에 반영하지 않는다.
-        if (_isMealOfDayButtonTransition) {
+        if (_activeMealTransition != null) {
           return;
         }
         final nextMealOfDay = MealOfDay.values[page];
@@ -313,7 +401,78 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     _tabController.dispose();
     _mealOfDayPageControllerGroup.dispose();
     _mealOfDayNotifier.dispose();
+    _mealTransitionActive.dispose();
     super.dispose();
+  }
+}
+
+class _ActiveMealScrollAction extends ScrollAction {
+  _ActiveMealScrollAction({
+    required this.isDrawerOpen,
+    required this.positionForScroll,
+    required this.onBeforeScroll,
+  });
+
+  final bool Function() isDrawerOpen;
+  final ScrollPosition? Function() positionForScroll;
+  final VoidCallback onBeforeScroll;
+
+  bool _shouldDelegateToDefault(BuildContext? context) {
+    if (isDrawerOpen()) return true;
+    final focusedScrollable = context == null
+        ? null
+        : Scrollable.maybeOf(context);
+    return focusedScrollable != null &&
+        (focusedScrollable.resolvedPhysics?.shouldAcceptUserOffset(
+              focusedScrollable.position,
+            ) ??
+            true);
+  }
+
+  @override
+  bool isEnabled(ScrollIntent intent, [BuildContext? context]) {
+    if (_shouldDelegateToDefault(context)) {
+      return super.isEnabled(intent, context);
+    }
+    if (intent.direction != AxisDirection.up &&
+        intent.direction != AxisDirection.down) {
+      return false;
+    }
+    final position = positionForScroll();
+    return position != null &&
+        position.hasPixels &&
+        position.hasContentDimensions &&
+        position.maxScrollExtent > position.minScrollExtent;
+  }
+
+  @override
+  void invoke(ScrollIntent intent, [BuildContext? context]) {
+    if (_shouldDelegateToDefault(context)) {
+      super.invoke(intent, context);
+      return;
+    }
+    final position = positionForScroll();
+    if (position == null ||
+        !position.hasPixels ||
+        !position.hasContentDimensions) {
+      return;
+    }
+    final step = switch (intent.type) {
+      ScrollIncrementType.line => 50.0,
+      ScrollIncrementType.page => 0.8 * position.viewportDimension,
+    };
+    final delta = intent.direction == position.axisDirection ? step : -step;
+    final target = (position.pixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (target == position.pixels) return;
+    onBeforeScroll();
+    position.moveTo(
+      target,
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.easeInOut,
+    );
   }
 }
 
@@ -333,7 +492,7 @@ class _PreviewBanner extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: colorScheme.onPrimaryContainer,
         ),
       ),
