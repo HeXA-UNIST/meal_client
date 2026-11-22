@@ -40,6 +40,9 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# Gradle 로컬 캐시
+**/.gradle/
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
+import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/meal/meal_data_source.dart';
@@ -162,6 +163,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
     final l10n = AppLocalizations.of(context)!;
     // 식단 로딩·오류도 이 안에서 처리해 날짜·요일·끼니 선택을 계속 표시한다.
     return WeekMenuScaffold(
+      analyticsScreen: AnalyticsScreen.nextWeek,
       mondayOfWeek: _mondayOfWeek,
       initialDayOfWeek: DayOfWeek.mon,
       initialMealOfDay: widget.initialMealOfDay ?? MealOfDay.breakfast,

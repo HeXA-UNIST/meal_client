@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/l10n/app_localizations.dart';
@@ -45,6 +46,7 @@ class WeekMenuScaffold extends StatefulWidget {
     this.drawer,
     this.onNextWeekRequested,
     this.onPreviousWeekRequested,
+    this.analyticsScreen = AnalyticsScreen.home,
   });
 
   final DateTime mondayOfWeek;
@@ -59,6 +61,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final Widget? drawer;
   final Future<void> Function(MealOfDay mealOfDay)? onNextWeekRequested;
   final Future<void> Function()? onPreviousWeekRequested;
+  final AnalyticsScreen analyticsScreen;
 
   @override
   State<WeekMenuScaffold> createState() => _WeekMenuScaffoldState();
@@ -139,8 +142,14 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
     final dayOfWeekTabBarContent = DayOfWeekTabBar(
       tabController: _tabController,
       today: widget.today,
-      onTap: (_) =>
-          PointerScrollSession.clearWeekPull(Navigator.maybeOf(context)),
+      onTap: (index) {
+        PointerScrollSession.clearWeekPull(Navigator.maybeOf(context));
+        logUiClick(
+          UiClickTarget.dayTab,
+          screen: widget.analyticsScreen,
+          dayOfWeek: DayOfWeek.values[index],
+        );
+      },
     );
     final dayOfWeekTabBar = PreferredSize(
       preferredSize: dayOfWeekTabBarContent.preferredSize,
@@ -221,6 +230,11 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
                       // _mealOfDayNotifier.value를 직접 읽어 연속 탭 시에도
                       // 클로저에 캡처된 mealOfDay가 아닌 최신 상태를 사용한다.
                       final nextMeal = _mealOfDayNotifier.value.next;
+                      logUiClick(
+                        UiClickTarget.mealSwitch,
+                        screen: widget.analyticsScreen,
+                        mealOfDay: nextMeal,
+                      );
                       // 버튼은 누르자마자 다음 식사 상태로 바꿔 즉각적인 반응을 준다.
                       _mealOfDayNotifier.value = nextMeal;
                       final transitionId = ++_mealTransitionId;

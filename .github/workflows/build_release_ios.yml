@@ -12,6 +12,9 @@ jobs:
   build:
     runs-on: xcode-27
     timeout-minutes: 60
+    env:
+      # SPM 의존성 해석 시 광고 식별자 없는 Analytics를 선택한다.
+      FIREBASE_ANALYTICS_WITHOUT_ADID: 'true'
     steps:
       - name: Clone repository (${{ github.ref_name }} branch)
         uses: actions/checkout@v7
@@ -155,6 +158,11 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Add :provisioningProfiles dict' "$RUNNER_TEMP/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.wjddnwls7879.unistbab string $APP_PROFILE_UUID" "$RUNNER_TEMP/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:com.wjddnwls7879.unistbab.widget string $WIDGET_PROFILE_UUID" "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Install FlutterFire CLI
+        if: ${{ !inputs.ci }}
+        run: dart pub global activate flutterfire_cli 1.4.1
+        shell: bash
 
       - name: Build
         if: ${{ !inputs.ci }}

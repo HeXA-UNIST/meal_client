@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:meal_client/core/analytics.dart';
 import 'package:meal_client/domain/meal.dart';
 import 'package:meal_client/features/info/app_info.dart';
 import 'package:meal_client/features/info/info_data_source.dart';
@@ -362,6 +363,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
             icon: Icons.settings_outlined,
             title: l10n.settings,
             onTap: () {
+              logUiClick(UiClickTarget.settings, screen: AnalyticsScreen.home);
               Navigator.of(context).pop();
               Navigator.push(
                 context,
@@ -373,6 +375,7 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
             icon: Icons.calendar_month_outlined,
             title: l10n.nextWeekPreview,
             onTap: () async {
+              logUiClick(UiClickTarget.nextWeek, screen: AnalyticsScreen.home);
               Scaffold.of(context).closeDrawer();
               await widget.onNextWeekRequested();
             },
@@ -422,6 +425,10 @@ class _HomePageDrawerState extends State<HomePageDrawer> {
             icon: Icons.access_time,
             title: l10n.operationHours,
             onTap: () async {
+              logUiClick(
+                UiClickTarget.operationHours,
+                screen: AnalyticsScreen.home,
+              );
               final rootNavigator = Navigator.of(context, rootNavigator: true);
               final rootContext = rootNavigator.context;
               Navigator.of(context).pop();

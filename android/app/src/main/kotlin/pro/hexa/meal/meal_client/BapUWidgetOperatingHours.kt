@@ -22,8 +22,10 @@ object BapUWidgetOperatingHours {
         return parseRawInfo(runCatching { file.readText() }.getOrNull() ?: return null)
     }
 
-    fun loadRequiredFromCache(context: Context): WidgetOperatingHours {
-        val file = File(context.filesDir, BapUWidgetContract.INFO_CACHE_FILE)
+    fun loadRequiredFromCache(context: Context): WidgetOperatingHours =
+        loadRequiredFromCache(File(context.filesDir, BapUWidgetContract.INFO_CACHE_FILE))
+
+    internal fun loadRequiredFromCache(file: File): WidgetOperatingHours {
         if (!file.exists()) throw WidgetInfoCacheMissingException()
         val rawInfo = runCatching { file.readText() }
             .getOrElse { throw WidgetInfoCacheException("unreadable ${BapUWidgetContract.INFO_CACHE_FILE}", it) }

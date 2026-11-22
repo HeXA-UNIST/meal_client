@@ -32,12 +32,24 @@ object BapUWidgetFetcher {
     ): WidgetMealData {
         // 언어 누락은 데이터 오류 화면으로 바꾸지 않고 렌더 경계로 전달한다.
         val savedLanguage = BapUWidgetMealRepository.requireSavedLanguageCode(languageCode)
-        return runCatching { BapUWidgetMealRepository.fetch(context, savedLanguage) }
-            .getOrElse {
+        return fetch(
+            load = { BapUWidgetMealRepository.fetch(context, savedLanguage) },
+            reportFailure = {
                 Log.e("BapUWidgetFetcher", "widget cache read failed", it)
-                WidgetMealData.error()
-            }
-            .copy(languageCode = savedLanguage)
+                reportWidgetCacheFailure(it)
+            },
+        ).copy(languageCode = savedLanguage)
+    }
+
+    internal fun fetch(
+        load: () -> WidgetMealData,
+        reportFailure: (Throwable) -> Unit,
+    ): WidgetMealData = runCatching(load).getOrElse { error ->
+        // 첫 갱신 전의 캐시 부재는 장애가 아니며 기존 오류 표시는 유지한다.
+        if (error !is WidgetInfoCacheMissingException) {
+            runCatching { reportFailure(error) }
+        }
+        WidgetMealData.error()
     }
 
     internal fun parseWidgetMealData(
