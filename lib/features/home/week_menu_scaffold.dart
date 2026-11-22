@@ -478,7 +478,7 @@ class _PreviewBanner extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: colorScheme.onPrimaryContainer,
         ),
       ),

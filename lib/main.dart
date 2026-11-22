@@ -60,6 +60,7 @@ ThemeData _buildTheme(Brightness brightness) {
     brightness: brightness,
     pageTransitionsTheme: _pageTransitionsTheme,
     colorScheme: colorScheme,
+    dialogTheme: DialogThemeData(backgroundColor: colorScheme.surfaceContainer),
   );
   return theme.copyWith(
     appBarTheme: theme.appBarTheme.copyWith(
