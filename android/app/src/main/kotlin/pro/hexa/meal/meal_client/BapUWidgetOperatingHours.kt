@@ -10,7 +10,10 @@ data class WidgetOperatingHours(
     val weekend: Map<WidgetCafeteria, Map<WidgetMealOfDay, OperatingPeriod>>,
 )
 
-class WidgetInfoCacheException(message: String) : IllegalStateException(message)
+open class WidgetInfoCacheException(message: String, cause: Throwable? = null) :
+    IllegalStateException(message, cause)
+
+class WidgetInfoCacheMissingException : WidgetInfoCacheException("missing info cache")
 
 object BapUWidgetOperatingHours {
     fun loadFromCache(context: Context): WidgetOperatingHours? {
@@ -21,9 +24,9 @@ object BapUWidgetOperatingHours {
 
     fun loadRequiredFromCache(context: Context): WidgetOperatingHours {
         val file = File(context.filesDir, BapUWidgetContract.INFO_CACHE_FILE)
-        if (!file.isFile) throw WidgetInfoCacheException("missing ${BapUWidgetContract.INFO_CACHE_FILE}")
+        if (!file.exists()) throw WidgetInfoCacheMissingException()
         val rawInfo = runCatching { file.readText() }
-            .getOrElse { throw WidgetInfoCacheException("unreadable ${BapUWidgetContract.INFO_CACHE_FILE}") }
+            .getOrElse { throw WidgetInfoCacheException("unreadable ${BapUWidgetContract.INFO_CACHE_FILE}", it) }
         return parseRawInfo(rawInfo)
             ?: throw WidgetInfoCacheException("invalid ${BapUWidgetContract.INFO_CACHE_FILE}")
     }
@@ -79,9 +82,14 @@ object BapUWidgetOperatingHours {
     fun periodsForToday(
         hours: WidgetOperatingHours?,
         now: Calendar = Calendar.getInstance(BapUWidgetTime.kstTimeZone),
+        cafeterias: Set<WidgetCafeteria>? = null,
     ): List<OperatingPeriod> {
         val map = periodMapForDate(hours, now) ?: return emptyList()
-        return map.values
+        // 할랄과 한식은 같은 기숙사 운영시간을 사용한다.
+        val selected = cafeterias?.map {
+            if (it == WidgetCafeteria.DORM_HALAL) WidgetCafeteria.DORM_KOREAN else it
+        }?.toSet()
+        return map.filterKeys { selected == null || it in selected }.values
             .flatMap { it.values }
             .distinct()
             .sortedWith(compareBy<OperatingPeriod> { it.startH }.thenBy { it.startM }.thenBy { it.endH }.thenBy { it.endM })

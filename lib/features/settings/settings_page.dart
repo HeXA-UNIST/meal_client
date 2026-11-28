@@ -1,16 +1,19 @@
-import 'package:app_settings/app_settings.dart' as device_settings;
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 
 import 'bapu_settings.dart';
+import 'locale_settings.dart';
 import 'allergy/allergy_settings_page.dart';
 import 'notification/notification_settings_page.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
+final _termsOfServiceUri = Uri.parse('https://meal.hexa.pro/terms-of-service');
+final _privacyPolicyUri = Uri.parse('https://meal.hexa.pro/privacy-policy');
 
 const _settingsHorizontalPadding = 16.0;
 const _settingsSectionDividerHeight = 20.0;
@@ -48,14 +51,22 @@ class SettingsPage extends StatelessWidget {
               _SectionHeader(l10n.mealNotifications),
               _MealNotificationTile(),
               const _SectionDivider(),
-              _SectionHeader(l10n.language),
-              _LanguageTile(),
-              const _SectionDivider(),
             ],
+            _SectionHeader(l10n.language),
+            _LanguageTile(),
+            const _SectionDivider(),
             _SectionHeader(l10n.themeMode),
             _ThemeTile(),
             const _SectionDivider(),
             _SectionHeader(l10n.about),
+            _ExternalLinkTile(
+              title: l10n.termsOfService,
+              uri: _termsOfServiceUri,
+            ),
+            _ExternalLinkTile(
+              title: l10n.privacyPolicy,
+              uri: _privacyPolicyUri,
+            ),
             _LicenseTile(),
             const SizedBox(height: _settingsPageBottomPadding),
           ],
@@ -144,14 +155,49 @@ class _LanguageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return ListTile(
-      title: Text(l10n.appLanguageSettings),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => device_settings.AppSettings.openAppSettings(
-        type: switch (defaultTargetPlatform) {
-          TargetPlatform.android => device_settings.AppSettingsType.appLocale,
-          TargetPlatform.iOS => device_settings.AppSettingsType.settings,
-          _ => device_settings.AppSettingsType.settings,
+    final locale = context.select<BapuSettings, Locale>(
+      (settings) => settings.locale,
+    );
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _settingsHorizontalPadding,
+        vertical: 8,
+      ),
+      child: SegmentedButton<Locale>(
+        style: ButtonStyle(
+          textStyle: WidgetStateProperty.resolveWith((states) {
+            return theme.textTheme.labelLarge?.copyWith(
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.w600
+                  : null,
+            );
+          }),
+          foregroundColor: WidgetStatePropertyAll(theme.colorScheme.onSurface),
+        ),
+        segments: [
+          ButtonSegment(
+            value: const Locale('ko'),
+            label: Text(l10n.languageKorean),
+          ),
+          ButtonSegment(
+            value: const Locale('en'),
+            label: Text(l10n.languageEnglish),
+          ),
+        ],
+        selected: {locale},
+        onSelectionChanged: (values) async {
+          try {
+            await context.read<BapuSettings>().setLocale(values.first);
+          } catch (error, stackTrace) {
+            reportAppLocaleError('change', error, stackTrace);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(AppLocalizations.of(context)!.languageSaveFailed),
+              ),
+            );
+          }
         },
       ),
     );
@@ -178,11 +224,7 @@ class _ThemeTile extends StatelessWidget {
                   : null,
             );
           }),
-          foregroundColor: WidgetStateProperty.resolveWith((states) {
-            return states.contains(WidgetState.selected)
-                ? theme.colorScheme.onSurface
-                : theme.colorScheme.onSurfaceVariant;
-          }),
+          foregroundColor: WidgetStatePropertyAll(theme.colorScheme.onSurface),
         ),
         segments: [
           ButtonSegment(
@@ -199,6 +241,24 @@ class _ThemeTile extends StatelessWidget {
         onSelectionChanged: (v) =>
             context.read<BapuSettings>().setThemeMode(v.first),
       ),
+    );
+  }
+}
+
+class _ExternalLinkTile extends StatelessWidget {
+  const _ExternalLinkTile({required this.title, required this.uri});
+
+  final String title;
+  final Uri uri;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(title),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
     );
   }
 }

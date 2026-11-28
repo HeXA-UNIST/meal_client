@@ -31,4 +31,9 @@
         <item name="android:navigationBarColor">@color/config_bg</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <!-- Android 12~14 정적 픽커 미리보기(2칸 폭)에서 영어/기본 로케일은 식사 시간을 숨긴다. -->
+    <style name="WidgetPreviewMealOfDay">
+        <item name="android:visibility">gone</item>
+    </style>
 </resources>

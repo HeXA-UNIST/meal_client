@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 한국어 정적 픽커 미리보기에서는 식당명 옆에 식사 시간을 함께 표시한다. -->
+    <style name="WidgetPreviewMealOfDay">
+        <item name="android:visibility">visible</item>
+    </style>
+</resources>
