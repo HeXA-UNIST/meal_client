@@ -221,6 +221,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get about => '앱 정보';
 
   @override
+  String get termsOfService => '서비스 이용약관';
+
+  @override
+  String get privacyPolicy => '개인정보 처리방침';
+
+  @override
   String get openSourceLicenses => '오픈소스 라이선스';
 
   @override

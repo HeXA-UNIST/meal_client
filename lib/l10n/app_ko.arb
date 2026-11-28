@@ -95,6 +95,8 @@
   "notificationCafeteriasLabel": "알림 대상 식당",
   "notificationDaysLabel": "알림 받을 요일",
   "about": "앱 정보",
+  "termsOfService": "서비스 이용약관",
+  "privacyPolicy": "개인정보 처리방침",
   "openSourceLicenses": "오픈소스 라이선스",
   "notificationPermissionDenied": "알림 권한이 차단되었습니다. 설정에서 허용해주세요.",
   "notificationPermissionUnavailable": "알림이 현재 표시되지 않을 수 있습니다. 시스템 설정에서 권한을 확인해주세요.",

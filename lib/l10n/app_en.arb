@@ -89,6 +89,8 @@
   "notificationCafeteriasLabel": "Target Cafeterias",
   "notificationDaysLabel": "Notification Days",
   "about": "About",
+  "termsOfService": "Terms of Service",
+  "privacyPolicy": "Privacy Policy",
   "openSourceLicenses": "Open Source Licenses",
   "notificationPermissionDenied": "Notification permission denied. Please allow it in settings.",
   "notificationPermissionUnavailable": "Notifications may not appear. Check the permission in system settings.",

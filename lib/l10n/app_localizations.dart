@@ -500,6 +500,18 @@ abstract class AppLocalizations {
   /// **'앱 정보'**
   String get about;
 
+  /// No description provided for @termsOfService.
+  ///
+  /// In ko, this message translates to:
+  /// **'서비스 이용약관'**
+  String get termsOfService;
+
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In ko, this message translates to:
+  /// **'개인정보 처리방침'**
+  String get privacyPolicy;
+
   /// No description provided for @openSourceLicenses.
   ///
   /// In ko, this message translates to:

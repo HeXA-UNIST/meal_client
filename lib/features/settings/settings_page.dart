@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:meal_client/l10n/app_localizations.dart';
 
@@ -11,6 +12,8 @@ import 'allergy/allergy_settings_page.dart';
 import 'notification/notification_settings_page.dart';
 
 Future<void>? _fontLicenseRegistrationFuture;
+final _termsOfServiceUri = Uri.parse('https://meal.hexa.pro/terms-of-service');
+final _privacyPolicyUri = Uri.parse('https://meal.hexa.pro/privacy-policy');
 
 const _settingsHorizontalPadding = 16.0;
 const _settingsSectionDividerHeight = 20.0;
@@ -56,6 +59,14 @@ class SettingsPage extends StatelessWidget {
             _ThemeTile(),
             const _SectionDivider(),
             _SectionHeader(l10n.about),
+            _ExternalLinkTile(
+              title: l10n.termsOfService,
+              uri: _termsOfServiceUri,
+            ),
+            _ExternalLinkTile(
+              title: l10n.privacyPolicy,
+              uri: _privacyPolicyUri,
+            ),
             _LicenseTile(),
             const SizedBox(height: _settingsPageBottomPadding),
           ],
@@ -230,6 +241,24 @@ class _ThemeTile extends StatelessWidget {
         onSelectionChanged: (v) =>
             context.read<BapuSettings>().setThemeMode(v.first),
       ),
+    );
+  }
+}
+
+class _ExternalLinkTile extends StatelessWidget {
+  const _ExternalLinkTile({required this.title, required this.uri});
+
+  final String title;
+  final Uri uri;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(title),
+      trailing: const Icon(Icons.open_in_new),
+      onTap: () async {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
     );
   }
 }
