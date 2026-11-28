@@ -1,0 +1,232 @@
+name: Build iOS and Open PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: iOS build mode
+        type: choice
+        required: true
+        default: release
+        options:
+          - release
+          - debug
+          - simulator
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - name: Verify branch ref
+        if: ${{ github.ref_type != 'branch' }}
+        shell: bash
+        run: |
+          echo "이 워크플로는 브랜치에서만 실행할 수 있습니다. (현재 ref_type: $GITHUB_REF_TYPE)" >&2
+          exit 1
+
+      - name: Clone repository (${{ github.ref_name }} branch)
+        uses: actions/checkout@v7
+
+      - name: Resolve Flutter version
+        id: flutter-version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          constraint=$(yq -r '.environment.flutter' pubspec.yaml)
+
+          version=$(python3 .github/scripts/resolve_flutter_version.py \
+            "$constraint" "$RUNNER_OS")
+
+          echo "Flutter constraint: $constraint; selected: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Flutter environment
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ steps.flutter-version.outputs.version }}
+
+      - run: flutter --version
+        shell: bash
+
+      - name: Build iOS
+        id: ios-build
+        continue-on-error: true
+        shell: bash
+        env:
+          BUILD_MODE: ${{ inputs.build_mode }}
+        run: |
+          set -euo pipefail
+          case "$BUILD_MODE" in
+            release)
+              flutter build ios --release --no-codesign
+              ;;
+            debug)
+              flutter build ios --debug --no-codesign
+              ;;
+            simulator)
+              flutter build ios --simulator --debug --no-codesign
+              ;;
+            *)
+              echo "지원하지 않는 build_mode입니다: $BUILD_MODE" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Detect build changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --short
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "iOS 빌드 과정에서 변경된 파일이 없습니다."
+          fi
+
+      - name: Commit, push, and open pull request
+        if: ${{ steps.changes.outputs.changed == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_BRANCH: ${{ github.ref_name }}
+          BUILD_MODE: ${{ inputs.build_mode }}
+          BUILD_OUTCOME: ${{ steps.ios-build.outcome }}
+          FLUTTER_VERSION: ${{ steps.flutter-version.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          branch_slug=$(python3 -c '
+          import os, re
+          slug = re.sub(r"[^A-Za-z0-9_-]+", "-", os.environ["BASE_BRANCH"]).strip("-")[:40].strip("-")
+          print(slug or "branch")
+          ')
+          new_branch="ios-build/${branch_slug}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$new_branch"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "스테이징된 변경 사항이 없어 PR을 생성하지 않습니다."
+            exit 0
+          fi
+
+          if [ "$BUILD_OUTCOME" = "success" ]; then
+            commit_title="chore(ios): xcode-27 빌드 변경 사항 반영"
+            pr_title="chore(ios): ${BASE_BRANCH} iOS 빌드 변경 사항 반영"
+            is_draft="false"
+          else
+            commit_title="chore(ios): xcode-27 빌드 중 생성된 변경 사항 (빌드 실패)"
+            pr_title="chore(ios): ${BASE_BRANCH} iOS 빌드 변경 사항 반영 (빌드 실패)"
+            is_draft="true"
+          fi
+
+          diff_stat=$(git diff --cached --stat)
+          git commit -m "$commit_title"
+          git push origin "HEAD:refs/heads/$new_branch"
+
+          HEAD_BRANCH="$new_branch" \
+          PR_TITLE="$pr_title" \
+          IS_DRAFT="$is_draft" \
+          DIFF_STAT="$diff_stat" \
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          api_url = os.environ["GITHUB_API_URL"].rstrip("/")
+          token = os.environ["GH_TOKEN"]
+          base_branch = os.environ["BASE_BRANCH"]
+          head_branch = os.environ["HEAD_BRANCH"]
+          build_mode = os.environ["BUILD_MODE"]
+          build_outcome = os.environ["BUILD_OUTCOME"]
+          flutter_version = os.environ["FLUTTER_VERSION"]
+          run_url = os.environ["RUN_URL"]
+          pr_title = os.environ["PR_TITLE"]
+          is_draft = os.environ["IS_DRAFT"] == "true"
+          diff_stat = os.environ["DIFF_STAT"]
+          if len(diff_stat) > 10000:
+              diff_stat = diff_stat[:10000] + "\n... (truncated)"
+
+          status_note = (
+              "iOS 빌드가 성공했으며 빌드 과정에서 생성·수정된 파일을 반영했습니다."
+              if build_outcome == "success"
+              else "iOS 빌드가 실패했지만, 빌드 과정에서 생성·수정된 파일을 확인할 수 있도록 Draft PR로 올렸습니다. 워크플로 로그를 확인해 주세요."
+          )
+
+          body = "\n".join([
+              status_note,
+              "",
+              f"- 실행 환경: `xcode-27` / Flutter `{flutter_version}`",
+              f"- 빌드 모드: `{build_mode}` (`--no-codesign`)",
+              f"- 기준 브랜치: `{base_branch}`",
+              f"- 워크플로 실행: {run_url}",
+              "",
+              "### 변경 파일",
+              "",
+              "```text",
+              diff_stat,
+              "```",
+          ])
+
+          payload = json.dumps({
+              "title": pr_title,
+              "head": head_branch,
+              "base": base_branch,
+              "body": body,
+              "draft": is_draft,
+          }).encode("utf-8")
+
+          request = Request(
+              f"{api_url}/repos/{repo}/pulls",
+              data=payload,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {token}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+
+          try:
+              with urlopen(request) as response:
+                  result = json.loads(response.read().decode("utf-8"))
+          except HTTPError as error:
+              detail = error.read().decode("utf-8", errors="replace")
+              print(f"PR 생성 실패 ({error.code}): {detail}", file=sys.stderr)
+              sys.exit(1)
+
+          pr_url = result["html_url"]
+          print(f"Created PR: {pr_url}")
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a", encoding="utf-8") as summary:
+                  summary.write(
+                      f"### iOS 빌드 PR 생성 완료\n\n"
+                      f"- PR: {pr_url}\n"
+                      f"- 브랜치: `{head_branch}` → `{base_branch}`\n"
+                  )
+          PY
+
+      - name: Fail if iOS build failed
+        if: ${{ steps.ios-build.outcome != 'success' }}
+        shell: bash
+        run: |
+          echo "iOS 빌드가 실패했습니다. 위 Build iOS 단계 로그를 확인하세요." >&2
+          exit 1
