@@ -255,7 +255,7 @@ class _ExternalLinkTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       title: Text(title),
-      trailing: const Icon(Icons.open_in_new),
+      trailing: const Icon(Icons.chevron_right),
       onTap: () async {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       },
