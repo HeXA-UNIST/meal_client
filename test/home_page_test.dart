@@ -82,7 +82,7 @@ void main() {
           ? l10n.nextWeekNotReady
           : l10n.cannotLoadMeal;
       final before = find.text(message).evaluate().length;
-      await scaffold.onNextWeekRequested!(MealOfDay.breakfast);
+      await scaffold.onNextWeekRequested!();
       await tester.pumpAndSettle();
       if (kIsWeb) {
         expect(find.text(message), findsNWidgets(before + 1));
@@ -129,9 +129,16 @@ void main() {
     final preview = tester.widget<NextWeekPreviewPage>(
       find.byType(NextWeekPreviewPage),
     );
+    final previewScaffold = tester.widget<WeekMenuScaffold>(
+      find.descendant(
+        of: find.byType(NextWeekPreviewPage),
+        matching: find.byType(WeekMenuScaffold),
+      ),
+    );
     expect(preview.nextWeekStart, '2026-08-17');
     expect(preview.appInfo, same(home.appInfo));
-    expect(preview.initialMealOfDay, home.initialMealOfDay.next);
+    expect(previewScaffold.initialDayOfWeek, DayOfWeek.mon);
+    expect(previewScaffold.initialMealOfDay, MealOfDay.breakfast);
     Navigator.of(tester.element(find.byType(NextWeekPreviewPage))).pop();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
@@ -201,7 +208,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NextWeekPreviewPage), findsNothing);
     final home = tester.widget<WeekMenuScaffold>(find.byType(WeekMenuScaffold));
-    final boundaryRequest = home.onNextWeekRequested!(MealOfDay.lunch);
+    final boundaryRequest = home.onNextWeekRequested!();
     refresh.complete(
       _mealResponse(DateTime.utc(2026, 8, 10), nextWeekStart: '2026-08-17'),
     );
@@ -212,12 +219,6 @@ void main() {
     expect(
       find.byType(NextWeekPreviewPage, skipOffstage: false),
       findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<NextWeekPreviewPage>(find.byType(NextWeekPreviewPage))
-          .initialMealOfDay,
-      isNull,
     );
     final preview = tester.widget<WeekMenuScaffold>(
       find.descendant(

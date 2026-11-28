@@ -466,7 +466,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _openNextWeek([MealOfDay? initialMealOfDay]) async {
+  Future<void> _openNextWeek() async {
     if (_openingNextWeek) return;
     _openingNextWeek = true;
     try {
@@ -474,7 +474,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         context: context,
         nextWeekStartFuture: nextWeekStart,
         appInfo: appInfo,
-        initialMealOfDay: initialMealOfDay,
       );
     } finally {
       _openingNextWeek = false;
@@ -495,7 +494,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       appInfo: appInfo,
       drawer: HomePageDrawer(
         infoFuture: appInfo,
-        onNextWeekRequested: () => _openNextWeek(),
+        onNextWeekRequested: _openNextWeek,
       ),
       onNextWeekRequested: _openNextWeek,
     );

@@ -41,7 +41,6 @@ void main() {
                 MaterialPageRoute(
                   builder: (_) => NextWeekPreviewPage(
                     nextWeekStart: '2026-06-22',
-                    initialMealOfDay: MealOfDay.dinner,
                     appInfo: Future.value(_emptyAppInfo()),
                     loadDatedWeek: (_) async =>
                         parseRawMeal(_emptyWeekRawJson('2026-06-22')),
@@ -61,7 +60,7 @@ void main() {
       tester
           .widget<MealOfDaySwitchButton>(find.byType(MealOfDaySwitchButton))
           .label,
-      '저녁',
+      '아침',
     );
     Future<void> overscroll({required bool forward}) async {
       final center = tester.getCenter(find.byType(TabBarView));

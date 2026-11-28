@@ -77,7 +77,6 @@ Future<void> openNextWeekPreview({
   required BuildContext context,
   required Future<String?> nextWeekStartFuture,
   required Future<AppInfo> appInfo,
-  MealOfDay? initialMealOfDay,
 }) async {
   final route = ModalRoute.of(context);
   final String? nextWeekStart;
@@ -103,11 +102,8 @@ Future<void> openNextWeekPreview({
   }
   await Navigator.of(context).push<void>(
     MaterialPageRoute(
-      builder: (_) => NextWeekPreviewPage(
-        nextWeekStart: nextWeekStart!,
-        appInfo: appInfo,
-        initialMealOfDay: initialMealOfDay,
-      ),
+      builder: (_) =>
+          NextWeekPreviewPage(nextWeekStart: nextWeekStart!, appInfo: appInfo),
     ),
   );
 }
@@ -117,14 +113,12 @@ class NextWeekPreviewPage extends StatefulWidget {
     super.key,
     required this.nextWeekStart,
     required this.appInfo,
-    this.initialMealOfDay,
     this.loadDatedWeek,
     this.onNextWeekMealRefreshed,
   });
 
   final String nextWeekStart;
   final Future<AppInfo> appInfo;
-  final MealOfDay? initialMealOfDay;
   final DatedWeekMealLoader? loadDatedWeek;
   final VoidCallback? onNextWeekMealRefreshed;
 
@@ -164,7 +158,7 @@ class _NextWeekPreviewPageState extends State<NextWeekPreviewPage> {
     return WeekMenuScaffold(
       mondayOfWeek: _mondayOfWeek,
       initialDayOfWeek: DayOfWeek.mon,
-      initialMealOfDay: widget.initialMealOfDay ?? MealOfDay.breakfast,
+      initialMealOfDay: MealOfDay.breakfast,
       mealFuture: _mealFuture,
       appInfo: widget.appInfo,
       bannerText: l10n.previewingNextWeek,

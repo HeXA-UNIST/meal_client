@@ -36,7 +36,7 @@ void main() {
         home: WeekMenuScaffold(
           mondayOfWeek: DateTime.utc(2026, 10, 5),
           initialDayOfWeek: initialDay,
-          onNextWeekRequested: onNextWeek == null ? null : (_) => onNextWeek(),
+          onNextWeekRequested: onNextWeek,
           onPreviousWeekRequested: onPreviousWeek,
           initialMealOfDay: MealOfDay.breakfast,
           mealFuture: Future.value(weekMeal ?? WeekMeal.empty()),

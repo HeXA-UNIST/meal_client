@@ -57,7 +57,7 @@ class WeekMenuScaffold extends StatefulWidget {
   final Future<AppInfo> appInfo;
   final String? bannerText;
   final Widget? drawer;
-  final Future<void> Function(MealOfDay mealOfDay)? onNextWeekRequested;
+  final Future<void> Function()? onNextWeekRequested;
   final Future<void> Function()? onPreviousWeekRequested;
 
   @override
@@ -354,9 +354,7 @@ class _WeekMenuScaffoldState extends State<WeekMenuScaffold>
       onHorizontalActivityChanged: (active) {
         _horizontalInputActive = active;
       },
-      onNextWeekRequested: widget.onNextWeekRequested == null
-          ? null
-          : () => widget.onNextWeekRequested!(_mealOfDayNotifier.value),
+      onNextWeekRequested: widget.onNextWeekRequested,
       onPreviousWeekRequested: widget.onPreviousWeekRequested,
       pageCount: MealOfDay.values.length,
       weekMeal: weekMeal,
